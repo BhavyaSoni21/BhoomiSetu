@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:3000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # Backend Service
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=postgis
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=bhoomisetu
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_key_here_change_in_production}
+      - NODE_ENV=development
+    depends_on:
+      - postgis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # PostGIS Database
+  postgis:
+    image: postgis/postgis:15-3.3
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bhoomisetu
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql
+
+  # Mock Department APIs (simplified)
+  land-records-api:
+    build: ./backend
+    ports:
+      - "3001:3000"
+    environment:
+      - SERVICE_TYPE=land-records
+      - PORT=3000
+    depends_on:
+      - postgis
+
+  registration-api:
+    build: ./backend
+    ports:
+      - "3002:3000"
+    environment:
+      - SERVICE_TYPE=registration
+      - PORT=3000
+    depends_on:
+      - postgis
+
+  planning-api:
+    build: ./backend
+    ports:
+      - "3003:3000"
+    environment:
+      - SERVICE_TYPE=planning
+      - PORT=3000
+    depends_on:
+      - postgis
+
+  tax-api:
+    build: ./backend
+    ports:
+      - "3004:3000"
+    environment:
+      - SERVICE_TYPE=tax
+      - PORT=3000
+    depends_on:
+      - postgis
+
+  restriction-api:
+    build: ./backend
+    ports:
+      - "3005:3000"
+    environment:
+      - SERVICE_TYPE=restriction
+      - PORT=3000
+    depends_on:
+      - postgis
+
+  # AI Service
+  ai-service:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      - SERVICE_TYPE=ai
+      - PORT=4000
+      - GROQ_API_KEY=${GROQ_API_KEY:-your_groq_api_key_here}
+    depends_on:
+      - backend
+
+volumes:
+  postgis_data:

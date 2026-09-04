@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Data
+backend/data/*.sqlite
+backend/data/*.sqlite-journal
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+#docs
+docs/
