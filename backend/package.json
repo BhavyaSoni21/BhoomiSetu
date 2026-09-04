@@ -10,7 +10,8 @@
     "start:debug": "nest start --debug --watch",
     "predeploy": "npm run build",
     "deploy": "firebase deploy --only functions",
-    "test": "jest"
+    "test": "jest",
+    "seed": "ts-node -P tsconfig.json seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -67,6 +68,7 @@
     "supertest": "^7.2.2",
     "ts-jest": "^29.0.0",
     "ts-loader": "^9.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   }
 }

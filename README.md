@@ -107,21 +107,60 @@ Implemented and covered by the backend test suite:
 ### Parcel Endpoints
 - `GET /api/v1/parcels` - Search parcels by identifiers (ulpin, survey_number, plot_number, local_identifier, state, district)
 - `GET /api/v1/parcels/:id` - Get parcel by ID
-- `GET /api/v1/parcels/:id/360` - Get parcel 360° skeleton (per-department sections are `null` stubs until Phase 5 interoperability work lands)
+- `GET /api/v1/parcels/:id/geometry` - Get parcel geometry as a GeoJSON Feature (404 if not found)
+- `GET /api/v1/parcels/:id/neighbours` - Adjacent (`TOUCHING`) and nearby (`NEARBY`) parcels, each as a GeoJSON Feature with relationship + distance. Prefers precomputed relationships (see `parcel_neighbours` below); `?distance=` (metres, default 200) only applies to the live-geometry fallback used for parcels with none
+- `GET /api/v1/parcels/:id/context` - Full spatial context: `selectedParcel` + `cluster` + `clusterParcels` (every parcel sharing the selected parcel's `clusterId` - the whole connected network, not just its neighbours) + `adjacentParcels`/`nearbyParcels`
+- `GET /api/v1/parcels/:id/360` - Aggregated Parcel 360: the Tech.md #15 canonical envelope (`parcel_id`/`identifiers`/`location`/`spatial`/`sources`) plus a `departments` object with the real data from all 5 department APIs below (`null` for any department with nothing linked to this parcel) - see Interoperability below
+- `GET /api/v1/parcels/:id/workflows` - Service requests submitted for this parcel, newest first (404 if the parcel doesn't exist) - see Workflows below
+
+### Spatial Demo Layers (Pune cluster only)
+Read-only, filterable by `?state=&district=`; populated by `backend/seed.ts`, no write API yet:
+- `GET /api/v1/gis/zoning-overlays`
+- `GET /api/v1/gis/restriction-zones`
+- `GET /api/v1/gis/infrastructure`
+- `GET /api/v1/gis/change-detection-events`
+
+### Mock State Land Record Schemas
+Two deliberately different schemas (Tech.md #12/#13), full CRUD, demonstrating the interoperability challenge - no parcel foreign key on either by design; resolved to a canonical parcel by identifier via the Interoperability layer below:
+- `POST|GET /api/v1/state-a/land-records` (list supports `?survey_number=&village_code=`), `GET|PATCH|DELETE /api/v1/state-a/land-records/:id` - rural/village schema (surveyNumber, subdivisionNumber, ownerName, villageCode, areaHectares)
+- `POST|GET /api/v1/state-b/land-records` (list supports `?plot_id=&locality_id=`), `GET|PATCH|DELETE /api/v1/state-b/land-records/:id` - urban plot schema (plotId, holderName, localityId, landExtentSqft, recordCategory)
+
+### Mock Department APIs
+Five independent department mocks (Tech.md #16), each `GET .../:parcelId`, none aware of each other or of the canonical model - that aggregation is the Interoperability layer below, via `GET /api/v1/parcels/:id/360`, not these:
+- `GET /api/v1/land-records/:parcelId` - resolves the parcel to its Phase 3 state schema record (MH via SURVEY_NUMBER, DL via PLOT_NUMBER); 404 for states with no schema configured (TN/KA) or no matching identifier
+- `GET /api/v1/registration/:parcelId` - registration status, registration number/date, last transaction
+- `GET /api/v1/planning/:parcelId` - land use, zoning classification, master plan reference, building permission status
+- `GET /api/v1/tax/:parcelId` - assessed value, annual tax, tax status, outstanding amount
+- `GET /api/v1/restriction/:parcelId` - environmental/protected-area/flood-prone restriction flag (a per-parcel business record - distinct from the GIS `restriction-zones` polygon layer above)
+
+### Interoperability
+`backend/src/interoperability/` (Tech.md #14/#15/#22) ties the mock state schemas and department APIs together into one canonical view, surfaced entirely through `GET /api/v1/parcels/:id/360` (no separate `/integrations/...` namespace - Plan.md's Phase 5 checklist only asked to expand `/360`):
+- **Identifier resolver** - any identifier (canonicalParcelId, ulpin, survey_number, plot_number, local_identifier) → canonical parcel UUID, and the reverse (parcel → the identifier a given department would recognise it by)
+- **State A/B adapters** - map each state schema's own field names/units to canonical fields exactly per Tech.md #14 (area_hectares × 10000, land_extent_sqft ÷ 10.7639)
+- **Canonical transformer** - builds the Tech.md #15 envelope (`parcel_id`, `identifiers`, `location`, `spatial`, `sources` - deliberately snake_case, matching that spec's JSON verbatim)
+- **Response aggregator** - calls all 5 department APIs in parallel, adapts Land Records through whichever state adapter applies, and returns the canonical envelope plus a `departments` object with each department's real data (`null` where nothing is linked for that parcel)
+
+### Workflows (Citizen Service Requests)
+`backend/src/workflows/` (Tech.md #23/#24/#25) - a citizen request (e.g. "send me a copy of the RoR", a correction request) creates a `Workflow` and auto-generates a 3-step simulated review pipeline (`LAND_RECORDS → REGISTRATION → PLANNING`, all starting `PENDING`):
+- `POST /api/v1/workflows` - create a request (`parcelId`, `workflowType`, optional `createdBy`/`requestDetails`); 400 if the parcel doesn't exist
+- `GET /api/v1/workflows/:id` - a workflow with its steps
+- `PATCH /api/v1/workflows/:id/status` - update `currentStatus` (+ optional `remarks`) - what Phase 7's Officer Portal will drive
+
+The citizen portal's Parcel 360 view ("Request Documents" / "Report Issue" buttons) submits directly to this API and shows the created workflow's reference ID and live step statuses.
 
 ### Planned (not yet implemented)
-Auth, per-department mock APIs, AI query/explain endpoints, change detection, and audit logging are scaffolded as empty NestJS modules but have no controllers or routes yet. See the phase breakdown below.
+Auth, AI query/explain endpoints, change detection, and audit logging are scaffolded as empty NestJS modules but have no controllers or routes yet. Officer-side review of workflow steps (Phase 7) isn't built yet either. See the phase breakdown below.
 
 ## Development Phases
 
 The implementation follows a phased MVP plan:
 
 1. **GIS Foundation** ✅ done and tested — PostGIS/SQLite setup, parcel table, map visualization
-2. **Parcel Core** 🚧 in progress — search and 360 skeleton above are already live; identifier table refinements still pending
-3. **Mock State Schemas** — different state land record schemas for interoperability
-4. **Mock Department APIs** — independent APIs for 5 government departments
-5. **Interoperability** — state adapters, canonical model, response aggregation
-6. **Citizen Portal** — search, map, parcel 360 view, service requests
+2. **Parcel Core** ✅ done — search (by any identifier), get-by-id, geometry, and the 360 skeleton above are all live
+3. **Mock State Schemas** ✅ done — two structurally different state land-record schemas with full CRUD (see below)
+4. **Mock Department APIs** ✅ done — 5 independent per-parcel department APIs (see below)
+5. **Interoperability** ✅ done — identifier resolver, State A/B adapters, canonical transformer, response aggregator (see below)
+6. **Citizen Portal** ✅ done — search, map, tabbed Parcel 360 view, and service requests (see Workflows below)
 7. **Officer Portal** — workflow dashboard, verification interface, governance alerts
 8. **AI Integration** — natural language query, parcel summary, alert explanation
 9. **Change Detection** — imagery comparison and alert generation
@@ -129,10 +168,21 @@ The implementation follows a phased MVP plan:
 
 ## Mock Data
 
-`backend/seed.ts` generates 200 mock parcels with:
-- Random coordinates within India's approximate bounding box (not constrained to actual state boundaries — a known limitation of the current seed script)
-- State/district codes drawn from 10 Indian states
-- Multiple identifier types per parcel (ULPIN, survey number, plot number, local ID) for cross-reference testing
+`backend/seed.ts` generates exactly 200 mock parcels in four geographically real, grid-clustered demo regions rather than scattering them randomly across India:
+
+| Cluster | State | District | Parcels |
+|---|---|---|---|
+| Pune | MH | Pune | 100 (primary GIS demo cluster) |
+| Chennai | TN | Chennai | 40 |
+| Bangalore | KA | Bangalore | 40 |
+| New Delhi | DL | New Delhi | 20 |
+
+- Each cluster's parcels are generated from one shared coordinate lattice, not independently: a jittered grid of corner points plus one jittered midpoint per shared edge, both reused by every parcel touching them, so two neighbouring parcels are built from the *literal same coordinates* along their shared boundary — a connected cadastral network, not just nearby polygons. Each parcel is an irregular 8-vertex ring; area is computed from the actual geometry.
+- Every parcel carries a `clusterId` (e.g. `MH-PUNE-01`), and explicit `TOUCHING`/`NEARBY` relationships are precomputed at seed time in a `parcel_neighbours` table from known grid row/column position (the 4 orthogonal grid neighbours are `TOUCHING`, the 4 diagonal ones `NEARBY`) rather than derived from geometry at query time.
+- Identifier types are state-differentiated: Maharashtra favors Survey Number/ULPIN, Tamil Nadu Survey Number/Subdivision Number, Karnataka Survey Number/Hissa Number, Delhi Plot Number/Property Number — every parcel in every state also gets a Local Parcel ID.
+- The Pune cluster additionally seeds: 3 zoning overlays (residential/commercial/agricultural), a flood restriction zone, 4 infrastructure features (road, water line, 2 electricity points), and a simulated change-detection event — each restriction/change-detection polygon's affected-parcel list is computed with a real point-in-polygon test, not hand-picked. These live in `zoning_overlays` / `restriction_zones` / `infrastructure_features` / `change_detection_events` tables, readable via the Spatial Demo Layers endpoints above (read-only; a write API is a later phase).
+- Every Pune/MH parcel gets a State A land record and every New Delhi/DL parcel gets a State B land record (see Mock State Land Record Schemas above), with `areaHectares`/`landExtentSqft` derived from that parcel's real geometry area, and its state-schema identifier matching the same parcel's `parcel_identifiers` row so the Land Records department API (below) can actually resolve it.
+- Every parcel gets Registration/Planning/Tax/Restriction mock records (see Mock Department APIs below); for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone, rather than being independently random.
 
 ## License
 

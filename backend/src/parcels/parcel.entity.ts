@@ -5,12 +5,19 @@ import { ParcelIdentifier } from './parcel-identifier.entity';
 @Index(['stateCode', 'districtCode'])
 @Index(['canonicalParcelId'])
 @Index(['ulpin'])
+@Index(['clusterId'])
 export class Parcel {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   canonicalParcelId: string | null;
+
+  // Identifies the connected cadastral network (e.g. "MH-PUNE-01") a parcel's
+  // geometry was generated as part of - null for parcels not seeded as part
+  // of a cluster. See ParcelNeighbour for explicit touching/nearby edges.
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  clusterId: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   ulpin: string | null;

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GisModule } from './gis/gis.module';
 import { ParcelsModule } from './parcels/parcels.module';
+import { SpatialModule } from './spatial/spatial.module';
+import { LandRecordsModule } from './land-records/land-records.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DepartmentsModule } from './departments/departments.module';
@@ -46,6 +48,8 @@ import { AuditModule } from './audit/audit.module';
     }),
     GisModule,
     ParcelsModule,
+    SpatialModule,
+    LandRecordsModule,
     AuthModule,
     UsersModule,
     DepartmentsModule,

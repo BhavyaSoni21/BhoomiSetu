@@ -1,9 +1,15 @@
-import { Controller, Get, Query, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException } from '@nestjs/common';
 import { ParcelsService } from './parcels.service';
+import { ResponseAggregatorService } from '../interoperability/response-aggregator.service';
+import { WorkflowsService } from '../workflows/workflows.service';
 
 @Controller('parcels')
 export class ParcelsController {
-  constructor(private readonly parcelsService: ParcelsService) {}
+  constructor(
+    private readonly parcelsService: ParcelsService,
+    private readonly responseAggregatorService: ResponseAggregatorService,
+    private readonly workflowsService: WorkflowsService,
+  ) {}
 
   @Get()
   async searchParcels(
@@ -33,25 +39,48 @@ export class ParcelsController {
     return this.parcelsService.findOne(id);
   }
 
-  @Get(':id/360')
-  async getParcel360(@Param('id', ParseUUIDPipe) id: string) {
-    // This will be expanded in later phases to include data from all departments
+  @Get(':id/geometry')
+  async getParcelGeometry(@Param('id', ParseUUIDPipe) id: string) {
+    const geometry = await this.parcelsService.getGeometry(id);
+    if (!geometry) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return geometry;
+  }
+
+  @Get(':id/neighbours')
+  async getNeighbours(@Param('id', ParseUUIDPipe) id: string, @Query('distance') distance?: string) {
+    const result = await this.parcelsService.getNeighbours(id, distance !== undefined ? Number(distance) : undefined);
+    if (!result) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return result;
+  }
+
+  @Get(':id/context')
+  async getContext(@Param('id', ParseUUIDPipe) id: string, @Query('distance') distance?: string) {
+    const result = await this.parcelsService.getContext(id, distance !== undefined ? Number(distance) : undefined);
+    if (!result) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return result;
+  }
+
+  @Get(':id/workflows')
+  async getWorkflows(@Param('id', ParseUUIDPipe) id: string) {
     const parcel = await this.parcelsService.findOne(id);
     if (!parcel) {
-      return null;
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
     }
+    return this.workflowsService.findByParcel(id);
+  }
 
-    // Basic parcel 360 structure - will be enhanced in Phase 2
-    return {
-      parcel: parcel,
-      // In Phase 2, this will include data from land records, registration, planning, tax, restriction departments
-      departments: {
-        landRecords: null, // To be populated in Phase 2
-        registration: null, // To be populated in Phase 2
-        planning: null, // To be populated in Phase 2
-        tax: null, // To be populated in Phase 2
-        restriction: null, // To be populated in Phase 2
-      }
-    };
+  @Get(':id/360')
+  async getParcel360(@Param('id', ParseUUIDPipe) id: string) {
+    const result = await this.responseAggregatorService.buildParcel360(id);
+    if (!result) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return result;
   }
 }

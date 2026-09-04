@@ -1,28 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
-import { z } from 'zod';
+import { ParcelSummary } from '../../types/parcel';
 
-const searchSchema = z.object({
-  ulpin: z.string().optional(),
-  survey_number: z.string().optional(),
-  plot_number: z.string().optional(),
-  local_identifier: z.string().optional(),
-  state: z.string().optional(),
-  district: z.string().optional(),
-});
-
-interface ParcelResult {
-  id: string;
-  canonicalParcelId: string | null;
-  ulpin: string | null;
-  stateCode: string;
-  districtCode: string;
-  localBodyCode: string;
-  areaSqM: number;
+interface ParcelSearchProps {
+  onResultsChange?: (parcels: ParcelSummary[]) => void;
+  selectedParcelId?: string | null;
+  onSelectParcel?: (parcelId: string) => void;
 }
 
-const ParcelSearch: React.FC = () => {
+const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedParcelId, onSelectParcel }) => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useState({
     ulpin: '',
     survey_number: '',
@@ -32,7 +21,7 @@ const ParcelSearch: React.FC = () => {
     district: '',
   });
 
-  const { data: searchResults, isLoading, error } = useQuery<ParcelResult[]>(
+  const { data: searchResults, isLoading, error } = useQuery<ParcelSummary[]>(
     ['parcels', searchParams],
     async () => {
       // Filter out empty params
@@ -48,6 +37,11 @@ const ParcelSearch: React.FC = () => {
     }
   );
 
+  useEffect(() => {
+    onResultsChange?.(searchResults ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchParams(prev => ({ ...prev, [name]: value }));
@@ -55,16 +49,8 @@ const ParcelSearch: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Trigger refetch with updated params
+    // Search results already update live as searchParams changes; nothing to trigger here.
   };
-
-  if (isLoading) {
-    return <div className="flex h-[400px] items-center justify-center">Searching parcels...</div>;
-  }
-
-  if (error) {
-    return <div className="flex h-[400px] items-center justify-center">Error searching parcels</div>;
-  }
 
   return (
     <div className="space-y-6">
@@ -193,9 +179,15 @@ const ParcelSearch: React.FC = () => {
             No parcels found matching your criteria
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
             {searchResults!.map((parcel) => (
-              <div key={parcel.id} className="border-b py-3 last:border-b-0">
+              <div
+                key={parcel.id}
+                onClick={() => onSelectParcel?.(parcel.id)}
+                className={`border-b py-3 last:border-b-0 cursor-pointer rounded px-2 ${
+                  selectedParcelId === parcel.id ? 'bg-blue-50 ring-1 ring-blue-300' : 'hover:bg-gray-50'
+                }`}
+              >
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-gray-800">
@@ -213,9 +205,9 @@ const ParcelSearch: React.FC = () => {
                       {parcel.areaSqM.toLocaleString()} m²
                     </p>
                     <button
-                      onClick={() => {
-                        // Navigate to parcel details page
-                        window.location.href = `/parcels/${parcel.id}`;
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/parcels/${parcel.id}`);
                       }}
                       className="mt-1 px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                     >
