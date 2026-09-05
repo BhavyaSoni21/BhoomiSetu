@@ -65,7 +65,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               <p className="text-sm text-gray-600 mt-1">{alert.explanation}</p>
             </div>
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2">
             <button
               onClick={() => statusMutation.mutate({ id: alert.id, status: 'REVIEWED' })}
               disabled={statusMutation.isLoading}

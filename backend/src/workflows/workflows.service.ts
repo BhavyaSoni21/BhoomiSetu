@@ -6,18 +6,31 @@ import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
 import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
 
-// The simulated review pipeline every workflow gets (Tech.md #25):
-// CITIZEN REQUEST -> WORKFLOW CREATED -> LAND RECORD REVIEW -> REGISTRATION
-// REVIEW -> PLANNING REVIEW -> OFFICER DECISION. Fixed regardless of
-// workflowType - the spec doesn't ask for type-specific pipelines, and this
-// matches the given diagram literally. Audit logging and citizen
-// notification (the diagram's last two stages) are Phase 10/out of scope
-// here - no AuditModule to log into yet.
-const PIPELINE: Array<{ department: string; assignedRole: string }> = [
+// The simulated review pipeline a workflow gets (Tech.md #25): CITIZEN
+// REQUEST -> WORKFLOW CREATED -> LAND RECORD REVIEW -> REGISTRATION REVIEW
+// -> PLANNING REVIEW -> OFFICER DECISION. Used as-is for every workflowType
+// except DISPUTE_FILING, which gets its own single-step DISPUTE review
+// instead - added after the SIH problem statement's required workflow list
+// ("land records, registration, dispute, planning, and fiscal") turned out
+// to have no dispute path anywhere in this codebase (see
+// docs/FEATURE_AUDIT.md). Any other/future workflowType falls back to
+// DEFAULT_PIPELINE, preserving the original "one pipeline for everything"
+// behavior for ROR_COPY_REQUEST/CORRECTION_REQUEST. Audit logging and
+// citizen notification (the diagram's last two stages) are Phase 10/out of
+// scope here - no AuditModule to log into yet.
+const DEFAULT_PIPELINE: Array<{ department: string; assignedRole: string }> = [
   { department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER' },
   { department: 'REGISTRATION', assignedRole: 'REGISTRATION_OFFICER' },
   { department: 'PLANNING', assignedRole: 'PLANNING_OFFICER' },
 ];
+
+const PIPELINES_BY_TYPE: Record<string, Array<{ department: string; assignedRole: string }>> = {
+  DISPUTE_FILING: [{ department: 'DISPUTE', assignedRole: 'DISPUTE_OFFICER' }],
+};
+
+function pipelineFor(workflowType: string): Array<{ department: string; assignedRole: string }> {
+  return PIPELINES_BY_TYPE[workflowType] ?? DEFAULT_PIPELINE;
+}
 
 export type WorkflowWithSteps = Workflow & { steps: WorkflowStep[] };
 
@@ -42,7 +55,7 @@ export class WorkflowsService {
     });
 
     await this.stepRepository.save(
-      PIPELINE.map((stage, index) => ({
+      pipelineFor(dto.workflowType).map((stage, index) => ({
         workflow,
         stepOrder: index + 1,
         department: stage.department,
@@ -142,7 +155,8 @@ export class WorkflowsService {
     workflowId: string,
     stepId: string,
     dto: ReviewWorkflowStepDto,
-  ): Promise<WorkflowWithSteps | 'WORKFLOW_NOT_FOUND' | 'STEP_NOT_FOUND' | 'STEP_ALREADY_DECIDED'> {
+    actingUserRole: string,
+  ): Promise<WorkflowWithSteps | 'WORKFLOW_NOT_FOUND' | 'STEP_NOT_FOUND' | 'STEP_ALREADY_DECIDED' | 'FORBIDDEN_WRONG_DEPARTMENT'> {
     const workflow = await this.workflowRepository.findOneBy({ id: workflowId });
     if (!workflow) return 'WORKFLOW_NOT_FOUND';
 
@@ -152,6 +166,11 @@ export class WorkflowsService {
       .andWhere('step.workflow_id = :workflowId', { workflowId })
       .getOne();
     if (!step) return 'STEP_NOT_FOUND';
+    // ADMIN can decide any step regardless of department; every officer role
+    // may only decide the step assigned to their own role - a
+    // LAND_RECORD_OFFICER approving a REGISTRATION step, say, is exactly the
+    // gap RBAC (docs/FEATURE_AUDIT.md §8 item 5) closes.
+    if (actingUserRole !== 'ADMIN' && step.assignedRole !== actingUserRole) return 'FORBIDDEN_WRONG_DEPARTMENT';
     if (step.status !== 'PENDING') return 'STEP_ALREADY_DECIDED';
 
     step.status = dto.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';

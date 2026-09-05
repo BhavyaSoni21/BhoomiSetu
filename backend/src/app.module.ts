@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { GisModule } from './gis/gis.module';
 import { ParcelsModule } from './parcels/parcels.module';
 import { SpatialModule } from './spatial/spatial.module';
@@ -12,10 +14,18 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { GovernanceModule } from './governance/governance.module';
 import { AiModule } from './ai/ai.module';
 import { ChangeDetectionModule } from './change-detection/change-detection.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { PredictiveAnalyticsModule } from './predictive-analytics/predictive-analytics.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
+    // Tech.md's Security Requirements list rate limiting explicitly (§39);
+    // a generous global default (200 requests/minute/IP - well above what
+    // any real citizen/officer session or this project's own e2e test
+    // suites generate) with a tighter limit on the Groq-backed AI endpoints
+    // specifically, since those cost real money per call - see AiController.
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         // Use SQLite for development if PostgreSQL is not available
@@ -60,9 +70,11 @@ import { AuditModule } from './audit/audit.module';
     GovernanceModule,
     AiModule,
     ChangeDetectionModule,
+    AnalyticsModule,
+    PredictiveAnalyticsModule,
     AuditModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

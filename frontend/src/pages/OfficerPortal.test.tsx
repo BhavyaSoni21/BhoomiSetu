@@ -4,20 +4,32 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OfficerPortal from './OfficerPortal';
 import apiService from '../services/apiService';
+import { AuthUser } from '../features/auth/auth';
 
 vi.mock('../services/apiService', () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));
 
-function renderPortal() {
+const landRecordOfficer: AuthUser = { id: 'u1', email: 'lr@test.gov.in', name: 'Asha', role: 'LAND_RECORD_OFFICER' };
+const planningOfficer: AuthUser = { id: 'u2', email: 'planning@test.gov.in', name: 'Priya', role: 'PLANNING_OFFICER' };
+
+// OfficerPortal assumes route-level RequireAuth already resolved a session
+// (see App.tsx) - tests seed the shared auth-me query cache directly rather
+// than mocking a network round trip for something that isn't this
+// component's own concern.
+function renderPortal(user: AuthUser | null = landRecordOfficer) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <OfficerPortal />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  client.setQueryData(['auth-me'], user);
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <OfficerPortal />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 const today = new Date().toISOString();
@@ -58,20 +70,16 @@ describe('OfficerPortal', () => {
     vi.mocked(apiService.patch).mockReset();
   });
 
-  it('shows the login form when there is no officer session', () => {
-    renderPortal();
-    expect(screen.getByText('Officer Login')).toBeInTheDocument();
+  it('renders nothing when there is no authenticated user (RequireAuth should have redirected before this ever happens)', () => {
+    renderPortal(null);
+    expect(screen.queryByText('Officer Portal')).not.toBeInTheDocument();
   });
 
-  it('logging in shows the dashboard with correct stats derived from real workflow data', async () => {
+  it('shows the dashboard with correct stats derived from real workflow data', async () => {
     mockApi();
     renderPortal();
 
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Asha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-
     expect(await screen.findByText('Welcome, Asha (Land Record Officer)')).toBeInTheDocument();
-    // Wait for the workflows query to resolve before reading stat cards.
     await screen.findByText('ROR COPY REQUEST');
 
     // Only wf-pending has a PENDING LAND_RECORDS step.
@@ -84,35 +92,32 @@ describe('OfficerPortal', () => {
     expect(within(processedCard).getByText('1')).toBeInTheDocument();
   });
 
-  it('requests workflows scoped to the officer\'s own department', async () => {
+  it("requests workflows scoped to the officer's own department", async () => {
     mockApi();
-    renderPortal();
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Priya' } });
-    fireEvent.change(screen.getByLabelText('Department / Role'), { target: { value: 'PLANNING_OFFICER' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    renderPortal(planningOfficer);
 
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows', { params: { department: 'PLANNING' } }));
+    expect(await screen.findByText('Welcome, Priya (Planning Officer)')).toBeInTheDocument();
   });
 
   it('selecting a pending workflow shows its review panel', async () => {
     mockApi();
     renderPortal();
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Asha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
     fireEvent.click(await screen.findByText('ROR COPY REQUEST'));
 
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
 
-  it('logging out returns to the login form', async () => {
+  it('logging out clears the shared session and the portal renders nothing', async () => {
     mockApi();
-    renderPortal();
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Asha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    const { client } = renderPortal();
+
+    expect(await screen.findByText('Welcome, Asha (Land Record Officer)')).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Logout' }));
 
-    expect(screen.getByText('Officer Login')).toBeInTheDocument();
+    expect(client.getQueryData(['auth-me'])).toBeNull();
+    await waitFor(() => expect(screen.queryByText('Officer Portal')).not.toBeInTheDocument());
   });
 });

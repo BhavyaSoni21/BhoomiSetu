@@ -8,10 +8,12 @@ import { RegistrationService } from '../departments/registration.service';
 import { PlanningService } from '../departments/planning.service';
 import { TaxService } from '../departments/tax.service';
 import { RestrictionService } from '../departments/restriction.service';
+import { DisputeService } from '../departments/dispute.service';
 import { RegistrationRecord } from '../departments/registration-record.entity';
 import { PlanningRecord } from '../departments/planning-record.entity';
 import { TaxRecord } from '../departments/tax-record.entity';
 import { RestrictionRecord } from '../departments/restriction-record.entity';
+import { DisputeRecord } from '../departments/dispute-record.entity';
 import { adaptLandRecordsResult, AdaptedLandRecord } from './land-record-adapters';
 import { buildCanonicalEnvelope, CanonicalParcelEnvelope } from './canonical-transformer';
 
@@ -22,6 +24,7 @@ export interface Parcel360Response extends CanonicalParcelEnvelope {
     planning: PlanningRecord | null;
     tax: TaxRecord | null;
     restriction: RestrictionRecord | null;
+    dispute: DisputeRecord | null;
   };
 }
 
@@ -41,6 +44,7 @@ export class ResponseAggregatorService {
     private readonly planningService: PlanningService,
     private readonly taxService: TaxService,
     private readonly restrictionService: RestrictionService,
+    private readonly disputeService: DisputeService,
   ) {}
 
   async buildParcel360(parcelId: string): Promise<Parcel360Response | null> {
@@ -53,12 +57,13 @@ export class ResponseAggregatorService {
       .getMany();
     const findType = (type: string) => identifierRows.find((row) => row.identifierType === type)?.identifierValue ?? null;
 
-    const [landRecordsResult, registration, planning, tax, restriction] = await Promise.all([
+    const [landRecordsResult, registration, planning, tax, restriction, dispute] = await Promise.all([
       this.landRecordsLookupService.findByParcelId(parcelId),
       this.registrationService.findByParcelId(parcelId),
       this.planningService.findByParcelId(parcelId),
       this.taxService.findByParcelId(parcelId),
       this.restrictionService.findByParcelId(parcelId),
+      this.disputeService.findByParcelId(parcelId),
     ]);
 
     const landRecords =
@@ -76,12 +81,13 @@ export class ResponseAggregatorService {
         PLANNING: planning !== null,
         TAX: tax !== null,
         RESTRICTION: restriction !== null,
+        DISPUTE: dispute !== null,
       },
     });
 
     return {
       ...envelope,
-      departments: { landRecords, registration, planning, tax, restriction },
+      departments: { landRecords, registration, planning, tax, restriction, dispute },
     };
   }
 }

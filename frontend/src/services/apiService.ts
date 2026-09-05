@@ -26,9 +26,12 @@ apiService.interceptors.request.use(
 apiService.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle common errors
-    if (error.response?.status === 401) {
-      // Redirect to login or handle unauthorized access
+    // A 401 from /auth/login itself just means "wrong email or password" -
+    // that's a normal, user-facing form error the caller handles inline, not
+    // a dead session. Only an expired/invalid token on some other request
+    // should force a hard redirect back to the login page.
+    const isLoginAttempt = error.config?.url?.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginAttempt) {
       window.location.href = '/login';
     }
     return Promise.reject(error);

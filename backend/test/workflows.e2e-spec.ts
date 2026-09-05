@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
+import { createAuthenticatedUser } from './helpers/auth';
 
 const square = (minLng: number, minLat: number, size = 0.001) =>
   JSON.stringify({
@@ -22,6 +23,14 @@ describe('Workflows (service requests) (e2e)', () => {
   let parcelRepository: Repository<Parcel>;
   let parcel: Parcel;
   let otherParcel: Parcel;
+  // GET (list/single), PATCH .../status, and PATCH .../steps/:stepId are all
+  // officer/admin-only as of docs/FEATURE_AUDIT.md §8 item 5 - only POST
+  // (the citizen service-request flow) stays public. adminAuth bypasses the
+  // per-step department check (see workflows.service.ts); the per-department
+  // tokens exercise that check for real.
+  let adminAuth: string;
+  let landRecordsAuth: string;
+  let registrationAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -41,6 +50,10 @@ describe('Workflows (service requests) (e2e)', () => {
     otherParcel = await parcelRepository.save({
       canonicalParcelId: 'WF-2', stateCode: 'DL', districtCode: 'NEW', localBodyCode: 'DLLB001', areaSqM: 300, geometry: square(77.2, 28.6),
     });
+
+    adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
+    landRecordsAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+    registrationAuth = (await createAuthenticatedUser(moduleFixture, 'REGISTRATION_OFFICER')).authHeader;
   });
 
   afterAll(async () => {
@@ -82,6 +95,18 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer()).post('/api/v1/workflows').send({ workflowType: 'ROR_COPY_REQUEST' }).expect(400);
       await request(app.getHttpServer()).post('/api/v1/workflows').send({ parcelId: parcel.id }).expect(400);
     });
+
+    it('a DISPUTE_FILING workflow gets its own single-step DISPUTE review, not the default 3-step pipeline', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'DISPUTE_FILING', requestDetails: 'Boundary dispute with neighbouring parcel' })
+        .expect(201);
+
+      expect(res.body.steps).toHaveLength(1);
+      expect(res.body.steps[0]).toEqual(
+        expect.objectContaining({ department: 'DISPUTE', assignedRole: 'DISPUTE_OFFICER', status: 'PENDING', stepOrder: 1 }),
+      );
+    });
   });
 
   describe('GET /api/v1/workflows/:id', () => {
@@ -91,17 +116,27 @@ describe('Workflows (service requests) (e2e)', () => {
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
-      const res = await request(app.getHttpServer()).get(`/api/v1/workflows/${created.body.id}`).expect(200);
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .expect(200);
       expect(res.body.id).toBe(created.body.id);
       expect(res.body.steps).toHaveLength(3);
     });
 
     it('rejects a non-UUID id with 400', async () => {
-      await request(app.getHttpServer()).get('/api/v1/workflows/not-a-uuid').expect(400);
+      await request(app.getHttpServer()).get('/api/v1/workflows/not-a-uuid').set('Authorization', adminAuth).expect(400);
     });
 
     it('returns 404 for a well-formed but unknown UUID', async () => {
-      await request(app.getHttpServer()).get('/api/v1/workflows/00000000-0000-0000-0000-000000000000').expect(404);
+      await request(app.getHttpServer())
+        .get('/api/v1/workflows/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', adminAuth)
+        .expect(404);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/workflows/00000000-0000-0000-0000-000000000000').expect(401);
     });
   });
 
@@ -114,6 +149,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/status`)
+        .set('Authorization', adminAuth)
         .send({ status: 'UNDER_REVIEW', remarks: 'Assigned to land records officer' })
         .expect(200);
 
@@ -125,6 +161,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('returns 404 for an unknown workflow', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/workflows/00000000-0000-0000-0000-000000000000/status')
+        .set('Authorization', adminAuth)
         .send({ status: 'APPROVED' })
         .expect(404);
     });
@@ -174,6 +211,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get('/api/v1/workflows?department=LAND_RECORDS&stepStatus=PENDING')
+        .set('Authorization', landRecordsAuth)
         .expect(200);
 
       expect(res.body.some((w: any) => w.id === created.body.id)).toBe(true);
@@ -189,18 +227,42 @@ describe('Workflows (service requests) (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
         .send({ action: 'APPROVE' })
         .expect(200);
 
       const res = await request(app.getHttpServer())
         .get('/api/v1/workflows?department=LAND_RECORDS&stepStatus=PENDING')
+        .set('Authorization', landRecordsAuth)
         .expect(200);
       expect(res.body.some((w: any) => w.id === created.body.id)).toBe(false);
     });
 
-    it('returns every workflow when no filters are given', async () => {
-      const res = await request(app.getHttpServer()).get('/api/v1/workflows').expect(200);
+    it('returns every workflow when no filters are given (admin only - an officer always gets scoped to their own department)', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/workflows').set('Authorization', adminAuth).expect(200);
       expect(res.body.length).toBeGreaterThan(0);
+    });
+
+    it("scopes an officer's request to their own department even if a different one is requested", async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      // A LAND_RECORD_OFFICER asking for REGISTRATION's queue still only
+      // gets LAND_RECORDS steps back - the server ignores the requested
+      // department and substitutes the caller's own.
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/workflows?department=REGISTRATION')
+        .set('Authorization', landRecordsAuth)
+        .expect(200);
+
+      expect(res.body.some((w: any) => w.id === created.body.id)).toBe(true);
+      expect(res.body.every((w: any) => w.steps.some((s: any) => s.department === 'LAND_RECORDS'))).toBe(true);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/workflows').expect(401);
     });
   });
 
@@ -215,6 +277,7 @@ describe('Workflows (service requests) (e2e)', () => {
       for (const step of created.body.steps) {
         last = await request(app.getHttpServer())
           .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+          .set('Authorization', adminAuth) // spans all 3 departments - ADMIN can decide any of them
           .send({ action: 'APPROVE', remarks: `${step.department} looks good` })
           .expect(200);
       }
@@ -233,6 +296,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${registrationStep.id}`)
+        .set('Authorization', registrationAuth)
         .send({ action: 'REJECT', remarks: 'Ownership mismatch' })
         .expect(200);
 
@@ -253,6 +317,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
         .send({ action: 'APPROVE' })
         .expect(200);
 
@@ -264,15 +329,17 @@ describe('Workflows (service requests) (e2e)', () => {
         .post('/api/v1/workflows')
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
-      const step = created.body.steps[0];
+      const step = created.body.steps[0]; // LAND_RECORDS, per the default pipeline order
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
         .send({ action: 'APPROVE' })
         .expect(200);
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
         .send({ action: 'REJECT' })
         .expect(400);
     });
@@ -280,6 +347,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('returns 404 for an unknown workflow', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/workflows/00000000-0000-0000-0000-000000000000/steps/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', adminAuth)
         .send({ action: 'APPROVE' })
         .expect(404);
     });
@@ -296,6 +364,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${first.body.id}/steps/${second.body.steps[0].id}`)
+        .set('Authorization', adminAuth)
         .send({ action: 'APPROVE' })
         .expect(404);
     });
@@ -308,8 +377,60 @@ describe('Workflows (service requests) (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', adminAuth)
         .send({ action: 'MAYBE' })
         .expect(400);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .send({ action: 'APPROVE' })
+        .expect(401);
+    });
+
+    it('rejects an officer trying to decide a step outside their own department with 403', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const registrationStep = created.body.steps.find((s: any) => s.department === 'REGISTRATION');
+
+      // A LAND_RECORD_OFFICER, not a REGISTRATION_OFFICER, tries to decide
+      // the REGISTRATION step.
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${registrationStep.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(403);
+
+      // Confirm it's genuinely still PENDING, not silently decided.
+      const stillPending = await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .expect(200);
+      expect(stillPending.body.steps.find((s: any) => s.id === registrationStep.id).status).toBe('PENDING');
+    });
+
+    it('lets ADMIN decide a step regardless of department', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const planningStep = created.body.steps.find((s: any) => s.department === 'PLANNING');
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${planningStep.id}`)
+        .set('Authorization', adminAuth)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      expect(res.body.steps.find((s: any) => s.id === planningStep.id).status).toBe('APPROVED');
     });
   });
 });

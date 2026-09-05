@@ -45,6 +45,7 @@ const fullResponse = {
     { department: 'PLANNING', status: 'AVAILABLE' },
     { department: 'TAX', status: 'AVAILABLE' },
     { department: 'RESTRICTION', status: 'NOT_AVAILABLE' },
+    { department: 'DISPUTE', status: 'AVAILABLE' },
   ],
   departments: {
     landRecords: { sourceSchema: 'STATE_A', sourceIdentifier: '55/2', ownerName: 'Interop Owner', areaSqM: 26714, locality: 'VIL555', raw: {} },
@@ -61,6 +62,10 @@ const fullResponse = {
       outstandingAmount: 0, lastPaymentDate: '2026-01-01',
     },
     restriction: null,
+    dispute: {
+      id: 'd1', parcelId: 'p1', hasActiveDispute: true, disputeType: 'BOUNDARY', caseStatus: 'UNDER_REVIEW',
+      filingDate: '2025-06-01', resolutionDate: null, resolutionSummary: null,
+    },
   },
 };
 
@@ -70,6 +75,34 @@ const secondResponse = {
   identifiers: { ulpin: null, survey_number: null, plot_number: null, local_identifier: 'MH-PUN-0200' },
 };
 
+const riskScoreFixture = {
+  parcelId: 'p1',
+  overallScore: 46,
+  riskBand: 'MEDIUM',
+  dataCompleteness: 1,
+  factors: [
+    { key: 'TAX_DELINQUENCY', label: 'Tax Delinquency', weight: 0.4, available: true, score: 0, rationale: 'Tax status is PAID.' },
+    { key: 'ACTIVE_DISPUTE', label: 'Dispute Exposure', weight: 0.3, available: true, score: 65, rationale: 'An active boundary dispute is under review.' },
+    { key: 'GOVERNANCE_ALERTS', label: 'Open Governance Alerts', weight: 0.2, available: true, score: 0, rationale: 'No open governance alerts.' },
+    { key: 'RESTRICTION', label: 'Land-Use Restriction', weight: 0.1, available: false, score: 0, rationale: 'No restriction record on file for this parcel.' },
+  ],
+};
+
+// Parcel360View fires a /360, a /risk-score, AND a /workflows query per
+// parcel; every test needs all three satisfied (not just the one it cares
+// about) or the unmocked one rejects with "unexpected url" noise, or - with
+// a blanket mockResolvedValue - the risk-score query would resolve with
+// 360-shaped data and crash on `.factors.map`. /workflows defaults to empty
+// so RequestNotifications renders nothing extra unless a test overrides it.
+function mockGet(overrides: { parcel360?: unknown; riskScore?: unknown; workflows?: unknown } = {}) {
+  vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+    if (url.includes('/risk-score')) return { data: overrides.riskScore ?? riskScoreFixture };
+    if (url.includes('/workflows')) return { data: overrides.workflows ?? [] };
+    if (url.includes('/360')) return { data: overrides.parcel360 ?? fullResponse };
+    throw new Error(`unexpected url: ${url}`);
+  });
+}
+
 describe('Parcel360View', () => {
   beforeEach(() => {
     vi.mocked(apiService.get).mockReset();
@@ -77,14 +110,14 @@ describe('Parcel360View', () => {
   });
 
   it('fetches the aggregated 360 endpoint (no double /api/v1 prefix)', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     renderWithProviders();
 
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/parcels/p1/360'));
   });
 
   it('renders the Overview tab by default with canonical identifiers and location', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     renderWithProviders();
 
     expect(await screen.findByText('ULPIN123')).toBeInTheDocument();
@@ -93,18 +126,57 @@ describe('Parcel360View', () => {
     expect(screen.getByText('26,714 m²')).toBeInTheDocument();
   });
 
+  it('shows the "Your Requests" notification feed when the parcel has service requests', async () => {
+    mockGet({
+      workflows: [
+        {
+          id: 'wf-1', parcelId: 'p1', workflowType: 'ROR_COPY_REQUEST', currentStatus: 'APPROVED',
+          createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-02T10:00:00.000Z',
+          steps: [{ id: 's1', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'APPROVED', action: 'APPROVE', remarks: null, completedAt: '2026-09-02T10:00:00.000Z' }],
+        },
+      ],
+    });
+    renderWithProviders();
+
+    expect(await screen.findByText('Your Requests')).toBeInTheDocument();
+    expect(screen.getByText(/has been approved/)).toBeInTheDocument();
+  });
+
+  it('does not show the notification feed when the parcel has no service requests', async () => {
+    mockGet();
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByText('Your Requests')).not.toBeInTheDocument();
+  });
+
+  it('fetches and renders the risk assessment card with its factor breakdown', async () => {
+    mockGet();
+    renderWithProviders();
+
+    expect(await screen.findByText('Risk Assessment')).toBeInTheDocument();
+    expect(screen.getByText('46')).toBeInTheDocument();
+    expect(screen.getByText('MEDIUM')).toBeInTheDocument();
+    expect(screen.getByText('100% data coverage')).toBeInTheDocument();
+    expect(screen.getByText('Tax status is PAID.')).toBeInTheDocument();
+    expect(screen.getByText('An active boundary dispute is under review.')).toBeInTheDocument();
+    // The unavailable RESTRICTION factor renders "N/A" rather than its (meaningless) 0 score.
+    const restrictionRow = screen.getByText('Land-Use Restriction').closest('.flex') as HTMLElement;
+    expect(within(restrictionRow).getByText('N/A')).toBeInTheDocument();
+  });
+
   it('shows AVAILABLE/NOT_AVAILABLE badges for every department source', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     renderWithProviders();
 
     await screen.findByText('LAND RECORDS');
     const badges = screen.getAllByText(/AVAILABLE/);
-    expect(badges).toHaveLength(5);
+    expect(badges).toHaveLength(6);
     expect(screen.getByText('NOT_AVAILABLE')).toBeInTheDocument();
   });
 
   it('switches to the Land Records tab and shows the adapted state-schema data', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     renderWithProviders();
 
     await screen.findByText('Parcel 360');
@@ -115,7 +187,7 @@ describe('Parcel360View', () => {
   });
 
   it('shows a "not available" message on the Restriction tab when departments.restriction is null', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     renderWithProviders();
 
     await screen.findByText('Parcel 360');
@@ -124,8 +196,52 @@ describe('Parcel360View', () => {
     expect(await screen.findByText(/No restriction data is available/)).toBeInTheDocument();
   });
 
+  it('shows dispute details on the Dispute tab when departments.dispute is present', async () => {
+    mockGet();
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'Dispute' }));
+
+    expect(await screen.findByText('BOUNDARY')).toBeInTheDocument();
+    expect(screen.getByText('UNDER_REVIEW')).toBeInTheDocument();
+  });
+
+  it('shows a "not available" message on the Dispute tab when departments.dispute is null', async () => {
+    mockGet({ parcel360: { ...fullResponse, departments: { ...fullResponse.departments, dispute: null } } });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'Dispute' }));
+
+    expect(await screen.findByText(/No dispute data is available/)).toBeInTheDocument();
+  });
+
+  it('opens the service request form with the DISPUTE_FILING type when "File a Dispute" is clicked', async () => {
+    mockGet();
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: {
+        id: 'wf2', parcelId: 'p1', workflowType: 'DISPUTE_FILING', currentStatus: 'SUBMITTED',
+        createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '',
+        steps: [{ id: 's9', stepOrder: 1, department: 'DISPUTE', assignedRole: 'DISPUTE_OFFICER', status: 'PENDING', action: null, remarks: null, completedAt: null }],
+      },
+    });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'File a Dispute' }));
+
+    expect(await screen.findByText(/File a Dispute \(Ownership/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+
+    await waitFor(() =>
+      expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DISPUTE_FILING' })),
+    );
+    expect(await screen.findByText('Request Submitted')).toBeInTheDocument();
+  });
+
   it('opens the service request form when "Request Documents" is clicked, and submits it', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     vi.mocked(apiService.post).mockResolvedValue({
       data: {
         id: 'wf1', parcelId: 'p1', workflowType: 'ROR_COPY_REQUEST', currentStatus: 'SUBMITTED',
@@ -161,6 +277,8 @@ describe('Parcel360View', () => {
     vi.mocked(apiService.get).mockImplementation(async (url: string) => {
       if (url === '/parcels/p1/360') return { data: fullResponse };
       if (url === '/parcels/p2/360') return { data: secondResponse };
+      if (url.includes('/risk-score')) return { data: { ...riskScoreFixture, parcelId: url.split('/')[2] } };
+      if (url.includes('/workflows')) return { data: [] };
       throw new Error(`unexpected url: ${url}`);
     });
     renderWithProviders('p1');
@@ -176,7 +294,7 @@ describe('Parcel360View', () => {
   });
 
   it('clicking "Explain with AI" posts to the explain endpoint and shows the result', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     vi.mocked(apiService.post).mockResolvedValue({
       data: {
         summary: 'This parcel is in good standing overall.',
@@ -196,7 +314,7 @@ describe('Parcel360View', () => {
   });
 
   it('shows an error message when the AI explanation request fails', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    mockGet();
     vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 503 } });
     renderWithProviders();
 

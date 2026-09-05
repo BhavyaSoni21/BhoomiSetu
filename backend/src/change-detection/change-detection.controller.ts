@@ -1,14 +1,25 @@
-import { BadRequestException, Body, Controller, Post, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { ChangeDetectionService } from './change-detection.service';
 import { AnalyzeChangeDto } from './dto/analyze-change.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { ALL_STAFF_ROLES } from '../auth/roles.constants';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB per image
 
 // Tech.md #33 CHANGE DETECTION SERVICE. POST /api/v1/change-detection/analyze
 // accepts two images (multipart fields "before"/"after") plus the real
-// geographic bounds they cover.
+// geographic bounds they cover. Tighter rate limit than the app default
+// (see AppModule) - image decode/resize/diff is real CPU work per request.
+// Officer/admin-only (docs/FEATURE_AUDIT.md §8 item 5) - only the Officer
+// Portal's ChangeDetectionPanel calls this.
 @Controller('change-detection')
+@Throttle({ default: { limit: 30, ttl: 60000 } })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...ALL_STAFF_ROLES)
 export class ChangeDetectionController {
   constructor(private readonly changeDetectionService: ChangeDetectionService) {}
 

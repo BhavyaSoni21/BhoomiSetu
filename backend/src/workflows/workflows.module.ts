@@ -5,12 +5,13 @@ import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
 import { WorkflowsController } from './workflows.controller';
 import { WorkflowsService } from './workflows.service';
+import { AuditModule } from '../audit/audit.module';
 
 // Registers its own Parcel repository (rather than importing ParcelsModule)
 // so ParcelsModule can import this one - for GET /parcels/:id/workflows -
 // without a cycle, same pattern as Departments/Interoperability.
 @Module({
-  imports: [TypeOrmModule.forFeature([Parcel, Workflow, WorkflowStep])],
+  imports: [TypeOrmModule.forFeature([Parcel, Workflow, WorkflowStep]), AuditModule],
   controllers: [WorkflowsController],
   providers: [WorkflowsService],
   exports: [WorkflowsService],

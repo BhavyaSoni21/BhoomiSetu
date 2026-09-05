@@ -7,9 +7,17 @@ import { ParcelIdentifier } from './parcel-identifier.entity';
 import { ParcelNeighbour } from './parcel-neighbour.entity';
 import { InteroperabilityModule } from '../interoperability/interoperability.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
+import { PredictiveAnalyticsModule } from '../predictive-analytics/predictive-analytics.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Parcel, ParcelIdentifier, ParcelNeighbour]), InteroperabilityModule, WorkflowsModule],
+  imports: [
+    TypeOrmModule.forFeature([Parcel, ParcelIdentifier, ParcelNeighbour]),
+    InteroperabilityModule,
+    WorkflowsModule,
+    PredictiveAnalyticsModule,
+    AuditModule,
+  ],
   controllers: [ParcelsController],
   providers: [ParcelsService],
 })

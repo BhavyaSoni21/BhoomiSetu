@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
+import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Governance Alerts (e2e)', () => {
   let app: INestApplication;
@@ -15,6 +16,9 @@ describe('Governance Alerts (e2e)', () => {
   let floodAlert: GovernanceAlert;
   let changeAlert: GovernanceAlert;
   let taxAlert: GovernanceAlert;
+  // Every route on this controller is officer/admin-only (docs/FEATURE_AUDIT.md
+  // §8 item 5) - there's no citizen-facing use of governance alerts anywhere.
+  let officerAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -59,6 +63,8 @@ describe('Governance Alerts (e2e)', () => {
       status: 'REVIEWED',
       explanation: 'Outstanding property tax of 500 is overdue.',
     });
+
+    officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
   }, 15000);
 
   afterAll(async () => {
@@ -67,42 +73,67 @@ describe('Governance Alerts (e2e)', () => {
 
   describe('GET /api/v1/governance-alerts', () => {
     it('lists every alert, newest first', async () => {
-      const res = await request(app.getHttpServer()).get('/api/v1/governance-alerts').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts')
+        .set('Authorization', officerAuth)
+        .expect(200);
       expect(res.body.length).toBeGreaterThanOrEqual(3);
       expect(res.body[0].id).toBe(taxAlert.id); // most recently created
     });
 
     it('filters by status', async () => {
-      const res = await request(app.getHttpServer()).get('/api/v1/governance-alerts?status=OPEN').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts?status=OPEN')
+        .set('Authorization', officerAuth)
+        .expect(200);
       const ids = res.body.map((a: any) => a.id);
       expect(ids).toEqual(expect.arrayContaining([floodAlert.id, changeAlert.id]));
       expect(ids).not.toContain(taxAlert.id);
     });
 
     it('filters by severity', async () => {
-      const res = await request(app.getHttpServer()).get('/api/v1/governance-alerts?severity=HIGH').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts?severity=HIGH')
+        .set('Authorization', officerAuth)
+        .expect(200);
       expect(res.body.map((a: any) => a.id)).toEqual([changeAlert.id]);
     });
 
     it('combines status and severity filters', async () => {
-      const res = await request(app.getHttpServer()).get('/api/v1/governance-alerts?status=OPEN&severity=LOW').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts?status=OPEN&severity=LOW')
+        .set('Authorization', officerAuth)
+        .expect(200);
       expect(res.body).toEqual([]);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/governance-alerts').expect(401);
     });
   });
 
   describe('GET /api/v1/governance-alerts/:id', () => {
     it('returns a single alert', async () => {
-      const res = await request(app.getHttpServer()).get(`/api/v1/governance-alerts/${floodAlert.id}`).expect(200);
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/governance-alerts/${floodAlert.id}`)
+        .set('Authorization', officerAuth)
+        .expect(200);
       expect(res.body.alertType).toBe('RESTRICTION_ZONE_OVERLAP');
       expect(res.body.explanation).toContain('flood');
     });
 
     it('rejects a non-UUID id with 400', async () => {
-      await request(app.getHttpServer()).get('/api/v1/governance-alerts/not-a-uuid').expect(400);
+      await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts/not-a-uuid')
+        .set('Authorization', officerAuth)
+        .expect(400);
     });
 
     it('returns 404 for a well-formed but unknown UUID', async () => {
-      await request(app.getHttpServer()).get('/api/v1/governance-alerts/00000000-0000-0000-0000-000000000000').expect(404);
+      await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', officerAuth)
+        .expect(404);
     });
   });
 
@@ -110,17 +141,22 @@ describe('Governance Alerts (e2e)', () => {
     it('updates status (e.g. an officer dismissing an alert)', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${changeAlert.id}/status`)
+        .set('Authorization', officerAuth)
         .send({ status: 'DISMISSED' })
         .expect(200);
       expect(res.body.status).toBe('DISMISSED');
 
-      const refetched = await request(app.getHttpServer()).get(`/api/v1/governance-alerts/${changeAlert.id}`).expect(200);
+      const refetched = await request(app.getHttpServer())
+        .get(`/api/v1/governance-alerts/${changeAlert.id}`)
+        .set('Authorization', officerAuth)
+        .expect(200);
       expect(refetched.body.status).toBe('DISMISSED');
     });
 
     it('rejects an invalid status value with 400', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .set('Authorization', officerAuth)
         .send({ status: 'NOT_A_REAL_STATUS' })
         .expect(400);
     });
@@ -128,8 +164,16 @@ describe('Governance Alerts (e2e)', () => {
     it('returns 404 for an unknown alert', async () => {
       await request(app.getHttpServer())
         .patch('/api/v1/governance-alerts/00000000-0000-0000-0000-000000000000/status')
+        .set('Authorization', officerAuth)
         .send({ status: 'REVIEWED' })
         .expect(404);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .send({ status: 'REVIEWED' })
+        .expect(401);
     });
   });
 });

@@ -1,7 +1,13 @@
-import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException, UseGuards } from '@nestjs/common';
 import { ParcelsService } from './parcels.service';
 import { ResponseAggregatorService } from '../interoperability/response-aggregator.service';
 import { WorkflowsService } from '../workflows/workflows.service';
+import { PredictiveAnalyticsService } from '../predictive-analytics/predictive-analytics.service';
+import { AuditService } from '../audit/audit.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { ALL_STAFF_ROLES } from '../auth/roles.constants';
 
 @Controller('parcels')
 export class ParcelsController {
@@ -9,6 +15,8 @@ export class ParcelsController {
     private readonly parcelsService: ParcelsService,
     private readonly responseAggregatorService: ResponseAggregatorService,
     private readonly workflowsService: WorkflowsService,
+    private readonly predictiveAnalyticsService: PredictiveAnalyticsService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Get()
@@ -82,5 +90,27 @@ export class ParcelsController {
       throw new NotFoundException(`Parcel not found with id: ${id}`);
     }
     return result;
+  }
+
+  @Get(':id/risk-score')
+  async getRiskScore(@Param('id', ParseUUIDPipe) id: string) {
+    const result = await this.predictiveAnalyticsService.getRiskScore(id);
+    if (!result) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return result;
+  }
+
+  // Staff-only (docs/FEATURE_AUDIT.md §8 item 10) - the audit trail is an
+  // oversight tool, not citizen-facing like GET :id/workflows above.
+  @Get(':id/audit')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ALL_STAFF_ROLES)
+  async getAudit(@Param('id', ParseUUIDPipe) id: string) {
+    const parcel = await this.parcelsService.findOne(id);
+    if (!parcel) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return this.auditService.findByParcel(id);
   }
 }

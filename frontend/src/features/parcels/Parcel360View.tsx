@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
+import RequestNotifications from './RequestNotifications';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { Parcel360Response } from '../../types/parcel360';
 import { AiExplanation } from '../../types/aiExplanation';
+import { RiskScore } from '../../types/riskScore';
 
-type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction';
+type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute';
+
+const RISK_BAND_COLORS: Record<string, string> = {
+  LOW: 'bg-gray-100 text-gray-700',
+  MEDIUM: 'bg-yellow-100 text-yellow-700',
+  HIGH: 'bg-orange-100 text-orange-700',
+  CRITICAL: 'bg-red-100 text-red-700',
+};
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
@@ -18,6 +27,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'planning', label: 'Planning' },
   { key: 'tax', label: 'Tax' },
   { key: 'restriction', label: 'Restriction' },
+  { key: 'dispute', label: 'Dispute' },
 ];
 
 function formatCurrency(amount: number): string {
@@ -49,8 +59,17 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 const Parcel360View: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+
+  // Closing the form (whether cancelled or after a successful submission)
+  // refreshes the notification feed below - cheapest way to make a brand new
+  // request show up immediately without a manual page reload.
+  const closeServiceRequest = () => {
+    setServiceRequest(null);
+    queryClient.invalidateQueries(['parcel-workflows', id]);
+  };
 
   const { data: parcel360, isLoading, error } = useQuery<Parcel360Response>(
     ['parcel-360', id],
@@ -65,6 +84,15 @@ const Parcel360View: React.FC = () => {
     const response = await apiService.post(`/ai/parcels/${id}/explain`);
     return response.data;
   });
+
+  const { data: riskScore } = useQuery<RiskScore>(
+    ['risk-score', id],
+    async () => {
+      const response = await apiService.get(`/parcels/${id}/risk-score`);
+      return response.data;
+    },
+    { enabled: !!id },
+  );
 
   // Selecting a different parcel on the map below should replace this whole
   // view, not just move the map's own highlight - drop any open modal/tab
@@ -98,7 +126,7 @@ const Parcel360View: React.FC = () => {
           parcelId={parcel360.parcel_id}
           workflowType={serviceRequest.workflowType}
           title={serviceRequest.title}
-          onClose={() => setServiceRequest(null)}
+          onClose={closeServiceRequest}
         />
       )}
 
@@ -234,7 +262,58 @@ const Parcel360View: React.FC = () => {
             <NotAvailable department="restriction" />
           )
         )}
+
+        {activeTab === 'dispute' && (
+          departments.dispute ? (
+            <div className="space-y-1">
+              <Field label="Has Active Dispute" value={departments.dispute.hasActiveDispute ? 'Yes' : 'No'} />
+              <Field label="Dispute Type" value={departments.dispute.disputeType || 'N/A'} />
+              <Field label="Case Status" value={departments.dispute.caseStatus || 'N/A'} />
+              <Field label="Filing Date" value={formatDate(departments.dispute.filingDate)} />
+              {!departments.dispute.hasActiveDispute && departments.dispute.caseStatus && (
+                <>
+                  <Field label="Resolution Date" value={formatDate(departments.dispute.resolutionDate)} />
+                  <Field label="Resolution Summary" value={departments.dispute.resolutionSummary || 'N/A'} />
+                </>
+              )}
+            </div>
+          ) : (
+            <NotAvailable department="dispute" />
+          )
+        )}
       </div>
+
+      <RequestNotifications parcelId={parcel360.parcel_id} />
+
+      {riskScore && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-1">Risk Assessment</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            A heuristic score combining tax, dispute, governance-alert, and restriction signals — not a prediction
+            from a trained model. Each factor below is weighted by how directly it threatens undisputed ownership.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <span className="text-3xl font-bold text-gray-800">{riskScore.overallScore}</span>
+            <span className={`rounded px-3 py-1 text-sm font-medium ${RISK_BAND_COLORS[riskScore.riskBand] ?? 'bg-gray-100 text-gray-700'}`}>
+              {riskScore.riskBand}
+            </span>
+            <span className="text-xs text-gray-400">{Math.round(riskScore.dataCompleteness * 100)}% data coverage</span>
+          </div>
+          <div className="space-y-1">
+            {riskScore.factors.map((factor) => (
+              <div key={factor.key} className="flex items-start justify-between gap-3 text-sm border-b py-2 last:border-b-0">
+                <div>
+                  <span className="font-medium text-gray-700">{factor.label}</span>
+                  <p className="text-xs text-gray-500 mt-0.5">{factor.rationale}</p>
+                </div>
+                <span className={factor.available ? 'font-semibold text-gray-800 whitespace-nowrap' : 'text-xs text-gray-400 italic whitespace-nowrap'}>
+                  {factor.available ? factor.score : 'N/A'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">Parcel Map</h2>
@@ -253,7 +332,7 @@ const Parcel360View: React.FC = () => {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">Actions</h2>
-        <div className="flex space-x-4">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
@@ -265,6 +344,12 @@ const Parcel360View: React.FC = () => {
             className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
           >
             Report Issue
+          </button>
+          <button
+            onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
+            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+          >
+            File a Dispute
           </button>
           <button
             className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"

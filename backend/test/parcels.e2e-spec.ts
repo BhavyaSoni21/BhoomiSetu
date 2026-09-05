@@ -237,9 +237,10 @@ describe('Parcels endpoints (e2e)', () => {
         { department: 'PLANNING', status: 'NOT_AVAILABLE' },
         { department: 'TAX', status: 'NOT_AVAILABLE' },
         { department: 'RESTRICTION', status: 'NOT_AVAILABLE' },
+        { department: 'DISPUTE', status: 'NOT_AVAILABLE' },
       ]);
       expect(res.body.departments).toEqual({
-        landRecords: null, registration: null, planning: null, tax: null, restriction: null,
+        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null,
       });
     });
 

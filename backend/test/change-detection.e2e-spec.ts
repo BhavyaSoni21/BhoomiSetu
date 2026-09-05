@@ -11,6 +11,7 @@ import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
 import { ChangeDetectionEvent } from '../src/spatial/change-detection-event.entity';
+import { createAuthenticatedUser } from './helpers/auth';
 
 const IMAGE_SIZE = 200;
 
@@ -68,6 +69,9 @@ describe('Change Detection (e2e)', () => {
   let farParcel: Parcel;
   let greenImage: Buffer;
   let changedImage: Buffer;
+  // Officer/admin-only (docs/FEATURE_AUDIT.md §8 item 5) - only the Officer
+  // Portal's ChangeDetectionPanel calls this.
+  let officerAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -97,6 +101,8 @@ describe('Change Detection (e2e)', () => {
 
     greenImage = await makeImage([0, 150, 0]);
     changedImage = await makeImage([0, 150, 0], CHANGED_RECT);
+
+    officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
   });
 
   afterAll(async () => {
@@ -107,6 +113,7 @@ describe('Change Detection (e2e)', () => {
     it('detects a real change and creates a governance alert only for the affected parcel', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/change-detection/analyze')
+        .set('Authorization', officerAuth)
         .field(IMAGE_BOUNDS)
         .field('description', 'Test change')
         .attach('before', greenImage, 'before.png')
@@ -135,6 +142,7 @@ describe('Change Detection (e2e)', () => {
     it('reports no change and creates nothing when before/after are identical', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/change-detection/analyze')
+        .set('Authorization', officerAuth)
         .field(IMAGE_BOUNDS)
         .attach('before', greenImage, 'before.png')
         .attach('after', greenImage, 'after.png')
@@ -149,6 +157,7 @@ describe('Change Detection (e2e)', () => {
     it('rejects a request missing the "after" image with 400', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/change-detection/analyze')
+        .set('Authorization', officerAuth)
         .field(IMAGE_BOUNDS)
         .attach('before', greenImage, 'before.png')
         .expect(400);
@@ -157,6 +166,7 @@ describe('Change Detection (e2e)', () => {
     it('rejects a non-image file with 400', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/change-detection/analyze')
+        .set('Authorization', officerAuth)
         .field(IMAGE_BOUNDS)
         .attach('before', Buffer.from('not an image'), { filename: 'before.txt', contentType: 'text/plain' })
         .attach('after', changedImage, 'after.png')
@@ -166,10 +176,20 @@ describe('Change Detection (e2e)', () => {
     it('rejects out-of-range coordinates with 400', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/change-detection/analyze')
+        .set('Authorization', officerAuth)
         .field({ minLng: '999', minLat: '18.519', maxLng: '73.852', maxLat: '18.522' })
         .attach('before', greenImage, 'before.png')
         .attach('after', changedImage, 'after.png')
         .expect(400);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/change-detection/analyze')
+        .field(IMAGE_BOUNDS)
+        .attach('before', greenImage, 'before.png')
+        .attach('after', changedImage, 'after.png')
+        .expect(401);
     });
   });
 });

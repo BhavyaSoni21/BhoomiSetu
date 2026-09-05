@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { Parcel } from './src/parcels/parcel.entity';
 import { ParcelIdentifier } from './src/parcels/parcel-identifier.entity';
 import { ParcelNeighbour } from './src/parcels/parcel-neighbour.entity';
@@ -12,7 +13,9 @@ import { RegistrationRecord } from './src/departments/registration-record.entity
 import { PlanningRecord } from './src/departments/planning-record.entity';
 import { TaxRecord } from './src/departments/tax-record.entity';
 import { RestrictionRecord } from './src/departments/restriction-record.entity';
+import { DisputeRecord } from './src/departments/dispute-record.entity';
 import { GovernanceAlert } from './src/governance/governance-alert.entity';
+import { User } from './src/users/user.entity';
 
 type Point = [number, number];
 type Ring = Point[];
@@ -311,7 +314,9 @@ async function seedDatabase() {
       PlanningRecord,
       TaxRecord,
       RestrictionRecord,
+      DisputeRecord,
       GovernanceAlert,
+      User,
     ],
     synchronize: true,
   });
@@ -333,10 +338,14 @@ async function seedDatabase() {
     const planningRepository = dataSource.getRepository(PlanningRecord);
     const taxRepository = dataSource.getRepository(TaxRecord);
     const restrictionRecordRepository = dataSource.getRepository(RestrictionRecord);
+    const disputeRecordRepository = dataSource.getRepository(DisputeRecord);
     const governanceAlertRepository = dataSource.getRepository(GovernanceAlert);
+    const userRepository = dataSource.getRepository(User);
 
     // Reset so re-running this script always leaves exactly 200 parcels.
+    await userRepository.clear();
     await governanceAlertRepository.clear();
+    await disputeRecordRepository.clear();
     await registrationRepository.clear();
     await planningRepository.clear();
     await taxRepository.clear();
@@ -370,6 +379,7 @@ async function seedDatabase() {
     const planningRecordsToSave: Partial<PlanningRecord>[] = [];
     const taxRecordsToSave: Partial<TaxRecord>[] = [];
     const restrictionRecordsToSave: Partial<RestrictionRecord>[] = [];
+    const disputeRecordsToSave: Partial<DisputeRecord>[] = [];
 
     // Pune's saved parcels, indexed by grid position, so the zoning /
     // restriction / infrastructure / change-detection demo data below can
@@ -509,6 +519,32 @@ async function seedDatabase() {
             imposingAuthority: hasRestriction ? `${cluster.stateCode} State Environment Authority` : null,
           });
 
+          // Dispute department: same "every parcel gets a record" pattern as
+          // the other four mock departments above, so a citizen/officer
+          // always gets a real 200 (an actual "no dispute" record) rather
+          // than a 404. ~12% of parcels get a real dispute on file.
+          const hasDispute = Math.random() < 0.12;
+          const disputeType = hasDispute
+            ? weightedPick<string>([['OWNERSHIP', 3], ['BOUNDARY', 3], ['INHERITANCE', 2], ['ENCROACHMENT', 2]])
+            : null;
+          const caseStatus = hasDispute
+            ? weightedPick<string>([['FILED', 2], ['UNDER_REVIEW', 2], ['RESOLVED', 3], ['DISMISSED', 1]])
+            : null;
+          const isClosedCase = caseStatus === 'RESOLVED' || caseStatus === 'DISMISSED';
+          disputeRecordsToSave.push({
+            parcelId: savedParcel.id,
+            hasActiveDispute: caseStatus === 'FILED' || caseStatus === 'UNDER_REVIEW',
+            disputeType,
+            caseStatus,
+            filingDate: hasDispute ? randomDate(3) : null,
+            resolutionDate: isClosedCase ? randomDate(1) : null,
+            resolutionSummary: isClosedCase
+              ? caseStatus === 'RESOLVED'
+                ? `Dispute resolved in favor of the recorded owner following ${(disputeType as string).toLowerCase()} review.`
+                : 'Case dismissed for insufficient evidence.'
+              : null,
+          });
+
           // Local Parcel ID - every parcel, every state.
           identifiersToSave.push({
             parcel: savedParcel,
@@ -566,6 +602,8 @@ async function seedDatabase() {
     console.log(`Saved ${savedTax.length} tax records`);
     const savedRestrictionRecords = await restrictionRecordRepository.save(restrictionRecordsToSave);
     console.log(`Saved ${savedRestrictionRecords.length} restriction records`);
+    const savedDisputeRecords = await disputeRecordRepository.save(disputeRecordsToSave);
+    console.log(`Saved ${savedDisputeRecords.length} dispute records`);
 
     const savedNeighbours = await neighbourRepository.save(neighbourRowsToSave);
     console.log(`Saved ${savedNeighbours.length} explicit neighbour relationships (TOUCHING + NEARBY)`);
@@ -725,6 +763,20 @@ async function seedDatabase() {
     ];
     const savedGovernanceAlerts = await governanceAlertRepository.save(governanceAlertsToSave);
     console.log(`Saved ${savedGovernanceAlerts.length} governance alerts (restriction/change-detection/tax)`);
+
+    // Demo accounts for real login (Phase 10, docs/FEATURE_AUDIT.md §8 item 9)
+    // - one per officer role plus one admin, all sharing one demo password.
+    // Never real credentials: this is seed data for a hackathon prototype,
+    // same as every other seeded record in this file.
+    const DEMO_PASSWORD_HASH = bcrypt.hashSync('Demo@123', 10);
+    await userRepository.save([
+      { email: 'admin@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Admin User', role: 'ADMIN' },
+      { email: 'landrecords.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Asha Kulkarni', role: 'LAND_RECORD_OFFICER' },
+      { email: 'registration.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Rohan Mehta', role: 'REGISTRATION_OFFICER' },
+      { email: 'planning.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Priya Nair', role: 'PLANNING_OFFICER' },
+      { email: 'dispute.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Vikram Singh', role: 'DISPUTE_OFFICER' },
+    ]);
+    console.log('Saved 5 demo user accounts (1 admin + 4 officer roles, password: Demo@123)');
 
     const totalParcels = await parcelRepository.count();
     console.log(`Database seeding completed successfully! Total parcels: ${totalParcels}`);

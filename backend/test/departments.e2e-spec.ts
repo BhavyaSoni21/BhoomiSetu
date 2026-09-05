@@ -15,6 +15,7 @@ import { RegistrationRecord } from '../src/departments/registration-record.entit
 import { PlanningRecord } from '../src/departments/planning-record.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { RestrictionRecord } from '../src/departments/restriction-record.entity';
+import { DisputeRecord } from '../src/departments/dispute-record.entity';
 
 describe('Mock department APIs (e2e)', () => {
   let app: INestApplication;
@@ -26,6 +27,7 @@ describe('Mock department APIs (e2e)', () => {
   let planningRepository: Repository<PlanningRecord>;
   let taxRepository: Repository<TaxRecord>;
   let restrictionRepository: Repository<RestrictionRecord>;
+  let disputeRepository: Repository<DisputeRecord>;
 
   let mhParcel: Parcel;
   let dlParcel: Parcel;
@@ -57,6 +59,7 @@ describe('Mock department APIs (e2e)', () => {
     planningRepository = moduleFixture.get(getRepositoryToken(PlanningRecord));
     taxRepository = moduleFixture.get(getRepositoryToken(TaxRecord));
     restrictionRepository = moduleFixture.get(getRepositoryToken(RestrictionRecord));
+    disputeRepository = moduleFixture.get(getRepositoryToken(DisputeRecord));
 
     mhParcel = await parcelRepository.save({
       canonicalParcelId: 'DEPT-MH-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
@@ -95,6 +98,9 @@ describe('Mock department APIs (e2e)', () => {
     });
     await restrictionRepository.save({
       parcelId: mhParcel.id, hasRestriction: true, restrictionType: 'FLOOD_PRONE', restrictionDetails: 'Test flood flag', imposingAuthority: 'MH Env Authority',
+    });
+    await disputeRepository.save({
+      parcelId: mhParcel.id, hasActiveDispute: true, disputeType: 'BOUNDARY', caseStatus: 'UNDER_REVIEW', filingDate: '2025-06-01', resolutionDate: null, resolutionSummary: null,
     });
   });
 
@@ -178,13 +184,27 @@ describe('Mock department APIs (e2e)', () => {
     });
   });
 
-  describe('the five department APIs operate independently', () => {
+  describe('GET /api/v1/dispute/:parcelId', () => {
+    it('returns the dispute status for a parcel', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/dispute/${mhParcel.id}`).expect(200);
+      expect(res.body.hasActiveDispute).toBe(true);
+      expect(res.body.disputeType).toBe('BOUNDARY');
+      expect(res.body.caseStatus).toBe('UNDER_REVIEW');
+    });
+
+    it('returns 404 when no dispute record exists for the parcel', async () => {
+      await request(app.getHttpServer()).get(`/api/v1/dispute/${dlParcel.id}`).expect(404);
+    });
+  });
+
+  describe('the department APIs operate independently', () => {
     it('each department only returns its own data shape - no field leakage between departments', async () => {
-      const [registration, planning, tax, restriction] = await Promise.all([
+      const [registration, planning, tax, restriction, dispute] = await Promise.all([
         request(app.getHttpServer()).get(`/api/v1/registration/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/planning/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/tax/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/restriction/${mhParcel.id}`).expect(200),
+        request(app.getHttpServer()).get(`/api/v1/dispute/${mhParcel.id}`).expect(200),
       ]);
 
       expect(registration.body.landUse).toBeUndefined();
@@ -195,6 +215,8 @@ describe('Mock department APIs (e2e)', () => {
       expect(tax.body.hasRestriction).toBeUndefined();
       expect(restriction.body.taxStatus).toBeUndefined();
       expect(restriction.body.landUse).toBeUndefined();
+      expect(dispute.body.taxStatus).toBeUndefined();
+      expect(dispute.body.hasRestriction).toBeUndefined();
     });
   });
 });

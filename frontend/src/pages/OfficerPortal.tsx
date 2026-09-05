@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../services/apiService';
 import { Workflow } from '../types/workflow';
-import { ROLE_DEPARTMENT, ROLE_LABELS, useOfficerSession } from '../features/officer/officerAuth';
-import OfficerLogin from '../features/officer/OfficerLogin';
+import { OfficerRole, ROLE_DEPARTMENT, ROLE_LABELS } from '../features/officer/officerAuth';
+import { useAuthUser, useLogout } from '../features/auth/auth';
 import WorkflowReviewPanel from '../features/officer/WorkflowReviewPanel';
 import GovernanceAlertsPanel from '../features/officer/GovernanceAlertsPanel';
 import ChangeDetectionPanel from '../features/change-detection/ChangeDetectionPanel';
@@ -15,14 +15,19 @@ function isToday(value: string | null): boolean {
   return date.toDateString() === now.toDateString();
 }
 
+// Route-level RequireAuth (see App.tsx) already guarantees a signed-in
+// officer before this ever mounts; `data` still starts undefined for one
+// render while the shared /auth/me query resolves from cache.
 const OfficerPortal: React.FC = () => {
-  const { session, login, logout } = useOfficerSession();
+  const { data: user } = useAuthUser();
+  const logout = useLogout();
 
-  if (!session) {
-    return <OfficerLogin onLogin={login} />;
-  }
+  if (!user) return null;
 
-  return <OfficerDashboard department={ROLE_DEPARTMENT[session.role]} name={session.name} roleLabel={ROLE_LABELS[session.role]} onLogout={logout} />;
+  const role = user.role as OfficerRole;
+  return (
+    <OfficerDashboard department={ROLE_DEPARTMENT[role]} name={user.name} roleLabel={ROLE_LABELS[role]} onLogout={logout} />
+  );
 };
 
 interface OfficerDashboardProps {
@@ -51,7 +56,7 @@ const OfficerDashboard: React.FC<OfficerDashboardProps> = ({ department, name, r
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Officer Portal</h1>
           <p className="text-gray-600">Welcome, {name} ({roleLabel})</p>

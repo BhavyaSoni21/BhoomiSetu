@@ -62,6 +62,17 @@ export interface RestrictionRecord {
   imposingAuthority: string | null;
 }
 
+export interface DisputeRecord {
+  id: string;
+  parcelId: string;
+  hasActiveDispute: boolean;
+  disputeType: string | null;
+  caseStatus: string | null;
+  filingDate: string | null;
+  resolutionDate: string | null;
+  resolutionSummary: string | null;
+}
+
 export interface Parcel360Response {
   parcel_id: string;
   identifiers: CanonicalIdentifiers;
@@ -74,5 +85,6 @@ export interface Parcel360Response {
     planning: PlanningRecord | null;
     tax: TaxRecord | null;
     restriction: RestrictionRecord | null;
+    dispute: DisputeRecord | null;
   };
 }

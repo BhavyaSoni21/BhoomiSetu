@@ -11,9 +11,13 @@ import { ZoningOverlay } from '../src/spatial/zoning-overlay.entity';
 import { RestrictionZone } from '../src/spatial/restriction-zone.entity';
 import { InfrastructureFeature } from '../src/spatial/infrastructure-feature.entity';
 import { ChangeDetectionEvent } from '../src/spatial/change-detection-event.entity';
+import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Spatial demo layers (e2e)', () => {
   let app: INestApplication;
+  // Write endpoints are admin-only (docs/FEATURE_AUDIT.md §8 item 13).
+  let adminAuth: string;
+  let officerAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -74,6 +78,9 @@ describe('Spatial demo layers (e2e)', () => {
       geometry: squareGeoJSON,
       affectedParcelIds: ['p1', 'p2'],
     });
+
+    adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
+    officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
   });
 
   afterAll(async () => {
@@ -116,5 +123,145 @@ describe('Spatial demo layers (e2e)', () => {
     const res = await request(app.getHttpServer()).get('/api/v1/gis/change-detection-events').query({ district: 'Pune' }).expect(200);
     expect(res.body.features).toHaveLength(1);
     expect(res.body.features[0].properties.affectedParcelIds).toEqual(['p1', 'p2']);
+  });
+
+  const validPolygon = {
+    type: 'Polygon',
+    coordinates: [[[73.9, 18.6], [73.91, 18.6], [73.91, 18.61], [73.9, 18.61], [73.9, 18.6]]],
+  };
+
+  describe('POST /api/v1/gis/zoning-overlays', () => {
+    it('creates a zoning overlay as admin', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'New Zone', zoneType: 'AGRICULTURAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon, parcelIds: ['p9'] })
+        .expect(201);
+
+      expect(res.body.zoneType).toBe('AGRICULTURAL');
+      expect(res.body.id).toBeTruthy();
+
+      const listed = await request(app.getHttpServer()).get('/api/v1/gis/zoning-overlays').query({ district: 'Pune' }).expect(200);
+      expect(listed.body.features.some((f: any) => f.properties.id === res.body.id)).toBe(true);
+    });
+
+    it('rejects a geometry that is not a Polygon with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Bad Zone', zoneType: 'RESIDENTIAL', stateCode: 'MH', district: 'Pune', geometry: { type: 'Point', coordinates: [73.9, 18.6] } })
+        .expect(400);
+    });
+
+    it('rejects an invalid zoneType with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Bad Zone', zoneType: 'INDUSTRIAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(400);
+    });
+
+    it('rejects a non-admin officer with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', officerAuth)
+        .send({ name: 'New Zone', zoneType: 'AGRICULTURAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(403);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .send({ name: 'New Zone', zoneType: 'AGRICULTURAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(401);
+    });
+  });
+
+  describe('PATCH and DELETE /api/v1/gis/zoning-overlays/:id', () => {
+    it('updates and then deletes a zoning overlay as admin', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Temp Zone', zoneType: 'RESIDENTIAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(201);
+
+      const updated = await request(app.getHttpServer())
+        .patch(`/api/v1/gis/zoning-overlays/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .send({ name: 'Renamed Zone' })
+        .expect(200);
+      expect(updated.body.name).toBe('Renamed Zone');
+      expect(updated.body.zoneType).toBe('RESIDENTIAL'); // untouched fields survive a partial update
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/gis/zoning-overlays/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .expect(204);
+
+      const listed = await request(app.getHttpServer()).get('/api/v1/gis/zoning-overlays').query({ district: 'Pune' }).expect(200);
+      expect(listed.body.features.some((f: any) => f.properties.id === created.body.id)).toBe(false);
+    });
+
+    it('returns 404 deleting an unknown zoning overlay', async () => {
+      await request(app.getHttpServer())
+        .delete('/api/v1/gis/zoning-overlays/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', adminAuth)
+        .expect(404);
+    });
+  });
+
+  describe('POST /api/v1/gis/restriction-zones', () => {
+    it('creates a restriction zone as admin', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', adminAuth)
+        .send({ name: 'New Restriction', restrictionType: 'ENVIRONMENTAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(201);
+      expect(res.body.restrictionType).toBe('ENVIRONMENTAL');
+    });
+
+    it('rejects a non-admin officer with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', officerAuth)
+        .send({ name: 'New Restriction', restrictionType: 'ENVIRONMENTAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(403);
+    });
+  });
+
+  describe('POST /api/v1/gis/infrastructure', () => {
+    it('creates an infrastructure feature (LineString) as admin', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/infrastructure')
+        .set('Authorization', adminAuth)
+        .send({ name: 'New Road', featureType: 'ROAD', stateCode: 'MH', district: 'Pune', geometry: { type: 'LineString', coordinates: [[73.9, 18.6], [73.91, 18.61]] } })
+        .expect(201);
+      expect(res.body.featureType).toBe('ROAD');
+    });
+
+    it('creates an infrastructure feature (Point) as admin', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/infrastructure')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Substation', featureType: 'ELECTRICITY', stateCode: 'MH', district: 'Pune', geometry: { type: 'Point', coordinates: [73.9, 18.6] } })
+        .expect(201);
+      expect(res.body.featureType).toBe('ELECTRICITY');
+    });
+
+    it('rejects a Polygon geometry with 400 (only Point/LineString allowed)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/infrastructure')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Bad Feature', featureType: 'ROAD', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .expect(400);
+    });
+
+    it('rejects a non-admin officer with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/infrastructure')
+        .set('Authorization', officerAuth)
+        .send({ name: 'New Road', featureType: 'ROAD', stateCode: 'MH', district: 'Pune', geometry: { type: 'Point', coordinates: [73.9, 18.6] } })
+        .expect(403);
+    });
   });
 });

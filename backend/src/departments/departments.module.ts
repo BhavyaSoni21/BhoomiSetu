@@ -18,10 +18,16 @@ import { TaxController } from './tax.controller';
 import { TaxService } from './tax.service';
 import { RestrictionController } from './restriction.controller';
 import { RestrictionService } from './restriction.service';
+import { DisputeRecord } from './dispute-record.entity';
+import { DisputeController } from './dispute.controller';
+import { DisputeService } from './dispute.service';
 
-// The five mock department APIs (Tech.md #16-17), each independent of the
-// others and of the canonical parcel model. Phase 5's /integrations layer
-// will be the thing that calls into all five and aggregates them.
+// The mock department APIs (Tech.md #16-17, plus Dispute added afterward -
+// see docs/FEATURE_AUDIT.md - to close the SIH problem statement's literal
+// "land records, registration, dispute, planning, and fiscal" workflow
+// list), each independent of the others and of the canonical parcel model.
+// Phase 5's /integrations layer is the thing that calls into all of them
+// and aggregates them.
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -33,13 +39,21 @@ import { RestrictionService } from './restriction.service';
       PlanningRecord,
       TaxRecord,
       RestrictionRecord,
+      DisputeRecord,
     ]),
   ],
-  controllers: [LandRecordsLookupController, RegistrationController, PlanningController, TaxController, RestrictionController],
-  providers: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService],
+  controllers: [
+    LandRecordsLookupController,
+    RegistrationController,
+    PlanningController,
+    TaxController,
+    RestrictionController,
+    DisputeController,
+  ],
+  providers: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService],
   // Exported so InteroperabilityModule's ResponseAggregatorService can call
-  // into all five without duplicating their lookup logic. One-directional:
+  // into all of them without duplicating their lookup logic. One-directional:
   // Departments never imports Interoperability, so there's no module cycle.
-  exports: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService],
+  exports: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService],
 })
 export class DepartmentsModule {}

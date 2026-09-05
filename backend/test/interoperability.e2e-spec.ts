@@ -15,6 +15,7 @@ import { RegistrationRecord } from '../src/departments/registration-record.entit
 import { PlanningRecord } from '../src/departments/planning-record.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { RestrictionRecord } from '../src/departments/restriction-record.entity';
+import { DisputeRecord } from '../src/departments/dispute-record.entity';
 import { IdentifierResolverService } from '../src/interoperability/identifier-resolver.service';
 import { ResponseAggregatorService } from '../src/interoperability/response-aggregator.service';
 import { adaptStateA, adaptStateB } from '../src/interoperability/land-record-adapters';
@@ -37,6 +38,7 @@ describe('Interoperability (e2e)', () => {
   let planningRepository: Repository<PlanningRecord>;
   let taxRepository: Repository<TaxRecord>;
   let restrictionRepository: Repository<RestrictionRecord>;
+  let disputeRepository: Repository<DisputeRecord>;
   let identifierResolver: IdentifierResolverService;
   let responseAggregator: ResponseAggregatorService;
 
@@ -61,6 +63,7 @@ describe('Interoperability (e2e)', () => {
     planningRepository = moduleFixture.get(getRepositoryToken(PlanningRecord));
     taxRepository = moduleFixture.get(getRepositoryToken(TaxRecord));
     restrictionRepository = moduleFixture.get(getRepositoryToken(RestrictionRecord));
+    disputeRepository = moduleFixture.get(getRepositoryToken(DisputeRecord));
     identifierResolver = moduleFixture.get(IdentifierResolverService);
     responseAggregator = moduleFixture.get(ResponseAggregatorService);
 
@@ -93,6 +96,9 @@ describe('Interoperability (e2e)', () => {
     });
     await restrictionRepository.save({
       parcelId: fullMhParcel.id, hasRestriction: false, restrictionType: null, restrictionDetails: null, imposingAuthority: null,
+    });
+    await disputeRepository.save({
+      parcelId: fullMhParcel.id, hasActiveDispute: false, disputeType: null, caseStatus: null, filingDate: null, resolutionDate: null, resolutionSummary: null,
     });
   });
 
@@ -157,7 +163,7 @@ describe('Interoperability (e2e)', () => {
       expect(result).toBeNull();
     });
 
-    it('aggregates all five departments into the canonical envelope for a fully-linked parcel', async () => {
+    it('aggregates all six departments into the canonical envelope for a fully-linked parcel', async () => {
       const result = await responseAggregator.buildParcel360(fullMhParcel.id);
       expect(result!.parcel_id).toBe(fullMhParcel.id);
       expect(result!.identifiers).toEqual({
@@ -171,6 +177,7 @@ describe('Interoperability (e2e)', () => {
         { department: 'PLANNING', status: 'AVAILABLE' },
         { department: 'TAX', status: 'AVAILABLE' },
         { department: 'RESTRICTION', status: 'AVAILABLE' },
+        { department: 'DISPUTE', status: 'AVAILABLE' },
       ]);
 
       expect(result!.departments.landRecords).toEqual(
@@ -180,13 +187,14 @@ describe('Interoperability (e2e)', () => {
       expect(result!.departments.planning!.landUse).toBe('RESIDENTIAL');
       expect(result!.departments.tax!.taxStatus).toBe('PAID');
       expect(result!.departments.restriction!.hasRestriction).toBe(false);
+      expect(result!.departments.dispute!.hasActiveDispute).toBe(false);
     });
 
     it('falls back to localBodyCode for locality and nulls departments.* when nothing is linked', async () => {
       const result = await responseAggregator.buildParcel360(bareTnParcel.id);
       expect(result!.location.locality).toBe('TNLB009');
       expect(result!.departments).toEqual({
-        landRecords: null, registration: null, planning: null, tax: null, restriction: null,
+        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null,
       });
       expect(result!.sources.every((s) => s.status === 'NOT_AVAILABLE')).toBe(true);
     });

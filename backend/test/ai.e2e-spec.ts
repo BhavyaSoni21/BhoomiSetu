@@ -13,6 +13,7 @@ import { Parcel } from '../src/parcels/parcel.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
 import { GroqService } from '../src/ai/groq.service';
+import { createAuthenticatedUser } from './helpers/auth';
 
 // The `openai` SDK is mocked for this whole file - these tests exercise
 // AiService's query-filtering and Zod-validation logic against a
@@ -57,6 +58,10 @@ describe('AI (e2e)', () => {
   let parcel: Parcel;
   let overdueParcel: Parcel;
   let alert: GovernanceAlert;
+  // Only POST /ai/alerts/:alertId/explain is officer/admin-only
+  // (docs/FEATURE_AUDIT.md §8 item 5) - /query and /parcels/:id/explain stay
+  // public (citizen-facing touchpoints).
+  let officerAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -85,6 +90,8 @@ describe('AI (e2e)', () => {
       parcelId: parcel.id, alertType: 'TAX_OVERDUE', severity: 'LOW', source: 'TAX_MONITOR', status: 'OPEN',
       explanation: 'Outstanding property tax of 400 is overdue for this parcel.',
     });
+
+    officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
   });
 
   afterAll(async () => {
@@ -193,7 +200,10 @@ describe('AI (e2e)', () => {
         recommended_action: 'OFFICER_REVIEW',
       });
 
-      const res = await request(app.getHttpServer()).post(`/api/v1/ai/alerts/${alert.id}/explain`).expect(201);
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/ai/alerts/${alert.id}/explain`)
+        .set('Authorization', officerAuth)
+        .expect(201);
       expect(res.body.risk_level).toBe('MEDIUM');
       expect(res.body.recommended_action).toBe('OFFICER_REVIEW');
     });
@@ -201,6 +211,7 @@ describe('AI (e2e)', () => {
     it('returns 404 for an unknown alert (without calling the AI at all)', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/ai/alerts/00000000-0000-0000-0000-000000000000/explain')
+        .set('Authorization', officerAuth)
         .expect(404);
       expect(mockCreate).not.toHaveBeenCalled();
     });
@@ -208,7 +219,14 @@ describe('AI (e2e)', () => {
     it('rejects with 502 when the AI response has an invalid risk_level', async () => {
       mockGroqResponds({ summary: 'x', risk_level: 'EXTREME', findings: [], recommended_action: 'x' });
 
-      await request(app.getHttpServer()).post(`/api/v1/ai/alerts/${alert.id}/explain`).expect(502);
+      await request(app.getHttpServer())
+        .post(`/api/v1/ai/alerts/${alert.id}/explain`)
+        .set('Authorization', officerAuth)
+        .expect(502);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).post(`/api/v1/ai/alerts/${alert.id}/explain`).expect(401);
     });
   });
 });
