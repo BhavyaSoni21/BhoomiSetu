@@ -6,6 +6,7 @@ import { ROLE_DEPARTMENT, ROLE_LABELS, useOfficerSession } from '../features/off
 import OfficerLogin from '../features/officer/OfficerLogin';
 import WorkflowReviewPanel from '../features/officer/WorkflowReviewPanel';
 import GovernanceAlertsPanel from '../features/officer/GovernanceAlertsPanel';
+import ChangeDetectionPanel from '../features/change-detection/ChangeDetectionPanel';
 
 function isToday(value: string | null): boolean {
   if (!value) return false;
@@ -123,6 +124,8 @@ const OfficerDashboard: React.FC<OfficerDashboardProps> = ({ department, name, r
         <h2 className="text-xl font-semibold mb-4">Governance Alerts</h2>
         <GovernanceAlertsPanel />
       </div>
+
+      <ChangeDetectionPanel />
     </div>
   );
 };

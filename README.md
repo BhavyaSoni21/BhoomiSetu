@@ -172,8 +172,17 @@ The citizen portal's Parcel 360 view ("Request Documents" / "Report Issue" butto
 
 Frontend touchpoints (`frontend/src/features/ai/`), all sharing one `AiExplanationCard` renderer: an "Ask AI" natural-language search box on the Citizen Portal, an "Explain with AI" button on Parcel 360, and an "Explain" button on each governance alert in the Officer Portal. Each shows a specific message if the server has no `GROQ_API_KEY` configured rather than a generic error.
 
+### Change Detection
+`backend/src/change-detection/` (Tech.md #33) - built in Node/TypeScript in the existing backend rather than a separate Python/OpenCV service (an explicit stack decision, see docs/Plan.md's Phase 9 note):
+- `POST /api/v1/change-detection/analyze` - multipart fields `before`/`after` (images, any common format, 5MB cap each) plus `minLng`/`minLat`/`maxLng`/`maxLat` (the real geographic bounds the two images cover) and an optional `description`
+- `sharp` decodes/resizes both images to a fixed grid; a hand-rolled pixel comparison (`image-diff.ts`) finds the bounding box of pixels that actually changed and maps it back to a real geographic region
+- Every seeded parcel's centroid is tested against that region with a real point-in-polygon check (`common/geo-utils.ts`, PostGIS-ready) - genuine spatial intersection, not hand-picked
+- A real `ChangeDetectionEvent` row and one `GovernanceAlert` per affected parcel are created (`UNAUTHORIZED_CHANGE_DETECTED`/`CHANGE_DETECTION`, same convention the seed-time alerts already use), immediately visible in the Officer Portal and explainable via the AI endpoints above
+
+Frontend: an "Analyze Imagery" panel in the Officer Portal (`frontend/src/features/change-detection/ChangeDetectionPanel.tsx`) with file pickers, a bounds form (one-click "Use Pune cluster bounds" fill), and a result view linking affected parcels into Parcel 360.
+
 ### Planned (not yet implemented)
-Change detection and audit logging are scaffolded as empty NestJS modules but have no controllers or routes yet, and real officer authentication (JWT/bcrypt/RBAC middleware, a `users` table) is still Phase 10 - Phase 7's simulated officer login above stands in for it. See the phase breakdown below.
+Audit logging is scaffolded as an empty NestJS module but has no controllers or routes yet, and real officer authentication (JWT/bcrypt/RBAC middleware, a `users` table) is still Phase 10 - Phase 7's simulated officer login above stands in for it. See the phase breakdown below.
 
 ## Development Phases
 
@@ -187,7 +196,7 @@ The implementation follows a phased MVP plan:
 6. **Citizen Portal** ✅ done — search, map, tabbed Parcel 360 view, and service requests (see Workflows below)
 7. **Officer Portal** ✅ done — simulated officer login, real assigned-workflow dashboard, per-step review (approve/reject), governance alerts panel (see above)
 8. **AI Integration** ✅ done — Groq-backed natural language query, parcel 360 summary, and governance alert explanation, all Zod-validated (see Groq AI Endpoints above)
-9. **Change Detection** — imagery comparison and alert generation
+9. **Change Detection** ✅ done — real pixel-diff imagery comparison, spatial intersection, and governance alert generation, in Node/TypeScript (see Change Detection above)
 10. **Security and Audit** — authentication, RBAC, audit logging, API security
 
 ## Mock Data

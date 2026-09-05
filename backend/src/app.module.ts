@@ -11,6 +11,7 @@ import { InteroperabilityModule } from './interoperability/interoperability.modu
 import { WorkflowsModule } from './workflows/workflows.module';
 import { GovernanceModule } from './governance/governance.module';
 import { AiModule } from './ai/ai.module';
+import { ChangeDetectionModule } from './change-detection/change-detection.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -58,6 +59,7 @@ import { AuditModule } from './audit/audit.module';
     WorkflowsModule,
     GovernanceModule,
     AiModule,
+    ChangeDetectionModule,
     AuditModule,
   ],
   controllers: [],
