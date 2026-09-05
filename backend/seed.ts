@@ -12,6 +12,7 @@ import { RegistrationRecord } from './src/departments/registration-record.entity
 import { PlanningRecord } from './src/departments/planning-record.entity';
 import { TaxRecord } from './src/departments/tax-record.entity';
 import { RestrictionRecord } from './src/departments/restriction-record.entity';
+import { GovernanceAlert } from './src/governance/governance-alert.entity';
 
 type Point = [number, number];
 type Ring = Point[];
@@ -310,6 +311,7 @@ async function seedDatabase() {
       PlanningRecord,
       TaxRecord,
       RestrictionRecord,
+      GovernanceAlert,
     ],
     synchronize: true,
   });
@@ -331,8 +333,10 @@ async function seedDatabase() {
     const planningRepository = dataSource.getRepository(PlanningRecord);
     const taxRepository = dataSource.getRepository(TaxRecord);
     const restrictionRecordRepository = dataSource.getRepository(RestrictionRecord);
+    const governanceAlertRepository = dataSource.getRepository(GovernanceAlert);
 
     // Reset so re-running this script always leaves exactly 200 parcels.
+    await governanceAlertRepository.clear();
     await registrationRepository.clear();
     await planningRepository.clear();
     await taxRepository.clear();
@@ -684,6 +688,43 @@ async function seedDatabase() {
       affectedParcelIds: changeAffectedIds,
     });
     console.log(`Saved change-detection event affecting ${changeAffectedIds.length} parcels`);
+
+    // Governance alerts (Tech.md #34): the officer-facing output of the
+    // change-detection pipeline built in Phase 8/9. Derived from spatial/tax
+    // data already computed above rather than hand-picked, standing in for
+    // that pipeline until it exists: one alert per parcel actually inside the
+    // flood restriction zone, one per parcel actually flagged by the
+    // simulated change-detection event, and one per parcel whose seeded tax
+    // record actually came out OVERDUE.
+    const governanceAlertsToSave: Partial<GovernanceAlert>[] = [
+      ...floodAffectedIds.map((parcelId) => ({
+        parcelId,
+        alertType: 'RESTRICTION_ZONE_OVERLAP',
+        severity: 'MEDIUM',
+        source: 'RESTRICTION_MONITOR',
+        explanation:
+          'This parcel intersects the Pune flood-prone restriction zone. Any land-use change or construction request here should be reviewed against flood-zone regulations before approval.',
+      })),
+      ...changeAffectedIds.map((parcelId) => ({
+        parcelId,
+        alertType: 'UNAUTHORIZED_CHANGE_DETECTED',
+        severity: 'HIGH',
+        source: 'CHANGE_DETECTION',
+        explanation:
+          'Comparison of before/after imagery flagged a physical change (e.g. a new construction footprint) in this parcel that is not yet reflected in official land records. Recommend officer review.',
+      })),
+      ...savedTax
+        .filter((record) => record.taxStatus === 'OVERDUE')
+        .map((record) => ({
+          parcelId: record.parcelId,
+          alertType: 'TAX_OVERDUE',
+          severity: 'LOW',
+          source: 'TAX_MONITOR',
+          explanation: `Outstanding property tax of ${record.outstandingAmount} is overdue for this parcel.`,
+        })),
+    ];
+    const savedGovernanceAlerts = await governanceAlertRepository.save(governanceAlertsToSave);
+    console.log(`Saved ${savedGovernanceAlerts.length} governance alerts (restriction/change-detection/tax)`);
 
     const totalParcels = await parcelRepository.count();
     console.log(`Database seeding completed successfully! Total parcels: ${totalParcels}`);

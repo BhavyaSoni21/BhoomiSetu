@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
 import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
-import { CreateWorkflowDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
+import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
 
 // The simulated review pipeline every workflow gets (Tech.md #25):
 // CITIZEN REQUEST -> WORKFLOW CREATED -> LAND RECORD REVIEW -> REGISTRATION
@@ -69,6 +69,38 @@ export class WorkflowsService {
     return { ...workflow, steps };
   }
 
+  // Officer dashboard listing (Phase 7): every workflow, optionally narrowed
+  // to ones with a step matching a given department and/or step status - i.e.
+  // "workflows where my department's review is still pending". Fetches all
+  // workflows (this mock never has more than a few hundred) rather than a
+  // JOIN, matching this codebase's existing preference for plain JS filtering
+  // over query-builder joins for read models (see e.g. change-detection's
+  // point-in-polygon affected-parcel computation).
+  async findAll(filters: { department?: string; stepStatus?: string }): Promise<WorkflowWithSteps[]> {
+    const workflows = await this.workflowRepository.find({ order: { createdAt: 'DESC' } });
+
+    const withSteps = await Promise.all(
+      workflows.map(async (workflow) => {
+        const steps = await this.stepRepository
+          .createQueryBuilder('step')
+          .where('step.workflow_id = :id', { id: workflow.id })
+          .orderBy('step.stepOrder', 'ASC')
+          .getMany();
+        return { ...workflow, steps };
+      }),
+    );
+
+    if (!filters.department && !filters.stepStatus) return withSteps;
+
+    return withSteps.filter((workflow) =>
+      workflow.steps.some(
+        (step) =>
+          (!filters.department || step.department === filters.department) &&
+          (!filters.stepStatus || step.status === filters.stepStatus),
+      ),
+    );
+  }
+
   async findByParcel(parcelId: string): Promise<WorkflowWithSteps[]> {
     const workflows = await this.workflowRepository.find({
       where: { parcelId },
@@ -98,5 +130,50 @@ export class WorkflowsService {
     await this.workflowRepository.save(workflow);
 
     return this.findOne(id);
+  }
+
+  // The actual officer review action (Phase 7): approve/reject ONE
+  // workflow_steps row, then recompute the workflow's overall current_status
+  // from every step's outcome - any REJECTED step rejects the whole workflow,
+  // all APPROVED steps approves it, otherwise it's IN_PROGRESS. A step can
+  // only be decided once (PENDING -> APPROVED/REJECTED), matching real
+  // governance semantics rather than letting an officer flip a past decision.
+  async reviewStep(
+    workflowId: string,
+    stepId: string,
+    dto: ReviewWorkflowStepDto,
+  ): Promise<WorkflowWithSteps | 'WORKFLOW_NOT_FOUND' | 'STEP_NOT_FOUND' | 'STEP_ALREADY_DECIDED'> {
+    const workflow = await this.workflowRepository.findOneBy({ id: workflowId });
+    if (!workflow) return 'WORKFLOW_NOT_FOUND';
+
+    const step = await this.stepRepository
+      .createQueryBuilder('step')
+      .where('step.id = :stepId', { stepId })
+      .andWhere('step.workflow_id = :workflowId', { workflowId })
+      .getOne();
+    if (!step) return 'STEP_NOT_FOUND';
+    if (step.status !== 'PENDING') return 'STEP_ALREADY_DECIDED';
+
+    step.status = dto.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    step.action = dto.action;
+    step.remarks = dto.remarks ?? null;
+    step.completedAt = new Date();
+    await this.stepRepository.save(step);
+
+    const allSteps = await this.stepRepository
+      .createQueryBuilder('step')
+      .where('step.workflow_id = :workflowId', { workflowId })
+      .getMany();
+
+    if (allSteps.some((s) => s.status === 'REJECTED')) {
+      workflow.currentStatus = 'REJECTED';
+    } else if (allSteps.every((s) => s.status === 'APPROVED')) {
+      workflow.currentStatus = 'APPROVED';
+    } else {
+      workflow.currentStatus = 'IN_PROGRESS';
+    }
+    await this.workflowRepository.save(workflow);
+
+    return (await this.findOne(workflowId))!;
   }
 }

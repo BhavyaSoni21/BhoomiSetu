@@ -164,4 +164,152 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer()).get('/api/v1/parcels/00000000-0000-0000-0000-000000000000/workflows').expect(404);
     });
   });
+
+  describe('GET /api/v1/workflows (officer dashboard listing)', () => {
+    it('filters by department AND stepStatus to the workflows with a matching pending step', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/workflows?department=LAND_RECORDS&stepStatus=PENDING')
+        .expect(200);
+
+      expect(res.body.some((w: any) => w.id === created.body.id)).toBe(true);
+      expect(res.body.every((w: any) => w.steps.some((s: any) => s.department === 'LAND_RECORDS' && s.status === 'PENDING'))).toBe(true);
+    });
+
+    it('excludes a workflow whose matching-department step has already been decided', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/workflows?department=LAND_RECORDS&stepStatus=PENDING')
+        .expect(200);
+      expect(res.body.some((w: any) => w.id === created.body.id)).toBe(false);
+    });
+
+    it('returns every workflow when no filters are given', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/workflows').expect(200);
+      expect(res.body.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('PATCH /api/v1/workflows/:workflowId/steps/:stepId (officer review action)', () => {
+    it('approving every step moves the workflow to APPROVED', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      let last;
+      for (const step of created.body.steps) {
+        last = await request(app.getHttpServer())
+          .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+          .send({ action: 'APPROVE', remarks: `${step.department} looks good` })
+          .expect(200);
+      }
+
+      expect(last!.body.currentStatus).toBe('APPROVED');
+      expect(last!.body.steps.every((s: any) => s.status === 'APPROVED')).toBe(true);
+      expect(last!.body.steps.every((s: any) => s.completedAt !== null)).toBe(true);
+    });
+
+    it('rejecting one step moves the whole workflow to REJECTED, independent of other steps', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const registrationStep = created.body.steps.find((s: any) => s.department === 'REGISTRATION');
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${registrationStep.id}`)
+        .send({ action: 'REJECT', remarks: 'Ownership mismatch' })
+        .expect(200);
+
+      expect(res.body.currentStatus).toBe('REJECTED');
+      const decided = res.body.steps.find((s: any) => s.id === registrationStep.id);
+      expect(decided.status).toBe('REJECTED');
+      expect(decided.remarks).toBe('Ownership mismatch');
+      // Other steps are left untouched, not force-cancelled.
+      expect(res.body.steps.filter((s: any) => s.id !== registrationStep.id).every((s: any) => s.status === 'PENDING')).toBe(true);
+    });
+
+    it('a partially-approved workflow (not all steps decided) is IN_PROGRESS', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      expect(res.body.currentStatus).toBe('IN_PROGRESS');
+    });
+
+    it('rejects reviewing an already-decided step with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .send({ action: 'REJECT' })
+        .expect(400);
+    });
+
+    it('returns 404 for an unknown workflow', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/v1/workflows/00000000-0000-0000-0000-000000000000/steps/00000000-0000-0000-0000-000000000000')
+        .send({ action: 'APPROVE' })
+        .expect(404);
+    });
+
+    it('returns 404 when the step does not belong to that workflow', async () => {
+      const first = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const second = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'CORRECTION_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${first.body.id}/steps/${second.body.steps[0].id}`)
+        .send({ action: 'APPROVE' })
+        .expect(404);
+    });
+
+    it('rejects an invalid action value with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .send({ action: 'MAYBE' })
+        .expect(400);
+    });
+  });
 });

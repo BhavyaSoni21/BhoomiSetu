@@ -25,5 +25,3 @@ backend/data/*.sqlite-journal
 .DS_Store
 Thumbs.db
 
-#docs
-docs/

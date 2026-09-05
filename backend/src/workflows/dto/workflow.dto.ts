@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateWorkflowDto {
   @IsUUID()
@@ -22,6 +22,18 @@ export class UpdateWorkflowStatusDto {
   @IsString()
   @MaxLength(20)
   status: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+}
+
+// The officer review action on a single workflow_steps row (Phase 7). Kept
+// separate from UpdateWorkflowStatusDto above, which sets the workflow's
+// overall current_status directly and is unchanged since Phase 6.
+export class ReviewWorkflowStepDto {
+  @IsIn(['APPROVE', 'REJECT'])
+  action: 'APPROVE' | 'REJECT';
 
   @IsOptional()
   @IsString()

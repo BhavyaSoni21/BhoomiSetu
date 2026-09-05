@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
+import AiExplanationCard from '../ai/AiExplanationCard';
 import { Parcel360Response } from '../../types/parcel360';
+import { AiExplanation } from '../../types/aiExplanation';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction';
 
@@ -49,14 +52,6 @@ const Parcel360View: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
 
-  // Selecting a different parcel on the map below should replace this whole
-  // view, not just move the map's own highlight - drop any open modal/tab
-  // state that referred to the parcel we're navigating away from.
-  useEffect(() => {
-    setServiceRequest(null);
-    setActiveTab('overview');
-  }, [id]);
-
   const { data: parcel360, isLoading, error } = useQuery<Parcel360Response>(
     ['parcel-360', id],
     async () => {
@@ -65,6 +60,21 @@ const Parcel360View: React.FC = () => {
     },
     { enabled: !!id },
   );
+
+  const explainMutation = useMutation<AiExplanation, Error>(async () => {
+    const response = await apiService.post(`/ai/parcels/${id}/explain`);
+    return response.data;
+  });
+
+  // Selecting a different parcel on the map below should replace this whole
+  // view, not just move the map's own highlight - drop any open modal/tab
+  // state that referred to the parcel we're navigating away from.
+  useEffect(() => {
+    setServiceRequest(null);
+    setActiveTab('overview');
+    explainMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   if (isLoading) {
     return <div className="flex h-[600px] items-center justify-center">Loading parcel details...</div>;
@@ -262,7 +272,27 @@ const Parcel360View: React.FC = () => {
           >
             Back to Search
           </button>
+          <button
+            onClick={() => explainMutation.mutate()}
+            disabled={explainMutation.isLoading}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
+          </button>
         </div>
+
+        {explainMutation.isError && (
+          <p className="text-sm text-red-600 mt-4">
+            {axios.isAxiosError(explainMutation.error) && explainMutation.error.response?.status === 503
+              ? 'AI is not configured on this server.'
+              : 'Something went wrong generating an explanation. Please try again.'}
+          </p>
+        )}
+        {explainMutation.isSuccess && (
+          <div className="mt-4">
+            <AiExplanationCard explanation={explainMutation.data} />
+          </div>
+        )}
       </div>
     </div>
   );

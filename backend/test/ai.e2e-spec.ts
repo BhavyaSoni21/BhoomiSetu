@@ -1,0 +1,214 @@
+process.env.USE_SQLITE = 'true';
+process.env.SQLITE_PATH = ':memory:';
+process.env.GROQ_API_KEY = 'test-key';
+
+import { INestApplication, ServiceUnavailableException, ValidationPipe } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import request = require('supertest');
+import OpenAI from 'openai';
+import { AppModule } from '../src/app.module';
+import { Parcel } from '../src/parcels/parcel.entity';
+import { TaxRecord } from '../src/departments/tax-record.entity';
+import { GovernanceAlert } from '../src/governance/governance-alert.entity';
+import { GroqService } from '../src/ai/groq.service';
+
+// The `openai` SDK is mocked for this whole file - these tests exercise
+// AiService's query-filtering and Zod-validation logic against a
+// controllable fake model response, never a real Groq API call.
+jest.mock('openai');
+const mockCreate = jest.fn();
+(OpenAI as unknown as jest.Mock).mockImplementation(() => ({
+  chat: { completions: { create: mockCreate } },
+}));
+
+function mockGroqResponds(json: unknown) {
+  mockCreate.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(json) } }] });
+}
+
+const square = (minLng: number, minLat: number, size = 0.001) =>
+  JSON.stringify({
+    type: 'Polygon',
+    coordinates: [[
+      [minLng, minLat], [minLng + size, minLat], [minLng + size, minLat + size], [minLng, minLat + size], [minLng, minLat],
+    ]],
+  });
+
+describe('GroqService configuration', () => {
+  it('rejects when GROQ_API_KEY is not set, without making any network call', async () => {
+    const previous = process.env.GROQ_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    try {
+      const svc = new GroqService();
+      await expect(svc.completeJson('system', 'user')).rejects.toThrow(ServiceUnavailableException);
+      expect(mockCreate).not.toHaveBeenCalled();
+    } finally {
+      process.env.GROQ_API_KEY = previous;
+    }
+  });
+});
+
+describe('AI (e2e)', () => {
+  let app: INestApplication;
+  let parcelRepository: Repository<Parcel>;
+  let taxRepository: Repository<TaxRecord>;
+  let alertRepository: Repository<GovernanceAlert>;
+  let parcel: Parcel;
+  let overdueParcel: Parcel;
+  let alert: GovernanceAlert;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    await app.init();
+
+    parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
+    taxRepository = moduleFixture.get(getRepositoryToken(TaxRecord));
+    alertRepository = moduleFixture.get(getRepositoryToken(GovernanceAlert));
+
+    parcel = await parcelRepository.save({
+      canonicalParcelId: 'AI-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
+    });
+    overdueParcel = await parcelRepository.save({
+      canonicalParcelId: 'AI-2', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 400, geometry: square(73.86, 18.53),
+    });
+    await taxRepository.save({ parcelId: parcel.id, assessedValue: 100000, annualTaxAmount: 500, taxStatus: 'PAID', outstandingAmount: 0 });
+    await taxRepository.save({ parcelId: overdueParcel.id, assessedValue: 80000, annualTaxAmount: 400, taxStatus: 'OVERDUE', outstandingAmount: 400 });
+
+    alert = await alertRepository.save({
+      parcelId: parcel.id, alertType: 'TAX_OVERDUE', severity: 'LOW', source: 'TAX_MONITOR', status: 'OPEN',
+      explanation: 'Outstanding property tax of 400 is overdue for this parcel.',
+    });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
+
+  describe('POST /api/v1/ai/query', () => {
+    it('executes the actual DB query using the AI-derived filters', async () => {
+      mockGroqResponds({ filters: { tax_status: 'OVERDUE' } });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/ai/query')
+        .send({ query: 'Show me parcels with overdue tax' })
+        .expect(201);
+
+      expect(res.body.filters).toEqual({ tax_status: 'OVERDUE' });
+      const resultIds = res.body.results.map((p: any) => p.id);
+      expect(resultIds).toContain(overdueParcel.id);
+      expect(resultIds).not.toContain(parcel.id);
+    });
+
+    it('silently strips a filter key the AI hallucinated that is not in the schema', async () => {
+      mockGroqResponds({ filters: { tax_status: 'PAID', made_up_field: 'anything' } });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/ai/query')
+        .send({ query: 'Show me parcels with paid tax' })
+        .expect(201);
+
+      expect(res.body.filters).toEqual({ tax_status: 'PAID' });
+      expect(res.body.results.map((p: any) => p.id)).toContain(parcel.id);
+    });
+
+    it('rejects with 502 when the AI response has an invalid enum value', async () => {
+      mockGroqResponds({ filters: { tax_status: 'MAYBE_OVERDUE' } });
+
+      await request(app.getHttpServer()).post('/api/v1/ai/query').send({ query: 'anything' }).expect(502);
+    });
+
+    it('rejects with 502 when the AI response is missing the filters key entirely', async () => {
+      mockGroqResponds({ notFilters: {} });
+
+      await request(app.getHttpServer()).post('/api/v1/ai/query').send({ query: 'anything' }).expect(502);
+    });
+
+    it('rejects a request with an empty query with 400', async () => {
+      await request(app.getHttpServer()).post('/api/v1/ai/query').send({ query: '' }).expect(400);
+      await request(app.getHttpServer()).post('/api/v1/ai/query').send({}).expect(400);
+    });
+
+    it('normalizes a human-phrased state/district (e.g. "Maharashtra"/"Pune") to the stored short codes', async () => {
+      mockGroqResponds({ filters: { state: 'Maharashtra', district: 'Pune' } });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/ai/query')
+        .send({ query: 'Show me parcels in Pune, Maharashtra' })
+        .expect(201);
+
+      expect(res.body.results.map((p: any) => p.id)).toEqual(expect.arrayContaining([parcel.id, overdueParcel.id]));
+      expect(res.body.results.every((p: any) => p.stateCode === 'MH' && p.districtCode === 'PUN')).toBe(true);
+    });
+  });
+
+  describe('POST /api/v1/ai/parcels/:parcelId/explain', () => {
+    it('returns a validated structured explanation for a real parcel', async () => {
+      mockGroqResponds({
+        summary: 'This parcel has registration and tax data on file.',
+        risk_level: 'LOW',
+        findings: [{ type: 'TAX', description: 'Tax is paid in full.' }],
+        recommended_action: 'No action needed.',
+      });
+
+      const res = await request(app.getHttpServer()).post(`/api/v1/ai/parcels/${parcel.id}/explain`).expect(201);
+      expect(res.body.risk_level).toBe('LOW');
+      expect(res.body.findings).toHaveLength(1);
+    });
+
+    it('returns 404 for an unknown parcel (without calling the AI at all)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/ai/parcels/00000000-0000-0000-0000-000000000000/explain')
+        .expect(404);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-UUID id with 400', async () => {
+      await request(app.getHttpServer()).post('/api/v1/ai/parcels/not-a-uuid/explain').expect(400);
+    });
+
+    it('rejects with 502 when the AI omits a required field', async () => {
+      mockGroqResponds({ summary: 'Missing risk level and the rest' });
+
+      await request(app.getHttpServer()).post(`/api/v1/ai/parcels/${parcel.id}/explain`).expect(502);
+    });
+  });
+
+  describe('POST /api/v1/ai/alerts/:alertId/explain', () => {
+    it('returns a validated structured explanation for a real alert', async () => {
+      mockGroqResponds({
+        summary: 'Property tax is overdue for this parcel.',
+        risk_level: 'MEDIUM',
+        findings: [{ type: 'TAX_OVERDUE', description: 'Outstanding balance of 400.' }],
+        recommended_action: 'OFFICER_REVIEW',
+      });
+
+      const res = await request(app.getHttpServer()).post(`/api/v1/ai/alerts/${alert.id}/explain`).expect(201);
+      expect(res.body.risk_level).toBe('MEDIUM');
+      expect(res.body.recommended_action).toBe('OFFICER_REVIEW');
+    });
+
+    it('returns 404 for an unknown alert (without calling the AI at all)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/ai/alerts/00000000-0000-0000-0000-000000000000/explain')
+        .expect(404);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 502 when the AI response has an invalid risk_level', async () => {
+      mockGroqResponds({ summary: 'x', risk_level: 'EXTREME', findings: [], recommended_action: 'x' });
+
+      await request(app.getHttpServer()).post(`/api/v1/ai/alerts/${alert.id}/explain`).expect(502);
+    });
+  });
+});

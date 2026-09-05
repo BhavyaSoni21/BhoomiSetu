@@ -174,4 +174,35 @@ describe('Parcel360View', () => {
     expect(screen.queryByText('MH-PUN-0099')).not.toBeInTheDocument();
     expect(screen.getByText('p2')).toBeInTheDocument();
   });
+
+  it('clicking "Explain with AI" posts to the explain endpoint and shows the result', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: {
+        summary: 'This parcel is in good standing overall.',
+        risk_level: 'LOW',
+        findings: [{ type: 'Tax', description: 'Tax is paid in full.' }],
+        recommended_action: 'No action needed.',
+      },
+    });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'Explain with AI' }));
+
+    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/ai/parcels/p1/explain'));
+    expect(await screen.findByText('This parcel is in good standing overall.')).toBeInTheDocument();
+    expect(screen.getByText('LOW RISK')).toBeInTheDocument();
+  });
+
+  it('shows an error message when the AI explanation request fails', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: fullResponse });
+    vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 503 } });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'Explain with AI' }));
+
+    expect(await screen.findByText('AI is not configured on this server.')).toBeInTheDocument();
+  });
 });

@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { InteroperabilityModule } from './interoperability/interoperability.module';
 import { WorkflowsModule } from './workflows/workflows.module';
+import { GovernanceModule } from './governance/governance.module';
 import { AiModule } from './ai/ai.module';
 import { AuditModule } from './audit/audit.module';
 
@@ -55,6 +56,7 @@ import { AuditModule } from './audit/audit.module';
     DepartmentsModule,
     InteroperabilityModule,
     WorkflowsModule,
+    GovernanceModule,
     AiModule,
     AuditModule,
   ],
