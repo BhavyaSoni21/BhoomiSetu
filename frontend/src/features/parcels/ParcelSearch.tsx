@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams as useUrlSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
@@ -12,14 +12,26 @@ interface ParcelSearchProps {
 
 const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedParcelId, onSelectParcel }) => {
   const navigate = useNavigate();
+  const [urlParams] = useUrlSearchParams();
   const [searchParams, setSearchParams] = useState({
     ulpin: '',
     survey_number: '',
     plot_number: '',
-    local_identifier: '',
+    local_identifier: urlParams.get('local_identifier') ?? '',
     state: '',
     district: '',
   });
+
+  // Picks up ?local_identifier= from the navbar quick-search, including when
+  // it changes while this route is already mounted (React Router doesn't
+  // remount on a query-only navigation to the same path).
+  useEffect(() => {
+    const fromUrl = urlParams.get('local_identifier');
+    if (fromUrl) {
+      setSearchParams((prev) => ({ ...prev, local_identifier: fromUrl }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlParams]);
 
   const { data: searchResults, isLoading, error } = useQuery<ParcelSummary[]>(
     ['parcels', searchParams],

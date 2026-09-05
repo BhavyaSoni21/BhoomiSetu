@@ -11,9 +11,14 @@ vi.mock('../../services/apiService', () => ({
 
 // MapComponent's own behaviour (maplibre, contextual layers) is covered by
 // MapComponent.test.tsx - stub it here so this file focuses on the 360 data
-// and service-request flow.
+// and service-request flow. Exposes onParcelClick so tests can simulate
+// clicking a different parcel on the map.
 vi.mock('../map/MapComponent', () => ({
-  default: () => <div data-testid="mock-map" />,
+  default: (props: { onParcelClick?: (id: string) => void }) => (
+    <div data-testid="mock-map">
+      <button onClick={() => props.onParcelClick?.('p2')}>Simulate map click on p2</button>
+    </div>
+  ),
 }));
 
 function renderWithProviders(parcelId = 'p1') {
@@ -57,6 +62,12 @@ const fullResponse = {
     },
     restriction: null,
   },
+};
+
+const secondResponse = {
+  ...fullResponse,
+  parcel_id: 'p2',
+  identifiers: { ulpin: null, survey_number: null, plot_number: null, local_identifier: 'MH-PUN-0200' },
 };
 
 describe('Parcel360View', () => {
@@ -144,5 +155,23 @@ describe('Parcel360View', () => {
     renderWithProviders();
 
     expect(await screen.findByText('Error loading parcel details')).toBeInTheDocument();
+  });
+
+  it('switches the whole view to the clicked parcel when a different parcel is selected on the map', async () => {
+    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+      if (url === '/parcels/p1/360') return { data: fullResponse };
+      if (url === '/parcels/p2/360') return { data: secondResponse };
+      throw new Error(`unexpected url: ${url}`);
+    });
+    renderWithProviders('p1');
+
+    expect(await screen.findByText('MH-PUN-0099')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate map click on p2' }));
+
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/parcels/p2/360'));
+    expect(await screen.findByText('MH-PUN-0200')).toBeInTheDocument();
+    expect(screen.queryByText('MH-PUN-0099')).not.toBeInTheDocument();
+    expect(screen.getByText('p2')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ParcelSearch from './ParcelSearch';
 import apiService from '../../services/apiService';
@@ -14,9 +15,13 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-function renderWithClient(ui: React.ReactElement) {
+function renderWithClient(ui: React.ReactElement, initialPath = '/parcels/search') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[initialPath]}>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 }
 
 const sampleParcel = {
@@ -93,5 +98,19 @@ describe('ParcelSearch', () => {
     viewButton.click();
 
     expect(mockNavigate).toHaveBeenCalledWith(`/parcels/${sampleParcel.id}`);
+  });
+
+  it('prefills local_identifier from the URL (navbar quick-search)', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [] } });
+
+    renderWithClient(<ParcelSearch />, '/parcels/search?local_identifier=MH-PUN-4126');
+
+    await waitFor(() =>
+      expect(apiService.get).toHaveBeenCalledWith(
+        '/parcels',
+        expect.objectContaining({ params: expect.objectContaining({ local_identifier: 'MH-PUN-4126' }) }),
+      ),
+    );
+    expect(screen.getByPlaceholderText('Enter Local Identifier')).toHaveValue('MH-PUN-4126');
   });
 });

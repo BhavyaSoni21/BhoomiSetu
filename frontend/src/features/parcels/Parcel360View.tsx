@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
@@ -45,8 +45,17 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 const Parcel360View: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+
+  // Selecting a different parcel on the map below should replace this whole
+  // view, not just move the map's own highlight - drop any open modal/tab
+  // state that referred to the parcel we're navigating away from.
+  useEffect(() => {
+    setServiceRequest(null);
+    setActiveTab('overview');
+  }, [id]);
 
   const { data: parcel360, isLoading, error } = useQuery<Parcel360Response>(
     ['parcel-360', id],
@@ -221,8 +230,15 @@ const Parcel360View: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4">Parcel Map</h2>
         <p className="text-sm text-gray-500 mb-2">
           Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
+          Click another parcel on the map to view its Parcel 360 details.
         </p>
-        <MapComponent parcels={[]} selectedParcelId={parcel360.parcel_id} />
+        <MapComponent
+          parcels={[]}
+          selectedParcelId={parcel360.parcel_id}
+          onParcelClick={(clickedId) => {
+            if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+          }}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
