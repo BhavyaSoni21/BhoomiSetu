@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
+import { isPostgisAvailable } from '../common/postgis';
 
 @Injectable()
 export class GisService {
@@ -27,14 +28,17 @@ export class GisService {
     // assuming we have centroid coordinates stored or we'll skip spatial filters
     if (filters.bbox) {
       const [minX, minY, maxX, maxY] = filters.bbox;
-      // In a real implementation with PostGIS, we would use:
-      // query.andWhere('ST_Intersects(parcel.geometry, ST_MakeEnvelope(:minX, :minY, :maxX, :maxY, 4326))', {
-      //   minX, minY, maxX, maxY,
-      // });
-
-      // For development without PostGIS, we'll skip spatial filtering
-      // and note that this should be implemented with PostGIS in production
-      console.warn('Spatial filtering disabled in development mode. Enable PostGIS for production.');
+      if (isPostgisAvailable(this.parcelRepository)) {
+        // parcel.geometry is stored as GeoJSON text, so it's parsed back into
+        // a real geometry with ST_GeomFromGeoJSON before intersecting it with
+        // the requested envelope (docs/FEATURE_AUDIT.md §8 item 14).
+        query.andWhere(
+          'ST_Intersects(ST_SetSRID(ST_GeomFromGeoJSON(parcel.geometry), 4326), ST_MakeEnvelope(:minX, :minY, :maxX, :maxY, 4326))',
+          { minX, minY, maxX, maxY },
+        );
+      } else {
+        console.warn('Spatial bbox filtering skipped: PostGIS not available (SQLite dev mode). Enable Postgres for production-grade filtering.');
+      }
     }
 
     // Apply state filter
@@ -94,11 +98,16 @@ export class GisService {
 
   // Find parcel at specific coordinates (lat, lng)
   async findParcelAtLocation(lat: number, lng: number): Promise<Parcel | null> {
-    // In a real implementation with PostGIS, we would use:
-    // return this.parcelRepository
-    //   .createQueryBuilder('parcel')
-    //   .where('ST_Contains(parcel.geometry, ST_SetSRID(ST_Point(:lng, :lat), 4326))', { lat, lng })
-    //   .getOne();
+    if (isPostgisAvailable(this.parcelRepository)) {
+      const rows: { id: string }[] = await this.parcelRepository.query(
+        `SELECT id FROM parcels
+         WHERE ST_Contains(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326), ST_SetSRID(ST_MakePoint($1, $2), 4326))
+         LIMIT 1`,
+        [lng, lat],
+      );
+      if (rows.length === 0) return null;
+      return this.parcelRepository.findOneBy({ id: rows[0].id });
+    }
 
     // For development without PostGIS, we'll return null and note the limitation
     console.warn('Spatial queries disabled in development mode. Enable PostGIS for production.');

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import ParcelSearch from '../features/parcels/ParcelSearch';
 import MapComponent from '../features/map/MapComponent';
-import AiParcelSearch from '../features/ai/AiParcelSearch';
+import DocumentVerificationPanel from '../features/document-verification/DocumentVerificationPanel';
+import MyParcels from '../features/citizen/MyParcels';
 import { ParcelSummary } from '../types/parcel';
 
 const CitizenPortal: React.FC = () => {
@@ -11,7 +12,7 @@ const CitizenPortal: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold mb-4">Citizen Portal</h1>
-      <AiParcelSearch />
+      <MyParcels />
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <h2 className="text-xl font-semibold mb-2">Parcel Search</h2>
@@ -30,6 +31,7 @@ const CitizenPortal: React.FC = () => {
           />
         </div>
       </div>
+      <DocumentVerificationPanel selectedParcelId={selectedParcelId} />
     </div>
   );
 };

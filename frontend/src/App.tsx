@@ -9,6 +9,7 @@ import AdminPortal from './pages/AdminPortal';
 import LoginPage from './pages/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import { OFFICER_ROLES } from './features/officer/officerAuth';
+import AskAiWidget from './features/ai/AskAiWidget';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-2 rounded-md text-sm font-medium ${
@@ -46,8 +47,9 @@ function AppShell() {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/" className="text-xl font-semibold text-gray-800">
-                  BhoomiSetu
+                <Link to="/" className="flex items-center gap-2">
+                  <img src="/logo-header.png" alt="" className="h-9 w-auto" />
+                  <span className="text-xl font-semibold text-gray-800">BhoomiSetu</span>
                 </Link>
               </div>
               <div className="hidden md:block">
@@ -150,6 +152,13 @@ function AppShell() {
           </Routes>
         </div>
       </main>
+
+      {/* Citizen-facing only - mounted once here (not per-page) so the
+          floating widget, and its conversation, persist while navigating
+          between citizen pages rather than resetting on every route change. */}
+      {!location.pathname.startsWith('/officer') && !location.pathname.startsWith('/admin') && location.pathname !== '/login' && (
+        <AskAiWidget />
+      )}
     </div>
   );
 }

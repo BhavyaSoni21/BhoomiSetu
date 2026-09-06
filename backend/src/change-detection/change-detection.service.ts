@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import sharp from 'sharp';
 import { Parcel } from '../parcels/parcel.entity';
 import { ChangeDetectionEvent } from '../spatial/change-detection-event.entity';
 import { GovernanceAlert } from '../governance/governance-alert.entity';
 import { outerRing, parseGeometry, pointInRing, ringCentroid, Ring } from '../common/geo-utils';
+import { isPostgisAvailable } from '../common/postgis';
 import { diffImages, pixelBoxToGeoBox, GeoBounds } from './image-diff';
 
 // Fixed analysis grid: both images are resized to this regardless of their
@@ -62,17 +63,31 @@ export class ChangeDetectionService {
     const changeRegion = { type: 'Polygon', coordinates: [changeRing] };
 
     // SPATIAL INTERSECTION: every parcel whose centroid falls inside the
-    // detected change region. Scans all parcels rather than pre-filtering by
-    // state/district (the uploaded bounds could span more than one) - fine
-    // at this mock's scale (<=a few hundred parcels), same JS-filtering
-    // preference this codebase already uses elsewhere (e.g. WorkflowsService
-    // .findAll) over a query-builder join. Ready to swap for
-    // ST_Intersects/ST_Contains if this migrates to PostGIS.
-    const allParcels = await this.parcelRepository.find();
-    const affectedParcels = allParcels.filter((parcel) => {
-      const ring = outerRing(parseGeometry(parcel.geometry));
-      return ring !== null && pointInRing(ringCentroid(ring), changeRing);
-    });
+    // detected change region. On Postgres this is a real ST_Contains/
+    // ST_Centroid query; on SQLite (no PostGIS extension to run that
+    // against) it falls back to scanning every parcel and testing
+    // pointInRing in JS - fine at this mock's scale (<=a few hundred
+    // parcels), same JS-filtering preference this codebase already uses
+    // elsewhere (e.g. WorkflowsService.findAll) over a query-builder join
+    // (docs/FEATURE_AUDIT.md §8 item 14).
+    let affectedParcels: Parcel[];
+    if (isPostgisAvailable(this.parcelRepository)) {
+      const rows: { id: string }[] = await this.parcelRepository.query(
+        `SELECT id FROM parcels
+         WHERE ST_Contains(
+           ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+           ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326))
+         )`,
+        [JSON.stringify(changeRegion)],
+      );
+      affectedParcels = rows.length > 0 ? await this.parcelRepository.find({ where: { id: In(rows.map((r) => r.id)) } }) : [];
+    } else {
+      const allParcels = await this.parcelRepository.find();
+      affectedParcels = allParcels.filter((parcel) => {
+        const ring = outerRing(parseGeometry(parcel.geometry));
+        return ring !== null && pointInRing(ringCentroid(ring), changeRing);
+      });
+    }
     const affectedParcelIds = affectedParcels.map((p) => p.id);
 
     const event = await this.eventRepository.save({

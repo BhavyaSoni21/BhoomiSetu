@@ -14,9 +14,11 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { GovernanceModule } from './governance/governance.module';
 import { AiModule } from './ai/ai.module';
 import { ChangeDetectionModule } from './change-detection/change-detection.module';
+import { DocumentVerificationModule } from './document-verification/document-verification.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { PredictiveAnalyticsModule } from './predictive-analytics/predictive-analytics.module';
 import { AuditModule } from './audit/audit.module';
+import { getDatabaseConnectionOptions } from './database.config';
 
 @Module({
   imports: [
@@ -27,36 +29,12 @@ import { AuditModule } from './audit/audit.module';
     // specifically, since those cost real money per call - see AiController.
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     TypeOrmModule.forRootAsync({
-      useFactory: () => {
-        // Use SQLite for development if PostgreSQL is not available
-        const useSqlite = process.env.USE_SQLITE === 'true' || !process.env.DB_HOST;
-
-        if (useSqlite) {
-          return {
-            type: 'sqlite',
-            database: process.env.SQLITE_PATH || './data/dev.sqlite',
-            entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
-            // SQLite doesn't support PostGIS, so we'll store geometry as text
-            // and handle spatial operations in the service layer for development
-          };
-        } else {
-          return {
-            type: 'postgres',
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT ?? '5432', 10),
-            username: process.env.DB_USERNAME || 'postgres',
-            password: process.env.DB_PASSWORD || 'postgres',
-            database: process.env.DB_NAME || 'bhoomisetu',
-            entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true, // Set to false in production
-            // Enable PostGIS extension
-            extra: {
-              searchPath: ['public'],
-            },
-          };
-        }
-      },
+      // SQLite (dev/test, no external DB needed) vs Postgres+PostGIS - see
+      // database.config.ts, shared with seed.ts so both ever branch the same way.
+      useFactory: () => ({
+        ...getDatabaseConnectionOptions(),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      }),
     }),
     GisModule,
     ParcelsModule,
@@ -70,6 +48,7 @@ import { AuditModule } from './audit/audit.module';
     GovernanceModule,
     AiModule,
     ChangeDetectionModule,
+    DocumentVerificationModule,
     AnalyticsModule,
     PredictiveAnalyticsModule,
     AuditModule,

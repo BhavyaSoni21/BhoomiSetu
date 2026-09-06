@@ -180,6 +180,15 @@ describe('Analytics (e2e)', () => {
       expect(after.body.totals.recentLogins24h).toBe(before.body.totals.recentLogins24h + 1);
     });
 
+    it('does not count citizen sign-in accounts toward totalUsers', async () => {
+      const before = await request(app.getHttpServer()).get('/api/v1/analytics/summary').set('Authorization', adminAuth).expect(200);
+
+      await userRepository.save({ email: 'citizen-metric-test@test.com', passwordHash: 'x', name: 'A Citizen', role: 'CITIZEN' });
+
+      const after = await request(app.getHttpServer()).get('/api/v1/analytics/summary').set('Authorization', adminAuth).expect(200);
+      expect(after.body.totals.totalUsers).toBe(before.body.totals.totalUsers);
+    });
+
     it('rejects a non-admin officer with 403', async () => {
       await request(app.getHttpServer()).get('/api/v1/analytics/summary').set('Authorization', officerAuth).expect(403);
     });

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Simulated output of a satellite change-detection pass: a "changed region"
 // polygon plus the parcels it was generated to intersect. Populated by
@@ -26,6 +26,6 @@ export class ChangeDetectionEvent {
   @Column({ type: 'simple-array', nullable: true })
   affectedParcelIds: string[];
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   detectedAt: Date;
 }

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Land-use zoning polygon (residential / commercial / agricultural) used to
 // demonstrate zoning analysis over a parcel cluster. Populated by seed.ts;
@@ -27,6 +27,6 @@ export class ZoningOverlay {
   @Column({ type: 'simple-array', nullable: true })
   parcelIds: string[]; // parcels this overlay was generated to cover
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

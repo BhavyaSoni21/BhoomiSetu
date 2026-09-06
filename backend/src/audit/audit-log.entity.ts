@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Tech.md #26/#27's audit_logs table - the "AUDIT LOG" stage in Tech.md
 // §25's simulated-workflow diagram, sitting between an officer's decision
@@ -34,6 +34,6 @@ export class AuditLog {
   @Column({ type: 'text', nullable: true })
   metadata: string | null; // JSON-serialized, e.g. {"department":"LAND_RECORDS","remarks":"..."}
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

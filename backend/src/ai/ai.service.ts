@@ -9,12 +9,34 @@ import { RegistrationRecord } from '../departments/registration-record.entity';
 import { ResponseAggregatorService } from '../interoperability/response-aggregator.service';
 import { GovernanceAlertsService } from '../governance/governance-alerts.service';
 import { GroqService } from './groq.service';
-import { queryIntentSchema, QueryIntent } from './schemas/query-intent.schema';
+import { assistantResponseSchema, AssistantFilters } from './schemas/assistant-response.schema';
 import { aiExplanationSchema, AiExplanation } from './schemas/ai-explanation.schema';
 
-const QUERY_SYSTEM_PROMPT = `You convert a citizen or officer's natural-language question about land parcels into a structured JSON filter. Respond with ONLY a JSON object of this exact shape:
-{"filters": {"state"?: string, "district"?: string, "tax_status"?: "PAID"|"PENDING"|"OVERDUE", "has_restriction"?: boolean, "land_use"?: "RESIDENTIAL"|"COMMERCIAL"|"AGRICULTURAL"|"MIXED_USE", "registration_status"?: "REGISTERED"|"PENDING"|"NOT_REGISTERED"}}
-Only include a key when the question actually asks about it. Never include any field not listed above. Never include SQL or any executable code - only this JSON filter object.`;
+// The floating "Ask AI" widget (docs/Plan.md's citizen-assistant addendum)
+// handles two kinds of question in a single Groq call, rather than a
+// separate classification round trip first - that would double the latency
+// the widget is specifically trying to avoid.
+const ASSISTANT_SYSTEM_PROMPT = `You are BhoomiSetu's citizen assistant, embedded as a chat widget on the Citizen Portal. A citizen can ask you two kinds of thing:
+
+1. DATA_QUERY - a question about actual parcels/land records (e.g. "parcels with overdue tax", "show me restricted land in Pune"). Convert it into a structured filter.
+2. HELP - a question about how to use the website, or navigation help (e.g. "how do I file a dispute", "where can I verify a document", "how do I see my parcels").
+
+Respond with ONLY a JSON object of this exact shape:
+{"intent": "DATA_QUERY"|"HELP", "reply": string, "filters"?: {"state"?: string, "district"?: string, "tax_status"?: "PAID"|"PENDING"|"OVERDUE", "has_restriction"?: boolean, "land_use"?: "RESIDENTIAL"|"COMMERCIAL"|"AGRICULTURAL"|"MIXED_USE", "registration_status"?: "REGISTERED"|"PENDING"|"NOT_REGISTERED"}}
+
+For DATA_QUERY: set "filters" to the extracted criteria (only include a key the question actually asked about), and set "reply" to one short, friendly sentence introducing the results (e.g. "Here are the parcels with overdue tax in Pune."). Do NOT state a count or list results yourself - the backend runs the real query and fills that in.
+For HELP: omit "filters" entirely, and set "reply" to a direct, plain-language answer using ONLY the real features listed below - never invent a feature that isn't listed, and never state a fact about any specific parcel's data (you have none for a HELP question).
+
+Actual website features you may describe:
+- Parcel Search: search by ULPIN, Survey Number, Plot Number, Local Identifier, State, or District code.
+- Map View: an interactive map of the searched/selected parcel plus adjacent, nearby, and same-cluster parcels, with optional zoning/restriction/infrastructure/change-detection overlay layers.
+- Parcel 360: click "View" on a parcel to see its full record - identifiers, land record, registration, planning, tax, restrictions, disputes, and a risk assessment.
+- Service Requests: from a parcel's page, file a Record-of-Rights copy request, a correction request, or a dispute - track status in "Your Requests" on that parcel's page.
+- Verify a Document: upload a photo/scan of a land document; it's checked against a selected parcel's official records for matching owner name, identifiers, and area.
+- My Parcels: sign in (optional - never required to search) to see the parcels linked to your account.
+- Ask AI (this chat): ask about parcel data in plain language, or ask how to do something on the site.
+
+Never include SQL, code, or any field not listed above.`;
 
 const RESULT_LIMIT = 50;
 
@@ -62,13 +84,25 @@ export class AiService {
     private readonly governanceAlertsService: GovernanceAlertsService,
   ) {}
 
-  async naturalLanguageQuery(query: string): Promise<{ filters: QueryIntent['filters']; totalMatches: number; results: Parcel[] }> {
-    const raw = await this.groqService.completeJson(QUERY_SYSTEM_PROMPT, query);
-    const parsed = queryIntentSchema.safeParse(raw);
+  async askAssistant(query: string): Promise<{
+    intent: 'DATA_QUERY' | 'HELP';
+    reply: string;
+    filters?: AssistantFilters;
+    totalMatches?: number;
+    results?: Parcel[];
+  }> {
+    const raw = await this.groqService.completeJson(ASSISTANT_SYSTEM_PROMPT, query);
+    const parsed = assistantResponseSchema.safeParse(raw);
     if (!parsed.success) {
-      throw new BadGatewayException('AI returned a query interpretation that could not be validated');
+      throw new BadGatewayException('AI returned a response that could not be validated');
     }
-    const { filters } = parsed.data;
+    const { intent, reply, filters } = parsed.data;
+
+    // A HELP answer (or a DATA_QUERY the model somehow returned with no
+    // filters at all) needs no database work - just the conversational reply.
+    if (intent === 'HELP' || !filters) {
+      return { intent: 'HELP', reply };
+    }
 
     let parcels = await this.parcelRepository.find({
       where: {
@@ -102,7 +136,7 @@ export class AiService {
       parcels = parcels.filter((p) => matchingParcelIds.has(p.id));
     }
 
-    return { filters, totalMatches: parcels.length, results: parcels.slice(0, RESULT_LIMIT) };
+    return { intent: 'DATA_QUERY', reply, filters, totalMatches: parcels.length, results: parcels.slice(0, RESULT_LIMIT) };
   }
 
   async explainParcel(parcelId: string): Promise<ExplainResult> {

@@ -65,6 +65,17 @@ describe('LoginPage', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/admin'));
   });
 
+  it('logs in and navigates to /citizen for the citizen role', async () => {
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: { accessToken: 'tok', user: { id: 'u3', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' } },
+    });
+    renderPage();
+
+    fillAndSubmit('citizen1@example.com', 'Demo@123');
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/citizen'));
+  });
+
   it('shows an invalid-credentials message on a 401', async () => {
     vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
     renderPage();

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Tech.md #34 governance_alerts: the officer-facing output of the AI /
 // change-detection pipeline built in Phase 8/9. The Officer Portal (Phase 7)
@@ -31,6 +31,6 @@ export class GovernanceAlert {
   @Column({ type: 'text' })
   explanation: string;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

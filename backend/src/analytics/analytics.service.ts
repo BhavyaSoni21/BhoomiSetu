@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { In, MoreThan, Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
 import { TaxRecord } from '../departments/tax-record.entity';
 import { RegistrationRecord } from '../departments/registration-record.entity';
@@ -10,6 +10,7 @@ import { Workflow } from '../workflows/workflow.entity';
 import { GovernanceAlert } from '../governance/governance-alert.entity';
 import { User } from '../users/user.entity';
 import { AuditLog } from '../audit/audit-log.entity';
+import { ALL_STAFF_ROLES } from '../auth/roles.constants';
 
 export interface Distribution {
   key: string;
@@ -93,7 +94,10 @@ export class AnalyticsService {
       this.workflowRepository.count(),
       this.alertRepository.count({ where: { status: 'OPEN' } }),
       this.disputeRepository.count({ where: { hasActiveDispute: true } }),
-      this.userRepository.count(),
+      // Staff only - matches UsersService.findAll()'s scoping, so this
+      // "Total Users" metric keeps meaning "how many officer/admin accounts
+      // exist" now that citizen sign-in accounts also live in this table.
+      this.userRepository.count({ where: { role: In([...ALL_STAFF_ROLES]) } }),
       this.auditLogRepository.count({ where: { action: 'AUTH_LOGIN', createdAt: MoreThan(oneDayAgo) } }),
       this.groupCount(this.taxRepository, 'taxStatus'),
       this.groupCount(this.registrationRepository, 'registrationStatus'),

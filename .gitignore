@@ -17,6 +17,12 @@ build/
 backend/data/*.sqlite
 backend/data/*.sqlite-journal
 
+# tesseract.js downloads and caches its language model into the working
+# directory on first OCR call (docs/FEATURE_AUDIT.md's Document Verification
+# feature) - a ~5MB binary that regenerates automatically, not something to
+# commit.
+backend/*.traineddata
+
 # Editor
 .vscode/
 .idea/

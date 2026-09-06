@@ -14,10 +14,13 @@ import { ALL_STAFF_ROLES } from '../auth/roles.constants';
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
-  // Citizen-facing (AiParcelSearch on the Citizen Portal) - stays public.
+  // Citizen-facing (the floating "Ask AI" widget on the Citizen Portal) -
+  // stays public. Handles both a data question ("parcels with overdue tax")
+  // and a how-do-I-use-this-site question in one call - see
+  // AiService.askAssistant.
   @Post('query')
   async query(@Body() dto: NaturalLanguageQueryDto) {
-    return this.aiService.naturalLanguageQuery(dto.query);
+    return this.aiService.askAssistant(dto.query);
   }
 
   // Citizen-facing ("Explain with AI" on Parcel 360, a shared route) - stays public.

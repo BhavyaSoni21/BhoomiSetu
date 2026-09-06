@@ -10,17 +10,24 @@ import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
 import { ParcelIdentifier } from '../src/parcels/parcel-identifier.entity';
 import { ParcelNeighbour } from '../src/parcels/parcel-neighbour.entity';
+import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
+import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Parcels endpoints (e2e)', () => {
   let app: INestApplication;
   let parcelRepository: Repository<Parcel>;
   let identifierRepository: Repository<ParcelIdentifier>;
   let neighbourRepository: Repository<ParcelNeighbour>;
+  let citizenParcelRepository: Repository<CitizenParcel>;
   let parcelA: Parcel;
   let parcelB: Parcel;
+  let citizenAuth: string;
+  let otherCitizenAuth: string;
+  let citizenLinkedParcel: Parcel;
+  let moduleFixture: TestingModule;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
@@ -32,6 +39,16 @@ describe('Parcels endpoints (e2e)', () => {
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
     identifierRepository = moduleFixture.get(getRepositoryToken(ParcelIdentifier));
     neighbourRepository = moduleFixture.get(getRepositoryToken(ParcelNeighbour));
+    citizenParcelRepository = moduleFixture.get(getRepositoryToken(CitizenParcel));
+
+    citizenLinkedParcel = await parcelRepository.save({
+      canonicalParcelId: 'CAN-CITIZEN-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 1000,
+      geometry: JSON.stringify({ type: 'Polygon', coordinates: [[[73.85, 18.52], [73.851, 18.52], [73.851, 18.521], [73.85, 18.521], [73.85, 18.52]]] }),
+    });
+    const citizenAuthResult = await createAuthenticatedUser(moduleFixture, 'CITIZEN');
+    citizenAuth = citizenAuthResult.authHeader;
+    await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel: citizenLinkedParcel });
+    otherCitizenAuth = (await createAuthenticatedUser(moduleFixture, 'CITIZEN')).authHeader;
 
     parcelA = await parcelRepository.save({
       canonicalParcelId: 'CAN00001',
@@ -98,7 +115,8 @@ describe('Parcels endpoints (e2e)', () => {
   describe('GET /api/v1/parcels (search)', () => {
     it('returns all parcels with no filters', async () => {
       const res = await request(app.getHttpServer()).get('/api/v1/parcels').expect(200);
-      expect(res.body.total).toBe(2);
+      // parcelA + parcelB + citizenLinkedParcel (added for the /parcels/mine tests below).
+      expect(res.body.total).toBe(3);
     });
 
     it('finds a parcel by ULPIN', async () => {
@@ -441,6 +459,37 @@ describe('Parcels endpoints (e2e)', () => {
       expect(res.body.clusterParcels).toEqual([
         expect.objectContaining({ parcelId: noCluster.id }),
       ]);
+    });
+  });
+
+  describe('GET /api/v1/parcels/mine', () => {
+    it('returns only the parcels linked to the signed-in citizen', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/parcels/mine')
+        .set('Authorization', citizenAuth)
+        .expect(200);
+
+      expect(res.body.total).toBe(1);
+      expect(res.body.parcels).toHaveLength(1);
+      expect(res.body.parcels[0].id).toBe(citizenLinkedParcel.id);
+    });
+
+    it('returns an empty list for a citizen with no linked parcels', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/parcels/mine')
+        .set('Authorization', otherCitizenAuth)
+        .expect(200);
+
+      expect(res.body).toEqual({ parcels: [], total: 0 });
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/parcels/mine').expect(401);
+    });
+
+    it('rejects a non-citizen (e.g. an officer) with 403', async () => {
+      const officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+      await request(app.getHttpServer()).get('/api/v1/parcels/mine').set('Authorization', officerAuth).expect(403);
     });
   });
 });

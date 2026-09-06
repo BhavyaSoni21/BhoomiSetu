@@ -53,6 +53,15 @@ describe('Users (e2e)', () => {
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer()).get('/api/v1/users').expect(401);
     });
+
+    it('excludes citizen sign-in accounts - this list is for officer/admin account management', async () => {
+      const citizen = await userRepository.save({
+        email: 'excluded-citizen@test.com', passwordHash: 'x', name: 'A Citizen', role: 'CITIZEN',
+      });
+
+      const res = await request(app.getHttpServer()).get('/api/v1/users').set('Authorization', adminUser.authHeader).expect(200);
+      expect(res.body.some((u: { id: string }) => u.id === citizen.id)).toBe(false);
+    });
   });
 
   describe('POST /api/v1/users', () => {

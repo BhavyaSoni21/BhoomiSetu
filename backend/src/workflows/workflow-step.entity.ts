@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Workflow } from './workflow.entity';
+import { isSqliteConfigured } from '../database.config';
 
 // Tech.md #24/#25's "workflow_steps": the simulated review pipeline a
 // workflow moves through (LAND_RECORDS -> REGISTRATION -> PLANNING ->
@@ -33,6 +34,14 @@ export class WorkflowStep {
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
 
-  @Column({ type: 'datetime', nullable: true })
+  // No single literal column type is portable here: sqlite's driver only
+  // recognizes 'datetime' and postgres's only recognizes 'timestamp' - each
+  // caught live (once against Supabase, once by re-running the SQLite e2e
+  // suite straight after - docs/FEATURE_AUDIT.md §8 item 14), so the type is
+  // picked per-driver at class-definition time instead. Not a
+  // @CreateDateColumn/@UpdateDateColumn - this is a business-domain value set
+  // explicitly by WorkflowsService on approve/reject, not an automatic
+  // row-lifecycle timestamp.
+  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   completedAt: Date | null;
 }

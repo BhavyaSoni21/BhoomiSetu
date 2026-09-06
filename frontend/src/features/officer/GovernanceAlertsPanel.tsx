@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
-import AiExplanationCard from '../ai/AiExplanationCard';
+import GovernanceAlertDetailModal from './GovernanceAlertDetailModal';
 
 const SEVERITY_COLORS: Record<string, string> = {
   LOW: 'bg-gray-100 text-gray-700',
@@ -15,6 +15,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 const GovernanceAlertsPanel: React.FC = () => {
   const queryClient = useQueryClient();
   const [explanations, setExplanations] = useState<Record<string, AiExplanation>>({});
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
   const { data: alerts = [], isLoading, error } = useQuery<GovernanceAlert[]>(
     ['governance-alerts', 'OPEN'],
@@ -30,7 +31,13 @@ const GovernanceAlertsPanel: React.FC = () => {
       return response.data;
     },
     {
-      onSuccess: () => queryClient.invalidateQueries(['governance-alerts', 'OPEN']),
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries(['governance-alerts', 'OPEN']);
+        // The list only shows OPEN alerts, so an alert acted on from inside
+        // the detail modal is about to disappear from underneath it -
+        // closing here avoids leaving the modal open on a stale reference.
+        setSelectedAlertId((current) => (current === variables.id ? null : current));
+      },
     },
   );
 
@@ -51,6 +58,8 @@ const GovernanceAlertsPanel: React.FC = () => {
     return <div className="text-gray-500 text-sm">No open governance alerts requiring attention.</div>;
   }
 
+  const selectedAlert = alerts.find((a) => a.id === selectedAlertId) ?? null;
+
   return (
     <div className="space-y-3">
       {alerts.map((alert) => (
@@ -67,6 +76,12 @@ const GovernanceAlertsPanel: React.FC = () => {
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             <button
+              onClick={() => setSelectedAlertId(alert.id)}
+              className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            >
+              View Details
+            </button>
+            <button
               onClick={() => statusMutation.mutate({ id: alert.id, status: 'REVIEWED' })}
               disabled={statusMutation.isLoading}
               className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
@@ -80,25 +95,23 @@ const GovernanceAlertsPanel: React.FC = () => {
             >
               Dismiss
             </button>
-            <button
-              onClick={() => explainMutation.mutate(alert.id)}
-              disabled={explainMutation.isLoading && explainMutation.variables === alert.id}
-              className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {explainMutation.isLoading && explainMutation.variables === alert.id ? 'Explaining...' : 'Explain'}
-            </button>
           </div>
-
-          {explainMutation.isError && explainMutation.variables === alert.id && (
-            <p className="text-xs text-red-600 mt-2">Could not generate an explanation. Please try again.</p>
-          )}
-          {explanations[alert.id] && (
-            <div className="mt-2">
-              <AiExplanationCard explanation={explanations[alert.id]} />
-            </div>
-          )}
         </div>
       ))}
+
+      {selectedAlert && (
+        <GovernanceAlertDetailModal
+          alert={selectedAlert}
+          explanation={explanations[selectedAlert.id]}
+          isExplaining={explainMutation.isLoading && explainMutation.variables === selectedAlert.id}
+          explainError={explainMutation.isError && explainMutation.variables === selectedAlert.id}
+          isUpdatingStatus={statusMutation.isLoading}
+          onExplain={() => explainMutation.mutate(selectedAlert.id)}
+          onMarkReviewed={() => statusMutation.mutate({ id: selectedAlert.id, status: 'REVIEWED' })}
+          onDismiss={() => statusMutation.mutate({ id: selectedAlert.id, status: 'DISMISSED' })}
+          onClose={() => setSelectedAlertId(null)}
+        />
+      )}
     </div>
   );
 };

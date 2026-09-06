@@ -69,7 +69,7 @@ describe('App mobile navigation', () => {
     fireEvent.click(within(mobileMenu).getByRole('link', { name: 'Officer Portal' }));
 
     // No token in localStorage, so RequireAuth redirects /officer -> /login.
-    expect(await screen.findByText('Officer / Admin Sign In')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
     expect(document.getElementById('mobile-menu')).not.toBeInTheDocument();
   });
 });

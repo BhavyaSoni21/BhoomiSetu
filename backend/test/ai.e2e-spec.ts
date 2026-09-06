@@ -103,14 +103,16 @@ describe('AI (e2e)', () => {
   });
 
   describe('POST /api/v1/ai/query', () => {
-    it('executes the actual DB query using the AI-derived filters', async () => {
-      mockGroqResponds({ filters: { tax_status: 'OVERDUE' } });
+    it('executes the actual DB query using the AI-derived filters for a DATA_QUERY intent', async () => {
+      mockGroqResponds({ intent: 'DATA_QUERY', reply: 'Here are the overdue-tax parcels.', filters: { tax_status: 'OVERDUE' } });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/ai/query')
         .send({ query: 'Show me parcels with overdue tax' })
         .expect(201);
 
+      expect(res.body.intent).toBe('DATA_QUERY');
+      expect(res.body.reply).toBe('Here are the overdue-tax parcels.');
       expect(res.body.filters).toEqual({ tax_status: 'OVERDUE' });
       const resultIds = res.body.results.map((p: any) => p.id);
       expect(resultIds).toContain(overdueParcel.id);
@@ -118,7 +120,7 @@ describe('AI (e2e)', () => {
     });
 
     it('silently strips a filter key the AI hallucinated that is not in the schema', async () => {
-      mockGroqResponds({ filters: { tax_status: 'PAID', made_up_field: 'anything' } });
+      mockGroqResponds({ intent: 'DATA_QUERY', reply: 'Here you go.', filters: { tax_status: 'PAID', made_up_field: 'anything' } });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/ai/query')
@@ -129,14 +131,36 @@ describe('AI (e2e)', () => {
       expect(res.body.results.map((p: any) => p.id)).toContain(parcel.id);
     });
 
+    it('answers a HELP-intent question with just a reply and no database query', async () => {
+      mockGroqResponds({ intent: 'HELP', reply: 'Use the Search Parcels panel and enter a ULPIN or Survey Number.' });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/ai/query')
+        .send({ query: 'How do I search for a parcel?' })
+        .expect(201);
+
+      expect(res.body).toEqual({ intent: 'HELP', reply: 'Use the Search Parcels panel and enter a ULPIN or Survey Number.' });
+    });
+
+    it('treats a DATA_QUERY with no filters at all as a HELP-shaped reply (no results/filters keys)', async () => {
+      mockGroqResponds({ intent: 'DATA_QUERY', reply: 'Could you say which parcels you mean?' });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/ai/query')
+        .send({ query: 'show me some parcels' })
+        .expect(201);
+
+      expect(res.body).toEqual({ intent: 'HELP', reply: 'Could you say which parcels you mean?' });
+    });
+
     it('rejects with 502 when the AI response has an invalid enum value', async () => {
-      mockGroqResponds({ filters: { tax_status: 'MAYBE_OVERDUE' } });
+      mockGroqResponds({ intent: 'DATA_QUERY', reply: 'x', filters: { tax_status: 'MAYBE_OVERDUE' } });
 
       await request(app.getHttpServer()).post('/api/v1/ai/query').send({ query: 'anything' }).expect(502);
     });
 
-    it('rejects with 502 when the AI response is missing the filters key entirely', async () => {
-      mockGroqResponds({ notFilters: {} });
+    it('rejects with 502 when the AI response is missing the intent/reply keys entirely', async () => {
+      mockGroqResponds({ notIntent: {} });
 
       await request(app.getHttpServer()).post('/api/v1/ai/query').send({ query: 'anything' }).expect(502);
     });
@@ -147,7 +171,7 @@ describe('AI (e2e)', () => {
     });
 
     it('normalizes a human-phrased state/district (e.g. "Maharashtra"/"Pune") to the stored short codes', async () => {
-      mockGroqResponds({ filters: { state: 'Maharashtra', district: 'Pune' } });
+      mockGroqResponds({ intent: 'DATA_QUERY', reply: 'Here you go.', filters: { state: 'Maharashtra', district: 'Pune' } });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/ai/query')

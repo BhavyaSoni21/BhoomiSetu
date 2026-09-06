@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Phase 10: real accounts backing what was previously a client-side-only
 // "pick a name and role" simulated session (see docs/FEATURE_AUDIT.md §8
@@ -23,6 +23,6 @@ export class User {
   @Column({ type: 'varchar', length: 30 })
   role: string; // ADMIN | LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER | DISPUTE_OFFICER
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

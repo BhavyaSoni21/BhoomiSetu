@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Restriction polygon (e.g. flood-prone area) that crosses parcel boundaries,
 // used to demonstrate spatial-intersection queries ("which parcels does this
@@ -28,6 +28,6 @@ export class RestrictionZone {
   @Column({ type: 'simple-array', nullable: true })
   affectedParcelIds: string[]; // parcels this restriction intersects
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

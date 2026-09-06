@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 // Mock infrastructure (roads, utility lines) near a parcel cluster, used to
 // demonstrate proximity queries ("which parcels are near this road?").
@@ -24,6 +24,6 @@ export class InfrastructureFeature {
   @Column({ type: 'text' })
   geometry: string; // GeoJSON LineString or Point, as text
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 }

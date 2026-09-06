@@ -7,7 +7,9 @@ import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ALL_STAFF_ROLES } from '../auth/roles.constants';
+import { ALL_STAFF_ROLES, CITIZEN_ROLE } from '../auth/roles.constants';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { User } from '../users/user.entity';
 
 @Controller('parcels')
 export class ParcelsController {
@@ -40,6 +42,16 @@ export class ParcelsController {
       limit,
       offset,
     });
+  }
+
+  // Registered before ':id' so 'mine' is never swallowed as an id param.
+  // Optional citizen sign-in (docs/Plan.md Phase 12) - the parcels linked to
+  // the signed-in citizen's account, for a "My Parcels" dashboard.
+  @Get('mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CITIZEN_ROLE)
+  async getMyParcels(@CurrentUser() user: User) {
+    return this.parcelsService.findMine(user.id);
   }
 
   @Get(':id')

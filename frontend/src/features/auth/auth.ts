@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { OfficerRole } from '../officer/officerAuth';
 
-export type UserRole = OfficerRole | 'ADMIN';
+export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN';
 
 export interface AuthUser {
   id: string;

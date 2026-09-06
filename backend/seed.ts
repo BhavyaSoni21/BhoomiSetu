@@ -1,8 +1,13 @@
-import { DataSource } from 'typeorm';
+import 'dotenv/config';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { getDatabaseConnectionOptions } from './src/database.config';
+import { CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generateClusterParcels } from './src/common/parcel-generation/cluster-generator';
+import { pointInRing, polygonDistanceMeters } from './src/common/geo-utils';
 import { Parcel } from './src/parcels/parcel.entity';
 import { ParcelIdentifier } from './src/parcels/parcel-identifier.entity';
 import { ParcelNeighbour } from './src/parcels/parcel-neighbour.entity';
+import { CitizenParcel } from './src/parcels/citizen-parcel.entity';
 import { ZoningOverlay } from './src/spatial/zoning-overlay.entity';
 import { RestrictionZone } from './src/spatial/restriction-zone.entity';
 import { InfrastructureFeature } from './src/spatial/infrastructure-feature.entity';
@@ -17,164 +22,45 @@ import { DisputeRecord } from './src/departments/dispute-record.entity';
 import { GovernanceAlert } from './src/governance/governance-alert.entity';
 import { User } from './src/users/user.entity';
 
-type Point = [number, number];
-type Ring = Point[];
-
-interface ParcelCluster {
-  clusterId: string;
-  stateCode: string;
-  district: string;
-  centerLng: number;
-  centerLat: number;
-  rows: number;
-  cols: number;
-  spacing: number;
-}
-
-// Four geographically real demo regions, each a connected cadastral network
-// (not independent scattered polygons): every parcel in a cluster shares its
-// clusterId, and adjacent parcels share exact boundary coordinates (see the
-// lattice functions below) so the cluster reads as one continuous parcel web.
-const CLUSTERS: ParcelCluster[] = [
-  { clusterId: 'MH-PUNE-01', stateCode: 'MH', district: 'Pune', centerLng: 73.8567, centerLat: 18.5204, rows: 10, cols: 10, spacing: 0.0015 },
-  { clusterId: 'TN-CHENNAI-01', stateCode: 'TN', district: 'Chennai', centerLng: 80.2707, centerLat: 13.0827, rows: 5, cols: 8, spacing: 0.0015 },
-  { clusterId: 'KA-BANGALORE-01', stateCode: 'KA', district: 'Bangalore', centerLng: 77.5946, centerLat: 12.9716, rows: 5, cols: 8, spacing: 0.0015 },
-  { clusterId: 'DL-NEWDELHI-01', stateCode: 'DL', district: 'New Delhi', centerLng: 77.2090, centerLat: 28.6139, rows: 4, cols: 5, spacing: 0.0015 },
-];
-
 function districtCode(district: string): string {
   return district.substring(0, 3).toUpperCase();
 }
 
-// Center of grid cell (row, col) - equals the average of the cell's four
-// lattice corners (see buildLattice), used for zoning/infrastructure
-// placement which doesn't need per-parcel geometry.
-function gridCellCenter(cluster: ParcelCluster, row: number, col: number): Point {
-  const lng = cluster.centerLng + (col - (cluster.cols - 1) / 2) * cluster.spacing;
-  const lat = cluster.centerLat + (row - (cluster.rows - 1) / 2) * cluster.spacing;
-  return [lng, lat];
+interface Bounds {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
 }
 
-// --- Shared-vertex lattice: this is what makes adjacent parcels share exact
-// boundary coordinates instead of being independent nearby polygons -------
-
-// (rows+1) x (cols+1) grid of corner points. Each interior point is jittered
-// once and then reused by every parcel touching it (up to 4), which is what
-// keeps the grid connected while still looking hand-drawn rather than a
-// perfect spreadsheet grid.
-function buildLattice(cluster: ParcelCluster): Point[][] {
-  const jitterMax = cluster.spacing * 0.1;
-  const lattice: Point[][] = [];
-  for (let r = 0; r <= cluster.rows; r++) {
-    const row: Point[] = [];
-    for (let c = 0; c <= cluster.cols; c++) {
-      const baseLng = cluster.centerLng + (c - cluster.cols / 2) * cluster.spacing;
-      const baseLat = cluster.centerLat + (r - cluster.rows / 2) * cluster.spacing;
-      row.push([baseLng + (Math.random() - 0.5) * jitterMax, baseLat + (Math.random() - 0.5) * jitterMax]);
+function boundsOfRings(rings: Ring[]): Bounds {
+  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  for (const ring of rings) {
+    for (const [lng, lat] of ring) {
+      if (lng < minLng) minLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lng > maxLng) maxLng = lng;
+      if (lat > maxLat) maxLat = lat;
     }
-    lattice.push(row);
   }
-  return lattice;
+  return { minLng, minLat, maxLng, maxLat };
 }
 
-// Perpendicular-jittered midpoint of segment a-b, so a shared edge bows
-// slightly instead of being a dead-straight line - still identical on both
-// sides since it's computed once and looked up by both parcels.
-function edgeMidpoint(a: Point, b: Point, jitterMax: number): Point {
-  const mx = (a[0] + b[0]) / 2;
-  const my = (a[1] + b[1]) / 2;
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy) || 1;
-  const offset = (Math.random() - 0.5) * jitterMax;
-  return [mx + (-dy / len) * offset, my + (dx / len) * offset];
-}
+// A rectangle spanning a fraction-of-bounds window (e.g. latFracRange
+// [0, 0.5] = the southern half of the cluster's actual generated footprint)
+// instead of a fixed grid-cell range - works regardless of the cluster's
+// actual irregular shape/orientation, replacing the old lattice-relative
+// buildZoneRectangle.
+function buildZoneRectangleFromBounds(bounds: Bounds, latFracRange: [number, number]): string {
+  const latSpan = bounds.maxLat - bounds.minLat;
+  const margin = latSpan * 0.03;
+  const jitter = () => (Math.random() - 0.5) * latSpan * 0.02;
+  const minLat = bounds.minLat + latFracRange[0] * latSpan - margin;
+  const maxLat = bounds.minLat + latFracRange[1] * latSpan + margin;
+  const minLng = bounds.minLng - (bounds.maxLng - bounds.minLng) * 0.03;
+  const maxLng = bounds.maxLng + (bounds.maxLng - bounds.minLng) * 0.03;
 
-interface EdgeMidpoints {
-  hMid: Point[][]; // hMid[r][c]: midpoint of lattice[r][c] -> lattice[r][c+1]
-  vMid: Point[][]; // vMid[r][c]: midpoint of lattice[r][c] -> lattice[r+1][c]
-}
-
-function buildEdgeMidpoints(lattice: Point[][], cluster: ParcelCluster): EdgeMidpoints {
-  const jitterMax = cluster.spacing * 0.12;
-  const hMid: Point[][] = [];
-  for (let r = 0; r <= cluster.rows; r++) {
-    const row: Point[] = [];
-    for (let c = 0; c < cluster.cols; c++) row.push(edgeMidpoint(lattice[r][c], lattice[r][c + 1], jitterMax));
-    hMid.push(row);
-  }
-  const vMid: Point[][] = [];
-  for (let r = 0; r < cluster.rows; r++) {
-    const row: Point[] = [];
-    for (let c = 0; c <= cluster.cols; c++) row.push(edgeMidpoint(lattice[r][c], lattice[r + 1][c], jitterMax));
-    vMid.push(row);
-  }
-  return { hMid, vMid };
-}
-
-// The parcel at (row, col) as an 8-vertex ring built entirely from shared
-// lattice corners and shared edge midpoints - by construction it can never
-// gap or overlap its neighbours, and any edge it shares with a neighbour is
-// pixel-for-pixel (coordinate-for-coordinate) identical on both sides.
-function parcelRing(lattice: Point[][], mid: EdgeMidpoints, row: number, col: number): Ring {
-  const TL = lattice[row][col];
-  const TR = lattice[row][col + 1];
-  const BR = lattice[row + 1][col + 1];
-  const BL = lattice[row + 1][col];
-  const top = mid.hMid[row][col];
-  const right = mid.vMid[row][col + 1];
-  const bottom = mid.hMid[row + 1][col];
-  const left = mid.vMid[row][col];
-  return [TL, top, TR, right, BR, bottom, BL, left, TL];
-}
-
-// Shoelace formula on a locally-projected (equirectangular) approximation -
-// accurate enough for parcels a few tens of metres across.
-function polygonAreaSqM(ring: Ring, refLat: number): number {
-  const metersPerDegLat = 110540;
-  const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
-  const pts = ring.map(([lng, lat]) => [lng * metersPerDegLng, lat * metersPerDegLat]);
-  let area = 0;
-  for (let i = 0; i < pts.length - 1; i++) {
-    area += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
-  }
-  return Math.abs(area / 2);
-}
-
-function ringCentroid(ring: Ring): Point {
-  const pts = ring.slice(0, -1);
-  const lng = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
-  const lat = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
-  return [lng, lat];
-}
-
-function pointInPolygon([x, y]: Point, ring: Ring): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
-// A jittered rectangle spanning a range of grid cells (inclusive), used for
-// zoning overlays where the parcel *count* needs to land in a target range -
-// membership is exact by construction rather than by re-testing intersection.
-function buildZoneRectangle(cluster: ParcelCluster, rowRange: [number, number], colRange: [number, number]): string {
-  const corners = [
-    gridCellCenter(cluster, rowRange[0], colRange[0]),
-    gridCellCenter(cluster, rowRange[0], colRange[1]),
-    gridCellCenter(cluster, rowRange[1], colRange[1]),
-    gridCellCenter(cluster, rowRange[1], colRange[0]),
-  ];
-  const margin = cluster.spacing * 0.5;
-  const jitter = () => (Math.random() - 0.5) * cluster.spacing * 0.15;
-  const [minLng, maxLng] = [Math.min(...corners.map((c) => c[0])) - margin, Math.max(...corners.map((c) => c[0])) + margin];
-  const [minLat, maxLat] = [Math.min(...corners.map((c) => c[1])) - margin, Math.max(...corners.map((c) => c[1])) + margin];
-
-  const ring: Ring = [
+  const ring: Point[] = [
     [minLng + jitter(), minLat + jitter()],
     [maxLng + jitter(), minLat + jitter()],
     [maxLng + jitter(), maxLat + jitter()],
@@ -184,18 +70,67 @@ function buildZoneRectangle(cluster: ParcelCluster, rowRange: [number, number], 
   return JSON.stringify({ type: 'Polygon', coordinates: [ring] });
 }
 
-// A hand-authored irregular polygon (offsets are in multiples of the grid
-// spacing) crossing several parcel boundaries diagonally - used for the
-// flood restriction zone and the change-detection region. Which parcels it
-// affects is worked out afterwards with a real point-in-polygon test against
-// each parcel's centroid, so geometry and "affected parcels" stay honest.
-function buildIrregularZone(cluster: ParcelCluster, offsets: [number, number][]): { geoJSON: string; ring: Ring } {
-  const ring: Ring = offsets.map(([dCol, dRow]) => [
-    cluster.centerLng + dCol * cluster.spacing,
-    cluster.centerLat + dRow * cluster.spacing,
-  ]);
+// A small irregular polygon (hand-jittered, 6-sided) centered on a real
+// point and sized in meters - anchors the flood/change-detection demo zones
+// to wherever a cluster's parcels actually generated, instead of a blind
+// fraction-of-bounding-box guess that can land in the empty space outside an
+// irregular (non-rectangular) envelope's convex hull.
+function buildZoneAroundPoint(center: Point, radiusMeters: number, refLat: number): { geoJSON: string; ring: Ring } {
+  const metersPerDegLat = 110540;
+  const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
+  const sides = 6;
+  const ring: Ring = [];
+  for (let k = 0; k < sides; k++) {
+    const theta = (k / sides) * 2 * Math.PI + (Math.random() - 0.5) * ((2 * Math.PI) / sides) * 0.5;
+    const r = radiusMeters * (0.75 + Math.random() * 0.4);
+    const dx = Math.cos(theta) * r;
+    const dy = Math.sin(theta) * r;
+    ring.push([center[0] + dx / metersPerDegLng, center[1] + dy / metersPerDegLat]);
+  }
   ring.push([ring[0][0], ring[0][1]]);
   return { geoJSON: JSON.stringify({ type: 'Polygon', coordinates: [ring] }), ring };
+}
+
+// Grows/shrinks buildZoneAroundPoint's radius until the number of centroids
+// it captures lands in targetRange, so a demo zone reliably affects "a
+// plausible handful of parcels" regardless of how the randomized subdivision
+// happened to lay out parcels near the chosen anchor this run.
+function buildZoneHittingTarget(
+  points: { centroid: Point }[],
+  anchor: Point,
+  refLat: number,
+  targetRange: [number, number],
+  startRadiusMeters: number,
+): { geoJSON: string; ring: Ring; affectedCount: number } {
+  let radius = startRadiusMeters;
+  let zone = buildZoneAroundPoint(anchor, radius, refLat);
+  let count = points.filter((p) => pointInRing(p.centroid, zone.ring)).length;
+  for (let attempt = 0; attempt < 6 && (count < targetRange[0] || count > targetRange[1]); attempt++) {
+    radius *= count < targetRange[0] ? 1.35 : 0.75;
+    zone = buildZoneAroundPoint(anchor, radius, refLat);
+    count = points.filter((p) => pointInRing(p.centroid, zone.ring)).length;
+  }
+  return { ...zone, affectedCount: count };
+}
+
+// The generated centroid closest to (latFrac, lngFrac) within a cluster's
+// bounding box, optionally excluding points already inside another zone -
+// used to anchor a demo zone at a plausible, deterministically-locatable
+// spot ("near the middle", "near a corner") regardless of the cluster's
+// actual randomized shape.
+function pickAnchor(points: { centroid: Point }[], bounds: Bounds, targetLatFrac: number, targetLngFrac: number, avoid?: Ring): Point {
+  const latSpan = bounds.maxLat - bounds.minLat;
+  const lngSpan = bounds.maxLng - bounds.minLng;
+  let best = points[0].centroid;
+  let bestDist = Infinity;
+  for (const p of points) {
+    if (avoid && pointInRing(p.centroid, avoid)) continue;
+    const latFrac = (p.centroid[1] - bounds.minLat) / latSpan;
+    const lngFrac = (p.centroid[0] - bounds.minLng) / lngSpan;
+    const dist = Math.hypot(latFrac - targetLatFrac, lngFrac - targetLngFrac);
+    if (dist < bestDist) { bestDist = dist; best = p.centroid; }
+  }
+  return best;
 }
 
 // Identifier types each state prioritizes, layered on top of the Local
@@ -258,37 +193,32 @@ const LAND_USES: Array<[string, number]> = [
   ['MIXED_USE', 1],
 ];
 
-interface GridEntry {
+interface ClusterParcelEntry {
   parcel: Parcel;
-  row: number;
-  col: number;
+  ring: Ring;
   centroid: Point;
 }
 
-// Explicit TOUCHING (shares a full edge - the 4 orthogonal grid neighbours,
-// guaranteed by the shared-lattice construction above) and NEARBY (shares
-// only a corner - the 4 diagonal grid neighbours) relationships, derived
-// from known row/column position rather than recomputed from geometry. This
-// is what section 10 of the spec calls "shared grid topology + stored
-// neighbour relationships" as the SQLite-appropriate stand-in for
-// ST_Touches()/ST_DWithin(). Iterating every cell's full 8-neighbourhood
-// naturally produces both directions of each relationship.
-function buildNeighbourRows(grid: GridEntry[]): Partial<ParcelNeighbour>[] {
-  const byPosition = new Map<string, GridEntry>();
-  for (const entry of grid) byPosition.set(`${entry.row}:${entry.col}`, entry);
+const TOUCH_EPSILON_M = 3; // matches ParcelsService's own TOUCHING threshold
+const NEARBY_RADIUS_M = 60; // wide enough to catch the generator's intentional small gaps (5-7m) plus genuinely close unrelated neighbours
 
-  const TOUCHING_OFFSETS: [number, number][] = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-  const NEARBY_OFFSETS: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
-
+// Real geometric TOUCHING/NEARBY classification (docs/FEATURE_AUDIT.md §8
+// item 14's own polygonDistanceMeters, also used by ParcelsService's live
+// fallback) computed once at seed time, over every pair of parcels within a
+// cluster - this is what makes the generator's irregular subdivision
+// "produce topology that makes neighbour detection meaningful" (an exact
+// shared edge -> distance 0 -> TOUCHING; an intentional small gap ->
+// distance a few metres -> NEARBY), replacing the old row/col-adjacency
+// lookup that only worked for a uniform grid.
+function computeNeighbourRows(entries: ClusterParcelEntry[], refLat: number): Partial<ParcelNeighbour>[] {
   const rows: Partial<ParcelNeighbour>[] = [];
-  for (const entry of grid) {
-    for (const [dr, dc] of TOUCHING_OFFSETS) {
-      const neighbour = byPosition.get(`${entry.row + dr}:${entry.col + dc}`);
-      if (neighbour) rows.push({ parcelId: entry.parcel.id, neighbourParcelId: neighbour.parcel.id, relationshipType: 'TOUCHING' });
-    }
-    for (const [dr, dc] of NEARBY_OFFSETS) {
-      const neighbour = byPosition.get(`${entry.row + dr}:${entry.col + dc}`);
-      if (neighbour) rows.push({ parcelId: entry.parcel.id, neighbourParcelId: neighbour.parcel.id, relationshipType: 'NEARBY' });
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const distance = polygonDistanceMeters(entries[i].ring, entries[j].ring, refLat);
+      if (distance > NEARBY_RADIUS_M) continue;
+      const relationshipType = distance <= TOUCH_EPSILON_M ? 'TOUCHING' : 'NEARBY';
+      rows.push({ parcelId: entries[i].parcel.id, neighbourParcelId: entries[j].parcel.id, relationshipType });
+      rows.push({ parcelId: entries[j].parcel.id, neighbourParcelId: entries[i].parcel.id, relationshipType });
     }
   }
   return rows;
@@ -297,9 +227,12 @@ function buildNeighbourRows(grid: GridEntry[]): Partial<ParcelNeighbour>[] {
 async function seedDatabase() {
   console.log('Starting database seeding...');
 
+  // Same USE_SQLITE/DB_* branching AppModule uses (database.config.ts) - so
+  // `npm run seed` targets whichever database the app itself would connect
+  // to, SQLite or a real Postgres/PostGIS instance (docs/FEATURE_AUDIT.md §8
+  // item 14), without this script needing its own separate config story.
   const dataSource = new DataSource({
-    type: 'sqlite',
-    database: process.env.SQLITE_PATH || './data/dev.sqlite',
+    ...getDatabaseConnectionOptions(),
     entities: [
       Parcel,
       ParcelIdentifier,
@@ -317,9 +250,9 @@ async function seedDatabase() {
       DisputeRecord,
       GovernanceAlert,
       User,
+      CitizenParcel,
     ],
-    synchronize: true,
-  });
+  } as DataSourceOptions);
 
   try {
     await dataSource.initialize();
@@ -341,25 +274,55 @@ async function seedDatabase() {
     const disputeRecordRepository = dataSource.getRepository(DisputeRecord);
     const governanceAlertRepository = dataSource.getRepository(GovernanceAlert);
     const userRepository = dataSource.getRepository(User);
+    const citizenParcelRepository = dataSource.getRepository(CitizenParcel);
 
     // Reset so re-running this script always leaves exactly 200 parcels.
-    await userRepository.clear();
-    await governanceAlertRepository.clear();
-    await disputeRecordRepository.clear();
-    await registrationRepository.clear();
-    await planningRepository.clear();
-    await taxRepository.clear();
-    await restrictionRecordRepository.clear();
-    await stateARepository.clear();
-    await stateBRepository.clear();
-    await neighbourRepository.clear();
-    await identifierRepository.clear();
-    await changeDetectionRepository.clear();
-    await restrictionRepository.clear();
-    await zoningRepository.clear();
-    await infrastructureRepository.clear();
-    await parcelRepository.clear();
+    // Plain DELETE, not .clear()'s TRUNCATE - Postgres refuses to TRUNCATE a
+    // table that another table has a live FK constraint pointing at (e.g.
+    // parcel_identifiers -> parcels) even once that referencing table's own
+    // rows are already gone; caught live seeding against Supabase
+    // (docs/FEATURE_AUDIT.md §8 item 14). SQLite never enforced this, so it
+    // was invisible until now. Order still matters here: children before
+    // the parents they reference.
+    const tablesToClear = [
+      citizenParcelRepository, userRepository, governanceAlertRepository, disputeRecordRepository, registrationRepository,
+      planningRepository, taxRepository, restrictionRecordRepository, stateARepository, stateBRepository,
+      neighbourRepository, identifierRepository, changeDetectionRepository, restrictionRepository,
+      zoningRepository, infrastructureRepository, parcelRepository,
+    ];
+    for (const repo of tablesToClear) {
+      await repo.createQueryBuilder().delete().execute();
+    }
     console.log('Cleared existing spatial demo data');
+
+    // --- PHASE 1: generate every cluster's irregular parcel geometry up
+    // front, before building any DB entities. Pune's zoning/restriction/
+    // change-detection demo layers below need its actual generated bounding
+    // box (an irregular envelope has no a-priori grid to compute one from),
+    // so geometry generation has to fully complete before any of that can
+    // be built - unlike the old lattice, which could compute a grid cell's
+    // center without generating anything else first.
+    const generatedByCluster = new Map<string, GeneratedParcel[]>();
+    for (const config of CLUSTER_CONFIGS) {
+      const generated = generateClusterParcels(config);
+      generatedByCluster.set(config.clusterId, generated);
+      console.log(`Generated ${generated.length} irregular parcels for cluster ${config.clusterId}`);
+    }
+
+    const pune = CLUSTER_CONFIGS[0];
+    const puneBounds = boundsOfRings(generatedByCluster.get(pune.clusterId)!.map((p) => p.ring));
+
+    // Built up front (not after the parcel loop, like the other Pune overlay
+    // zones) so the Restriction department mock can flag parcels inside it
+    // while iterating - reused verbatim by the spatial layer save below.
+    // Anchored near the residential/commercial boundary (latFrac 0.5) using
+    // Pune's actual generated centroids (available from Phase 1, before any
+    // entity is saved), sized to affect a plausible double-digit handful of
+    // parcels regardless of this run's randomized layout.
+    const puneGenerated = generatedByCluster.get(pune.clusterId)!;
+    const floodAnchor = pickAnchor(puneGenerated, puneBounds, 0.5, 0.45);
+    const floodZone = buildZoneHittingTarget(puneGenerated, floodAnchor, pune.centerLat, [8, 18], 320);
+    console.log(`Flood zone anchored, expecting to affect ~${floodZone.affectedCount} parcels`);
 
     let canonicalSeq = 10000;
     const identifiersToSave: Partial<ParcelIdentifier>[] = [];
@@ -381,209 +344,195 @@ async function seedDatabase() {
     const restrictionRecordsToSave: Partial<RestrictionRecord>[] = [];
     const disputeRecordsToSave: Partial<DisputeRecord>[] = [];
 
-    // Pune's saved parcels, indexed by grid position, so the zoning /
-    // restriction / infrastructure / change-detection demo data below can
-    // reference exactly the right parcels.
-    const puneGrid: GridEntry[] = [];
+    // Pune's saved parcels, so the zoning / restriction / infrastructure /
+    // change-detection demo data below can reference exactly the right
+    // parcels.
+    const puneEntries: ClusterParcelEntry[] = [];
+    // Every saved parcel, every cluster - used below to link a random subset
+    // to demo citizen accounts (docs/Plan.md Phase 12).
+    const allSavedParcels: Parcel[] = [];
 
-    // Built up front (not after the parcel loop, like the other Pune overlay
-    // zones) so the Restriction department mock can flag parcels inside it
-    // while iterating - reused verbatim by the spatial layer save below.
-    const pune = CLUSTERS[0];
-    const floodZone = buildIrregularZone(pune, [
-      [-2.0, 1.6],
-      [-0.4, 2.0],
-      [0.8, 0.8],
-      [1.8, -0.4],
-      [0.9, -1.4],
-      [-0.4, -0.8],
-      [-1.6, 0.3],
-    ]);
+    // --- PHASE 2: build DB entities + every per-parcel department record
+    // from the pre-generated geometry ------------------------------------
+    for (const config of CLUSTER_CONFIGS) {
+      const distCode = districtCode(config.district);
+      const generated = generatedByCluster.get(config.clusterId)!;
+      const clusterEntries: ClusterParcelEntry[] = [];
 
-    for (const cluster of CLUSTERS) {
-      const distCode = districtCode(cluster.district);
-      const lattice = buildLattice(cluster);
-      const midpoints = buildEdgeMidpoints(lattice, cluster);
-      const clusterGrid: GridEntry[] = [];
+      for (const gp of generated) {
+        const profile = IDENTIFIER_PROFILES[config.stateCode];
+        const hasUlpin = profile.some((p) => p.type === 'ULPIN' && Math.random() < p.probability);
 
-      for (let row = 0; row < cluster.rows; row++) {
-        for (let col = 0; col < cluster.cols; col++) {
-          const ring = parcelRing(lattice, midpoints, row, col);
-          const centroid = ringCentroid(ring);
+        const parcel = new Parcel();
+        parcel.canonicalParcelId = `CAN${String(canonicalSeq++).padStart(5, '0')}`;
+        parcel.clusterId = config.clusterId;
+        parcel.ulpin = hasUlpin ? profile.find((p) => p.type === 'ULPIN')!.format() : null;
+        parcel.stateCode = config.stateCode;
+        parcel.districtCode = distCode;
+        parcel.localBodyCode = `${config.stateCode}LB${String(randInt(0, 999)).padStart(3, '0')}`;
+        parcel.geometry = JSON.stringify({ type: 'Polygon', coordinates: [gp.ring] });
+        parcel.areaSqM = gp.areaSqM;
 
-          const profile = IDENTIFIER_PROFILES[cluster.stateCode];
-          const hasUlpin = profile.some((p) => p.type === 'ULPIN' && Math.random() < p.probability);
+        const savedParcel = await parcelRepository.save(parcel);
+        const entry: ClusterParcelEntry = { parcel: savedParcel, ring: gp.ring, centroid: gp.centroid };
+        clusterEntries.push(entry);
+        allSavedParcels.push(savedParcel);
+        if (config.district === 'Pune') puneEntries.push(entry);
 
-          const parcel = new Parcel();
-          parcel.canonicalParcelId = `CAN${String(canonicalSeq++).padStart(5, '0')}`;
-          parcel.clusterId = cluster.clusterId;
-          parcel.ulpin = hasUlpin ? profile.find((p) => p.type === 'ULPIN')!.format() : null;
-          parcel.stateCode = cluster.stateCode;
-          parcel.districtCode = distCode;
-          parcel.localBodyCode = `${cluster.stateCode}LB${String(randInt(0, 999)).padStart(3, '0')}`;
-          parcel.geometry = JSON.stringify({ type: 'Polygon', coordinates: [ring] });
-          parcel.areaSqM = polygonAreaSqM(ring, centroid[1]);
-
-          const savedParcel = await parcelRepository.save(parcel);
-          const gridEntry: GridEntry = { parcel: savedParcel, row, col, centroid };
-          clusterGrid.push(gridEntry);
-          if (cluster.district === 'Pune') puneGrid.push(gridEntry);
-
-          // The identifier value a Land Records lookup-by-parcel would use to
-          // resolve into the state schema below (SURVEY_NUMBER for MH,
-          // PLOT_NUMBER for DL) - computed once and reused for both the
-          // parcel_identifiers row *and* the state record, so
-          // GET /api/v1/land-records/:parcelId can actually find a match
-          // instead of the two being independently-random and unrelated.
-          let primaryIdentifierValue: string | null = null;
-          if (cluster.stateCode === 'MH') {
-            primaryIdentifierValue = `${randInt(1, 200)}/${randInt(1, 12)}`;
-            stateARecordsToSave.push({
-              surveyNumber: primaryIdentifierValue,
-              subdivisionNumber: String(randInt(1, 9)),
-              ownerName: randomPersonName(),
-              villageCode: `VIL${String(randInt(1, 40)).padStart(3, '0')}`,
-              areaHectares: Math.round((savedParcel.areaSqM / SQM_PER_HECTARE) * 10000) / 10000,
-              recordStatus: 'ACTIVE',
-            });
-          } else if (cluster.stateCode === 'DL') {
-            primaryIdentifierValue = `P-${randInt(1000, 9999)}`;
-            stateBRecordsToSave.push({
-              plotId: primaryIdentifierValue,
-              holderName: randomPersonName(),
-              localityId: `LOC${String(randInt(1, 40)).padStart(3, '0')}`,
-              landExtentSqft: Math.round(savedParcel.areaSqM * SQFT_PER_SQM * 100) / 100,
-              recordCategory: 'Urban',
-            });
-          }
-
-          // --- Phase 4 mock department records, one per parcel every cluster ---
-          const isRegistered = Math.random() < 0.75;
-          registrationRecordsToSave.push({
-            parcelId: savedParcel.id,
-            registrationStatus: isRegistered ? 'REGISTERED' : weightedPick([['PENDING', 2], ['NOT_REGISTERED', 1]]),
-            registrationNumber: isRegistered ? `REG-${cluster.stateCode}-${randInt(100000, 999999)}` : null,
-            registrationDate: isRegistered ? randomDate(10) : null,
-            lastTransactionType: isRegistered ? weightedPick([['SALE', 3], ['GIFT', 1], ['INHERITANCE', 1], ['PARTITION', 1]]) : null,
-            lastTransactionDate: isRegistered ? randomDate(5) : null,
+        // The identifier value a Land Records lookup-by-parcel would use to
+        // resolve into the state schema below (SURVEY_NUMBER for MH,
+        // PLOT_NUMBER for DL) - computed once and reused for both the
+        // parcel_identifiers row *and* the state record, so
+        // GET /api/v1/land-records/:parcelId can actually find a match
+        // instead of the two being independently-random and unrelated.
+        let primaryIdentifierValue: string | null = null;
+        if (config.stateCode === 'MH') {
+          primaryIdentifierValue = `${randInt(1, 200)}/${randInt(1, 12)}`;
+          stateARecordsToSave.push({
+            surveyNumber: primaryIdentifierValue,
+            subdivisionNumber: String(randInt(1, 9)),
+            ownerName: randomPersonName(),
+            villageCode: `VIL${String(randInt(1, 40)).padStart(3, '0')}`,
+            areaHectares: Math.round((savedParcel.areaSqM / SQM_PER_HECTARE) * 10000) / 10000,
+            recordStatus: 'ACTIVE',
           });
-
-          // Pune's landUse mirrors the row-based zoning bands built below
-          // (residential rows 0-4, commercial 5-6, agricultural 7-9) so the
-          // Planning department mock agrees with the GIS zoning overlay
-          // instead of being independently random for the same parcel.
-          const landUse =
-            cluster.district === 'Pune'
-              ? row <= 4
-                ? 'RESIDENTIAL'
-                : row <= 6
-                  ? 'COMMERCIAL'
-                  : 'AGRICULTURAL'
-              : weightedPick(LAND_USES);
-          planningRecordsToSave.push({
-            parcelId: savedParcel.id,
-            landUse,
-            zoningClassification: `${landUse.slice(0, 1)}${landUse.slice(1).toLowerCase()}-${randInt(1, 4)}`,
-            masterPlanReference: `${cluster.district} Master Plan ${2020 + randInt(0, 5)}`,
-            buildingPermissionStatus: landUse === 'AGRICULTURAL' ? 'NOT_REQUIRED' : weightedPick([['APPROVED', 3], ['PENDING', 1], ['NOT_REQUIRED', 1]]),
+        } else if (config.stateCode === 'DL') {
+          primaryIdentifierValue = `P-${randInt(1000, 9999)}`;
+          stateBRecordsToSave.push({
+            plotId: primaryIdentifierValue,
+            holderName: randomPersonName(),
+            localityId: `LOC${String(randInt(1, 40)).padStart(3, '0')}`,
+            landExtentSqft: Math.round(savedParcel.areaSqM * SQFT_PER_SQM * 100) / 100,
+            recordCategory: 'Urban',
           });
+        }
 
-          const ratePerSqm = randInt(300, 3000);
-          const assessedValue = Math.round(savedParcel.areaSqM * ratePerSqm * 100) / 100;
-          const annualTaxAmount = Math.round(assessedValue * (0.003 + Math.random() * 0.007) * 100) / 100;
-          const taxStatus = weightedPick<'PAID' | 'PENDING' | 'OVERDUE'>([['PAID', 6], ['PENDING', 3], ['OVERDUE', 1]]);
-          taxRecordsToSave.push({
-            parcelId: savedParcel.id,
-            assessedValue,
-            annualTaxAmount,
-            taxStatus,
-            outstandingAmount: taxStatus === 'PAID' ? 0 : Math.round(annualTaxAmount * (taxStatus === 'OVERDUE' ? 1 : 0.5) * 100) / 100,
-            lastPaymentDate: taxStatus === 'PAID' ? randomDate(1) : taxStatus === 'PENDING' ? randomDate(2) : null,
-          });
+        // --- Phase 4 mock department records, one per parcel every cluster ---
+        const isRegistered = Math.random() < 0.75;
+        registrationRecordsToSave.push({
+          parcelId: savedParcel.id,
+          registrationStatus: isRegistered ? 'REGISTERED' : weightedPick([['PENDING', 2], ['NOT_REGISTERED', 1]]),
+          registrationNumber: isRegistered ? `REG-${config.stateCode}-${randInt(100000, 999999)}` : null,
+          registrationDate: isRegistered ? randomDate(10) : null,
+          lastTransactionType: isRegistered ? weightedPick([['SALE', 3], ['GIFT', 1], ['INHERITANCE', 1], ['PARTITION', 1]]) : null,
+          lastTransactionDate: isRegistered ? randomDate(5) : null,
+        });
 
-          // Pune parcels inside the flood zone are flagged consistent with
-          // the spatial RestrictionZone built below; everyone else gets a
-          // small independent chance of an environmental/protected-area flag.
-          const inFloodZone = cluster.district === 'Pune' && pointInPolygon(centroid, floodZone.ring);
-          const hasRestriction = inFloodZone || Math.random() < 0.08;
-          const restrictionType = inFloodZone ? 'FLOOD_PRONE' : hasRestriction ? weightedPick(['ENVIRONMENTAL', 'PROTECTED_AREA'].map((t) => [t, 1] as [string, number])) : null;
-          restrictionRecordsToSave.push({
-            parcelId: savedParcel.id,
-            hasRestriction,
-            restrictionType,
-            restrictionDetails: hasRestriction
-              ? restrictionType === 'FLOOD_PRONE'
-                ? 'Parcel falls within the designated flood-prone restriction zone'
-                : `Parcel flagged for ${restrictionType!.toLowerCase().replace('_', ' ')} review`
-              : null,
-            imposingAuthority: hasRestriction ? `${cluster.stateCode} State Environment Authority` : null,
-          });
+        // Pune's landUse mirrors the latitude-banded zoning built below
+        // (residential south half, commercial next 20%, agricultural north
+        // 30% of Pune's actual generated bounding box) so the Planning
+        // department mock agrees with the GIS zoning overlay instead of
+        // being independently random for the same parcel.
+        let landUse: string;
+        if (config.district === 'Pune') {
+          const latFrac = (gp.centroid[1] - puneBounds.minLat) / (puneBounds.maxLat - puneBounds.minLat);
+          landUse = latFrac < 0.5 ? 'RESIDENTIAL' : latFrac < 0.7 ? 'COMMERCIAL' : 'AGRICULTURAL';
+        } else {
+          landUse = weightedPick(LAND_USES);
+        }
+        planningRecordsToSave.push({
+          parcelId: savedParcel.id,
+          landUse,
+          zoningClassification: `${landUse.slice(0, 1)}${landUse.slice(1).toLowerCase()}-${randInt(1, 4)}`,
+          masterPlanReference: `${config.district} Master Plan ${2020 + randInt(0, 5)}`,
+          buildingPermissionStatus: landUse === 'AGRICULTURAL' ? 'NOT_REQUIRED' : weightedPick([['APPROVED', 3], ['PENDING', 1], ['NOT_REQUIRED', 1]]),
+        });
 
-          // Dispute department: same "every parcel gets a record" pattern as
-          // the other four mock departments above, so a citizen/officer
-          // always gets a real 200 (an actual "no dispute" record) rather
-          // than a 404. ~12% of parcels get a real dispute on file.
-          const hasDispute = Math.random() < 0.12;
-          const disputeType = hasDispute
-            ? weightedPick<string>([['OWNERSHIP', 3], ['BOUNDARY', 3], ['INHERITANCE', 2], ['ENCROACHMENT', 2]])
-            : null;
-          const caseStatus = hasDispute
-            ? weightedPick<string>([['FILED', 2], ['UNDER_REVIEW', 2], ['RESOLVED', 3], ['DISMISSED', 1]])
-            : null;
-          const isClosedCase = caseStatus === 'RESOLVED' || caseStatus === 'DISMISSED';
-          disputeRecordsToSave.push({
-            parcelId: savedParcel.id,
-            hasActiveDispute: caseStatus === 'FILED' || caseStatus === 'UNDER_REVIEW',
-            disputeType,
-            caseStatus,
-            filingDate: hasDispute ? randomDate(3) : null,
-            resolutionDate: isClosedCase ? randomDate(1) : null,
-            resolutionSummary: isClosedCase
-              ? caseStatus === 'RESOLVED'
-                ? `Dispute resolved in favor of the recorded owner following ${(disputeType as string).toLowerCase()} review.`
-                : 'Case dismissed for insufficient evidence.'
-              : null,
-          });
+        const ratePerSqm = randInt(300, 3000);
+        const assessedValue = Math.round(savedParcel.areaSqM * ratePerSqm * 100) / 100;
+        const annualTaxAmount = Math.round(assessedValue * (0.003 + Math.random() * 0.007) * 100) / 100;
+        const taxStatus = weightedPick<'PAID' | 'PENDING' | 'OVERDUE'>([['PAID', 6], ['PENDING', 3], ['OVERDUE', 1]]);
+        taxRecordsToSave.push({
+          parcelId: savedParcel.id,
+          assessedValue,
+          annualTaxAmount,
+          taxStatus,
+          outstandingAmount: taxStatus === 'PAID' ? 0 : Math.round(annualTaxAmount * (taxStatus === 'OVERDUE' ? 1 : 0.5) * 100) / 100,
+          lastPaymentDate: taxStatus === 'PAID' ? randomDate(1) : taxStatus === 'PENDING' ? randomDate(2) : null,
+        });
 
-          // Local Parcel ID - every parcel, every state.
+        // Pune parcels inside the flood zone are flagged consistent with
+        // the spatial RestrictionZone built below; everyone else gets a
+        // small independent chance of an environmental/protected-area flag.
+        const inFloodZone = config.district === 'Pune' && pointInRing(gp.centroid, floodZone.ring);
+        const hasRestriction = inFloodZone || Math.random() < 0.08;
+        const restrictionType = inFloodZone ? 'FLOOD_PRONE' : hasRestriction ? weightedPick(['ENVIRONMENTAL', 'PROTECTED_AREA'].map((t) => [t, 1] as [string, number])) : null;
+        restrictionRecordsToSave.push({
+          parcelId: savedParcel.id,
+          hasRestriction,
+          restrictionType,
+          restrictionDetails: hasRestriction
+            ? restrictionType === 'FLOOD_PRONE'
+              ? 'Parcel falls within the designated flood-prone restriction zone'
+              : `Parcel flagged for ${restrictionType!.toLowerCase().replace('_', ' ')} review`
+            : null,
+          imposingAuthority: hasRestriction ? `${config.stateCode} State Environment Authority` : null,
+        });
+
+        // Dispute department: same "every parcel gets a record" pattern as
+        // the other four mock departments above, so a citizen/officer
+        // always gets a real 200 (an actual "no dispute" record) rather
+        // than a 404. ~12% of parcels get a real dispute on file.
+        const hasDispute = Math.random() < 0.12;
+        const disputeType = hasDispute
+          ? weightedPick<string>([['OWNERSHIP', 3], ['BOUNDARY', 3], ['INHERITANCE', 2], ['ENCROACHMENT', 2]])
+          : null;
+        const caseStatus = hasDispute
+          ? weightedPick<string>([['FILED', 2], ['UNDER_REVIEW', 2], ['RESOLVED', 3], ['DISMISSED', 1]])
+          : null;
+        const isClosedCase = caseStatus === 'RESOLVED' || caseStatus === 'DISMISSED';
+        disputeRecordsToSave.push({
+          parcelId: savedParcel.id,
+          hasActiveDispute: caseStatus === 'FILED' || caseStatus === 'UNDER_REVIEW',
+          disputeType,
+          caseStatus,
+          filingDate: hasDispute ? randomDate(3) : null,
+          resolutionDate: isClosedCase ? randomDate(1) : null,
+          resolutionSummary: isClosedCase
+            ? caseStatus === 'RESOLVED'
+              ? `Dispute resolved in favor of the recorded owner following ${(disputeType as string).toLowerCase()} review.`
+              : 'Case dismissed for insufficient evidence.'
+            : null,
+        });
+
+        // Local Parcel ID - every parcel, every state.
+        identifiersToSave.push({
+          parcel: savedParcel,
+          identifierType: 'LOCAL_PARCEL_ID',
+          identifierValue: `${config.stateCode}-${distCode}-${String(randInt(0, 9999)).padStart(4, '0')}`,
+          sourceState: config.stateCode,
+          sourceDepartment: 'Land Records',
+        });
+
+        // State-specific identifiers (ULPIN already folded into parcel.ulpin above,
+        // but also recorded here so it's discoverable through parcel_identifiers too).
+        if (hasUlpin) {
           identifiersToSave.push({
             parcel: savedParcel,
-            identifierType: 'LOCAL_PARCEL_ID',
-            identifierValue: `${cluster.stateCode}-${distCode}-${String(randInt(0, 9999)).padStart(4, '0')}`,
-            sourceState: cluster.stateCode,
+            identifierType: 'ULPIN',
+            identifierValue: parcel.ulpin!,
+            sourceState: config.stateCode,
             sourceDepartment: 'Land Records',
           });
-
-          // State-specific identifiers (ULPIN already folded into parcel.ulpin above,
-          // but also recorded here so it's discoverable through parcel_identifiers too).
-          if (hasUlpin) {
+        }
+        for (const entry of profile) {
+          if (entry.type === 'ULPIN') continue;
+          const isPrimaryType =
+            (config.stateCode === 'MH' && entry.type === 'SURVEY_NUMBER') || (config.stateCode === 'DL' && entry.type === 'PLOT_NUMBER');
+          if (Math.random() < entry.probability) {
             identifiersToSave.push({
               parcel: savedParcel,
-              identifierType: 'ULPIN',
-              identifierValue: parcel.ulpin!,
-              sourceState: cluster.stateCode,
+              identifierType: entry.type,
+              identifierValue: isPrimaryType && primaryIdentifierValue ? primaryIdentifierValue : entry.format(),
+              sourceState: config.stateCode,
               sourceDepartment: 'Land Records',
             });
-          }
-          for (const entry of profile) {
-            if (entry.type === 'ULPIN') continue;
-            const isPrimaryType =
-              (cluster.stateCode === 'MH' && entry.type === 'SURVEY_NUMBER') || (cluster.stateCode === 'DL' && entry.type === 'PLOT_NUMBER');
-            if (Math.random() < entry.probability) {
-              identifiersToSave.push({
-                parcel: savedParcel,
-                identifierType: entry.type,
-                identifierValue: isPrimaryType && primaryIdentifierValue ? primaryIdentifierValue : entry.format(),
-                sourceState: cluster.stateCode,
-                sourceDepartment: 'Land Records',
-              });
-            }
           }
         }
       }
 
-      neighbourRowsToSave.push(...buildNeighbourRows(clusterGrid));
-      console.log(`Generated ${cluster.rows * cluster.cols} connected parcels for cluster ${cluster.clusterId}`);
+      neighbourRowsToSave.push(...computeNeighbourRows(clusterEntries, config.centerLat));
+      console.log(`Built ${clusterEntries.length} parcel entities + department records for cluster ${config.clusterId}`);
     }
 
     const savedIdentifiers = await identifierRepository.save(identifiersToSave);
@@ -609,8 +558,10 @@ async function seedDatabase() {
     console.log(`Saved ${savedNeighbours.length} explicit neighbour relationships (TOUCHING + NEARBY)`);
 
     // --- Pune spatial demo layers -----------------------------------------
-    const findPuneParcelIds = (predicate: (row: number, col: number) => boolean) =>
-      puneGrid.filter((p) => predicate(p.row, p.col)).map((p) => p.parcel.id);
+    const findPuneParcelIds = (predicate: (latFrac: number) => boolean) =>
+      puneEntries
+        .filter((p) => predicate((p.centroid[1] - puneBounds.minLat) / (puneBounds.maxLat - puneBounds.minLat)))
+        .map((p) => p.parcel.id);
 
     await zoningRepository.save([
       {
@@ -618,24 +569,24 @@ async function seedDatabase() {
         zoneType: 'RESIDENTIAL',
         stateCode: pune.stateCode,
         district: pune.district,
-        geometry: buildZoneRectangle(pune, [0, 4], [0, 9]),
-        parcelIds: findPuneParcelIds((row) => row <= 4),
+        geometry: buildZoneRectangleFromBounds(puneBounds, [0, 0.5]),
+        parcelIds: findPuneParcelIds((latFrac) => latFrac < 0.5),
       },
       {
         name: 'Pune Commercial Zone',
         zoneType: 'COMMERCIAL',
         stateCode: pune.stateCode,
         district: pune.district,
-        geometry: buildZoneRectangle(pune, [5, 6], [0, 9]),
-        parcelIds: findPuneParcelIds((row) => row === 5 || row === 6),
+        geometry: buildZoneRectangleFromBounds(puneBounds, [0.5, 0.7]),
+        parcelIds: findPuneParcelIds((latFrac) => latFrac >= 0.5 && latFrac < 0.7),
       },
       {
         name: 'Pune Agricultural / Open Zone',
         zoneType: 'AGRICULTURAL',
         stateCode: pune.stateCode,
         district: pune.district,
-        geometry: buildZoneRectangle(pune, [7, 9], [0, 9]),
-        parcelIds: findPuneParcelIds((row) => row >= 7),
+        geometry: buildZoneRectangleFromBounds(puneBounds, [0.7, 1]),
+        parcelIds: findPuneParcelIds((latFrac) => latFrac >= 0.7),
       },
     ]);
     console.log('Saved 3 zoning overlays for Pune (residential/commercial/agricultural)');
@@ -645,7 +596,7 @@ async function seedDatabase() {
     // iterating): irregular diagonal band crossing the residential/commercial
     // boundary. Affected parcels are computed by a real point-in-polygon test
     // against each parcel's centroid.
-    const floodAffectedIds = puneGrid.filter((p) => pointInPolygon(p.centroid, floodZone.ring)).map((p) => p.parcel.id);
+    const floodAffectedIds = puneEntries.filter((p) => pointInRing(p.centroid, floodZone.ring)).map((p) => p.parcel.id);
     await restrictionRepository.save({
       name: 'Pune Flood-Prone Restriction Zone',
       restrictionType: 'FLOOD',
@@ -657,8 +608,13 @@ async function seedDatabase() {
     console.log(`Saved flood restriction zone affecting ${floodAffectedIds.length} parcels`);
 
     // Infrastructure: a road bisecting the cluster, a water line crossing
-    // it, and two electricity points near opposite corners.
-    const gridHalfSpan = (pune.rows - 1) / 2 + 0.5;
+    // it, and two electricity points near opposite corners of Pune's actual
+    // generated bounding box.
+    const puneLngSpan = puneBounds.maxLng - puneBounds.minLng;
+    const puneLatSpan = puneBounds.maxLat - puneBounds.minLat;
+    const puneCenterLng = (puneBounds.minLng + puneBounds.maxLng) / 2;
+    const puneCenterLat = (puneBounds.minLat + puneBounds.maxLat) / 2;
+    const overshoot = 0.08; // slight overhang past the bounding box, matching the old grid-half-span's "+0.5 cell" overshoot
     await infrastructureRepository.save([
       {
         name: 'Pune Main Road',
@@ -668,8 +624,8 @@ async function seedDatabase() {
         geometry: JSON.stringify({
           type: 'LineString',
           coordinates: [
-            [pune.centerLng - gridHalfSpan * pune.spacing, pune.centerLat],
-            [pune.centerLng + gridHalfSpan * pune.spacing, pune.centerLat],
+            [puneBounds.minLng - puneLngSpan * overshoot, puneCenterLat],
+            [puneBounds.maxLng + puneLngSpan * overshoot, puneCenterLat],
           ],
         }),
       },
@@ -681,8 +637,8 @@ async function seedDatabase() {
         geometry: JSON.stringify({
           type: 'LineString',
           coordinates: [
-            [pune.centerLng, pune.centerLat - gridHalfSpan * pune.spacing],
-            [pune.centerLng, pune.centerLat + gridHalfSpan * pune.spacing],
+            [puneCenterLng, puneBounds.minLat - puneLatSpan * overshoot],
+            [puneCenterLng, puneBounds.maxLat + puneLatSpan * overshoot],
           ],
         }),
       },
@@ -691,33 +647,27 @@ async function seedDatabase() {
         featureType: 'ELECTRICITY',
         stateCode: pune.stateCode,
         district: pune.district,
-        geometry: JSON.stringify({
-          type: 'Point',
-          coordinates: gridCellCenter(pune, 0, 0),
-        }),
+        geometry: JSON.stringify({ type: 'Point', coordinates: [puneBounds.minLng + puneLngSpan * 0.05, puneBounds.minLat + puneLatSpan * 0.05] }),
       },
       {
         name: 'Pune Substation B',
         featureType: 'ELECTRICITY',
         stateCode: pune.stateCode,
         district: pune.district,
-        geometry: JSON.stringify({
-          type: 'Point',
-          coordinates: gridCellCenter(pune, pune.rows - 1, pune.cols - 1),
-        }),
+        geometry: JSON.stringify({ type: 'Point', coordinates: [puneBounds.maxLng - puneLngSpan * 0.05, puneBounds.maxLat - puneLatSpan * 0.05] }),
       },
     ]);
     console.log('Saved 4 infrastructure features (road, water line, 2 electricity points)');
 
     // Simulated satellite change-detection region, near a corner away from
     // the flood zone, again resolved to affected parcels by point-in-polygon.
-    const changeZone = buildIrregularZone(pune, [
-      [-4.6, -3.4],
-      [-3.2, -3.7],
-      [-2.9, -4.6],
-      [-4.3, -4.8],
-    ]);
-    const changeAffectedIds = puneGrid.filter((p) => pointInPolygon(p.centroid, changeZone.ring)).map((p) => p.parcel.id);
+    // Anchored near an actual corner of Pune's generated parcels (not the
+    // bounding box's own corner, which can fall outside an irregular
+    // envelope's convex hull entirely - an early run of this generator did
+    // exactly that and produced a zone affecting zero parcels).
+    const changeAnchor = pickAnchor(puneEntries, puneBounds, 0.08, 0.08, floodZone.ring);
+    const changeZone = buildZoneHittingTarget(puneEntries, changeAnchor, pune.centerLat, [2, 5], 120);
+    const changeAffectedIds = puneEntries.filter((p) => pointInRing(p.centroid, changeZone.ring)).map((p) => p.parcel.id);
     await changeDetectionRepository.save({
       description: 'Simulated change detected between sample imagery T1 and T2 (new construction footprint)',
       stateCode: pune.stateCode,
@@ -777,6 +727,34 @@ async function seedDatabase() {
       { email: 'dispute.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Vikram Singh', role: 'DISPUTE_OFFICER' },
     ]);
     console.log('Saved 5 demo user accounts (1 admin + 4 officer roles, password: Demo@123)');
+
+    // Optional citizen sign-in (docs/Plan.md Phase 12): each demo citizen
+    // account gets linked to a random 0-5 parcels for the "My Parcels"
+    // dashboard, weighted so 1-2 parcels is most likely and both 0 and 5 are
+    // the least likely - a shuffled, non-repeating walk through every saved
+    // parcel, so no parcel is ever linked to more than one citizen.
+    const CITIZEN_COUNT = 20;
+    const PARCEL_COUNT_WEIGHTS: Array<[number, number]> = [[0, 2], [1, 5], [2, 5], [3, 3], [4, 2], [5, 1]];
+    const shuffledParcels = [...allSavedParcels].sort(() => Math.random() - 0.5);
+    let parcelCursor = 0;
+
+    const citizensToSave: Partial<User>[] = Array.from({ length: CITIZEN_COUNT }, (_, i) => ({
+      email: `citizen${i + 1}@example.com`,
+      passwordHash: DEMO_PASSWORD_HASH,
+      name: randomPersonName(),
+      role: 'CITIZEN',
+    }));
+    const savedCitizens = await userRepository.save(citizensToSave);
+
+    const citizenParcelLinksToSave: Partial<CitizenParcel>[] = [];
+    for (const citizen of savedCitizens) {
+      const parcelCount = weightedPick(PARCEL_COUNT_WEIGHTS);
+      for (let j = 0; j < parcelCount && parcelCursor < shuffledParcels.length; j++) {
+        citizenParcelLinksToSave.push({ citizen, parcel: shuffledParcels[parcelCursor++] });
+      }
+    }
+    const savedCitizenLinks = await citizenParcelRepository.save(citizenParcelLinksToSave);
+    console.log(`Saved ${savedCitizens.length} demo citizen accounts (password: Demo@123), linked to ${savedCitizenLinks.length} parcels total`);
 
     const totalParcels = await parcelRepository.count();
     console.log(`Database seeding completed successfully! Total parcels: ${totalParcels}`);

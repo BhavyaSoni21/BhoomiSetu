@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
     setError(null);
     try {
       const user = await loginMutation.mutateAsync({ email, password });
-      navigate(user.role === 'ADMIN' ? '/admin' : '/officer');
+      navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'CITIZEN' ? '/citizen' : '/officer');
     } catch (err) {
       setError(
         axios.isAxiosError(err) && err.response?.status === 401
@@ -29,9 +29,10 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md space-y-6">
         <div>
-          <h2 className="text-center text-2xl font-bold">Officer / Admin Sign In</h2>
+          <h2 className="text-center text-2xl font-bold">Sign In</h2>
           <p className="text-center text-sm text-gray-600 mt-1">
-            The Citizen Portal doesn't require an account — this sign-in is for Officer and Admin access only.
+            Officers and admins sign in here for staff access. Citizens can browse and search the Citizen Portal with
+            no account at all — sign in only if you want to see the parcels linked to your account.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -86,6 +87,7 @@ const LoginPage: React.FC = () => {
             <li>registration.officer@bhoomisetu.gov.in — Registration Officer</li>
             <li>planning.officer@bhoomisetu.gov.in — Planning Officer</li>
             <li>dispute.officer@bhoomisetu.gov.in — Dispute Officer</li>
+            <li>citizen1@example.com through citizen20@example.com — Citizen</li>
           </ul>
         </div>
       </div>
