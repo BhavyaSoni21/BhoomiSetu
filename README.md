@@ -14,7 +14,6 @@ SIH_2026_BhoomiSetu/
 ├── frontend/                # React frontend application
 ├── docs/                    # Plan.md (phase-by-phase build log), FEATURE_AUDIT.md, STANDARD_TECHNICAL_DOCUMENT.md
 ├── docker-compose.yml       # Docker Compose configuration (see Docker note below)
-├── init-postgis.sql         # PostGIS database initialization script
 ├── BHOOMISETU.md            # Project vision and overview
 ├── Tech.md                  # Technical architecture and specifications
 └── README.md                # This file
@@ -107,9 +106,9 @@ npm test
 
 ### Production / PostgreSQL
 
-To run against PostgreSQL + PostGIS instead of SQLite, set `USE_SQLITE=false` and the `DB_*` variables in `backend/.env` (see `backend/.env.example` for both a local/docker-compose shape and a Supabase-pooler shape), then run `init-postgis.sql` against your database before starting the backend. This path has been live-verified end-to-end (`docs/FEATURE_AUDIT.md` §8 item 14) - real `ST_*` spatial queries, not a placeholder.
+To run against PostgreSQL + PostGIS instead of SQLite, set `USE_SQLITE=false` and the `DB_*` variables in `backend/.env` (see `backend/.env.example` for both a local/docker-compose shape and a Supabase-pooler shape). No manual schema setup is needed beyond having the `postgis` extension available in your target database (`docker-compose.yml`'s `postgis/postgis` image, and Supabase, both already ship with it) - TypeORM's `synchronize: true` creates every table from the entity definitions automatically on backend startup. This path has been live-verified end-to-end (`docs/FEATURE_AUDIT.md` §8 item 14) - real `ST_*` spatial queries, not a placeholder.
 
-`docker-compose.yml` runs the real three-service architecture (frontend behind nginx, the single backend, PostGIS) - `docker compose up --build` should build and run all three (`Dockerfile`s exist for both `backend/` and `frontend/`), but this hasn't been through a live build yet on this machine; see `docs/STANDARD_TECHNICAL_DOCUMENT.md` §9 for the two bugs static review already caught and fixed. The compose file reads `GROQ_API_KEY`/`JWT_SECRET` from your shell environment. Set `GROQ_API_KEY` if you want AI working (it has no usable default - unset, those endpoints just 503). `JWT_SECRET` does have a working fallback baked into the compose file itself (`change_this_in_production`), so login works out of the box, but set a real value in your shell for anything beyond local testing.
+`docker-compose.yml` runs the real three-service architecture (frontend behind nginx, the single backend, PostGIS) - `docker compose up --build` builds and runs all three, live-verified end-to-end on 2026-09-06 (`docs/FEATURE_AUDIT.md` §8 item 6): the backend starts, connects to PostGIS, and serves the API; `docker compose exec backend npm run seed` populates the same 200-parcel demo dataset as every other environment. The compose file reads `GROQ_API_KEY`/`JWT_SECRET` from your shell environment. Set `GROQ_API_KEY` if you want AI working (it has no usable default - unset, those endpoints just 503). `JWT_SECRET` **must** be set in your shell before running `docker compose up` - the compose file sets `NODE_ENV=production` for the backend, and the backend refuses to start under `NODE_ENV=production` without a real `JWT_SECRET` (see `backend/.env.example` for details); `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` is a quick way to generate one.
 
 ## API Endpoints
 

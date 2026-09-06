@@ -26,6 +26,18 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
+# seed.ts (a standalone script run via ts-node, not part of `nest build`'s
+# output) imports directly from ./src/*.ts - so running the exact same
+# `npm run seed` used in every other environment here means shipping the
+# TypeScript source too, not just the compiled dist/. Without this there is
+# no way to put demo data into a fresh container's database at all.
+# ts-node/typescript are already present since the builder stage's `npm ci`
+# (no NODE_ENV=production at that point) installs devDependencies too, and
+# node_modules is copied whole from that stage.
+COPY --from=builder /app/seed.ts ./seed.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/src ./src
+
 # TypeORM's SQLite driver needs this directory to already exist if
 # USE_SQLITE=true - harmless if the container is run against Postgres
 # instead (the intended production path, see docker-compose.yml).

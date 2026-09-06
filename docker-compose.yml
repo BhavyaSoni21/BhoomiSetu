@@ -36,22 +36,26 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change_this_in_production}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
       - NODE_ENV=production
     depends_on:
       - postgis
 
-  # PostGIS Database
+  # PostGIS Database - no `ports:` mapping on purpose: the backend reaches
+  # it over the internal Docker network by service name (`postgis`), which
+  # needs no published host port at all. Publishing 5432 would put a
+  # database with the default postgres/postgres credentials directly on
+  # the internet on any host with a public IP - only add a `ports:` mapping
+  # back here temporarily if you need a local psql client to connect for
+  # debugging, and remove it again afterward.
   postgis:
     image: postgis/postgis:15-3.3
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=bhoomisetu
     volumes:
       - postgis_data:/var/lib/postgresql/data
-      - ./init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql
 
 volumes:
   postgis_data:
