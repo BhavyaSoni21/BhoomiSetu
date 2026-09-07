@@ -1,14 +1,19 @@
 # BhoomiSetu Feature Audit
 
-A cross-reference of what this project is actually required to do, what the team's own technical spec additionally proposed, and what's actually built — as of 2026-09-05, after Phase 9 of `docs/Plan.md`.
+A cross-reference of what this project is actually required to do, what the team's own technical spec additionally proposed, and what's actually built — as of 2026-09-07, after Phase 9 of `docs/Plan.md`, plus the frontend design-system/flow redesign and the fuller-PS re-audit described in the update note below.
+
+**Update (2026-09-07):** the competition's actual "Land Stack" problem statement text turns out to be fuller and more specific than the condensed "Expected Solution" text §1 was originally audited against — it adds real background (land as a State subject, format/schema/unit/language diversity across states), the actual pilot rollout (Chandigarh + Tamil Nadu, launched 2025-12-31, scaling to one city + one village per State/UT), and — most usefully for this audit — a concrete **three-tier spatial data model** (Base / Essential / Additional layers) that the shorter text only implied. §1's table below is left as-is (still accurate at the level it was written); the new **§1a** audits specifically against that three-tier model and the pilot narrative, since those are the parts genuinely new information here. It surfaces three real, previously-unnoticed gaps (encumbrance/mortgage records, valuation references, no Chandigarh cluster in seed data) and confirms two gaps §3 previously flagged — color schema and UI/UX guidelines — are now closed by this session's `docs/design.md`/`docs/flow.md` redesign work (see the updated §3 table).
+
+Also from this session, unrelated to the PS re-audit but worth recording here rather than leaving undocumented: filing a citizen service request now requires a signed-in `CITIZEN` account (`POST /workflows` was public/anonymous before — see `docs/flow.md` §9), and a self-service citizen registration page exists as a **placeholder** (`/register` — no `POST /auth/register` endpoint yet, per `docs/flow.md` §4). Neither is a PS requirement; both are this team's own IA decisions and aren't scored in §8.
 
 ## Sources used
 
-1. **The official SIH "Expected Solution"** — the competition's actual requirement text (pasted into this project's working session; not a file in this repo). This is the only source that matters for "is this required."
+1. **The official SIH "Expected Solution"** — the competition's actual requirement text (pasted into this project's working session; not a file in this repo). This is the only source that matters for "is this required." As of 2026-09-07 a fuller version of this text (the "Land Stack" background/detailed-description/expected-solution text) was pasted in during a working session — see §1a. It's still not committed as a file anywhere; see the recommendation at the end of §1a.
 2. **`Tech.md` / `BHOOMISETU.md`** — this team's own technical spec and vision document, written *from* the SIH problem statement. They elaborate heavily beyond the bare requirement text (specific schemas, specific endpoints, specific tech choices) — most of that elaboration is the team's own design judgment, not a competition requirement.
 3. **`docs/Plan.md`** — the phase-by-phase build log, with a dated verification note after every phase describing exactly what was built, what broke, and how it was fixed.
+4. **`docs/design.md` / `docs/flow.md`** (2026-09-07) — the frontend design-system and IA rewrite. Directly closes two gaps §3 previously flagged (color schema, UI/UX guidelines) — see the updated §3 table.
 
-Where these three disagree — and they do, in places — that disagreement is itself useful information and is called out explicitly below.
+Where these disagree — and they do, in places — that disagreement is itself useful information and is called out explicitly below.
 
 ## Legend
 
@@ -47,6 +52,68 @@ This is the actual competition requirement. Nothing here is optional.
 
 ---
 
+## 1a. The three-tier spatial layer model (fuller "Land Stack" PS text, 2026-09-07)
+
+The fuller PS text organizes all governance data into three explicit tiers around a parcel-centric spatial framework, and separately narrates the actual pilot rollout. Both are more specific than §1's paraphrased list and are audited here for the first time.
+
+### Base layer — georeferenced cadastral maps, parcel boundaries, unique identifiers (ULPIN)
+
+| Item | Status | Notes |
+|---|---|---|
+| Georeferenced cadastral maps / parcel boundaries | ✅ | GeoJSON polygons, WGS84, a real connected coordinate lattice per cluster — adjacent parcels share literal boundary vertices, not independently-drawn polygons that happen to sit near each other (`docs/STANDARD_TECHNICAL_DOCUMENT.md` §6) |
+| ULPIN as a unique parcel identifier | ✅ | `parcel_identifiers` table; ULPIN is searchable (`GET /parcels?ulpin=`) and shown throughout Parcel 360/search — one of several identifiers a parcel resolves by (survey/plot/local), matching the PS's own wording ("unique parcel identifiers **such as** ULPIN" / "ULPIN serving as **the suggested** common identifier") rather than a ULPIN-only model, which also matches how Indian land records are actually identified in practice |
+
+### Essential layers — RoR, registration, master plan, building permissions, encumbrance/mortgage, land use/zoning
+
+| Item | Status | Notes |
+|---|---|---|
+| Record of Rights (ownership) | ✅ | State A/B land-record schemas (`ownerName`/`holderName`, survey/plot number, area) — functionally the RoR/7-12-extract equivalent; the frontend copy already calls it "7/12 extract" |
+| Registration data | ✅ | `registration-record.entity.ts` — status, number, date, last transaction type/date |
+| Master plan | ⚠️ | `planning-record.entity.ts` has a `masterPlanReference` field (a reference/pointer), not a full master-plan document or geometry dataset — reasonable for a prototype, but worth naming as partial rather than full |
+| Building permissions and approvals | ⚠️ | `planning-record.entity.ts`'s `buildingPermissionStatus` (`APPROVED`/`PENDING`/`NOT_REQUIRED`) is a status field, not a permit-application workflow — no permit number, application date, approving authority, or citizen-facing "apply for a building permit" flow exists |
+| **Encumbrance and mortgage records** | ❌ | **No entity, field, or endpoint anywhere in the codebase represents this.** `restriction-record` covers environmental/protected-area/flood-prone restrictions, not financial liens; `registration-record` covers transaction history, not active encumbrances. A genuine gap — the fuller PS text is the first source to name it explicitly, and nothing in Tech.md/BHOOMISETU.md names it either (see §8 item 17) |
+| Land use and zoning | ✅ | `planning-record.entity.ts`'s `landUse`/`zoningClassification`, plus a real zoning-overlay map layer (Pune cluster) |
+
+### Additional / use-case layers — utility infrastructure, taxation, valuation, infrastructure networks, environmental/restriction zones, other service linkages
+
+| Item | Status | Notes |
+|---|---|---|
+| Utility infrastructure | ✅ | GIS infrastructure overlay layer (road/water-line/electricity points, Pune cluster) |
+| Property taxation records | ✅ | `tax-record.entity.ts` — assessed value, annual tax, status, outstanding amount, last payment |
+| **Valuation references** | ⚠️ | Only `tax-record.assessedValue` stands in for this — there's no independent valuation/market-reference dataset (e.g. a circle rate or comparable-sale reference) distinct from the tax assessment itself (see §8 item 18) |
+| Infrastructure networks | ✅ | Same dataset as utility infrastructure above — the PS text names both terms, the build has one dataset serving both |
+| Environmental / restriction zones | ✅ | `restriction-record.entity.ts` + the restriction-zone map overlay (a flood-prone zone affecting ~8 parcels) |
+| Other service linkages | ⚪ | Open-ended by design in the PS text; this project's actual "other" linkages are the dispute workflow and governance-alerts system — both built, but not built *because* of this heading |
+
+**Net for §1a's layer model**: 8 of 12 named items are fully ✅, 3 are ⚠️ partial (master plan, building permissions, valuation), 1 is a clean ❌ (encumbrance/mortgage) — the single clearest new gap this fuller text surfaces.
+
+### Pilot-location alignment
+
+The PS names **Chandigarh and Tamil Nadu** as the actual launched pilot locations (2025-12-31), scaling to "one city and one village in every State/UT." The seed data's 4 clusters are Pune (MH), **Chennai (TN)**, Bangalore (KA), New Delhi (DL):
+
+- Tamil Nadu (Chennai) ✅ already represented — a real, if coincidental, alignment with one of the two actual pilots.
+- Chandigarh ❌ has no cluster at all (see §8 item 19).
+- "One village" per State/UT: the seed's State A schema is explicitly documented as the *rural/village* schema (`surveyNumber`/`villageCode`) but is applied to the Pune *cluster*, not paired against a distinct city cluster within the same state — the current data models "two different state schemas" (a rural-format one and an urban-format one, in different states), not "one city + one village within the same state," which is a subtly different shape than the scaling narrative describes.
+
+Neither is a functional gap — the interoperability layer doesn't care which real place a cluster represents — but adding a small Chandigarh cluster, and reframing one existing cluster as an explicit village counterpart to a city cluster in the same state, would make a demo noticeably more on-message for judges who know this PS. This is cheap, presentation-level work, not architecture.
+
+### Recommendation
+
+This fuller PS text has never been saved into the repo — it exists only as text pasted into two different working sessions (the original condensed version, and this fuller one). Worth committing verbatim as `docs/PROBLEM_STATEMENT.md` so future audits stop depending on session memory of what was pasted when and can diff against a real source file instead.
+
+---
+
+## 1b. Cross-check against `docs/CITIZEN_FEATURES_UPGRADE_PLAN.md` (already-planned, not yet built)
+
+That document is a separate, already-scoped roadmap for citizen-dashboard upgrades (Land Claim, document persistence, officer routing, context-aware alerts, historical spatial state, a dashboard aggregation endpoint, deferred address search, a Bhuvan integration spike) — none of it competition-required, all of it this team's own planned future work, governed by its own rule ("citizens claim existing canonical parcels; they never create geometry"). It doesn't change any status in §1/§1a — nothing in it is named by the PS text — but two real connections are worth recording so the two documents don't silently drift apart:
+
+- **Land Claim (that plan's §3.1)**: this session's frontend redesign added a visible "Land Claim" placeholder card to the Citizen dashboard (`docs/flow.md` §6/§7) — purely a "Coming Soon" UI shell, no backend behind it. That plan's `PARCEL_CLAIM` workflow-type design is the real target this placeholder is standing in for; the backend work it describes (§3.1-3.2) is unchanged and still fully open.
+- **Historical spatial state (that plan's §3.4) vs. §7's "Historical parcel-boundary versioning" below**: these are related but *not* the same gap. §7's bullet is about a parcel's **geometry** changing over time (no source document asks for this, score 0). That plan's §3.4 deliberately proposes **attribute-only** versioning instead (`landUse`/`zoningStatus`/`restrictionStatus`/`taxStatus` per year, explicitly *not* geometry) — its own text frames this as "the tractable version" of a similar concern. So: attribute history has a real, scoped plan elsewhere; geometry history (§7) is still genuinely unscoped by anyone.
+- **Dashboard aggregation endpoint (that plan's §5, `GET /citizen/dashboard`)**: this is what would make this session's aggregated "My Requests" placeholder card real — right now that card has the same "Coming Soon" status as Land Claim, for the same reason (no backend aggregation query exists yet).
+- Everything else in that plan (document persistence tied to a claim, officer workload-based routing, a third governance-alert trigger, deferred address search, the Bhuvan spike) is a refinement to a feature this audit already marks ✅ against the PS, not a new PS gap — that plan's own §7 sequencing is the right place to track sequencing for those, not this document's §8.
+
+---
+
 ## 2. "Innovative solutions ... will be preferred" (SIH bonus list)
 
 Explicitly framed as differentiators, not requirements.
@@ -77,11 +144,13 @@ The SIH text separately requires: *"a Standard Technical Document containing det
 | System architecture | `BHOOMISETU.md` folder-structure sketch | **Diverged.** No diagram reflects the actual module dependency graph built across phases (`ParcelsModule → InteroperabilityModule → DepartmentsModule`, etc. — a specific one-directional-import pattern used throughout to avoid circular deps, documented only in code comments) |
 | GIS standards | `BHOOMISETU.md` §41 | Yes — GeoJSON, parcel polygons, layered map. Real PostGIS `ST_*` spatial queries now run against a live Postgres instance (Supabase) when configured (§8 item 14); SQLite dev mode still uses the JS fallback, since SQLite has no PostGIS |
 | Security frameworks | `Tech.md` §39 (Security Requirements) | ⚠️ **Partially built.** JWT + bcrypt (§8 item 9), RBAC route guards (§8 item 5), and rate limiting (§8 item 4) are all done and live-verified; audit logging is the one piece of this section still not built |
-| UI/UX guidelines | `BHOOMISETU.md` §42 | 🟡 **Drafted, never explicitly checked against.** No design review against the five stated principles (citizen-first, GIS-first, progressive information, clear workflow status, consistent design) ever happened |
-| Color schemas | `BHOOMISETU.md` §43 | ❌ **Not followed at all.** Spec suggests Deep Earth Green (primary) / Soil Brown (secondary) / Saffron-or-Gold (accent). The actual UI uses stock Tailwind colors (blue/green/red/indigo/yellow/purple/gray — 52 occurrences across 13 components), with no relation to the suggested palette |
+| UI/UX guidelines | `BHOOMISETU.md` §42; superseded by `docs/design.md`/`docs/flow.md` | ✅ **Done (2026-09-07).** A real design system (`docs/design.md`) and IA/flow spec (`docs/flow.md`) now exist and were followed for a full restyle of every page — citizen-first search/map/verify, a GIS-first map treatment, progressive Parcel-360 tabs, and color-coded workflow-status badges were all explicitly re-verified during the redesign (screenshotted in both light/dark themes across all three role dashboards, logged in against real seeded data). The fifth principle (consistent design/terminology) is now structurally enforced rather than hoped for: every component reads color off five shared semantic Tailwind tokens (`primary`/`secondary`/`accent`/`ink`/`surface`, CSS-variable-backed for dark mode) instead of hand-picked hex values, so visual drift would require deliberately bypassing the token system, not just copy-pasting a slightly different value |
+| Color schemas | `BHOOMISETU.md` §43; superseded by `docs/design.md` §2 | ✅ **Done (2026-09-07).** `docs/design.md` formalizes almost exactly the palette `BHOOMISETU.md` §43 proposed — deep forest green (primary), terracotta/soil brown (secondary), gold/amber (accent) — derived from the project's own logo rather than invented from scratch, then wired as CSS-variable-backed Tailwind tokens with a working dark-mode variant (which §43 never asked for but is a natural extension of the same token system). All three portals plus login/register were rebuilt against it. The "52 raw color-utility occurrences, no relation to the proposed schema" problem this row used to describe no longer describes the current codebase for the pages rebuilt this session |
 | Deployment & scalability | `BHOOMISETU.md` §44, Tech.md §43-45 | ✅ **`docker compose up --build` live-verified from a fresh volume (2026-09-06, §8 item 6)** — all 3 containers build and start, real demo data seeds inside the container, spatial/auth API responses confirmed working through the published ports. Public-demo hosting hardening also done (§8 item 16). Still nothing deployed to an actual public host — no platform has been chosen |
 
-**Net assessment**: the *deliverable* gap (a) is now closed — see the update note above. The *underlying* gaps this table documents are not: (b) the data-schema/architecture drift is now accurately written down rather than fixed, and (c) the color-scheme/UI-guideline sections still need an actual design pass if they're meant to be followed rather than just documented as not-yet-followed.
+**Net assessment**: the *deliverable* gap (a) is now closed. Two of the three underlying gaps this table originally documented are now also genuinely closed, not just accurately written down: (c) the color-scheme and UI-guideline sections are now actually followed, verified live across every page. (b) The data-schema/architecture drift is still just accurately documented rather than fixed — nobody has renamed `stateCode`→`state_code` to match Tech.md's snake_case convention or drawn the module dependency diagram, and doing either now would be pure naming/documentation churn against a stable, working schema, not a real functional gap.
+
+**Note:** `docs/STANDARD_TECHNICAL_DOCUMENT.md` itself (the actual SIH deliverable file) still describes the *old* pre-redesign state in its own §8 (Color Schema) and UI/UX sections — this table has been updated here, but that document's own text hasn't been re-synced to match yet. Flagging so it doesn't silently drift; not fixed as part of this pass since it wasn't the file asked for.
 
 ---
 
@@ -102,7 +171,7 @@ All 9 phases of `docs/Plan.md` are complete; Phase 10 has not started.
 | 9. Change Detection | Imagery diff, spatial intersection, alerts | ✅ (Node/TS, not Python/OpenCV — see §5) |
 | 10. Security and Audit | JWT, RBAC, audit logging | ✅ done (2026-09-05, §8 items 9, 5, 10) |
 
-Automated coverage: **211 backend e2e tests** (Jest+Supertest, isolated in-memory SQLite) + **117 frontend tests** (Vitest+RTL) = 328 total, as of 2026-09-05. `tsc --noEmit` and both production builds clean as of the last verification.
+Automated coverage: **231 backend e2e tests** (Jest+Supertest, isolated in-memory SQLite) + **141 frontend tests** (Vitest+RTL) = 372 total, as of 2026-09-07 (up from 328 as of 2026-09-05 — the growth is the citizen-auth-gated workflow-creation tests from this session's redesign, plus test updates the three portal restyles required). `tsc --noEmit` and both production builds clean as of the last verification.
 
 ---
 
@@ -117,7 +186,7 @@ Engineering-judgment additions made because the feature genuinely needed them, n
 - **Change Detection upload panel** — same situation; Plan.md's Phase 9 checklist is backend-only, and the Python/OpenCV service Tech.md specifies was replaced with an equivalent Node/TypeScript pipeline by explicit choice (see §6).
 - ~~**Simulated officer login**~~ (`localStorage` name+role, no password) — a deliberate bridge so the Officer Portal could be built and tested before real auth existed, framed to match BHOOMISETU.md's own "simulated officer role" language. Replaced by real login 2026-09-05 (§8 item 9).
 - **`docs/` git-tracking fix** — `.gitignore` had a blanket `docs/` rule silently excluding `Plan.md` (and its entire phase-by-phase history) from every push until this was caught and fixed.
-- **328 automated tests** (211 backend, 117 frontend, as of 2026-09-05) — neither source document specifies a coverage target; every phase's tests were added because verifying live behavior by hand doesn't scale across 9+ phases.
+- **372 automated tests** (231 backend, 141 frontend, as of 2026-09-07) — neither source document specifies a coverage target; every phase's tests were added because verifying live behavior by hand doesn't scale across 9+ phases.
 
 ---
 
@@ -146,13 +215,13 @@ Neither the SIH requirement text nor Tech.md/BHOOMISETU.md raise these at all. N
 
 - **Dispute resolution / litigation tracking** — ironically named in the SIH text itself (§1), but never elaborated anywhere in this project's own spec, and never built.
 - **Notification delivery mechanism** (SMS/email/push) — Tech.md's own workflow diagram assumes citizen notification happens (§25) but never specifies *how*.
-- **Multi-language / localization** — a real citizen-facing Indian land platform would plausibly need this; not raised anywhere.
+- ~~Multi-language / localization~~ — ✅ built anyway: a real English/Hindi UI (`i18next`/`react-i18next`, `frontend/src/i18n/`) covers the navbar, landing hero, parcel search, Citizen Portal panels, and the map's layer labels/click popup, with the language choice persisted across visits. Marathi/Kannada are scaffolded but intentionally not enabled until their locale files exist. Not required by any source document, but a genuinely reasonable call for a real citizen-facing Indian land platform, matching the OCR item's precedent above.
 - **Offline / low-connectivity support** — relevant for rural citizen access; not raised.
 - **Payment gateway integration** — for tax payments or service-request fees; not raised.
 - ~~Document/image OCR~~ — ✅ built 2026-09-06 anyway, at the user's explicit request, as a citizen-facing "Document Verification" feature (`tesseract.js` OCR + cross-check against actual parcel records) — see `docs/Plan.md` Phase 11. Score-0 items are "skip unless there's a reason to want one specifically"; the user provided one.
 - **Accessibility (WCAG/screen-reader) compliance** — not raised.
 - **Data privacy / consent framework** (e.g. DPDP Act relevance for a real Indian government platform) — not raised.
-- **Historical parcel-boundary versioning** — the platform has no concept of a parcel's geometry changing over time (which is somewhat in tension with Phase 9's own change-detection feature actually finding one).
+- ~~Historical parcel-boundary versioning~~ — the platform has no concept of a parcel's *geometry* changing over time (somewhat in tension with Phase 9's own change-detection feature actually finding one). Not the same gap as `docs/CITIZEN_FEATURES_UPGRADE_PLAN.md` §3.4's "historical spatial state," which deliberately scopes *attribute*-only history instead — see §1b above. **Now scoped, not implemented** (2026-09-08): `docs/FRONTEND_UPGRADE_SPEC.md` §8 designs a small per-cluster/per-year image archive (a `ClusterHistoricalSnapshot` entity, ~16-20 stored images) cross-checked against §3.4's `ParcelHistoricalState` table to flag visually-changed-but-unrecorded parcels as `UNAUTHORIZED_CHANGE_DETECTED` governance alerts. This is image-based, not the geometry-versioning this bullet describes, and not yet built — moving this row from §7 (score 0) would be premature until it exists.
 
 ---
 
@@ -184,23 +253,27 @@ Every real gap from §1, §2, §3, and §6 above, scored the same way instead of
 | 13 | ~~**Write APIs for spatial demo layers**~~ — ✅ **Done** (2026-09-05): `POST`/`PATCH`/`DELETE` for zoning overlays, restriction zones, and infrastructure features (admin-only), with real geometry-type validation (`Polygon` for zoning/restriction, `Point`/`LineString` for infrastructure). No frontend UI - no map-drawing tool exists to author new zone geometry, so this exists as tested API capability rather than a citizen/officer-facing feature | 1 | 1 | **3** | P2 | — |
 | 14 | ~~**PostGIS run end-to-end**~~ — ✅ **Done** (2026-09-06): connected to a live Supabase Postgres+PostGIS instance (via its IPv4 connection pooler — the direct-connection host is IPv6-only and doesn't resolve from this environment); all 4 JS spatial-fallback call sites (`GisService.findAll` bbox, `GisService.findParcelAtLocation`, `ParcelsService.getNeighbours`, `ChangeDetectionService.analyze`'s spatial intersection) now branch on `isPostgisAvailable()` and run real parameterized `ST_Intersects`/`ST_Contains`/`ST_Distance`/`ST_DWithin`/`ST_Centroid` queries against it, falling back to the original JS geometry helpers unchanged when running on SQLite | 1 | 2 | **2** | P2 | — |
 | 15 | **OAuth-based auth** — BHOOMISETU only says "where required"; JWT alone already covers Phase 10's real ask | 1 | 2 | **2** | P2 | Item 9 |
+| 17 | **Encumbrance and mortgage records** — new §1a gap (2026-09-07): a mock `EncumbranceRecord` department (active liens/mortgages, encumbrance status, lender/instrument reference) following the exact same pattern as the 5 existing department mocks, plus a 7th Parcel 360 tab. Explicitly named in the PS's required "essential layers" list, with no source document naming it before this fuller text | 3 | 2 | **6** | P1 | — |
+| 18 | **Valuation references** — new §1a gap (2026-09-07): a `valuationReference`/`valuationDate`/`valuationSource` addition to `tax-record.entity.ts` (or a small standalone entity if kept independent of tax), distinct from `assessedValue`. Named in the PS's required "additional layers" list | 2 | 1 | **6** | P1 | — |
+| 19 | **Chandigarh pilot cluster + explicit city/village pairing** — new §1a gap (2026-09-07): a 5th seed cluster for Chandigarh (reusing the existing `parcel-generation` module, same pattern as the other 4 clusters), and reframing one state's two clusters as an explicit city+village pair rather than two unrelated clusters in different states. Presentation-level alignment with the PS's named pilot locations and scaling narrative, not a functional gap | 2 | 2 | **4** | P1 | — |
 
 **Already resolved, not backlog items**: the literal "Python FastAPI + OpenCV" change-detection stack (Tech.md §33) and PyTorch/TensorFlow-based detection (BHOOMISETU's AI/CV list) were both deliberately substituted with the Node/TypeScript pipeline built in Phase 9, after asking which stack to use — re-litigating that isn't on this list.
 
-**§7 items (score 0, no source document asks for them)**: multi-language/localization, offline/low-connectivity support, payment gateway integration, WCAG accessibility, data-privacy/consent framework, historical parcel-boundary versioning. Skip unless there's a reason outside this audit to want one specifically. (Document/image OCR was also on this list but is now built — see above.)
+**§7 items (score 0, no source document asks for them)**: offline/low-connectivity support, payment gateway integration, WCAG accessibility, data-privacy/consent framework, historical parcel-boundary versioning. Skip unless there's a reason outside this audit to want one specifically. (Document/image OCR and multi-language/localization were also on this list but are now built — see above.)
 
 ### Reading the sequencing off this table
 
-- **Every P0 and P1 item is now done, live-verified, not just statically reviewed.** Item 6 (Dockerfiles) was the one long-standing exception — closed 2026-09-06 with a real `docker compose up --build` from a fresh volume, which surfaced two real bugs neither a code read nor `docker compose config` had caught (see the note below).
-- **Items 9 and 5 are both done now** — real authentication, then real per-route authorization on top of it. Items 10, 11, and 12 built directly on top of that cluster (audit logging, Admin Portal user management, and the citizen notification feed) and are done too. Item 13 (spatial layer write APIs) had no dependency on any of this and is also done. Item 14 (PostGIS end-to-end) is now done too. Item 16 (public-demo hosting hardening) closes out the concrete gaps a public demo deployment would actually hit. **The only backlog item left is 15 (OAuth)** — P2, with a scope question that needs a call before proceeding (see the note at the end of this document).
+- **Every P0 and P1 item is now done, live-verified, not just statically reviewed** — with the exception of the three new §1a-driven items below, none of which existed as gaps until the fuller PS text was read. Item 6 (Dockerfiles) was the one long-standing pre-existing exception — closed 2026-09-06 with a real `docker compose up --build` from a fresh volume, which surfaced two real bugs neither a code read nor `docker compose config` had caught (see the note below).
+- **Items 9 and 5 are both done now** — real authentication, then real per-route authorization on top of it. Items 10, 11, and 12 built directly on top of that cluster (audit logging, Admin Portal user management, and the citizen notification feed) and are done too. Item 13 (spatial layer write APIs) had no dependency on any of this and is also done. Item 14 (PostGIS end-to-end) is now done too. Item 16 (public-demo hosting hardening) closes out the concrete gaps a public demo deployment would actually hit. Item 15 (OAuth) remains P2, with a scope question that needs a call before proceeding (see the note at the end of this document).
+- **New from the fuller PS text (2026-09-07): items 17-19 are not yet done.** 17 (encumbrance/mortgage records) and 18 (valuation references) both score 6 — same tier as the dispute-workflow and analytics-dashboard gaps were before they were closed — because they're named in the PS's *required* essential/additional-layer lists and follow an existing, well-trodden department-mock pattern (small-to-medium effort). 19 (Chandigarh cluster/village-pairing) scores 4 — real but presentation-level, not a functional gap. These are the only backlog items genuinely open right now.
 
 ---
 
 ## Summary
 
-- **Every literal requirement in the SIH text is now fully met**, including real user/role management on the Admin Portal (§8 item 11, done 2026-09-05).
+- **Every literal requirement in the condensed SIH text (§1) is still fully met**, including real user/role management on the Admin Portal (§8 item 11, done 2026-09-05). **Against the fuller "Land Stack" PS text's three-tier spatial layer model (new §1a, 2026-09-07), 8 of 12 named data layers are fully built, 3 are partial (master plan, building permissions, valuation references), and 1 is a clean gap (encumbrance/mortgage records)** — see §8 items 17-19.
 - **Every "preferred" bonus item is now met.** Predictive analytics and mobile/responsive design are both done (§8 items 7-8). Cloud/container deployment is done and live-verified (§8 item 6) — see below.
-- **The Standard Technical Document deliverable is done** (`docs/STANDARD_TECHNICAL_DOCUMENT.md`) — it was the largest concrete gap, closed as §8 item 1.
+- **The Standard Technical Document deliverable is done** (`docs/STANDARD_TECHNICAL_DOCUMENT.md`) — it was the largest concrete gap, closed as §8 item 1. **Two of the three underlying gaps that document's own audit table still flagged are now also genuinely closed (2026-09-07): color schema and UI/UX guidelines are both followed, not just documented as not-yet-followed** — see the updated §3 table. (`docs/STANDARD_TECHNICAL_DOCUMENT.md`'s own text hasn't been re-synced to say so yet — flagged there too.)
 - **The dispute workflow gap is done** (§8 item 2) — the last fully-missing item from §1's required list.
 - **The analytics dashboard gap is done** (§8 item 3) — a real, platform-wide `recharts` dashboard on the Admin Portal, backed by real SQL aggregation.
 - **Rate limiting is done** (§8 item 4) — `@nestjs/throttler` guards the AI and change-detection endpoints, live-verified via curl.
@@ -217,7 +290,7 @@ Every real gap from §1, §2, §3, and §6 above, scored the same way instead of
 - **PostGIS end-to-end is done** (§8 item 14) — connected to a live Supabase Postgres+PostGIS instance and rewrote all 4 JS spatial-fallback call sites to real `ST_*` queries, live-verified via curl against the running app (bbox filtering, point-at-location, neighbour distance/classification, and change-detection spatial intersection all confirmed against real seeded data, then cleaned up). Caught and fixed two real cross-driver bugs along the way — see item 14's own note below.
 - **Dockerized `docker compose up --build` is done and live-verified** (§8 item 6, closed 2026-09-06) — see the note below for the two real bugs a live run caught that static review had missed.
 - **Public-demo hosting hardening is done** (§8 item 16, 2026-09-06): JWT_SECRET fail-fast, CORS allowlisting, `trust proxy`, and no longer publishing PostGIS's port to the host — each live-verified, each a non-breaking opt-in that changes nothing about local dev/test.
-- **What's left**: item 15 (OAuth) — P2, flagged rather than silently built or skipped; see the note below this summary for why.
+- **What's left**: item 15 (OAuth) — P2, flagged rather than silently built or skipped; see the note below this summary for why. **New as of 2026-09-07's fuller-PS re-audit: items 17 (encumbrance/mortgage records), 18 (valuation references), and 19 (Chandigarh pilot cluster/village-pairing)** — all P1, none previously identified as gaps because no source document named them explicitly until the fuller "Land Stack" text was read (see §1a).
 - **§8's scoring correctly put the Standard Technical Document, dispute workflow, and analytics dashboard ahead of authentication** — all three closed a named requirement gap for less effort than real authentication took, which still landed mid-table (P2) despite being the largest single piece of work in this backlog.
 
 ### A note on item 14 (now done) and item 15
