@@ -8,6 +8,7 @@ import OfficerPortal from './pages/OfficerPortal';
 import AdminPortal from './pages/AdminPortal';
 import LoginPage from './pages/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
+import { useAuthUser, useLogout } from './features/auth/auth';
 import { OFFICER_ROLES } from './features/officer/officerAuth';
 import AskAiWidget from './features/ai/AskAiWidget';
 
@@ -30,12 +31,17 @@ function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
   const [language, setLanguage] = useState('English');
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('access_token'));
+  // Backed by the same React Query-cached auth state RequireAuth reads
+  // (features/auth/auth.ts) rather than a separate localStorage read, so
+  // signing out here actually clears the cache every route guard shares -
+  // a plain localStorage.removeItem would leave /officer and /admin still
+  // rendering from the stale cached user until a full page reload.
+  const { data: authUser } = useAuthUser();
+  const logout = useLogout();
 
   useEffect(() => {
     setMobileMenuOpen(false);
     setAppsMenuOpen(false);
-    setToken(localStorage.getItem('access_token'));
   }, [location.pathname]);
 
   const handleNavbarSearch = (e: React.FormEvent) => {
@@ -46,9 +52,7 @@ function AppShell() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_role');
-    setToken(null);
+    logout();
     navigate('/');
   };
 
@@ -104,7 +108,7 @@ function AppShell() {
 
             <span className="text-emerald-900">|</span>
 
-            {token ? (
+            {authUser ? (
               <button
                 type="button"
                 onClick={handleLogout}
