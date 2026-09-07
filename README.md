@@ -12,7 +12,12 @@ BhoomiSetu is a GIS-based, parcel-centric land governance and interoperability p
 SIH_2026_BhoomiSetu/
 ├── backend/                 # NestJS backend application
 ├── frontend/                # React frontend application
-├── docs/                    # Plan.md (phase-by-phase build log), FEATURE_AUDIT.md, STANDARD_TECHNICAL_DOCUMENT.md
+├── docs/                    # Plan.md (build log), FEATURE_AUDIT.md, STANDARD_TECHNICAL_DOCUMENT.md,
+│                            # FEATURES.md (what exists and where), design.md/flow.md (current design
+│                            # system and IA), plus in-progress planning docs for the next upgrade pass
+│                            # (FRONTEND_UPGRADE_SPEC.md, AUTH_VERIFICATION_UPGRADE.md,
+│                            # CITIZEN_FEATURES_UPGRADE_PLAN.md) - not yet built, see those files' own
+│                            # status notes
 ├── docker-compose.yml       # Docker Compose configuration (see Docker note below)
 ├── BHOOMISETU.md            # Project vision and overview
 ├── Tech.md                  # Technical architecture and specifications
@@ -40,7 +45,9 @@ SIH_2026_BhoomiSetu/
 - **Build Tool**: Vite
 - **Server State**: TanStack Query
 - **GIS Map**: MapLibre GL JS
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS - a Bauhaus-inspired design system (`docs/design.md`): an earth-tone palette derived from the BhoomiSetu logo, exposed as semantic CSS-variable-backed tokens (`primary`/`secondary`/`accent`/`ink`/`surface`) so light/dark mode is a variable swap, not per-component `dark:` classes. A theme toggle persists the choice in `localStorage`
+- **Icons**: `lucide-react`
+- **Localization**: `i18next`/`react-i18next` - English/Hindi, persisted language choice, covering the nav, landing hero, parcel search, Citizen Portal panels, and the map's layer labels/popup
 - **HTTP Client**: Axios
 - **Charts**: `recharts` (Admin Portal's analytics dashboard)
 - **Testing**: Vitest + React Testing Library
@@ -88,7 +95,7 @@ SIH_2026_BhoomiSetu/
    - Backend API: http://localhost:3000/api/v1
    - Swagger docs: http://localhost:3000/api
 
-5. **Sign in** (optional - the Citizen Portal is fully usable with no account)
+5. **Sign in** (optional for browsing - parcel search, the map, and document verification need no account; filing a service request and My Parcels do)
    - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other 4 officer accounts are listed on the sign-in page itself)
    - Citizen: `citizen1@example.com` through `citizen20@example.com`, password `Demo@123` for all - each is linked to a random 0-5 parcels (see Citizen Sign-In / My Parcels below)
 
@@ -162,7 +169,7 @@ Six independent department mocks (five from Tech.md #16, plus Dispute), each `GE
 
 ### Workflows (Citizen Service Requests + Officer Review)
 `backend/src/workflows/` (Tech.md #23/#24/#25) - a citizen request (e.g. "send me a copy of the RoR", a correction request) creates a `Workflow` and auto-generates a 3-step simulated review pipeline (`LAND_RECORDS → REGISTRATION → PLANNING`, all starting `PENDING`). A `DISPUTE_FILING` request gets its own single-step `DISPUTE`/`DISPUTE_OFFICER` pipeline instead:
-- `POST /api/v1/workflows` - create a request (`parcelId`, `workflowType`, optional `createdBy`/`requestDetails`); 400 if the parcel doesn't exist. Stays public - the citizen service-request flow has never required an account
+- `POST /api/v1/workflows` - create a request (`parcelId`, `workflowType`, optional `createdBy`/`requestDetails`); 400 if the parcel doesn't exist. **Citizen-only** (JWT required, `CITIZEN` role) - `createdBy` defaults to the filing citizen's name when not given
 - `GET /api/v1/workflows` - list workflows, optionally filtered to `?department=&stepStatus=` - powers the Officer Portal dashboard. Officer/admin-only
 - `GET /api/v1/workflows/:id` - a workflow with its steps. Officer/admin-only
 - `PATCH /api/v1/workflows/:id/status` - directly override `currentStatus` (+ optional `remarks`). Officer/admin-only
@@ -191,7 +198,8 @@ Frontend: each alert in the Officer Portal has a "View Details" button opening a
 - `users` table: email, bcrypt password hash, name, role (`ADMIN`, one of 4 officer roles, or `CITIZEN`). Seeded by `seed.ts` with 5 officer/admin demo accounts and 20 citizen demo accounts, all sharing password `Demo@123`
 - `POST /api/v1/auth/login` - `{email, password}` → a JWT (24h expiry, `@nestjs/jwt`) plus the public user shape; wrong credentials or an unknown email both 401 uniformly (no user enumeration)
 - `GET /api/v1/auth/me` - behind a `passport-jwt` guard; looks the user up fresh on every call, so a deleted account stops working immediately
-- Frontend: one sign-in page (`frontend/src/pages/LoginPage.tsx`) for all three account kinds, redirecting to `/admin`, `/officer`, or `/citizen` by role; `RequireAuth` gates `/officer`/`/admin`. Signing in is never required for the Citizen Portal's search, service requests, or document verification - only for the My Parcels panel below
+- Frontend: one sign-in page (`frontend/src/pages/LoginPage.tsx`) for all three account kinds, redirecting to `/admin`, `/officer`, or `/citizen` by role; `RequireAuth` gates `/officer`/`/admin`. Signing in is never required for the Citizen Portal's search or document verification - filing a service request (see Workflows above) and the My Parcels panel below both require a citizen account
+- A `/register` page exists as a UI placeholder - the form is real but submission is disabled ("registration opens soon"), since no `POST /api/v1/auth/register` endpoint exists yet. Sign in with a demo citizen account instead
 
 ### Citizen Sign-In / My Parcels
 Optional citizen accounts (`CITIZEN` role, reusing the JWT auth above) linked to 0-5 parcels each - seeded with a weighted distribution (`[[0,2],[1,5],[2,5],[3,3],[4,2],[5,1]]`) so 1-2 parcels is most common and both 0 and 5 are the least likely:
@@ -203,7 +211,7 @@ Optional citizen accounts (`CITIZEN` role, reusing the JWT auth above) linked to
 ### Authorization (RBAC)
 `backend/src/auth/roles.guard.ts` + `roles.decorator.ts` - authentication alone only proves *who* is calling; this stops a signed-in user from calling an endpoint their role shouldn't reach:
 - `RolesGuard` reads a `@Roles(...)` decorator via `Reflector` and checks it against the JWT-derived `req.user.role`; a mismatch is a `403`, distinct from `JwtAuthGuard`'s `401` for no/invalid token
-- Officer/admin-only: workflow review and listing, governance alerts, change-detection analysis, the AI alert-explanation endpoint, both analytics endpoints, and staff user management. Citizen-only: `GET /parcels/mine`. Citizen-facing routes (parcel search/360/risk-score, AI query, workflow creation, document verification) stay public
+- Officer/admin-only: workflow review and listing, governance alerts, change-detection analysis, the AI alert-explanation endpoint, both analytics endpoints, and staff user management. Citizen-only: `GET /parcels/mine`, `POST /workflows` (filing a service request). Citizen-facing routes that stay fully public: parcel search/360/risk-score, AI query, document verification
 - Finer-grained on `PATCH /workflows/:workflowId/steps/:stepId`: checks the acting officer's role against that specific step's `assignedRole` - a `LAND_RECORD_OFFICER` gets a real `403` trying to decide a `REGISTRATION` step. `ADMIN` bypasses department restrictions
 
 ### Audit Logging
