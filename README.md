@@ -12,12 +12,7 @@ BhoomiSetu is a GIS-based, parcel-centric land governance and interoperability p
 SIH_2026_BhoomiSetu/
 ├── backend/                 # NestJS backend application
 ├── frontend/                # React frontend application
-├── docs/                    # Plan.md (build log), FEATURE_AUDIT.md, STANDARD_TECHNICAL_DOCUMENT.md,
-│                            # FEATURES.md (what exists and where), design.md/flow.md (current design
-│                            # system and IA), plus in-progress planning docs for the next upgrade pass
-│                            # (FRONTEND_UPGRADE_SPEC.md, AUTH_VERIFICATION_UPGRADE.md,
-│                            # CITIZEN_FEATURES_UPGRADE_PLAN.md) - not yet built, see those files' own
-│                            # status notes
+├── docs/                    # see Documentation below for what's in here
 ├── docker-compose.yml       # Docker Compose configuration (see Docker note below)
 ├── BHOOMISETU.md            # Project vision and overview
 ├── Tech.md                  # Technical architecture and specifications
@@ -293,6 +288,25 @@ Also completed outside the phase numbering: **PostGIS run end-to-end** against a
 - Every parcel gets Registration/Planning/Tax/Restriction/Dispute mock records; for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone. ~12% of parcels get a real dispute on file.
 - Governance alerts are generated from that same data: one per parcel actually inside the flood zone, one per parcel actually flagged by the change-detection event, and one per parcel whose seeded tax record actually came out `OVERDUE`.
 - **Accounts**: 5 officer/admin demo accounts (1 per role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 200 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
+
+## Documentation
+
+**What's actually built:**
+- [`docs/FEATURES.md`](docs/FEATURES.md) - feature-by-feature index of everything currently built, with backend/frontend locations.
+- [`docs/design.md`](docs/design.md) - the Bauhaus visual design system: color tokens, typography, dark mode.
+- [`docs/flow.md`](docs/flow.md) - login/registration/role-dashboard IA and feature distribution across Citizen/Officer/Admin (partially superseded, see below).
+- [`docs/STANDARD_TECHNICAL_DOCUMENT.md`](docs/STANDARD_TECHNICAL_DOCUMENT.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards, verified against the real codebase.
+- [`docs/FEATURE_AUDIT.md`](docs/FEATURE_AUDIT.md) - cross-reference of what's required (the official SIH problem statement), what the team's own spec additionally proposed, and what's actually built, with a scored backlog.
+- [`docs/Plan.md`](docs/Plan.md) - the phase-by-phase build log, with a dated verification note after every phase.
+
+**Planning only, not yet built:**
+- [`docs/FRONTEND_UPGRADE_SPEC.md`](docs/FRONTEND_UPGRADE_SPEC.md) - the master spec for the next frontend pass: mobile/email OTP auth, a real Home/Citizen-Portal split, historical parcel-imagery comparison, ownership history, admin-configurable governance rules.
+- [`docs/AUTH_VERIFICATION_UPGRADE.md`](docs/AUTH_VERIFICATION_UPGRADE.md) - backend-schema-level detail for the mobile/email OTP verification piece above.
+- [`docs/CITIZEN_FEATURES_UPGRADE_PLAN.md`](docs/CITIZEN_FEATURES_UPGRADE_PLAN.md) - citizen-dashboard upgrades (Land Claim, document persistence, officer routing) plus the three PS-compliance gaps `FEATURE_AUDIT.md` found (encumbrance/mortgage records, valuation references, a Chandigarh pilot cluster).
+
+**Project origin:**
+- [`BHOOMISETU.md`](BHOOMISETU.md) - project vision and overview.
+- [`Tech.md`](Tech.md) - the team's original technical architecture and specification.
 
 ## License
 
