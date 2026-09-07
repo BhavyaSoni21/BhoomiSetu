@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Inbox } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 
@@ -11,10 +12,10 @@ import { Workflow } from '../../types/workflow';
 // GET /parcels/:id/workflows endpoint - no new backend route needed.
 
 const STATUS_COLORS: Record<string, string> = {
-  SUBMITTED: 'bg-gray-100 text-gray-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
+  SUBMITTED: 'bg-muted text-ink/70 border-ink/20',
+  IN_PROGRESS: 'bg-primary/10 text-primary border-primary/40',
+  APPROVED: 'bg-primary/15 text-primary border-primary/50',
+  REJECTED: 'bg-secondary/15 text-secondary-strong border-secondary/50',
 };
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -53,9 +54,12 @@ const RequestNotifications: React.FC<RequestNotificationsProps> = ({ parcelId })
   if (isLoading || error || workflows.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold mb-1">Your Requests</h2>
-      <p className="text-sm text-gray-500 mb-4">
+    <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+      <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink flex items-center justify-center" aria-hidden="true">
+        <Inbox className="w-3.5 h-3.5 text-white" />
+      </span>
+      <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">Your Requests</h2>
+      <p className="text-sm text-ink/60 mb-4 leading-relaxed">
         Live status for service requests filed on this parcel — no need to check back manually.
       </p>
       <div className="space-y-3">
@@ -67,26 +71,26 @@ const RequestNotifications: React.FC<RequestNotificationsProps> = ({ parcelId })
             .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 
           return (
-            <div key={workflow.id} className="border rounded px-3 py-2">
+            <div key={workflow.id} className="border-2 border-ink/15 px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-gray-800">
+                <p className="text-sm text-ink/80">
                   Your{' '}
-                  <span className="font-medium">
+                  <span className="font-bold text-ink">
                     {WORKFLOW_TYPE_LABELS[workflow.workflowType] ?? workflow.workflowType.replace(/_/g, ' ').toLowerCase()}
                   </span>{' '}
                   {STATUS_MESSAGES[workflow.currentStatus] ?? `is ${workflow.currentStatus.toLowerCase().replace(/_/g, ' ')}`}.
                 </p>
-                <span className={`rounded px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_COLORS[workflow.currentStatus] ?? 'bg-gray-100 text-gray-700'}`}>
+                <span className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${STATUS_COLORS[workflow.currentStatus] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
                   {workflow.currentStatus}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-ink/40 mt-1">
                 Reference: {workflow.id}
                 {' · '}Submitted {formatDateTime(workflow.createdAt)}
                 {lastUpdated && ` · Last updated ${formatDateTime(lastUpdated)}`}
               </p>
               {rejectedStep?.remarks && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-secondary-strong mt-1">
                   Reason ({rejectedStep.department.replace(/_/g, ' ')}): {rejectedStep.remarks}
                 </p>
               )}

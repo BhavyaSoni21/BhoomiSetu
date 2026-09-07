@@ -1,10 +1,11 @@
 import React from 'react';
+import { Sparkles } from 'lucide-react';
 import { AiExplanation } from '../../types/aiExplanation';
 
 const RISK_COLORS: Record<string, string> = {
-  LOW: 'bg-green-100 text-green-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-red-100 text-red-700',
+  LOW: 'bg-primary/10 text-primary border-primary/40',
+  MEDIUM: 'bg-accent/20 text-secondary-strong border-accent/50',
+  HIGH: 'bg-secondary/15 text-secondary-strong border-secondary/50',
 };
 
 interface AiExplanationCardProps {
@@ -12,24 +13,27 @@ interface AiExplanationCardProps {
 }
 
 const AiExplanationCard: React.FC<AiExplanationCardProps> = ({ explanation }) => (
-  <div className="border border-indigo-100 rounded-lg p-4 bg-indigo-50 space-y-2">
-    <div className="flex items-center justify-between">
-      <h4 className="font-semibold text-sm text-indigo-900">AI Explanation</h4>
-      <span className={`rounded px-2 py-0.5 text-xs font-medium ${RISK_COLORS[explanation.risk_level] ?? 'bg-gray-100 text-gray-700'}`}>
+  <div className="border-2 border-ink bg-muted p-4 space-y-2">
+    <div className="flex items-center justify-between gap-2">
+      <h4 className="font-black uppercase tracking-wide text-xs text-ink flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+        AI Explanation
+      </h4>
+      <span className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${RISK_COLORS[explanation.risk_level] ?? 'bg-surface text-ink/60 border-ink/20'}`}>
         {explanation.risk_level} RISK
       </span>
     </div>
-    <p className="text-sm text-gray-700">{explanation.summary}</p>
+    <p className="text-sm text-ink/80 leading-relaxed">{explanation.summary}</p>
     {explanation.findings.length > 0 && (
       <ul className="space-y-1 list-disc list-inside">
         {explanation.findings.map((finding, index) => (
-          <li key={index} className="text-xs text-gray-600">
-            <strong>{finding.type}:</strong> {finding.description}
+          <li key={index} className="text-xs text-ink/60">
+            <strong className="text-ink">{finding.type}:</strong> {finding.description}
           </li>
         ))}
       </ul>
     )}
-    <p className="text-xs text-gray-500 italic">Recommended: {explanation.recommended_action}</p>
+    <p className="text-xs text-ink/50 italic">Recommended: {explanation.recommended_action}</p>
   </div>
 );
 

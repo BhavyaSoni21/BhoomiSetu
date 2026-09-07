@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, X as XIcon, AlertCircle } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 
@@ -14,13 +15,19 @@ function formatDate(value: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-IN');
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  SUBMITTED: 'bg-gray-100 text-gray-700',
+// Status semantics win over the portal's role color here (docs/design.md):
+// approved -> primary (green), rejected -> secondary (terracotta),
+// anything still in flight (pending/submitted/in-progress) -> accent (gold).
+const STATUS_STYLES: Record<string, string> = {
+  PENDING: 'bg-accent text-ink',
+  SUBMITTED: 'bg-accent text-ink',
+  IN_PROGRESS: 'bg-accent text-ink',
+  APPROVED: 'bg-primary text-white',
+  REJECTED: 'bg-secondary text-white',
 };
+
+const statusBadgeClass = (status: string) =>
+  `inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_STYLES[status] ?? 'bg-muted text-ink'}`;
 
 const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
   const queryClient = useQueryClient();
@@ -52,8 +59,8 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
     },
   );
 
-  if (isLoading) return <div className="text-gray-500 text-sm">Loading workflow...</div>;
-  if (error || !workflow) return <div className="text-gray-500 text-sm">Error loading workflow</div>;
+  if (isLoading) return <div className="text-ink/60 text-sm">Loading workflow...</div>;
+  if (error || !workflow) return <div className="text-ink/60 text-sm">Error loading workflow</div>;
 
   const myStep = workflow.steps.find((s) => s.department === officerDepartment);
   const canReview = myStep?.status === 'PENDING';
@@ -61,66 +68,73 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold">{workflow.workflowType.replace(/_/g, ' ')}</h3>
-        <p className="text-sm text-gray-500">Parcel: {workflow.parcelId}</p>
-        <span className={`inline-block mt-1 rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[workflow.currentStatus] ?? 'bg-gray-100 text-gray-700'}`}>
+        <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{workflow.workflowType.replace(/_/g, ' ')}</h3>
+        <p className="text-sm text-ink/60">Parcel: {workflow.parcelId}</p>
+        <span className={`mt-1 ${statusBadgeClass(workflow.currentStatus)}`}>
           {workflow.currentStatus}
         </span>
-        {workflow.requestDetails && <p className="text-sm text-gray-600 mt-2">"{workflow.requestDetails}"</p>}
+        {workflow.requestDetails && <p className="text-sm text-ink/70 mt-2 italic">&quot;{workflow.requestDetails}&quot;</p>}
       </div>
 
       <div className="space-y-2">
-        <h4 className="font-medium text-sm text-gray-700">Review Steps</h4>
-        {workflow.steps.map((step) => (
-          <div key={step.id} className="flex items-center justify-between border rounded px-3 py-2 text-sm">
-            <div>
-              <span className="font-medium">{step.department.replace(/_/g, ' ')}</span>
-              <span className="text-gray-500"> ({step.assignedRole.replace(/_/g, ' ')})</span>
-              {step.remarks && <p className="text-gray-500 text-xs mt-0.5">Remarks: {step.remarks}</p>}
-              {step.completedAt && <p className="text-gray-400 text-xs">Decided: {formatDate(step.completedAt)}</p>}
+        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">Review Steps</h4>
+        <div className="border-2 border-ink divide-y-2 divide-ink">
+          {workflow.steps.map((step) => (
+            <div key={step.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm bg-surface">
+              <div>
+                <span className="font-bold text-ink">{step.department.replace(/_/g, ' ')}</span>
+                <span className="text-ink/60"> ({step.assignedRole.replace(/_/g, ' ')})</span>
+                {step.remarks && <p className="text-ink/60 text-xs mt-0.5">Remarks: {step.remarks}</p>}
+                {step.completedAt && <p className="text-ink/50 text-xs">Decided: {formatDate(step.completedAt)}</p>}
+              </div>
+              <span className={statusBadgeClass(step.status)}>
+                {step.status}
+              </span>
             </div>
-            <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[step.status] ?? 'bg-gray-100 text-gray-700'}`}>
-              {step.status}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {canReview ? (
-        <div className="border-t pt-4">
-          <label htmlFor="review-remarks" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="border-t-4 border-ink pt-4">
+          <label htmlFor="review-remarks" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
             Remarks (optional)
           </label>
           <textarea
             id="review-remarks"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
             rows={3}
             placeholder="Add remarks for this decision..."
           />
           {reviewMutation.isError && (
-            <p className="text-sm text-red-600 mt-1">Something went wrong submitting your decision. Please try again.</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
+              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              Something went wrong submitting your decision. Please try again.
+            </p>
           )}
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-3">
             <button
               onClick={() => reviewMutation.mutate('APPROVE')}
               disabled={reviewMutation.isLoading}
-              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
+              <Check className="w-4 h-4" aria-hidden="true" />
               Approve
             </button>
             <button
               onClick={() => reviewMutation.mutate('REJECT')}
               disabled={reviewMutation.isLoading}
-              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-secondary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
+              <XIcon className="w-4 h-4" aria-hidden="true" />
               Reject
             </button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-500 border-t pt-4">
+        <p className="text-sm text-ink/60 border-t-4 border-ink pt-4">
           {myStep ? 'Your department has already decided this step.' : 'No step in this workflow is assigned to your department.'}
         </p>
       )}

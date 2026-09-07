@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Semantic color tokens (docs/design.md §2/§5). Values are RGB triplets
+ * (not hex) so Tailwind's `bg-primary/20`-style opacity modifiers work.
+ * Every value here maps to the literal bhoomi.* palette in tailwind.config.js
+ * - this layer only decides which literal color plays which Bauhaus "slot"
+ * (background/surface/ink/primary/secondary/accent) per theme.
+ */
+:root {
+  --color-background: 245 246 242; /* bhoomi-paper */
+  --color-surface: 255 255 255; /* white cards */
+  --color-ink: 10 26 19; /* bhoomi-dark - text + borders */
+  --color-primary: 27 67 50; /* bhoomi-forest */
+  --color-primary-strong: 45 106 79; /* bhoomi-leaf */
+  --color-secondary: 147 81 22; /* bhoomi-clay */
+  --color-secondary-strong: 124 63 29; /* bhoomi-soil */
+  --color-accent: 232 150 60; /* bhoomi-gold */
+  --color-muted: 231 226 211; /* warm parchment */
+  --shadow-color: 10 26 19; /* = --color-ink in light mode */
+}
+
+.dark {
+  --color-background: 10 26 19; /* bhoomi-dark */
+  --color-surface: 20 47 36; /* bhoomi-card */
+  --color-ink: 245 246 242; /* bhoomi-paper - borders/text flip to cream */
+  --color-primary: 82 183 136; /* bhoomi-mint - brighter green pops on dark */
+  --color-primary-strong: 64 145 108; /* bhoomi-sprout */
+  --color-secondary: 198 139 89; /* bhoomi-sand - lighter terracotta for contrast */
+  --color-secondary-strong: 147 81 22; /* bhoomi-clay */
+  --color-accent: 232 150 60; /* bhoomi-gold - already punchy, unchanged */
+  --color-muted: 35 78 59; /* bhoomi-border */
+  --shadow-color: 245 246 242; /* = --color-ink in dark mode, cream not black */
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-ink;
+}

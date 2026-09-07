@@ -1,20 +1,27 @@
 import React from 'react';
+import { X, Sparkles, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import AiExplanationCard from '../ai/AiExplanationCard';
 
-const SEVERITY_COLORS: Record<string, string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  CRITICAL: 'bg-red-100 text-red-700',
+// Severity/status badges share the same semantics as GovernanceAlertsPanel
+// (status wins over the portal's role color where the two would conflict -
+// docs/design.md): OPEN -> accent, REVIEWED -> primary, DISMISSED -> secondary.
+const SEVERITY_STYLES: Record<string, string> = {
+  LOW: 'bg-muted text-ink',
+  MEDIUM: 'bg-accent text-ink',
+  HIGH: 'bg-secondary text-white',
+  CRITICAL: 'bg-secondary-strong text-white',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-red-50 text-red-700',
-  REVIEWED: 'bg-blue-50 text-blue-700',
-  DISMISSED: 'bg-gray-50 text-gray-500',
+const STATUS_STYLES: Record<string, string> = {
+  OPEN: 'bg-accent text-ink',
+  REVIEWED: 'bg-primary text-white',
+  DISMISSED: 'bg-secondary text-white',
 };
+
+const badgeClass = (styles: Record<string, string>, key: string) =>
+  `inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest mr-2 ${styles[key] ?? 'bg-muted text-ink'}`;
 
 interface GovernanceAlertDetailModalProps {
   alert: GovernanceAlert;
@@ -45,39 +52,43 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
   onClose,
 }) => {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
-        <div className="flex items-start justify-between mb-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+      <div className="relative bg-surface border-4 border-ink shadow-hard-lg max-w-lg w-full p-6">
+        <div className="flex items-start justify-between mb-4 gap-3">
           <div>
-            <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium mr-2 ${SEVERITY_COLORS[alert.severity] ?? 'bg-gray-100 text-gray-700'}`}>
+            <span className={badgeClass(SEVERITY_STYLES, alert.severity)}>
               {alert.severity}
             </span>
-            <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[alert.status] ?? 'bg-gray-100 text-gray-700'}`}>
+            <span className={badgeClass(STATUS_STYLES, alert.status)}>
               {alert.status}
             </span>
-            <h3 className="text-lg font-semibold mt-2">{alert.alertType.replace(/_/g, ' ')}</h3>
+            <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink mt-2">{alert.alertType.replace(/_/g, ' ')}</h3>
           </div>
-          <button onClick={onClose} aria-label="Close alert details" className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
-            &times;
+          <button
+            onClick={onClose}
+            aria-label="Close alert details"
+            className="shrink-0 w-8 h-8 flex items-center justify-center border-2 border-ink bg-surface text-ink hover:bg-muted transition"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4 border-b border-gray-100 pb-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4 border-b-2 border-ink pb-4">
           <div>
-            <dt className="text-gray-500">Parcel</dt>
-            <dd className="text-gray-800 font-medium">{alert.parcelId}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/60">Parcel</dt>
+            <dd className="text-ink font-bold">{alert.parcelId}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Source</dt>
-            <dd className="text-gray-800 font-medium">{alert.source.replace(/_/g, ' ')}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/60">Source</dt>
+            <dd className="text-ink font-bold">{alert.source.replace(/_/g, ' ')}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Raised</dt>
-            <dd className="text-gray-800 font-medium">{alert.createdAt ? new Date(alert.createdAt).toLocaleString() : 'Unknown'}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/60">Raised</dt>
+            <dd className="text-ink font-bold">{alert.createdAt ? new Date(alert.createdAt).toLocaleString() : 'Unknown'}</dd>
           </div>
         </dl>
 
-        <p className="text-sm text-gray-700 mb-4">{alert.explanation}</p>
+        <p className="text-sm text-ink/80 mb-4">{alert.explanation}</p>
 
         {explanation ? (
           <div className="mb-4">
@@ -87,29 +98,40 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
           <button
             onClick={onExplain}
             disabled={isExplaining}
-            className="w-full mb-2 px-3 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full mb-2 inline-flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold uppercase tracking-widest bg-accent text-ink border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
+            <Sparkles className="w-4 h-4" aria-hidden="true" />
             {isExplaining ? 'Explaining...' : 'Explain with AI'}
           </button>
         )}
-        {explainError && <p className="text-xs text-red-600 mb-4">Could not generate an explanation. Please try again.</p>}
+        {explainError && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-secondary-strong mb-4">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            Could not generate an explanation. Please try again.
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2 justify-end mt-4">
           <button
             onClick={onMarkReviewed}
             disabled={isUpdatingStatus}
-            className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
+            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
             Mark Reviewed
           </button>
           <button
             onClick={onDismiss}
             disabled={isUpdatingStatus}
-            className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
+            <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
             Dismiss
           </button>
-          <button onClick={onClose} className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-surface text-ink border-2 border-ink shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          >
             Close
           </button>
         </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useQuery } from '@tanstack/react-query';
@@ -26,17 +27,18 @@ type LayerKey =
   | 'infrastructure'
   | 'changeDetection';
 
-const LAYER_LABELS: Record<LayerKey, string> = {
-  selected: 'Selected Parcel',
-  adjacent: 'Adjacent Parcels',
-  nearby: 'Nearby Parcels',
-  cluster: 'Cluster Parcels',
-  sameDistrict: 'Same District Parcels',
-  zoning: 'Zoning Layer',
-  restriction: 'Restriction Layer',
-  infrastructure: 'Infrastructure Layer',
-  changeDetection: 'Change Detection Layer',
-};
+// Order drives the toggle list below; keys match the map.layer.* i18n keys.
+const LAYER_KEYS: LayerKey[] = [
+  'selected',
+  'adjacent',
+  'nearby',
+  'cluster',
+  'sameDistrict',
+  'zoning',
+  'restriction',
+  'infrastructure',
+  'changeDetection',
+];
 
 // Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
 // network (the whole point of this component) must never be hidden by
@@ -123,6 +125,7 @@ function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.Feat
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selectedParcelId, onParcelClick }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const mapReadyRef = useRef(false);
@@ -130,6 +133,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
 
   const onParcelClickRef = useRef(onParcelClick);
   onParcelClickRef.current = onParcelClick;
+
+  // react-i18next's `t` is fixed to whatever language was active at the
+  // render that created it (i18n.getFixedT under the hood) - the popup's
+  // click handler below is registered once in the mount-only map-init
+  // effect, so without this ref it would permanently freeze on whichever
+  // language was active on first mount instead of following language
+  // switches.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // Selection is internally owned so the component works standalone (e.g. the
   // bare /map route) but stays in sync with a controlling parent when one
@@ -351,16 +363,17 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
         if (!feature) return;
         const props = feature.properties as Record<string, string | number | null>;
 
+        const popupT = tRef.current;
         new maplibregl.Popup()
           .setLngLat(e.lngLat)
           .setHTML(`
-            <div class="max-w-xs">
-              <h3 class="font-semibold text-gray-800">Parcel Details</h3>
-              <p class="text-gray-600"><strong>ID:</strong> ${escapeHtml(String(props.id))}</p>
-              <p class="text-gray-600"><strong>ULPIN:</strong> ${escapeHtml(String(props.ulpin ?? 'N/A'))}</p>
-              <p class="text-gray-600"><strong>State:</strong> ${escapeHtml(String(props.stateCode))}</p>
-              <p class="text-gray-600"><strong>District:</strong> ${escapeHtml(String(props.districtCode))}</p>
-              <p class="text-gray-600"><strong>Area:</strong> ${Number(props.areaSqM).toLocaleString()} m&sup2;</p>
+            <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
+              <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.district'))}:</strong> ${escapeHtml(String(props.districtCode))}</p>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM).toLocaleString()} m&sup2;</p>
             </div>
           `)
           .addTo(map);
@@ -518,24 +531,31 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
   }, [layerVisibility, mapReady]);
 
   return (
-    <div className="relative h-[500px] w-full">
+    <div className="relative h-[500px] w-full border-2 sm:border-4 border-ink">
       <div ref={containerRef} className="h-full w-full" />
       {showLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-          Loading parcels...
+        <div className="absolute inset-0 flex items-center justify-center bg-surface/85 text-ink font-bold uppercase tracking-wide text-sm">
+          {t('map.loading')}
         </div>
       )}
       {showError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-          Error loading parcels
+        <div className="absolute inset-0 flex items-center justify-center bg-surface/85 text-secondary-strong font-bold uppercase tracking-wide text-sm">
+          {t('map.errorLoading')}
         </div>
       )}
-      <div className="absolute bottom-2 left-2 rounded bg-white/90 p-2 text-xs shadow max-w-[180px]">
-        <p className="mb-1 font-semibold text-gray-700">Layers</p>
-        {(Object.keys(LAYER_LABELS) as LayerKey[]).map((key) => (
-          <label key={key} className="flex items-center gap-1.5 py-0.5 text-gray-700">
-            <input type="checkbox" checked={layerVisibility[key]} onChange={() => toggleLayer(key)} />
-            {LAYER_LABELS[key]}
+      <div className="absolute bottom-2 left-2 bg-surface border-2 border-ink shadow-hard-sm p-2.5 text-xs max-w-[190px]">
+        <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
+          {t('map.layersHeading')}
+        </p>
+        {LAYER_KEYS.map((key) => (
+          <label key={key} className="flex items-center gap-1.5 py-0.5 text-ink/80 font-medium cursor-pointer">
+            <input
+              type="checkbox"
+              checked={layerVisibility[key]}
+              onChange={() => toggleLayer(key)}
+              className="accent-primary w-3.5 h-3.5 border-2 border-ink"
+            />
+            {t(`map.layer.${key}`)}
           </label>
         ))}
       </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { Bot, Send, X } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { AiQueryResponse } from '../../types/aiQuery';
 import { ParcelSummary } from '../../types/parcel';
@@ -209,29 +210,29 @@ const AskAiWidget: React.FC = () => {
       {isOpen && (
         <div
           style={{ left: resolvedPanelPos.x, top: resolvedPanelPos.y }}
-          className="fixed z-50 flex h-[32rem] max-h-[70vh] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-black/5"
+          className="fixed z-50 flex h-[32rem] max-h-[70vh] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden border-2 sm:border-4 border-ink bg-surface shadow-hard-lg"
         >
           <div
             onPointerDown={startDrag('panel')}
             onPointerMove={onDragMove}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
-            className={`flex touch-none items-center justify-between bg-indigo-600 px-4 py-3 ${isDraggingPanel ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`flex touch-none items-center justify-between bg-primary border-b-2 sm:border-b-4 border-ink px-4 py-3 ${isDraggingPanel ? 'cursor-grabbing' : 'cursor-grab'}`}
           >
-            <h3 className="text-sm font-semibold text-white select-none">Ask AI</h3>
+            <h3 className="text-sm font-black uppercase tracking-wide font-display text-white select-none">Ask AI</h3>
             <button
               onClick={() => setIsOpen(false)}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label="Close Ask AI panel"
-              className="text-indigo-100 hover:text-white text-xl leading-none"
+              className="text-white/80 hover:text-white leading-none"
             >
-              &times;
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.length === 0 && (
-              <div className="text-sm text-gray-500 space-y-3">
+              <div className="text-sm text-ink/60 space-y-3">
                 <p>
                   Ask about parcel data ("parcels with overdue tax in Pune") or how to use the site ("how do I file a
                   dispute").
@@ -241,7 +242,7 @@ const AskAiWidget: React.FC = () => {
                     <button
                       key={suggestion}
                       onClick={() => ask(suggestion)}
-                      className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-100"
+                      className="rounded-full border-2 border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition"
                     >
                       {suggestion}
                     </button>
@@ -253,26 +254,26 @@ const AskAiWidget: React.FC = () => {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  className={`max-w-[85%] border-2 px-3 py-2 text-sm ${
                     message.role === 'user'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-primary text-white border-ink'
                       : message.isError
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-gray-100 text-gray-800'
+                        ? 'bg-secondary/10 text-secondary-strong border-secondary/40'
+                        : 'bg-muted text-ink border-ink/10'
                   }`}
                 >
                   <p>{message.text}</p>
                   {message.results && message.results.length > 0 && (
-                    <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-2">
-                      <p className="text-xs font-medium text-gray-500">{message.results.length} parcel(s) matched</p>
+                    <div className="mt-2 space-y-1.5 border-t-2 border-ink/10 pt-2">
+                      <p className="text-xs font-bold uppercase tracking-wide text-ink/50">{message.results.length} parcel(s) matched</p>
                       {message.results.slice(0, 5).map((parcel) => (
                         <div key={parcel.id} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="text-gray-600">
+                          <span className="text-ink/70">
                             Parcel #{parcel.id.substring(0, 8)}... ({parcel.stateCode}-{parcel.districtCode})
                           </span>
                           <button
                             onClick={() => navigate(`/parcels/${parcel.id}`)}
-                            className="shrink-0 rounded bg-green-500 px-2 py-0.5 text-white hover:bg-green-600"
+                            className="shrink-0 border-2 border-ink bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-primary-strong transition"
                           >
                             View
                           </button>
@@ -281,7 +282,7 @@ const AskAiWidget: React.FC = () => {
                     </div>
                   )}
                   {message.results && message.results.length === 0 && (
-                    <p className="mt-1 text-xs text-gray-500">No matching parcels found.</p>
+                    <p className="mt-1 text-xs text-ink/50">No matching parcels found.</p>
                   )}
                 </div>
               </div>
@@ -289,24 +290,25 @@ const AskAiWidget: React.FC = () => {
 
             {mutation.isLoading && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-400">Thinking...</div>
+                <div className="border-2 border-ink/10 bg-muted px-3 py-2 text-sm text-ink/50">Thinking...</div>
               </div>
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t border-gray-100 p-3">
+          <form onSubmit={handleSubmit} className="flex gap-2 border-t-2 border-ink/15 p-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question..."
-              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 border-2 border-ink bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
             />
             <button
               type="submit"
               disabled={mutation.isLoading || !input.trim()}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 border-2 border-ink bg-primary px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white hover:bg-primary-strong transition disabled:opacity-50"
             >
+              <Send className="w-3.5 h-3.5" aria-hidden="true" />
               Send
             </button>
           </form>
@@ -321,17 +323,11 @@ const AskAiWidget: React.FC = () => {
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         aria-label={isOpen ? 'Close Ask AI' : 'Open Ask AI'}
-        className={`fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 ${
+        className={`fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md ${
           isDraggingButton ? 'cursor-grabbing' : 'cursor-grab transition-transform hover:scale-105'
         }`}
       >
-        {isOpen ? (
-          <span className="text-2xl leading-none">&times;</span>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
-            <path d="M12 2C6.48 2 2 6.03 2 11c0 2.42 1.06 4.62 2.81 6.24-.07.9-.34 2.34-1.13 3.65a.5.5 0 0 0 .58.73c1.87-.6 3.31-1.5 4.15-2.11A11.4 11.4 0 0 0 12 20c5.52 0 10-4.03 10-9s-4.48-9-10-9Z" />
-          </svg>
-        )}
+        {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Bot className="h-6 w-6" aria-hidden="true" />}
       </button>
     </>
   );

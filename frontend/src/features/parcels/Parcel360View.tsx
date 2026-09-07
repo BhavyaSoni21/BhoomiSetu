@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { ArrowLeft, FileText, Flag, MessageSquareWarning, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
@@ -14,10 +15,10 @@ import { RiskScore } from '../../types/riskScore';
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute';
 
 const RISK_BAND_COLORS: Record<string, string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  CRITICAL: 'bg-red-100 text-red-700',
+  LOW: 'bg-muted text-ink/70 border-ink/20',
+  MEDIUM: 'bg-accent/20 text-secondary-strong border-accent/50',
+  HIGH: 'bg-secondary/15 text-secondary-strong border-secondary/50',
+  CRITICAL: 'bg-secondary text-white border-ink',
 };
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -42,7 +43,7 @@ function formatDate(value: string | null): string {
 
 function NotAvailable({ department }: { department: string }) {
   return (
-    <div className="flex h-40 items-center justify-center text-gray-500 text-sm">
+    <div className="flex h-40 items-center justify-center text-ink/50 text-sm">
       No {department} data is available for this parcel.
     </div>
   );
@@ -50,8 +51,8 @@ function NotAvailable({ department }: { department: string }) {
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <p className="text-gray-600">
-      <strong>{label}:</strong> {value}
+    <p className="text-ink/70 text-sm py-1">
+      <strong className="font-bold text-ink">{label}:</strong> {value}
     </p>
   );
 }
@@ -105,15 +106,15 @@ const Parcel360View: React.FC = () => {
   }, [id]);
 
   if (isLoading) {
-    return <div className="flex h-[600px] items-center justify-center">Loading parcel details...</div>;
+    return <div className="flex h-[600px] items-center justify-center text-ink/60 font-medium">Loading parcel details...</div>;
   }
 
   if (error) {
-    return <div className="flex h-[600px] items-center justify-center">Error loading parcel details</div>;
+    return <div className="flex h-[600px] items-center justify-center text-secondary-strong font-medium">Error loading parcel details</div>;
   }
 
   if (!parcel360) {
-    return <div className="flex h-[600px] items-center justify-center">Parcel not found</div>;
+    return <div className="flex h-[600px] items-center justify-center text-ink/60 font-medium">Parcel not found</div>;
   }
 
   const { identifiers, location, spatial, sources, departments } = parcel360;
@@ -130,20 +131,21 @@ const Parcel360View: React.FC = () => {
         />
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-1">Parcel 360</h1>
-        <p className="text-sm text-gray-500 mb-4">{parcel360.parcel_id}</p>
+      <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+        <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
+        <h1 className="text-2xl font-black uppercase tracking-tight font-display text-ink mb-1">Parcel 360</h1>
+        <p className="text-sm text-ink/50 font-mono mb-4">{parcel360.parcel_id}</p>
 
-        <div className="border-b border-gray-200 mb-4">
-          <nav className="-mb-px flex flex-wrap gap-4" aria-label="Parcel 360 sections">
+        <div className="border-b-2 border-ink/20 mb-4 overflow-x-auto">
+          <nav className="-mb-px flex flex-wrap gap-1" aria-label="Parcel 360 sections">
             {TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`whitespace-nowrap border-b-2 px-1 py-2 text-sm font-medium ${
+                className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
                   activeTab === tab.key
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-ink/50 hover:border-ink/30 hover:text-ink'
                 }`}
               >
                 {tab.label}
@@ -153,33 +155,33 @@ const Parcel360View: React.FC = () => {
         </div>
 
         {activeTab === 'overview' && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
             <div>
-              <h2 className="text-xl font-semibold mb-2">Identifiers</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Identifiers</h2>
               <Field label="ULPIN" value={identifiers.ulpin || 'N/A'} />
               <Field label="Survey Number" value={identifiers.survey_number || 'N/A'} />
               <Field label="Plot Number" value={identifiers.plot_number || 'N/A'} />
               <Field label="Local Identifier" value={identifiers.local_identifier || 'N/A'} />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-2">Location</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Location</h2>
               <Field label="State" value={location.state} />
               <Field label="District" value={location.district} />
               <Field label="Locality" value={location.locality} />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-2">Area</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Area</h2>
               <Field label="Area" value={`${spatial.area_sq_m.toLocaleString()} m²`} />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-2">Data Sources</h2>
-              <div className="space-y-1">
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Data Sources</h2>
+              <div className="space-y-1.5">
                 {sources.map((source) => (
                   <div key={source.department} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">{source.department.replace(/_/g, ' ')}</span>
+                    <span className="text-ink/70">{source.department.replace(/_/g, ' ')}</span>
                     <span
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        source.status === 'AVAILABLE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        source.status === 'AVAILABLE' ? 'bg-primary/10 text-primary border-primary/40' : 'bg-muted text-ink/40 border-ink/20'
                       }`}
                     >
                       {source.status}
@@ -286,27 +288,28 @@ const Parcel360View: React.FC = () => {
       <RequestNotifications parcelId={parcel360.parcel_id} />
 
       {riskScore && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-1">Risk Assessment</h2>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+          <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-accent border-2 border-ink" aria-hidden="true" />
+          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">Risk Assessment</h2>
+          <p className="text-sm text-ink/60 mb-4 leading-relaxed">
             A heuristic score combining tax, dispute, governance-alert, and restriction signals — not a prediction
             from a trained model. Each factor below is weighted by how directly it threatens undisputed ownership.
           </p>
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="text-3xl font-bold text-gray-800">{riskScore.overallScore}</span>
-            <span className={`rounded px-3 py-1 text-sm font-medium ${RISK_BAND_COLORS[riskScore.riskBand] ?? 'bg-gray-100 text-gray-700'}`}>
+            <span className="text-3xl font-black text-ink">{riskScore.overallScore}</span>
+            <span className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide ${RISK_BAND_COLORS[riskScore.riskBand] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
               {riskScore.riskBand}
             </span>
-            <span className="text-xs text-gray-400">{Math.round(riskScore.dataCompleteness * 100)}% data coverage</span>
+            <span className="text-xs text-ink/40 font-medium">{Math.round(riskScore.dataCompleteness * 100)}% data coverage</span>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 divide-y-2 divide-ink/10">
             {riskScore.factors.map((factor) => (
-              <div key={factor.key} className="flex items-start justify-between gap-3 text-sm border-b py-2 last:border-b-0">
+              <div key={factor.key} className="flex items-start justify-between gap-3 text-sm py-2 first:pt-0 last:pb-0">
                 <div>
-                  <span className="font-medium text-gray-700">{factor.label}</span>
-                  <p className="text-xs text-gray-500 mt-0.5">{factor.rationale}</p>
+                  <span className="font-bold text-ink">{factor.label}</span>
+                  <p className="text-xs text-ink/50 mt-0.5">{factor.rationale}</p>
                 </div>
-                <span className={factor.available ? 'font-semibold text-gray-800 whitespace-nowrap' : 'text-xs text-gray-400 italic whitespace-nowrap'}>
+                <span className={factor.available ? 'font-bold text-ink whitespace-nowrap' : 'text-xs text-ink/40 italic whitespace-nowrap'}>
                   {factor.available ? factor.score : 'N/A'}
                 </span>
               </div>
@@ -315,9 +318,9 @@ const Parcel360View: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Parcel Map</h2>
-        <p className="text-sm text-gray-500 mb-2">
+      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6 overflow-hidden">
+        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">Parcel Map</h2>
+        <p className="text-sm text-ink/60 mb-3 leading-relaxed">
           Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
           Click another parcel on the map to view its Parcel 360 details.
         </p>
@@ -330,44 +333,49 @@ const Parcel360View: React.FC = () => {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Actions</h2>
+      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Actions</h2>
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
+            <FileText className="w-3.5 h-3.5" aria-hidden="true" />
             Request Documents
           </button>
           <button
             onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
+            <Flag className="w-3.5 h-3.5" aria-hidden="true" />
             Report Issue
           </button>
           <button
             onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
-            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
+            <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
             File a Dispute
           </button>
           <button
-            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+            className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
             onClick={() => window.history.back()}
           >
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back to Search
           </button>
           <button
             onClick={() => explainMutation.mutate()}
             disabled={explainMutation.isLoading}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-4 py-2 text-xs font-bold uppercase tracking-wider text-background shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
             {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
           </button>
         </div>
 
         {explainMutation.isError && (
-          <p className="text-sm text-red-600 mt-4">
+          <p className="text-sm font-medium text-secondary-strong mt-4">
             {axios.isAxiosError(explainMutation.error) && explainMutation.error.response?.status === 503
               ? 'AI is not configured on this server.'
               : 'Something went wrong generating an explanation. Please try again.'}

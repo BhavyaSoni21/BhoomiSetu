@@ -4,10 +4,17 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Parcel360View from './Parcel360View';
 import apiService from '../../services/apiService';
+import { AuthUser } from '../auth/auth';
 
 vi.mock('../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
+
+// ServiceRequestForm now requires a signed-in CITIZEN (POST /workflows is
+// @Roles(CITIZEN_ROLE)-guarded) - these tests exercise the actual filing
+// flow (Request Documents / Report Issue / File a Dispute), so the auth-me
+// cache is pre-seeded with a citizen the same way MyParcels.test.tsx does.
+const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 
 // MapComponent's own behaviour (maplibre, contextual layers) is covered by
 // MapComponent.test.tsx - stub it here so this file focuses on the 360 data
@@ -23,6 +30,7 @@ vi.mock('../map/MapComponent', () => ({
 
 function renderWithProviders(parcelId = 'p1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['auth-me'], citizen);
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/parcels/${parcelId}`]}>

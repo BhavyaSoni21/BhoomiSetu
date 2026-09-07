@@ -1,14 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Loader2, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { RiskScore } from '../../types/riskScore';
 
-const RISK_BAND_COLORS: Record<string, string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  CRITICAL: 'bg-red-100 text-red-700',
+// Bauhaus status-badge treatment (docs/design.md §7): solid semantic fill +
+// ink border rather than the old soft `/10`-tint chip - LOW reads as safe
+// (muted/neutral), MEDIUM as caution (accent/gold), HIGH and CRITICAL as
+// the two escalating terracotta tones already used for warning states.
+const RISK_BAND_CLASS: Record<string, string> = {
+  LOW: 'bg-muted text-ink border-ink',
+  MEDIUM: 'bg-accent text-ink border-ink',
+  HIGH: 'bg-secondary text-white border-ink',
+  CRITICAL: 'bg-secondary-strong text-white border-ink',
 };
 
 const TopRiskParcels: React.FC = () => {
@@ -19,25 +24,38 @@ const TopRiskParcels: React.FC = () => {
     return response.data;
   });
 
-  if (isLoading) return <div className="text-gray-500 text-sm">Loading risk scores...</div>;
-  if (error) return <div className="text-gray-500 text-sm">Error loading risk scores</div>;
-  if (parcels.length === 0) return <div className="text-gray-500 text-sm">No parcels to score yet.</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm font-medium text-ink/60 py-3">
+        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+        Loading risk scores...
+      </div>
+    );
+  }
+  if (error) return <div className="text-sm font-medium text-ink/60 py-3">Error loading risk scores</div>;
+  if (parcels.length === 0) return <div className="text-sm font-medium text-ink/60 py-3">No parcels to score yet.</div>;
 
   return (
-    <div className="space-y-1">
+    <div className="border-2 border-ink divide-y-2 divide-ink bg-surface">
       {parcels.map((parcel) => (
-        <div key={parcel.parcelId} className="flex flex-wrap items-center justify-between gap-2 border-b py-2 last:border-b-0 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-800">Parcel #{parcel.parcelId.substring(0, 8)}...</span>
-            <span className={`rounded px-2 py-0.5 text-xs font-medium ${RISK_BAND_COLORS[parcel.riskBand] ?? 'bg-gray-100 text-gray-700'}`}>
+        <div key={parcel.parcelId} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3 text-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="font-bold text-ink">Parcel #{parcel.parcelId.substring(0, 8)}...</span>
+            <span
+              className={`inline-flex items-center gap-1 border-2 px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
+                RISK_BAND_CLASS[parcel.riskBand] ?? 'bg-muted text-ink border-ink'
+              }`}
+            >
+              <ShieldAlert className="w-3 h-3" aria-hidden="true" />
               {parcel.riskBand} ({parcel.overallScore})
             </span>
           </div>
           <button
             onClick={() => navigate(`/parcels/${parcel.parcelId}`)}
-            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+            className="inline-flex items-center gap-1.5 border-2 border-ink bg-primary hover:bg-primary-strong text-white text-xs font-bold uppercase tracking-wide px-2.5 py-1.5 shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
             View
+            <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
       ))}

@@ -29,6 +29,7 @@ describe('Audit logging (e2e)', () => {
   let parcel: Parcel;
   let adminAuth: string;
   let landRecordsAuth: string;
+  let citizenAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -50,6 +51,7 @@ describe('Audit logging (e2e)', () => {
 
     ({ authHeader: adminAuth } = await createAuthenticatedUser(moduleFixture, 'ADMIN'));
     ({ authHeader: landRecordsAuth } = await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER'));
+    ({ authHeader: citizenAuth } = await createAuthenticatedUser(moduleFixture, 'CITIZEN'));
   });
 
   afterAll(async () => {
@@ -86,6 +88,7 @@ describe('Audit logging (e2e)', () => {
     it('records WORKFLOW_STEP_APPROVED with the department and remarks in metadata', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
@@ -112,6 +115,7 @@ describe('Audit logging (e2e)', () => {
     it('records WORKFLOW_STEP_REJECTED for a reject action', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
@@ -134,6 +138,7 @@ describe('Audit logging (e2e)', () => {
     it('does not record anything for a request rejected by RBAC (wrong department)', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const registrationStep = created.body.steps.find((s: any) => s.department === 'REGISTRATION');
@@ -149,6 +154,27 @@ describe('Audit logging (e2e)', () => {
         .set('Authorization', adminAuth)
         .expect(200);
       expect(res.body.find((e: any) => e.entityId === registrationStep.id)).toBeUndefined();
+    });
+  });
+
+  describe('Workflow creation', () => {
+    it('records WORKFLOW_CREATED against the filing citizen', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${parcel.id}/audit`)
+        .set('Authorization', adminAuth)
+        .expect(200);
+
+      const entry = res.body.find((e: any) => e.entityId === created.body.id && e.action === 'WORKFLOW_CREATED');
+      expect(entry).toBeTruthy();
+      expect(entry.userRole).toBe('CITIZEN');
+      expect(entry.entityType).toBe('WORKFLOW');
+      expect(entry.metadata).toEqual({ workflowType: 'ROR_COPY_REQUEST' });
     });
   });
 

@@ -23,14 +23,17 @@ describe('Workflows (service requests) (e2e)', () => {
   let parcelRepository: Repository<Parcel>;
   let parcel: Parcel;
   let otherParcel: Parcel;
-  // GET (list/single), PATCH .../status, and PATCH .../steps/:stepId are all
-  // officer/admin-only as of docs/FEATURE_AUDIT.md §8 item 5 - only POST
-  // (the citizen service-request flow) stays public. adminAuth bypasses the
-  // per-step department check (see workflows.service.ts); the per-department
-  // tokens exercise that check for real.
+  // GET (list/single) and PATCH .../status, .../steps/:stepId are all
+  // officer/admin-only as of docs/FEATURE_AUDIT.md §8 item 5. POST (the
+  // citizen service-request flow) is CITIZEN-only as of docs/flow.md §9 -
+  // filing moved from anonymous/public to account-gated now that real
+  // citizen accounts exist end-to-end. adminAuth bypasses the per-step
+  // department check (see workflows.service.ts); the per-department tokens
+  // exercise that check for real.
   let adminAuth: string;
   let landRecordsAuth: string;
   let registrationAuth: string;
+  let citizenAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -54,6 +57,7 @@ describe('Workflows (service requests) (e2e)', () => {
     adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
     landRecordsAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
     registrationAuth = (await createAuthenticatedUser(moduleFixture, 'REGISTRATION_OFFICER')).authHeader;
+    citizenAuth = (await createAuthenticatedUser(moduleFixture, 'CITIZEN')).authHeader;
   });
 
   afterAll(async () => {
@@ -64,6 +68,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('creates a workflow with SUBMITTED status and auto-generates the 3-step review pipeline', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST', createdBy: 'Jane Citizen', requestDetails: 'Need a copy for a loan application' })
         .expect(201);
 
@@ -75,30 +80,48 @@ describe('Workflows (service requests) (e2e)', () => {
       expect(res.body.steps.map((s: any) => s.stepOrder)).toEqual([1, 2, 3]);
     });
 
-    it('accepts a workflow with no createdBy/requestDetails (both optional)', async () => {
+    it('accepts a workflow with no createdBy/requestDetails (both optional) and defaults createdBy to the filing citizen', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'CORRECTION_REQUEST' })
         .expect(201);
-      expect(res.body.createdBy).toBeNull();
+      expect(res.body.createdBy).toMatch(/^Test CITIZEN/);
       expect(res.body.requestDetails).toBeNull();
     });
 
     it('rejects a request for a non-existent parcel with 400', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: '00000000-0000-0000-0000-000000000000', workflowType: 'ROR_COPY_REQUEST' })
         .expect(400);
     });
 
     it('rejects a request missing required fields with 400', async () => {
-      await request(app.getHttpServer()).post('/api/v1/workflows').send({ workflowType: 'ROR_COPY_REQUEST' }).expect(400);
-      await request(app.getHttpServer()).post('/api/v1/workflows').send({ parcelId: parcel.id }).expect(400);
+      await request(app.getHttpServer()).post('/api/v1/workflows').set('Authorization', citizenAuth).send({ workflowType: 'ROR_COPY_REQUEST' }).expect(400);
+      await request(app.getHttpServer()).post('/api/v1/workflows').set('Authorization', citizenAuth).send({ parcelId: parcel.id }).expect(400);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(401);
+    });
+
+    it('rejects a staff account (non-citizen) filing a request with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', landRecordsAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(403);
     });
 
     it('a DISPUTE_FILING workflow gets its own single-step DISPUTE review, not the default 3-step pipeline', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'DISPUTE_FILING', requestDetails: 'Boundary dispute with neighbouring parcel' })
         .expect(201);
 
@@ -113,6 +136,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('returns a workflow with its steps', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -144,6 +168,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('updates currentStatus and records remarks', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -171,6 +196,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('lists only workflows for that specific parcel, newest first', async () => {
       const first = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: otherParcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       // SQLite's CURRENT_TIMESTAMP has second-level resolution, so two
@@ -179,6 +205,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await new Promise((resolve) => setTimeout(resolve, 1100));
       const second = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: otherParcel.id, workflowType: 'CORRECTION_REQUEST' })
         .expect(201);
 
@@ -206,6 +233,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('filters by department AND stepStatus to the workflows with a matching pending step', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -221,6 +249,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('excludes a workflow whose matching-department step has already been decided', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
@@ -246,6 +275,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it("scopes an officer's request to their own department even if a different one is requested", async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -270,6 +300,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('approving every step moves the workflow to APPROVED', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -290,6 +321,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejecting one step moves the whole workflow to REJECTED, independent of other steps', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const registrationStep = created.body.steps.find((s: any) => s.department === 'REGISTRATION');
@@ -311,6 +343,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('a partially-approved workflow (not all steps decided) is IN_PROGRESS', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
@@ -327,6 +360,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejects reviewing an already-decided step with 400', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const step = created.body.steps[0]; // LAND_RECORDS, per the default pipeline order
@@ -355,10 +389,12 @@ describe('Workflows (service requests) (e2e)', () => {
     it('returns 404 when the step does not belong to that workflow', async () => {
       const first = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const second = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'CORRECTION_REQUEST' })
         .expect(201);
 
@@ -372,6 +408,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejects an invalid action value with 400', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -385,6 +422,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejects an unauthenticated request with 401', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
 
@@ -397,6 +435,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejects an officer trying to decide a step outside their own department with 403', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const registrationStep = created.body.steps.find((s: any) => s.department === 'REGISTRATION');
@@ -420,6 +459,7 @@ describe('Workflows (service requests) (e2e)', () => {
     it('lets ADMIN decide a step regardless of department', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(201);
       const planningStep = created.body.steps.find((s: any) => s.department === 'PLANNING');

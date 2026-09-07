@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Eye, CheckCircle2, XCircle } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import GovernanceAlertDetailModal from './GovernanceAlertDetailModal';
 
-const SEVERITY_COLORS: Record<string, string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  CRITICAL: 'bg-red-100 text-red-700',
+// Severity is its own axis from workflow/alert *status* - not literally
+// approved/pending/rejected - so it borrows the palette rather than the
+// strict status mapping: low-key up through the portal's secondary
+// (terracotta) "danger" tone for the two most serious tiers.
+const SEVERITY_STYLES: Record<string, string> = {
+  LOW: 'bg-muted text-ink',
+  MEDIUM: 'bg-accent text-ink',
+  HIGH: 'bg-secondary text-white',
+  CRITICAL: 'bg-secondary-strong text-white',
 };
+
+const severityBadgeClass = (severity: string) =>
+  `inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest mr-2 ${SEVERITY_STYLES[severity] ?? 'bg-muted text-ink'}`;
 
 const GovernanceAlertsPanel: React.FC = () => {
   const queryClient = useQueryClient();
@@ -51,11 +59,11 @@ const GovernanceAlertsPanel: React.FC = () => {
     },
   );
 
-  if (isLoading) return <div className="text-gray-500 text-sm">Loading governance alerts...</div>;
-  if (error) return <div className="text-gray-500 text-sm">Error loading governance alerts</div>;
+  if (isLoading) return <div className="text-ink/60 text-sm">Loading governance alerts...</div>;
+  if (error) return <div className="text-ink/60 text-sm">Error loading governance alerts</div>;
 
   if (alerts.length === 0) {
-    return <div className="text-gray-500 text-sm">No open governance alerts requiring attention.</div>;
+    return <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">No open governance alerts requiring attention.</div>;
   }
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) ?? null;
@@ -63,36 +71,39 @@ const GovernanceAlertsPanel: React.FC = () => {
   return (
     <div className="space-y-3">
       {alerts.map((alert) => (
-        <div key={alert.id} className="border rounded px-3 py-2">
+        <div key={alert.id} className="bg-surface border-2 border-ink shadow-hard-sm px-3.5 py-3 transition hover:-translate-y-1">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium mr-2 ${SEVERITY_COLORS[alert.severity] ?? 'bg-gray-100 text-gray-700'}`}>
+              <span className={severityBadgeClass(alert.severity)}>
                 {alert.severity}
               </span>
-              <span className="font-medium text-sm">{alert.alertType.replace(/_/g, ' ')}</span>
-              <p className="text-xs text-gray-500 mt-0.5">Parcel: {alert.parcelId}</p>
-              <p className="text-sm text-gray-600 mt-1">{alert.explanation}</p>
+              <span className="font-bold text-sm uppercase tracking-wide text-ink">{alert.alertType.replace(/_/g, ' ')}</span>
+              <p className="text-xs text-ink/60 mt-0.5">Parcel: {alert.parcelId}</p>
+              <p className="text-sm text-ink/70 mt-1">{alert.explanation}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-3">
             <button
               onClick={() => setSelectedAlertId(alert.id)}
-              className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-surface text-ink border-2 border-ink shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
             >
+              <Eye className="w-3.5 h-3.5" aria-hidden="true" />
               View Details
             </button>
             <button
               onClick={() => statusMutation.mutate({ id: alert.id, status: 'REVIEWED' })}
               disabled={statusMutation.isLoading}
-              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
+              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
               Mark Reviewed
             </button>
             <button
               onClick={() => statusMutation.mutate({ id: alert.id, status: 'DISMISSED' })}
               disabled={statusMutation.isLoading}
-              className="px-3 py-1 text-xs border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
+              <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
               Dismiss
             </button>
           </div>

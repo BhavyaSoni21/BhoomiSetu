@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Square, LogOut, LayoutDashboard, Clock, CheckCircle2, ShieldAlert, FileCheck2, ClipboardList, Eye } from 'lucide-react';
 import apiService from '../services/apiService';
 import { Workflow } from '../types/workflow';
 import { OfficerRole, ROLE_DEPARTMENT, ROLE_LABELS } from '../features/officer/officerAuth';
@@ -37,6 +38,11 @@ interface OfficerDashboardProps {
   onLogout: () => void;
 }
 
+// Section-heading style shared across this dashboard's bordered cards -
+// square/secondary is this portal's role-shape accent (docs/design.md §2),
+// used here purely for the icon chip, never for status-bearing elements.
+const sectionHeadingClass = 'text-xl sm:text-2xl font-black uppercase tracking-tight font-display text-ink mb-4 flex items-center gap-2';
+
 const OfficerDashboard: React.FC<OfficerDashboardProps> = ({ department, name, roleLabel, onLogout }) => {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
 
@@ -55,78 +61,111 @@ const OfficerDashboard: React.FC<OfficerDashboardProps> = ({ department, name, r
   const verifiedToday = decidedSteps.filter((s) => isToday(s!.completedAt)).length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Officer Portal</h1>
-          <p className="text-gray-600">Welcome, {name} ({roleLabel})</p>
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b-4 border-ink pb-6">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center bg-secondary/15 border-2 border-ink text-secondary">
+            <Square className="w-6 h-6 fill-current" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">Officer Portal</h1>
+            <p className="text-ink/70 mt-1 font-medium">Welcome, {name} ({roleLabel})</p>
+          </div>
         </div>
-        <button onClick={onLogout} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
+        <button
+          onClick={onLogout}
+          className="inline-flex items-center gap-2 px-4 py-2.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-widest shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+        >
+          <LogOut className="w-4 h-4" aria-hidden="true" />
           Logout
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Dashboard Overview</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">Pending Workflows</h3>
-            <p className="text-lg font-bold">{pendingWorkflows.length}</p>
+      <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
+        <h2 className={sectionHeadingClass}>
+          <LayoutDashboard className="w-5 h-5 text-secondary" aria-hidden="true" />
+          Dashboard Overview
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="bg-surface border-2 border-ink shadow-hard-sm p-4">
+            <div className="w-9 h-9 mb-3 flex items-center justify-center border-2 border-ink bg-accent/20 text-accent">
+              <Clock className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1">Pending Workflows</h3>
+            <p className="text-3xl font-black font-display text-ink">{pendingWorkflows.length}</p>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">Verified Today</h3>
-            <p className="text-lg font-bold">{verifiedToday}</p>
+          <div className="bg-surface border-2 border-ink shadow-hard-sm p-4">
+            <div className="w-9 h-9 mb-3 flex items-center justify-center border-2 border-ink bg-primary/20 text-primary">
+              <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1">Verified Today</h3>
+            <p className="text-3xl font-black font-display text-ink">{verifiedToday}</p>
           </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">Alerts Requiring Attention</h3>
-            <p className="text-lg font-bold"><GovernanceAlertsCount /></p>
+          <div className="bg-surface border-2 border-ink shadow-hard-sm p-4">
+            <div className="w-9 h-9 mb-3 flex items-center justify-center border-2 border-ink bg-accent/20 text-accent">
+              <ShieldAlert className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1">Alerts Requiring Attention</h3>
+            <p className="text-3xl font-black font-display text-ink"><GovernanceAlertsCount /></p>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">Documents Processed</h3>
-            <p className="text-lg font-bold">{decidedSteps.length}</p>
+          <div className="bg-surface border-2 border-ink shadow-hard-sm p-4">
+            <div className="w-9 h-9 mb-3 flex items-center justify-center border-2 border-ink bg-secondary/20 text-secondary">
+              <FileCheck2 className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1">Documents Processed</h3>
+            <p className="text-3xl font-black font-display text-ink">{decidedSteps.length}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Assigned Workflows</h2>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
+          <h2 className={sectionHeadingClass}>
+            <ClipboardList className="w-5 h-5 text-secondary" aria-hidden="true" />
+            Assigned Workflows
+          </h2>
           {isLoading ? (
-            <div className="text-gray-500 text-sm">Loading workflows...</div>
+            <div className="text-ink/60 text-sm">Loading workflows...</div>
           ) : error ? (
-            <div className="text-gray-500 text-sm">Error loading workflows</div>
+            <div className="text-ink/60 text-sm">Error loading workflows</div>
           ) : pendingWorkflows.length === 0 ? (
-            <div className="text-gray-500 text-sm">No workflows currently pending your review.</div>
+            <div className="text-ink/60 text-sm">No workflows currently pending your review.</div>
           ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
               {pendingWorkflows.map((workflow) => (
                 <div
                   key={workflow.id}
                   onClick={() => setSelectedWorkflowId(workflow.id)}
-                  className={`border rounded px-3 py-2 cursor-pointer ${
-                    selectedWorkflowId === workflow.id ? 'bg-blue-50 ring-1 ring-blue-300' : 'hover:bg-gray-50'
+                  className={`border-2 px-3.5 py-3 cursor-pointer transition ${
+                    selectedWorkflowId === workflow.id ? 'border-primary bg-primary/10 shadow-hard-sm' : 'border-ink hover:bg-muted'
                   }`}
                 >
-                  <p className="font-medium text-sm">{workflow.workflowType.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-gray-500">Parcel: {workflow.parcelId}</p>
+                  <p className="font-bold text-sm uppercase tracking-wide text-ink">{workflow.workflowType.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-ink/60 mt-0.5">Parcel: {workflow.parcelId}</p>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Workflow Review</h2>
+        <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
+          <h2 className={sectionHeadingClass}>
+            <Eye className="w-5 h-5 text-secondary" aria-hidden="true" />
+            Workflow Review
+          </h2>
           {selectedWorkflowId ? (
             <WorkflowReviewPanel workflowId={selectedWorkflowId} officerDepartment={department} />
           ) : (
-            <p className="text-sm text-gray-500">Select a workflow from the list to review it.</p>
+            <p className="text-sm text-ink/60">Select a workflow from the list to review it.</p>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Governance Alerts</h2>
+      <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
+        <h2 className={sectionHeadingClass}>
+          <ShieldAlert className="w-5 h-5 text-secondary" aria-hidden="true" />
+          Governance Alerts
+        </h2>
         <GovernanceAlertsPanel />
       </div>
 

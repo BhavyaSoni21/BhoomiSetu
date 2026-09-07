@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { ALL_STAFF_ROLES, ROLE_DEPARTMENT } from '../auth/roles.constants';
+import { ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT } from '../auth/roles.constants';
 import { User } from '../users/user.entity';
 import { AuditService } from '../audit/audit.service';
 
@@ -15,10 +15,10 @@ import { AuditService } from '../audit/audit.service';
 // Phase 7 additions beyond Tech.md's literal 4 endpoints, needed to actually
 // drive an officer dashboard and per-step review off this schema.
 //
-// create() stays unguarded - it's the citizen service-request flow
-// (ServiceRequestForm), which has never required an account (see
-// docs/FEATURE_AUDIT.md §8 item 9's scoping note). Everything else here is
-// officer/admin-only (§8 item 5).
+// create() now requires a signed-in CITIZEN (docs/flow.md §9 - filing a
+// request moved from anonymous/public to account-gated now that real citizen
+// accounts exist end-to-end). Everything else here is officer/admin-only
+// (§8 item 5).
 @Controller('workflows')
 export class WorkflowsController {
   constructor(
@@ -27,11 +27,22 @@ export class WorkflowsController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateWorkflowDto) {
-    const result = await this.workflowsService.create(dto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CITIZEN_ROLE)
+  async create(@CurrentUser() user: User, @Body() dto: CreateWorkflowDto) {
+    const result = await this.workflowsService.create({ ...dto, createdBy: dto.createdBy ?? user.name });
     if (result === 'PARCEL_NOT_FOUND') {
       throw new BadRequestException(`Parcel not found: ${dto.parcelId}`);
     }
+    await this.auditService.log({
+      userId: user.id,
+      userRole: user.role,
+      action: 'WORKFLOW_CREATED',
+      entityType: 'WORKFLOW',
+      entityId: result.id,
+      parcelId: result.parcelId,
+      metadata: { workflowType: result.workflowType },
+    });
     return result;
   }
 
