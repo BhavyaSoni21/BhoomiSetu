@@ -1,6 +1,6 @@
 # BhoomiSetu — Complete Frontend Upgrade Specification
 
-**Status: planning document only — nothing here has been implemented. Scheduled to start 2026-09-09.**
+**Status: Phase 0 (§6 pagination, the ownership-history/encumbrance backend work) and Phase 1 (the Home/Citizen-Portal split, both portals' multi-page restructure, and the Raise-Request parcel restriction) are done as of 2026-09-09. Phase 2 (auth/OTP, historical imagery) and Phase 3 (Admin Portal real backend) remain planning-only, blocked as described in §3/§7/§8/§11.**
 
 This is the master frontend-IA document, superseding both `docs/flow.md`'s original IA (which treated Home and the Citizen Portal as one route, and assumed guest search) and most of `docs/AUTH_VERIFICATION_UPGRADE.md`'s "previously agreed" list (folded in here with more detail and now-resolved open questions). `docs/design.md` (the Bauhaus visual system — colors, borders, shadows, typography) is **not** superseded — this document is about structure and flow, not visual style; the redesign already built stays the visual reference.
 
@@ -32,7 +32,7 @@ Five previously-open questions (from `docs/AUTH_VERIFICATION_UPGRADE.md` §10) a
 - **Officer Portal**: the authenticated officer workspace.
 - **Admin Portal**: platform administration.
 
-**[RESOLVED] Home ≠ Citizen Portal.** Today, `/` and `/citizen` render the exact same `CitizenPortal.tsx` component at different auth states — that's the model this document replaces. The public home page becomes purely informational; My Parcels, parcel search, document verification, and requests all move behind sign-in into a real multi-page Citizen Portal. **The user has confirmed this direction but flagged the exact mechanics ("routes, what About/Features actually contain") as still open for discussion before implementation** — treat the split as decided, its details as not yet final.
+**[DONE] Home ≠ Citizen Portal.** `/` is now a real guest-only `HomePage.tsx` (hero + a "How BhoomiSetu Works" 3-step section + links to `/about`/`/features`); a signed-in user hitting `/` is redirected straight to their own portal (`App.tsx`'s `PORTAL_NAV` map). My Parcels, parcel search (now "Find Parcels"), document verification ("Verify Documents"), and requests all moved behind sign-in into `/citizen/*` - a real multi-page Citizen Portal (`CitizenPortal.tsx` now owns its own relative `<Routes>`: Dashboard/My Parcels/Find Parcels/Raise Request/Requests/Verify Documents/Documents/Notifications/Profile). The two leftover top-level `/parcels/search` and `/map` routes (pre-dating this session's redesign, unguarded and unlinked from anywhere) were removed rather than migrated, since they were the last unguarded path to the old guest-search behavior.
 
 **[RESOLVED] No guest search, anywhere in the flow.** This is a deliberate reversal of what's built and documented today — `docs/FEATURES.md` feature 3 currently states parcel search "needs no account," and the current landing hero literally has a line of copy saying so. That copy and that behavior both go away under this spec. Search happens inside the Citizen Portal, post-login, full stop. (`docs/FEATURES.md` isn't being edited to reflect this yet — it describes what's actually shipped, and nothing has shipped from this document. It'll need updating once this is actually built.)
 
@@ -42,19 +42,29 @@ Five previously-open questions (from `docs/AUTH_VERIFICATION_UPGRADE.md` §10) a
 
 Purely informational: Home, About, Features, Sign In, Get Started. No personal parcel data, no document upload, no officer tools, no search interface.
 
-### Minimal navbar
+### One single navbar, everywhere — ✅ done
 
 ```text
-[ BhoomiSetu Logo ]   Home   About   Features              [ Sign In ]  [ Get Started ]
+Guest:    Home   About   Features                                    [ Get Started ]
+Citizen:  Home   About   Dashboard   My Parcels   Find Parcels   Raise Request
+          Requests   Verify Documents   Documents   Notifications   Profile
+Officer:  Dashboard   Assigned Requests   Governance Alerts   Map   Documents   Notifications   Profile
+Admin:    Admin Portal   (unchanged - single page, Phase 3 not done yet)
 ```
 
-**Removed from the navbar entirely**: Citizen Portal / Officer Portal / Admin Portal links, My Parcels, Document Verification, Search Records, Analyze Imagery. None of these should be nav items a visitor sees before signing in — after sign-in, the backend-identified role redirects automatically (unchanged from what's already built: `LoginPage.tsx` already does `ADMIN→/admin`, `CITIZEN→/citizen`, officer roles`→/officer`).
+**Revised twice.** First built as a guest-only conditional navbar (guests got Home/About/Features, signed-in users kept a single "Citizen/Officer/Admin Portal" link while each portal grew its *own* second, portal-owned sub-nav underneath it for its multi-page structure — §4/§5's original build). **The user then explicitly rejected the two-navbar result**: *"i want a single navbar in all the portals i dont want 2 diffrent navbars fit the things in the orignal navbar only."* Fixed by deleting both portals' own sub-nav bars entirely (`CitizenPortal.tsx`/`OfficerPortal.tsx` are now just their own `<Routes>`, no nav markup) and rendering every page either portal owns directly in this one `App.tsx` header instead — the same header row a guest already had, now populated per role via `navConfig.ts` (`CITIZEN_NAV_ITEMS`/`OFFICER_NAV_ITEMS`) and `navItemsFor()`. Horizontally scrollable (`overflow-x-auto`), not wrapping, since a citizen's full 11-item list doesn't fit one line at every width — **known rough edge: no visible scroll affordance (arrow/fade) hints that "Profile" etc. are reachable off-screen on narrower viewports**, worth a follow-up polish pass.
 
-This is a real reduction from what exists — `App.tsx`'s current nav has a search box, a CTA button, an app-switcher grid, and all three portal links, all of which this section asks to remove or relocate.
+**Also removed in the same pass: the BhoomiSetu logo/wordmark, from the navbar entirely** — the user's explicit *"remove bhoomisetu from the nav bar and add that to the landing home page"*. It now lives at the top of `LandingHero.tsx`'s hero content instead (logo image + wordmark + tagline, same visual treatment, just relocated) — so it's visible on `/` but nowhere in the persistent chrome.
 
-### Landing page header
+**Citizens can now reach Home and About while signed in** — the user's explicit *"the citizens should be able to see the home and about page"*. `App.tsx`'s `"/"` route no longer redirects a signed-in citizen away (only officer/admin still get redirected to their portal); `LandingHero.tsx` is auth-aware, swapping the guest Get-Started/Sign-In CTA pair for a single "Go to My Dashboard" link when a citizen is signed in, so the page stays coherent either way. Officers/admins were not asked for this and still don't see Home/About in their nav.
 
-Value proposition over feature cards — "what is this, what problem does it solve, who uses it, what do I do next," not a grid of clickable feature tiles. This session's `LandingHero.tsx` rebuild (geometric composition, no photo) may satisfy the visual language already; the *content* — dropping the 4-feature-card grid in favor of a clean value statement plus two CTAs — is a real content change, not just restyling.
+**Also removed from the navbar for guests** (unchanged from the original pass): Citizen Portal / Officer Portal / Admin Portal links, My Parcels, Document Verification, Search Records, Analyze Imagery. After sign-in, the backend-identified role redirects automatically (unchanged: `LoginPage.tsx` already does `ADMIN→/admin`, `CITIZEN→/citizen`, officer roles`→/officer`).
+
+Covered by `App.test.tsx` (per-role nav content, the citizen no-redirect-off-"/" behaviour, no-logo-in-navbar for every role, sign-out returns to guest Home) and `OfficerPortal.test.tsx` (its own former Logout button and header are gone - logout is the single global "Sign Out" in the utility bar now, unit-tested at the `useLogout()` level in `auth.test.tsx` and at the click-wiring level in `App.test.tsx`).
+
+### Landing page header — ✅ done
+
+Value proposition over feature cards — "what is this, what problem does it solve, who uses it, what do I do next," not a grid of clickable feature tiles. `LandingHero.tsx`'s old 4-feature-card grid (which promised anonymous search) is gone; the hero now ends in two CTAs (Get Started → `/register`, Sign In → `/login`) and `HomePage.tsx` follows it with a 3-step "How BhoomiSetu Works" section and links into `/about`/`/features`.
 
 ---
 
@@ -102,27 +112,35 @@ Add: enter the missing method → verify → added. Change: enter new value → 
 ### Backend reality check (unchanged from `docs/AUTH_VERIFICATION_UPGRADE.md` §7 — still accurate)
 
 - `users.email` is currently required+unique — needs to become nullable, with `mobileNumber` (nullable), `mobileVerified`, `emailVerified` added, and an "at least one present" constraint enforced at the service layer.
-- **[RESOLVED] No SMS/email delivery mechanism exists in this codebase at all** (`docs/FEATURE_AUDIT.md` §7 already flags this) — **and the decision is a real SMS gateway, not a stub.** The user has identified candidate providers: global/testing-friendly options (Twilio, Sinch, Infobip) and India-specific options (Exotel, Gupshup, Fast2SMS). This still needs an actual account + API key + sender ID/virtual number provisioned by the user before the backend can send a real OTP — same category of external dependency as OAuth (`docs/FEATURE_AUDIT.md` §8 item 15) — nothing here is unblocked until those credentials exist. Recommend picking one India-specific provider (Exotel/Gupshup/Fast2SMS) given this is an Indian land-governance platform, unless the user has a reason to prefer a global one for easier initial testing. Once credentials exist, the backend needs a small `SmsService` (send OTP, independent of `GroqService`/the historical-imagery AI service) — a thin wrapper around whichever provider's Node SDK/REST API is chosen, not a large integration.
+- **[RESOLVED] No SMS/email delivery mechanism exists in this codebase at all** (`docs/FEATURE_AUDIT.md` §7 already flags this) — **and the decision is a real SMS gateway, not a stub.** **[RESOLVED, 2026-09-08] Provider: Fast2SMS** (the user is already using it) — global options (Twilio/Sinch/Infobip) and the other India-specific candidates (Exotel/Gupshup) are no longer under consideration. Full REST API reference confirmed against Fast2SMS's own docs (`docs.fast2sms.com`):
+  - **Account setup (not yet done)**: sign up at fast2sms.com → API key lives in the dashboard's **Dev API** section → create an **OTP Template** under **Smart OTP** (channel SMS or WhatsApp, with the other as an optional fallback) → save it to get an **OTP ID**. **Open sub-question, unconfirmed**: whether the SMS channel needs the user's own TRAI DLT entity/sender-ID registration, or whether Fast2SMS's "free DLT support" gives a ready-made shared template that skips that — needs checking directly in the Fast2SMS dashboard/support before assuming either way, since DLT registration (if actually required) can take a few days.
+  - **Send**: `POST https://www.fast2sms.com/dev/otp/send`, header `Authorization: <API key>`, body `{mobile, otp_id, otp_length?, otp_expiry?}` → `{return, status_code, request_id, message}`.
+  - **Verify**: `POST https://www.fast2sms.com/dev/otp/verify`, same header, body `{mobile, otp}` → `{return, status_code, message}`. Fast2SMS stores and checks the code server-side — BhoomiSetu's own `users` table never needs an `otpCode` column, only the `mobileVerified` boolean once a verify call returns `return: true`.
+  - **Still blocked on**: the actual API key + OTP ID, which only exist once the user completes the account/template setup above (and resolves the DLT sub-question) — same category of external dependency as OAuth (`docs/FEATURE_AUDIT.md` §8 item 15). Once those two values exist, the backend needs a small `SmsService` (independent of `GroqService`/the historical-imagery AI service) wrapping the two endpoints above, reading `FAST2SMS_API_KEY`/`FAST2SMS_OTP_ID` from `.env` — not a large integration.
 
 ---
 
-## 4. Citizen Portal
+## 4. Citizen Portal — ✅ done (this pass), Documents/Notifications/full Profile still placeholders
 
-Multi-page, not the current single scrolling page:
+Multi-page, replacing the old single scrolling page. `CitizenPortal.tsx` is now just its own relative `<Routes>` (no nav markup of its own - see §2, single navbar), mounted once at `/citizen/*` by `App.tsx`, with every page below reachable from the one global navbar instead:
 
 ```text
 CITIZEN PORTAL
-Dashboard · My Parcels · Raise Request · Requests · Documents · Notifications · Profile
+Dashboard · My Parcels · Find Parcels · Raise Request · Requests · Verify Documents · Documents · Notifications · Profile
 ```
 
-- **Dashboard**: a summary only — parcel count, pending request count, recent notifications, recent request activity, relevant alerts. Not a replacement for the detailed pages (this is the intended purpose of this session's "aggregated My Requests" placeholder card and `docs/CITIZEN_FEATURES_UPGRADE_PLAN.md`'s `GET /citizen/dashboard` — same target, now with a confirmed page to live on).
-- **My Parcels**: a list of parcel cards (ID, survey number, location, area, a "View Details" action) — already exists as `MyParcels.tsx`, needs to become its own page rather than a panel on the shared home/citizen page.
-- **Parcel Detail** (Parcel 360, reused): map, basic info, land use, tax, restrictions, documents, request history, relevant alerts, **plus the new Ownership History tab (§8a) and (once built) the Encumbrance tab (`docs/FEATURE_AUDIT.md` §8 item 17)** — structurally close to what `Parcel360View.tsx` already is; read access only, actions gated by role.
-- **Raise Request**: **[new restriction]** the parcel selector only lists parcels the citizen is actually associated with (via `citizen_parcels`) — a dropdown, not a free-text parcel ID field. This is a real, additional restriction beyond what this session already built (today, any signed-in citizen can file `ServiceRequestForm` against **any** `parcelId**, not just their own). Selecting a parcel auto-fetches its details (ID, survey number, location, village/district/state, area, land use, restrictions) and displays them read-only in the form — `ServiceRequestForm.tsx` today collects only `createdBy`/`requestDetails` and shows none of this.
-- **Requests**: the aggregated cross-parcel request list (same target as the dashboard's placeholder card).
-- **Documents**: documents grouped by parcel (registration doc, survey record, tax record, etc.), each with type/upload-date/verification-status, uploadable inline and run through the existing OCR/verification pipeline. This is new structure around data that's currently reachable only via the citizen-initiated document-verification panel and the (not-yet-built) `WorkflowDocument` persistence from `docs/CITIZEN_FEATURES_UPGRADE_PLAN.md` §3.2.
-- **Notifications**: request-status changes (received/under review/department approved/department rejected/info requested/fully approved/fully rejected), tracked **per department**, not as one blended "approved/rejected" flag — a multi-step request currently only shows overall `currentStatus`; this asks for per-step notification granularity to be genuinely surfaced to the citizen, not just visible to an officer.
-- **Profile**: view + manage mobile/email verification status, add/change either. This is the real feature the placeholder "Profile" pill (added this session) was standing in for.
+(Two extra tabs beyond the original list - **Find Parcels** and **Verify Documents** - carry the already-built `ParcelSearch`/`MapComponent`/`DocumentVerificationPanel` pieces that used to share the single home/citizen page; the source spec's page list didn't explicitly name a page for them, but "no guest search, anywhere in the flow" (§1) requires *somewhere* post-login for them to live.)
+
+- **Dashboard** (`CitizenDashboardPage.tsx`) — ✅ summary only: linked-parcel count (`GET /parcels/mine`) and pending-request count (`GET /workflows/mine`), quick-action links into the other pages, and the still-unbuilt **Land Claim** feature as a `ComingSoonCard`. Recent-notifications/recent-activity feed is not part of this summary yet — that's downstream of the still-unbuilt Notifications feature below.
+- **My Parcels** (`MyParcelsPage.tsx`) — ✅ `MyParcels.tsx` as its own page.
+- **Find Parcels** (`FindParcelsPage.tsx`) — ✅ `ParcelSearch` + `MapComponent`, moved as-is from the old single-page CitizenPortal.
+- **Parcel Detail** (Parcel 360, reused, unchanged by this pass): map, basic info, land use, tax, restrictions, documents, request history, relevant alerts, the Ownership History tab (§8a) and the Encumbrance tab (`docs/FEATURE_AUDIT.md` §8 item 17) — reached via `/parcels/:id` from My Parcels/Find Parcels, same route as before.
+- **Raise Request** (`RaiseRequestPage.tsx`) — ✅ **[new restriction, built]** the parcel selector lists only `GET /parcels/mine` results (a dropdown, not free text), auto-fills read-only details (ULPIN/canonical ID/state-district-local body/area) from that same response once one is picked, then the same three request-type buttons `Parcel360View.tsx` already had, reusing `ServiceRequestForm.tsx` unchanged. The restriction is enforced server-side too, not just hidden in the UI: `POST /workflows` now 400s on a nonexistent parcel and 403s on a real parcel the citizen isn't linked to (`workflows.controller.ts`'s `isCitizenAssociatedWithParcel` check, backed by `WorkflowsService.isCitizenAssociatedWithParcel`/`parcelExists`) - so `Parcel360View`'s own request buttons (which file against whatever parcel is currently open, for any signed-in citizen) are retroactively covered by the same check, not just this new page.
+- **Requests** (`RequestsPage.tsx`) — ✅ the aggregated cross-parcel request list, backed by the new `GET /workflows/mine` endpoint (`WorkflowsService.findMineForCitizen` - joins `citizen_parcels` to every workflow across every one of the citizen's parcels). Shows each request's overall status plus a per-department step-status pill row.
+- **Verify Documents** (`VerifyDocumentsPage.tsx`) — ✅ `DocumentVerificationPanel`, moved from the old single-page CitizenPortal, with an added optional "which parcel is this for" dropdown (previously that context came for free from the shared page's own search selection).
+- **Documents** (`DocumentsPage.tsx`) — still a `ComingSoonCard`. Documents grouped by parcel (registration doc, survey record, tax record, etc.), each with type/upload-date/verification-status, uploadable inline and run through the existing OCR/verification pipeline, is new structure around data reachable today only via Verify Documents and the (not-yet-built) `WorkflowDocument` persistence from `docs/CITIZEN_FEATURES_UPGRADE_PLAN.md` §3.2.
+- **Notifications** (`NotificationsPage.tsx`) — still a `ComingSoonCard`. Request-status changes tracked **per department** as a genuine structured feed (received/under review/department approved/department rejected/info requested/fully approved/fully rejected) — the Requests page above already surfaces per-department step status *on each request*, but a real notification feed on top of that is still unbuilt.
+- **Profile** (`ProfilePage.tsx`) — partially built: shows the real signed-in account info (name/email/role) - the actual feature the placeholder "Profile" pill (`MyParcels.tsx`, added earlier this session) was standing in for - but mobile/email add-and-verify is still a `ComingSoonCard`, blocked on the SMS gateway decision (§3).
 
 ### Citizen map: associated parcels only
 
@@ -130,29 +148,32 @@ The Citizen Portal's map defaults to the citizen's own linked parcels, not a gen
 
 ---
 
-## 5. Officer Portal
+## 5. Officer Portal — ✅ done (this pass), Parcel Verification/Documents/Notifications still open
 
-Also multi-page, replacing the current single dashboard:
+Also multi-page, replacing the old single dashboard. `OfficerPortal.tsx` follows the same own-`<Routes>`-no-nav-of-its-own pattern as `CitizenPortal.tsx` (§2), mounted at `/officer/*`; "Welcome, {name}" moved to `OfficerDashboardPage.tsx` and the portal's own Logout button was removed (the global "Sign Out" in `App.tsx`'s utility bar covers it):
 
 ```text
 OFFICER PORTAL
-Dashboard · Assigned Requests · Parcel Verification · Governance Alerts · Map · Documents · Notifications · Profile
+Dashboard · Assigned Requests · Governance Alerts · Map · Documents · Notifications · Profile
 ```
 
-- **Dashboard**: work summary only (assigned requests, pending doc reviews, pending verification, high-priority alerts, workload) — detail lives on dedicated pages.
-- **Assigned Requests**: request ID, parcel, type, status, priority, submission date, per-row → detail/workflow view. Close to what `WorkflowReviewPanel.tsx` already does, needs to become its own page.
-- **Parcel Verification**: parcel info + map + documents + request context + alerts, combined — an officer-facing counterpart to Parcel 360.
-- **Governance Alerts**: see §6 below — map previews, severity grouping, **and pagination**.
-- **Notifications**: new request assigned, new documents submitted, department action on a shared request, high-priority alert — officer-side notification types distinct from citizen-side ones.
-- **Profile**: officer's own account info (not the mobile/email OTP flow — that's citizen-only per §3).
+- **Dashboard** (`OfficerDashboardPage.tsx`) — ✅ trimmed to a work summary only (pending-workflow/verified-today/alert/documents-processed stat cards + quick links) - the pending-workflow list and its review panel that used to sit directly on this same page moved to Assigned Requests below.
+- **Assigned Requests** (`AssignedRequestsPage.tsx`) — ✅ the pending-workflow list + `WorkflowReviewPanel.tsx`, as its own page now (request ID/parcel/type still shown per-row; priority/submission-date sorting is not added).
+- **Parcel Verification** — still open, unbuilt. An officer-facing counterpart to Parcel 360 (parcel info + map + documents + request context + alerts combined) doesn't exist as its own page yet; officers reach `/parcels/:id` (Parcel 360 itself, unguarded, role-aware) the same way citizens do.
+- **Governance Alerts** (`GovernanceAlertsPage.tsx`) — ✅ its own page now. See §6 below for its own status — pagination done, map previews/severity grouping still open.
+- **Map** (`OfficerMapPage.tsx`) — ✅ new page, general `MapComponent` view (no parcel scoping) - reachable inside the portal now rather than only via the removed top-level `/map` route.
+- **Documents** / **Notifications** (`OfficerDocumentsPage.tsx` / `OfficerNotificationsPage.tsx`) — still `ComingSoonCard`s (the dashed-border staff-surface variant, matching `AdminPortal.tsx`'s existing placeholder convention, not the Citizen Portal's circular-badge one).
+- **Profile** (`OfficerProfilePage.tsx`) — ✅ officer's own account info (name/email/role/department) - not the mobile/email OTP flow, that's citizen-only per §3.
+
+**Also decided in this pass**: `ChangeDetectionPanel` ("Analyze Imagery") is no longer mounted anywhere in the Officer Portal's navigation, per §8's already-[RESOLVED] decision to remove the standalone panel pending the on-demand historical-comparison replacement. The component and its backend route are untouched (`image-diff.ts` stays the fallback §8 names to build that replacement against) - it's unmounted from the nav, not deleted.
 
 ---
 
 ## 6. Governance alerts: maps, severity grouping, and pagination
 
-Each alert card gets a small embedded map preview (affected parcel + immediate context), grouped by severity (High/Medium/Low), each group independently inspectable.
+Each alert card gets a small embedded map preview (affected parcel + immediate context), grouped by severity (High/Medium/Low), each group independently inspectable. **Not yet built** — this part of the section is still just planning, same status as the rest of this document.
 
-**New from this session's follow-up conversation: a pagination control on the alerts list.** Today's `GovernanceAlertsPanel.tsx` renders every open alert as one long unpaginated scroll — confirmed directly during this session's verification pass (28 seeded alerts rendered as one continuous list on the Officer Portal screenshot). This is a concrete, scoped, low-risk frontend change: page the list (a page-size control + prev/next or numbered pages), independent of the map-preview and severity-grouping work, and independent of everything else in this document — it could reasonably be built on its own before the rest of this spec, if a quick win is wanted tomorrow.
+**✅ Done (2026-09-09): pagination.** `GovernanceAlertsPanel.tsx` was rendering every open alert as one long unpaginated scroll (confirmed live — 28 seeded alerts in one continuous list). Pulled forward and built independently of the rest of this spec, since it was scoped, low-risk, and self-contained: 5 alerts/page, client-side, with Prev/Next controls, live-verified across 6 pages. The map-preview and severity-grouping work above is still open.
 
 ---
 
@@ -245,29 +266,29 @@ Show a parcel's chain of past owners, not just the current one.
 
 ## 10. What's genuinely new vs. what's a restyle/restructure of something built
 
-To keep tomorrow's planning honest about effort:
+To keep tomorrow's planning honest about effort. Items built this pass are struck through with a ✅ pointer to where they landed:
 
 | Genuinely new (no equivalent exists today) | Restructure of something that already works |
 |---|---|
-| Mobile OTP + email OTP/link verification, SMS/email delivery | Citizen Portal becoming multi-page (the components mostly already exist: MyParcels, ParcelSearch, Parcel360View, DocumentVerificationPanel, ServiceRequestForm, RequestNotifications) |
-| Forgot/Reset Password flow | Officer Portal becoming multi-page (WorkflowReviewPanel, GovernanceAlertsPanel, ChangeDetectionPanel already exist as components) |
-| Profile page (add/change mobile/email) | Navbar reduction (removing links, not adding architecture) |
-| Raise-Request parcel restricted to the citizen's own associations (a real new backend check) | Landing hero content simplification (visual work already done this session, content trim still open) |
-| Auto-fetched, read-only parcel details in the request form | Governance alert severity grouping (data already has a `severity` field) |
-| Per-department notification granularity (citizen-facing) | |
+| Mobile OTP + email OTP/link verification, SMS/email delivery | ~~Citizen Portal becoming multi-page~~ — **✅ done, §4** |
+| Forgot/Reset Password flow | ~~Officer Portal becoming multi-page~~ — **✅ done, §5** |
+| Profile page (add/change mobile/email) — page ✅ built (§4/§5), add/change mobile/email itself still open | ~~Navbar reduction~~ — **✅ done** (per-role minimum nav, done earlier this session) |
+| ~~Raise-Request parcel restricted to the citizen's own associations~~ — **✅ done, §4**: `workflows.controller.ts`'s `isCitizenAssociatedWithParcel` check | ~~Landing hero content simplification~~ — **✅ done, §2** |
+| ~~Auto-fetched, read-only parcel details in the request form~~ — **✅ done, §4**: `RaiseRequestPage.tsx` | Governance alert severity grouping (data already has a `severity` field) — still open |
+| Per-department notification granularity (citizen-facing) - the Requests page (§4) shows step status per request; a real notification *feed* is still open | |
 | Governance alert map previews | |
-| Governance alerts pagination | |
+| ~~Governance alerts pagination~~ — **✅ done, §6** (built earlier this session) | |
 | The historical image-comparison feature (§8), including the year-toggle control next to the map | |
-| Ownership history / previous owners (§8a) | |
+| Ownership history / previous owners (§8a) — **✅ done** (Phase 0, backend + Parcel 360 tab) | |
 | Admin Portal's Departments / Workflow Configuration / Governance Rules pages (no backend concept exists for most of these yet) | |
 
 ---
 
 ## 11. Open items still needing a decision before implementation
 
-1. ~~OTP delivery: real provider vs. stubbed/dev-mode~~ — **[RESOLVED]** a real SMS gateway, candidates identified (Twilio/Sinch/Infobip globally, Exotel/Gupshup/Fast2SMS for India) — see §3. Credentials will be provided by the user "when we are actually working" (i.e. at implementation time, not during planning) — nothing further to decide here until then.
+1. ~~OTP delivery: real provider vs. stubbed/dev-mode~~ — **[RESOLVED]** a real SMS gateway, **Fast2SMS** (chosen 2026-09-08 — see §3 for the confirmed API reference: `/dev/otp/send` + `/dev/otp/verify`, `otp_id` template-based). Still blocked on the user actually completing account/OTP-template setup and confirming the DLT sub-question §3 flags — nothing further to decide here until then, only to provision.
 1a. ~~Does "Login with Mobile" use a password or OTP?~~ — **[RESOLVED]** password, always — OTP is one-time-only, used solely when a contact method is first added/verified (registration or Profile), never on ordinary login. See §3.
-2. Exact mechanics of the Home/Citizen-Portal split (what routes, what "About"/"Features" actually contain) — user has flagged this as "we can discuss," not yet decided.
+2. ~~Exact mechanics of the Home/Citizen-Portal split~~ — **[RESOLVED, built]** `/` is a guest-only `HomePage.tsx` (redirects a signed-in user to their own portal); `/citizen/*` and `/officer/*` are each a self-contained portal with their own relative `<Routes>` (see §4/§5); `/about` and `/features` stay the standalone informational pages already built earlier this session.
 3. ~~Historical image-comparison feature: relocate-the-existing-mechanic vs. build a real archive~~ — **[RESOLVED]** a small fixed per-cluster/per-year archive, see §8 for the full design. Both sub-questions from that design are now resolved too:
    - ~~Snapshot generation~~ — **[RESOLVED]** simplified server-rendered abstract polygons, not a headless-browser screenshot.
    - ~~AI-based comparison~~ — **[RESOLVED, blocked on external input]** the existing Groq model doesn't support image input; the user is providing a different AI service for this specifically. Build against the existing pixel-diff fallback first; slot in the new provider once its details arrive.
@@ -276,4 +297,4 @@ To keep tomorrow's planning honest about effort:
 
 ---
 
-*Nothing in this document has been built. `docs/AUTH_VERIFICATION_UPGRADE.md` stays as the backend-schema-level detail on the auth/OTP piece specifically; this document is the full-site IA it now sits inside.*
+*§1/§2 (public site + guest navbar), §4/§5 (Citizen/Officer Portal IA split and multi-page restructure), and §6's pagination item are built, as marked above. §3 (auth/OTP), §7 (Admin Portal backend), and §8/§8a's imagery/AI-comparison piece (ownership history itself is done) remain planning-only. `docs/AUTH_VERIFICATION_UPGRADE.md` stays as the backend-schema-level detail on the auth/OTP piece specifically; this document is the full-site IA it sits inside.*
