@@ -256,9 +256,10 @@ describe('Parcels endpoints (e2e)', () => {
         { department: 'TAX', status: 'NOT_AVAILABLE' },
         { department: 'RESTRICTION', status: 'NOT_AVAILABLE' },
         { department: 'DISPUTE', status: 'NOT_AVAILABLE' },
+        { department: 'ENCUMBRANCE', status: 'NOT_AVAILABLE' },
       ]);
       expect(res.body.departments).toEqual({
-        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null,
+        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null, encumbrance: null,
       });
     });
 
@@ -490,6 +491,41 @@ describe('Parcels endpoints (e2e)', () => {
     it('rejects a non-citizen (e.g. an officer) with 403', async () => {
       const officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
       await request(app.getHttpServer()).get('/api/v1/parcels/mine').set('Authorization', officerAuth).expect(403);
+    });
+  });
+
+  describe('GET /api/v1/parcels/:id/ownership-history', () => {
+    it('allows the associated citizen to see it', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/ownership-history`)
+        .set('Authorization', citizenAuth)
+        .expect(200);
+    });
+
+    it("rejects a citizen who isn't associated with the parcel, with 403", async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/ownership-history`)
+        .set('Authorization', otherCitizenAuth)
+        .expect(403);
+    });
+
+    it('allows staff regardless of citizen association', async () => {
+      const officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/ownership-history`)
+        .set('Authorization', officerAuth)
+        .expect(200);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get(`/api/v1/parcels/${citizenLinkedParcel.id}/ownership-history`).expect(401);
+    });
+
+    it('returns 404 for an unknown parcel', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/parcels/00000000-0000-0000-0000-000000000000/ownership-history')
+        .set('Authorization', citizenAuth)
+        .expect(404);
     });
   });
 });

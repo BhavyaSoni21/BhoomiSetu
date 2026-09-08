@@ -75,7 +75,7 @@ frontend/src/
 │   ├── map/            MapComponent (11 source/layer pairs, one shared component)
 │   ├── officer/         WorkflowReviewPanel, GovernanceAlertsPanel, officerAuth (role/label lookups only - session state moved to features/auth)
 │   └── parcels/         ParcelSearch, Parcel360View, ServiceRequestForm, RequestNotifications (citizen notification MVP, §8 item 12)
-├── pages/                CitizenPortal, OfficerPortal, AdminPortal, LoginPage (real sign-in as of 2026-09-05)
+├── pages/                HomePage, CitizenPortal (+ pages/citizen/* sub-pages), OfficerPortal (+ pages/officer/* sub-pages), AdminPortal, LoginPage (real sign-in as of 2026-09-05), RegisterPage, AboutPage, FeaturesPage
 ├── services/apiService.ts   one shared axios instance; its JWT interceptor is real now (was dead code before 2026-09-05 - see §6.1)
 ├── types/                12 files, one per API response shape
 └── test/setup.ts
@@ -83,7 +83,7 @@ frontend/src/
 
 `components/`, `features/workflow/`, `hooks/`, and `store/` remain empty directories — Phase-1 scaffolding for `zustand`/shared-hooks/shared-components patterns that were never needed, since state has stayed local to each feature via React Query + `useState`. `features/admin/` was the same kind of empty scaffold until 2026-09-05, when it became the real home for Admin Portal's user-management UI. `zustand` and `react-hook-form` remain installed dependencies with zero usages in the codebase.
 
-**Routes** (`App.tsx`): `/` and `/citizen` → Citizen Portal (no login - anonymous by design, see §6.1); `/officer` and `/admin` → wrapped in `RequireAuth` (real JWT session check + role check, redirects to `/login` otherwise, as of 2026-09-05 - see §6.1); `/officer` → Officer Portal (real governance-alert/workflow-review dashboard); `/admin` → Admin Portal (real governance analytics, top-at-risk-parcels, user management, and an audit-trail feed, all as of 2026-09-05 - see §8 items 3, 8, 11); `/login` → the real sign-in page for Officer + Admin; `/parcels/search`, `/parcels/:id`, `/map` → standalone versions of components also embedded elsewhere.
+**Routes** (`App.tsx`), restructured 2026-09-09 (`docs/FRONTEND_UPGRADE_SPEC.md` §1/§4/§5 - the Home/Citizen-Portal split): `/` → `HomePage` for a guest, or a redirect to the signed-in user's own portal; `/citizen/*`, `/officer/*`, `/admin` → each wrapped in `RequireAuth` (real JWT session check + role check, redirects to `/login` otherwise, as of 2026-09-05 - see §6.1) - `/citizen/*` and `/officer/*` are each a self-contained multi-page portal with its own relative `<Routes>` (Dashboard/My Parcels/Find Parcels/Raise Request/Requests/Verify Documents/Documents/Notifications/Profile for Citizen; Dashboard/Assigned Requests/Governance Alerts/Map/Documents/Notifications/Profile for Officer); `/admin` → Admin Portal (real governance analytics, top-at-risk-parcels, user management, and an audit-trail feed, all as of 2026-09-05 - see §8 items 3, 8, 11); `/login`, `/register` → the sign-in/registration pages; `/about`, `/features` → public informational pages, no login; `/parcels/:id` → Parcel 360, shared by citizen/officer/admin. The old standalone `/parcels/search` and `/map` routes (anonymous, pre-dating this redesign) were removed - search/map access now requires citizen sign-in, no guest path (§9 item "no guest search, anywhere in the flow").
 
 ### 1.4 Data flow example — Parcel 360
 

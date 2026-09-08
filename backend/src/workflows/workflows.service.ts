@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
+import { CitizenParcel } from '../parcels/citizen-parcel.entity';
 import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
 import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
@@ -38,9 +39,58 @@ export type WorkflowWithSteps = Workflow & { steps: WorkflowStep[] };
 export class WorkflowsService {
   constructor(
     @InjectRepository(Parcel) private readonly parcelRepository: Repository<Parcel>,
+    @InjectRepository(CitizenParcel) private readonly citizenParcelRepository: Repository<CitizenParcel>,
     @InjectRepository(Workflow) private readonly workflowRepository: Repository<Workflow>,
     @InjectRepository(WorkflowStep) private readonly stepRepository: Repository<WorkflowStep>,
   ) {}
+
+  // Lets the controller tell "parcel doesn't exist" (400, existing contract -
+  // see create()'s own PARCEL_NOT_FOUND path) apart from "parcel exists but
+  // isn't yours" (403) *before* running the association check below - same
+  // existence-then-association ordering as ParcelsController's
+  // GET /:id/ownership-history.
+  async parcelExists(parcelId: string): Promise<boolean> {
+    const count = await this.parcelRepository.count({ where: { id: parcelId } });
+    return count > 0;
+  }
+
+  // Raise Request restricted to a citizen's own parcels (docs/FRONTEND_UPGRADE_SPEC.md
+  // §4) - the authorization check WorkflowsController.create() runs before
+  // ever calling create() below. Same query shape as ParcelsService's own
+  // isCitizenAssociatedWithParcel, duplicated per this module's own-repository
+  // convention rather than a cross-module call (see workflows.module.ts).
+  async isCitizenAssociatedWithParcel(citizenId: string, parcelId: string): Promise<boolean> {
+    const link = await this.citizenParcelRepository.findOne({
+      where: { citizen: { id: citizenId }, parcel: { id: parcelId } },
+    });
+    return link !== null;
+  }
+
+  // Requests aggregated across every parcel a citizen actually owns
+  // (docs/FRONTEND_UPGRADE_SPEC.md §4's "Requests" page) - today's
+  // findByParcel is scoped to one parcel at a time (Parcel 360's per-parcel
+  // panel); this is the cross-parcel rollup that panel doesn't attempt.
+  async findMineForCitizen(citizenId: string): Promise<WorkflowWithSteps[]> {
+    const links = await this.citizenParcelRepository.find({ where: { citizen: { id: citizenId } }, relations: ['parcel'] });
+    const parcelIds = links.map((link) => link.parcel.id);
+    if (parcelIds.length === 0) return [];
+
+    const workflows = await this.workflowRepository.find({
+      where: { parcelId: In(parcelIds) },
+      order: { createdAt: 'DESC' },
+    });
+
+    return Promise.all(
+      workflows.map(async (workflow) => {
+        const steps = await this.stepRepository
+          .createQueryBuilder('step')
+          .where('step.workflow_id = :id', { id: workflow.id })
+          .orderBy('step.stepOrder', 'ASC')
+          .getMany();
+        return { ...workflow, steps };
+      }),
+    );
+  }
 
   async create(dto: CreateWorkflowDto): Promise<WorkflowWithSteps | 'PARCEL_NOT_FOUND'> {
     const parcel = await this.parcelRepository.findOneBy({ id: dto.parcelId });

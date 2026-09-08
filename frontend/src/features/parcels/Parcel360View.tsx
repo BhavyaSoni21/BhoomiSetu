@@ -8,11 +8,11 @@ import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
 import RequestNotifications from './RequestNotifications';
 import AiExplanationCard from '../ai/AiExplanationCard';
-import { Parcel360Response } from '../../types/parcel360';
+import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
 import { AiExplanation } from '../../types/aiExplanation';
 import { RiskScore } from '../../types/riskScore';
 
-type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute';
+type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
 
 const RISK_BAND_COLORS: Record<string, string> = {
   LOW: 'bg-muted text-ink/70 border-ink/20',
@@ -29,6 +29,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'tax', label: 'Tax' },
   { key: 'restriction', label: 'Restriction' },
   { key: 'dispute', label: 'Dispute' },
+  { key: 'encumbrance', label: 'Encumbrance' },
+  { key: 'ownershipHistory', label: 'Ownership History' },
 ];
 
 function formatCurrency(amount: number): string {
@@ -93,6 +95,23 @@ const Parcel360View: React.FC = () => {
       return response.data;
     },
     { enabled: !!id },
+  );
+
+  // Ownership history is citizen-restricted (docs/FEATURE_AUDIT.md §8a) - a
+  // 401/403 here is an expected, normal response for a guest or an
+  // unrelated citizen, not a real error, so it's fetched only once that tab
+  // is actually opened rather than eagerly alongside the rest of Parcel 360.
+  const {
+    data: ownershipHistory,
+    error: ownershipHistoryError,
+    isLoading: ownershipHistoryLoading,
+  } = useQuery<OwnershipHistoryRecord[], Error>(
+    ['ownership-history', id],
+    async () => {
+      const response = await apiService.get(`/parcels/${id}/ownership-history`);
+      return response.data;
+    },
+    { enabled: !!id && activeTab === 'ownershipHistory', retry: false },
   );
 
   // Selecting a different parcel on the map below should replace this whole
@@ -242,6 +261,12 @@ const Parcel360View: React.FC = () => {
               <Field label="Tax Status" value={departments.tax.taxStatus} />
               <Field label="Outstanding Amount" value={formatCurrency(departments.tax.outstandingAmount)} />
               <Field label="Last Payment Date" value={formatDate(departments.tax.lastPaymentDate)} />
+              <Field
+                label="Market Value Reference"
+                value={departments.tax.marketValueReference !== null ? formatCurrency(departments.tax.marketValueReference) : 'N/A'}
+              />
+              <Field label="Valuation Date" value={formatDate(departments.tax.valuationDate)} />
+              <Field label="Valuation Source" value={departments.tax.valuationSource || 'N/A'} />
             </div>
           ) : (
             <NotAvailable department="tax" />
@@ -282,6 +307,60 @@ const Parcel360View: React.FC = () => {
           ) : (
             <NotAvailable department="dispute" />
           )
+        )}
+
+        {activeTab === 'encumbrance' && (
+          departments.encumbrance ? (
+            <div className="space-y-1">
+              <Field label="Has Encumbrance" value={departments.encumbrance.hasEncumbrance ? 'Yes' : 'No'} />
+              {departments.encumbrance.hasEncumbrance && (
+                <>
+                  <Field label="Encumbrance Type" value={departments.encumbrance.encumbranceType || 'N/A'} />
+                  <Field label="Lender Name" value={departments.encumbrance.lenderName || 'N/A'} />
+                  <Field label="Instrument Reference" value={departments.encumbrance.instrumentReference || 'N/A'} />
+                  <Field label="Registered Date" value={formatDate(departments.encumbrance.registeredDate)} />
+                  <Field label="Discharge Date" value={formatDate(departments.encumbrance.dischargeDate)} />
+                </>
+              )}
+            </div>
+          ) : (
+            <NotAvailable department="encumbrance" />
+          )
+        )}
+
+        {activeTab === 'ownershipHistory' && (
+          <div>
+            {ownershipHistoryLoading && <div className="text-ink/60 text-sm py-4">Loading ownership history...</div>}
+            {ownershipHistoryError && (
+              <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">
+                {axios.isAxiosError(ownershipHistoryError) && ownershipHistoryError.response?.status === 401
+                  ? 'Sign in as the citizen associated with this parcel, or as staff, to view its ownership history.'
+                  : axios.isAxiosError(ownershipHistoryError) && ownershipHistoryError.response?.status === 403
+                    ? 'Ownership history is only visible for parcels associated with your account.'
+                    : 'Error loading ownership history.'}
+              </div>
+            )}
+            {ownershipHistory && ownershipHistory.length === 0 && (
+              <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">
+                No ownership history is on file for this parcel.
+              </div>
+            )}
+            {ownershipHistory && ownershipHistory.length > 0 && (
+              <div className="space-y-1 divide-y-2 divide-ink/10">
+                {ownershipHistory.map((entry) => (
+                  <div key={entry.id} className="flex items-start justify-between gap-3 text-sm py-2 first:pt-0 last:pb-0">
+                    <div>
+                      <span className="font-bold text-ink">{entry.ownerName}</span>
+                      <p className="text-xs text-ink/50 mt-0.5">
+                        {entry.transactionType.replace(/_/g, ' ')} · {formatDate(entry.transactionDate)}
+                        {entry.documentReference ? ` · ${entry.documentReference}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

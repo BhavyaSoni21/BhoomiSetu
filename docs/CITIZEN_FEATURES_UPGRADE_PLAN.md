@@ -1,8 +1,10 @@
 # Citizen Features Upgrade Plan
 
-**Status: planning document only — nothing in this file has been implemented.**
+**Status: planning document only for §1-§7 — nothing there has been implemented. §8 (PS-compliance gaps) is done as of 2026-09-09 — see that section.**
 
 **Update (2026-09-07):** §8 below merges in three additional gaps from `docs/FEATURE_AUDIT.md` §1a/§8 (items 17-19) — surfaced by an audit against the fuller official "Land Stack" PS text, not part of the original citizen-dashboard proposals this document was built from. They're a different kind of work (core department data model and seed geography, not citizen-facing UX), folded in here so there's one combined roadmap instead of two separate ones.
+
+**Update (2026-09-09): §8's three items are now built** (encumbrance/mortgage records, valuation references, the Chandigarh pilot cluster) — see the ✅ markers in that section for what actually shipped vs. the original proposal.
 
 This merges two proposals discussed in the same session — a standalone "Citizen Dashboard" module document, and a follow-up arguing those features should be *inserted into* BhoomiSetu's existing workflow rather than bolted on beside it — into one plan. The second document's instinct is correct and is the governing principle here. But it was written without access to the actual codebase, so its "existing workflow" diagram is a generic idealization (a "Data Ingestion Layer," a "Normalization" stage) that doesn't match what's actually built. This plan replaces that generic diagram with the real one and maps every proposed feature onto real entities, endpoints, and components from `docs/FEATURES.md`.
 
@@ -147,31 +149,28 @@ POST /ai/document-verification/:id/explain   NEW — same Zod-validated pattern 
 6. **Historical spatial state** (§3.4) — fully independent of everything else; can be built any time.
 7. **AI document summarization** (item 9) — small, once item 2 exists.
 8. **Address search, Bhuvan** — deferred per §6.
-9. **§8's three PS-compliance gaps** — independent of 1-8 above (different modules entirely: department mocks and seed data, not workflows/dashboard). Can run in parallel with any of the above at any point; sequence 8.1 and 8.2 before 8.3, matching their higher score in `docs/FEATURE_AUDIT.md`'s scoring.
+9. ~~**§8's three PS-compliance gaps**~~ — ✅ done (2026-09-09), see §8.
 
 ---
 
-## 8. PS-compliance gaps (merged in from `docs/FEATURE_AUDIT.md` §1a/§8 items 17-19, 2026-09-07)
+## 8. PS-compliance gaps (merged in from `docs/FEATURE_AUDIT.md` §1a/§8 items 17-19, 2026-09-07) — ✅ done 2026-09-09
 
-Three items an audit against the fuller official "Land Stack" PS text surfaced — not citizen-dashboard UX like everything above, but gaps in the core department data model and seed geography that this plan's citizen-facing work sits on top of either way. None of the three depends on anything else in this document.
+Three items an audit against the fuller official "Land Stack" PS text surfaced — not citizen-dashboard UX like everything above, but gaps in the core department data model and seed geography that this plan's citizen-facing work sits on top of either way. All three are now built; kept here (rather than deleted) as a record of what shipped vs. what was originally proposed.
 
-### 8.1 Encumbrance and mortgage records — a new mock department, same pattern as the existing 5
+### 8.1 Encumbrance and mortgage records — ✅ done
 
-- New `EncumbranceRecord` entity: `parcelId`, `hasEncumbrance`, `encumbranceType` (`MORTGAGE` | `LIEN` | `CHARGE`), `lenderName`, `instrumentReference`, `registeredDate`, `dischargeDate` — the same shape as `dispute-record.entity.ts`'s `hasActiveDispute`/`disputeType` pair.
-- `GET /encumbrance/:parcelId` mock department endpoint, wired into the interoperability layer's response aggregator (`docs/FEATURES.md` feature 7) exactly like the other 5 — `GET /parcels/:id/360` gains an `encumbrance` key in its `departments` object once the aggregator registers the new call, no other endpoint changes needed.
-- A 7th Parcel 360 tab, same pattern as the existing 6.
-- Seed: give roughly 15-20% of parcels an active mortgage/lien, matching the ~12% dispute-seeding ratio already used as precedent.
+Built exactly as proposed: a new `EncumbranceRecord` entity (`parcelId`, `hasEncumbrance`, `encumbranceType` `MORTGAGE`/`LIEN`/`CHARGE`, `lenderName`, `instrumentReference`, `registeredDate`, `dischargeDate`), `GET /encumbrance/:parcelId`, wired into the response aggregator (`GET /parcels/:id/360` now carries a `departments.encumbrance` key), a new Parcel 360 tab, seeded on ~17% of parcels. Full e2e coverage (`test/departments.e2e-spec.ts`, `test/interoperability.e2e-spec.ts`, `test/parcels.e2e-spec.ts`).
 
-### 8.2 Valuation references — a field addition, not a new department
+### 8.2 Valuation references — ✅ done
 
-- Add `marketValueReference`, `valuationDate`, `valuationSource` to `tax-record.entity.ts`, kept alongside `assessedValue` rather than replacing it — assessed value is the tax authority's figure, a valuation reference is an independent market/circle-rate figure, and the PS names both as distinct concepts.
-- No new endpoint needed — already surfaced wherever `tax-record` is read (Parcel 360's Tax tab, `GET /tax/:parcelId`).
-- Seed: a plausible market reference within some spread of each parcel's assessed value.
+Built exactly as proposed: `tax-record.entity.ts` gained `marketValueReference`, `valuationDate`, `valuationSource` (`CIRCLE_RATE`/`COMPARABLE_SALE`), kept alongside `assessedValue` rather than replacing it. Surfaced on Parcel 360's Tax tab. Seeded within a plausible spread (85-125%) of each parcel's assessed value.
 
-### 8.3 Chandigarh pilot cluster + city/village pairing
+### 8.3 Chandigarh pilot cluster — ✅ done (city/village pairing not done)
 
-- A 5th seed cluster (Chandigarh, UT) using the existing `parcel-generation` module — same generation approach as the other 4 clusters, no new code path.
-- Reframe one existing state's clusters (or add a small new one) as an explicit city+village pair sharing one state's schema, matching the PS's "one city and one village per State/UT" scaling narrative more literally than today's four unrelated single clusters in four different states.
-- Presentation-level alignment, not a functional gap — lowest priority of the three.
+A 5th seed cluster (`CH-CHANDIGARH-01`, 20 parcels, real Chandigarh coordinates) using the existing `parcel-generation` module, bringing the total to 220 seeded parcels across 5 clusters. **The city/village pairing this item also floated was not built** — Chandigarh remains a 5th unrelated single cluster, not paired with an existing state as an explicit city+village pair. Left as a presentation-level nice-to-have; not rescored or reopened as a gap.
 
-Scored the same way `docs/FEATURE_AUDIT.md` §8 already did: 8.1 and 8.2 both score 6 (P1, cheap-and-required), 8.3 scores 4 (P1, real but lower urgency).
+### A feature this work unlocked, beyond the original three items
+
+**Ownership history** — not part of the original 8.1-8.3 scope, added the same day at the user's request after reviewing §8's plan: a new `OwnershipHistoryRecord` (`parcelId`, `ownerName`, `transactionType` `ORIGINAL`/`SALE`/`GIFT`/`INHERITANCE`/`PARTITION`, `transactionDate`, `documentReference`), a chain of 1-3 prior owners on a representative ~50% of parcels ending at the same owner name already on file in State A/B records where one exists. Surfaced as a Parcel 360 tab via `GET /parcels/:id/ownership-history`. **Visibility is citizen-restricted** — the user specifically decided this should be visible only to a citizen actually associated with that parcel (`citizen_parcels`), not to any citizen who happens to view it, and not treated as public despite real RoR/mutation history traditionally being public record in India. Staff (officer/admin) access is unaffected by this restriction. This strengthens `docs/FEATURE_AUDIT.md` §1a's already-✅ "Record of Rights" row with the mutation-history dimension a real RoR carries.
+
+Also shipped the same day, unrelated to §8 but from the same working session: a pagination control on the Officer Portal's Governance Alerts list (5/page, previously an unbounded scroll) — see `docs/FRONTEND_UPGRADE_SPEC.md` §6.

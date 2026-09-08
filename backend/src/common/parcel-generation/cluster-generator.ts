@@ -85,6 +85,16 @@ export const CLUSTER_CONFIGS: ClusterGeometryConfig[] = [
     radiusMeters: 480, aspectRatio: 1.2, minParcelAreaSqM: 12000, maxParcelAreaSqM: 44000,
     gapProbability: 0.1, gapMeters: 5,
   },
+  // Chandigarh: one of the two real pilot locations named in the fuller
+  // "Land Stack" PS text (launched 2025-12-31), previously absent from the
+  // seed dataset entirely (docs/FEATURE_AUDIT.md §1a/§8 item 19) - the
+  // other, Tamil Nadu, was already represented by the Chennai cluster above.
+  {
+    clusterId: 'CH-CHANDIGARH-01', stateCode: 'CH', district: 'Chandigarh', centerLng: 76.7794, centerLat: 30.7333,
+    parcelCount: 20, dominantAngleDeg: 45, secondaryAngleDeg: 135, envelopeSides: 4,
+    radiusMeters: 460, aspectRatio: 1.05, minParcelAreaSqM: 10000, maxParcelAreaSqM: 38000,
+    gapProbability: 0.1, gapMeters: 5,
+  },
 ];
 
 export interface GeneratedParcel {

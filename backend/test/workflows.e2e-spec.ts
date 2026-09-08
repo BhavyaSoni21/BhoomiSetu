@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
+import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
 import { createAuthenticatedUser } from './helpers/auth';
 
 const square = (minLng: number, minLat: number, size = 0.001) =>
@@ -34,6 +35,7 @@ describe('Workflows (service requests) (e2e)', () => {
   let landRecordsAuth: string;
   let registrationAuth: string;
   let citizenAuth: string;
+  let unassociatedCitizenAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -46,6 +48,7 @@ describe('Workflows (service requests) (e2e)', () => {
     await app.init();
 
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
+    const citizenParcelRepository: Repository<CitizenParcel> = moduleFixture.get(getRepositoryToken(CitizenParcel));
 
     parcel = await parcelRepository.save({
       canonicalParcelId: 'WF-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
@@ -57,7 +60,16 @@ describe('Workflows (service requests) (e2e)', () => {
     adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
     landRecordsAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
     registrationAuth = (await createAuthenticatedUser(moduleFixture, 'REGISTRATION_OFFICER')).authHeader;
-    citizenAuth = (await createAuthenticatedUser(moduleFixture, 'CITIZEN')).authHeader;
+
+    // Every POST /workflows test below files a request as this citizen
+    // against `parcel`/`otherParcel`, so both are linked here (docs/FRONTEND_UPGRADE_SPEC.md
+    // §4's "Raise Request only for associated parcels" - see workflows.controller.ts create()).
+    const citizenAuthResult = await createAuthenticatedUser(moduleFixture, 'CITIZEN');
+    citizenAuth = citizenAuthResult.authHeader;
+    await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel });
+    await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel: otherParcel });
+
+    unassociatedCitizenAuth = (await createAuthenticatedUser(moduleFixture, 'CITIZEN')).authHeader;
   });
 
   afterAll(async () => {
@@ -114,6 +126,14 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/workflows')
         .set('Authorization', landRecordsAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(403);
+    });
+
+    it("rejects a citizen filing a request for a parcel not associated with their account, with 403", async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', unassociatedCitizenAuth)
         .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
         .expect(403);
     });
@@ -471,6 +491,41 @@ describe('Workflows (service requests) (e2e)', () => {
         .expect(200);
 
       expect(res.body.steps.find((s: any) => s.id === planningStep.id).status).toBe('APPROVED');
+    });
+  });
+
+  describe('GET /api/v1/workflows/mine', () => {
+    it("returns only the signed-in citizen's own requests, across all of their parcels", async () => {
+      const own = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: otherParcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/workflows/mine')
+        .set('Authorization', citizenAuth)
+        .expect(200);
+
+      expect(res.body.some((w: any) => w.id === own.body.id)).toBe(true);
+      expect(res.body.every((w: any) => [parcel.id, otherParcel.id].includes(w.parcelId))).toBe(true);
+      expect(res.body[0].steps.length).toBeGreaterThan(0);
+    });
+
+    it('returns an empty array for a citizen with no parcels', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/workflows/mine')
+        .set('Authorization', unassociatedCitizenAuth)
+        .expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('rejects a staff account with 403', async () => {
+      await request(app.getHttpServer()).get('/api/v1/workflows/mine').set('Authorization', adminAuth).expect(403);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/workflows/mine').expect(401);
     });
   });
 });

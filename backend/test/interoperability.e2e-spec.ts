@@ -16,6 +16,7 @@ import { PlanningRecord } from '../src/departments/planning-record.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { RestrictionRecord } from '../src/departments/restriction-record.entity';
 import { DisputeRecord } from '../src/departments/dispute-record.entity';
+import { EncumbranceRecord } from '../src/departments/encumbrance-record.entity';
 import { IdentifierResolverService } from '../src/interoperability/identifier-resolver.service';
 import { ResponseAggregatorService } from '../src/interoperability/response-aggregator.service';
 import { adaptStateA, adaptStateB } from '../src/interoperability/land-record-adapters';
@@ -39,10 +40,11 @@ describe('Interoperability (e2e)', () => {
   let taxRepository: Repository<TaxRecord>;
   let restrictionRepository: Repository<RestrictionRecord>;
   let disputeRepository: Repository<DisputeRecord>;
+  let encumbranceRepository: Repository<EncumbranceRecord>;
   let identifierResolver: IdentifierResolverService;
   let responseAggregator: ResponseAggregatorService;
 
-  let fullMhParcel: Parcel; // fully wired: identifiers + State A + all 4 department records
+  let fullMhParcel: Parcel; // fully wired: identifiers + State A + all 5 department records
   let bareTnParcel: Parcel; // exists, no identifiers, no department data at all
 
   beforeAll(async () => {
@@ -64,6 +66,7 @@ describe('Interoperability (e2e)', () => {
     taxRepository = moduleFixture.get(getRepositoryToken(TaxRecord));
     restrictionRepository = moduleFixture.get(getRepositoryToken(RestrictionRecord));
     disputeRepository = moduleFixture.get(getRepositoryToken(DisputeRecord));
+    encumbranceRepository = moduleFixture.get(getRepositoryToken(EncumbranceRecord));
     identifierResolver = moduleFixture.get(IdentifierResolverService);
     responseAggregator = moduleFixture.get(ResponseAggregatorService);
 
@@ -99,6 +102,10 @@ describe('Interoperability (e2e)', () => {
     });
     await disputeRepository.save({
       parcelId: fullMhParcel.id, hasActiveDispute: false, disputeType: null, caseStatus: null, filingDate: null, resolutionDate: null, resolutionSummary: null,
+    });
+    await encumbranceRepository.save({
+      parcelId: fullMhParcel.id, hasEncumbrance: true, encumbranceType: 'MORTGAGE', lenderName: 'Interop Co-operative Bank',
+      instrumentReference: 'MORTGAGE-100001', registeredDate: '2021-01-01', dischargeDate: null,
     });
   });
 
@@ -163,7 +170,7 @@ describe('Interoperability (e2e)', () => {
       expect(result).toBeNull();
     });
 
-    it('aggregates all six departments into the canonical envelope for a fully-linked parcel', async () => {
+    it('aggregates all seven departments into the canonical envelope for a fully-linked parcel', async () => {
       const result = await responseAggregator.buildParcel360(fullMhParcel.id);
       expect(result!.parcel_id).toBe(fullMhParcel.id);
       expect(result!.identifiers).toEqual({
@@ -178,6 +185,7 @@ describe('Interoperability (e2e)', () => {
         { department: 'TAX', status: 'AVAILABLE' },
         { department: 'RESTRICTION', status: 'AVAILABLE' },
         { department: 'DISPUTE', status: 'AVAILABLE' },
+        { department: 'ENCUMBRANCE', status: 'AVAILABLE' },
       ]);
 
       expect(result!.departments.landRecords).toEqual(
@@ -188,13 +196,14 @@ describe('Interoperability (e2e)', () => {
       expect(result!.departments.tax!.taxStatus).toBe('PAID');
       expect(result!.departments.restriction!.hasRestriction).toBe(false);
       expect(result!.departments.dispute!.hasActiveDispute).toBe(false);
+      expect(result!.departments.encumbrance!.hasEncumbrance).toBe(true);
     });
 
     it('falls back to localBodyCode for locality and nulls departments.* when nothing is linked', async () => {
       const result = await responseAggregator.buildParcel360(bareTnParcel.id);
       expect(result!.location.locality).toBe('TNLB009');
       expect(result!.departments).toEqual({
-        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null,
+        landRecords: null, registration: null, planning: null, tax: null, restriction: null, dispute: null, encumbrance: null,
       });
       expect(result!.sources.every((s) => s.status === 'NOT_AVAILABLE')).toBe(true);
     });

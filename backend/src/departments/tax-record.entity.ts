@@ -25,4 +25,17 @@ export class TaxRecord {
 
   @Column({ type: 'date', nullable: true })
   lastPaymentDate: string | null;
+
+  // Valuation reference (docs/FEATURE_AUDIT.md §8 item 18) - an independent
+  // market/circle-rate figure, deliberately separate from assessedValue
+  // above (the tax authority's own figure) since the PS names both as
+  // distinct concepts.
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  marketValueReference: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  valuationDate: string | null;
+
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  valuationSource: string | null; // e.g. CIRCLE_RATE | COMPARABLE_SALE
 }

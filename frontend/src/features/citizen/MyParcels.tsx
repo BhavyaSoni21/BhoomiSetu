@@ -33,18 +33,13 @@ const MyParcels: React.FC = () => {
         <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink">My Parcels</h2>
         {isCitizen && (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled
-              title={t('placeholders.profileDesc')}
-              className="inline-flex items-center gap-1.5 border-2 border-ink/25 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink/40 cursor-not-allowed"
+            <Link
+              to="/citizen/profile"
+              className="inline-flex items-center gap-1.5 border-2 border-ink/25 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink/60 hover:text-primary hover:border-primary/50 transition"
             >
               <UserCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
               {t('placeholders.profileTitle')}
-              <span className="bg-accent/30 text-secondary-strong px-1 py-px text-[9px] font-black">
-                {t('placeholders.comingSoonBadge')}
-              </span>
-            </button>
+            </Link>
             <button
               onClick={logout}
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink/60 hover:text-secondary transition"

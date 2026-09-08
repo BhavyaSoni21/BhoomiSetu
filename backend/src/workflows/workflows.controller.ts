@@ -30,6 +30,20 @@ export class WorkflowsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(CITIZEN_ROLE)
   async create(@CurrentUser() user: User, @Body() dto: CreateWorkflowDto) {
+    // Raise Request restricted to the citizen's own parcels
+    // (docs/FRONTEND_UPGRADE_SPEC.md §4). Existence is checked before
+    // association - same ordering as ParcelsController's
+    // GET /:id/ownership-history - so a bogus parcel id still gets create()'s
+    // existing 400 rather than being swallowed into a 403.
+    const parcelExists = await this.workflowsService.parcelExists(dto.parcelId);
+    if (!parcelExists) {
+      throw new BadRequestException(`Parcel not found: ${dto.parcelId}`);
+    }
+    const associated = await this.workflowsService.isCitizenAssociatedWithParcel(user.id, dto.parcelId);
+    if (!associated) {
+      throw new ForbiddenException('You can only raise a request for a parcel associated with your account');
+    }
+
     const result = await this.workflowsService.create({ ...dto, createdBy: dto.createdBy ?? user.name });
     if (result === 'PARCEL_NOT_FOUND') {
       throw new BadRequestException(`Parcel not found: ${dto.parcelId}`);
@@ -59,6 +73,17 @@ export class WorkflowsController {
     // narrow to a specific one via the query param).
     const scopedDepartment = user.role === 'ADMIN' ? department : ROLE_DEPARTMENT[user.role];
     return this.workflowsService.findAll({ department: scopedDepartment, stepStatus });
+  }
+
+  // Registered before ':id' so 'mine' is never swallowed as an id param -
+  // same precedent as ParcelsController's GET /parcels/mine. Requests
+  // aggregated across every parcel the signed-in citizen actually owns
+  // (docs/FRONTEND_UPGRADE_SPEC.md §4's "Requests" page).
+  @Get('mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CITIZEN_ROLE)
+  async findMine(@CurrentUser() user: User) {
+    return this.workflowsService.findMineForCitizen(user.id);
   }
 
   @Get(':id')

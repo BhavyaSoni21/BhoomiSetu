@@ -51,6 +51,9 @@ export interface TaxRecord {
   taxStatus: string;
   outstandingAmount: number;
   lastPaymentDate: string | null;
+  marketValueReference: number | null;
+  valuationDate: string | null;
+  valuationSource: string | null;
 }
 
 export interface RestrictionRecord {
@@ -73,6 +76,26 @@ export interface DisputeRecord {
   resolutionSummary: string | null;
 }
 
+export interface EncumbranceRecord {
+  id: string;
+  parcelId: string;
+  hasEncumbrance: boolean;
+  encumbranceType: string | null;
+  lenderName: string | null;
+  instrumentReference: string | null;
+  registeredDate: string | null;
+  dischargeDate: string | null;
+}
+
+export interface OwnershipHistoryRecord {
+  id: string;
+  parcelId: string;
+  ownerName: string;
+  transactionType: string;
+  transactionDate: string;
+  documentReference: string | null;
+}
+
 export interface Parcel360Response {
   parcel_id: string;
   identifiers: CanonicalIdentifiers;
@@ -86,5 +109,6 @@ export interface Parcel360Response {
     tax: TaxRecord | null;
     restriction: RestrictionRecord | null;
     dispute: DisputeRecord | null;
+    encumbrance: EncumbranceRecord | null;
   };
 }

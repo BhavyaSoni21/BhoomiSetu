@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
+import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
 import { User } from '../src/users/user.entity';
 import { createAuthenticatedUser } from './helpers/auth';
@@ -44,6 +45,7 @@ describe('Audit logging (e2e)', () => {
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
     alertRepository = moduleFixture.get(getRepositoryToken(GovernanceAlert));
     userRepository = moduleFixture.get(getRepositoryToken(User));
+    const citizenParcelRepository: Repository<CitizenParcel> = moduleFixture.get(getRepositoryToken(CitizenParcel));
 
     parcel = await parcelRepository.save({
       canonicalParcelId: 'AUDIT-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
@@ -51,7 +53,12 @@ describe('Audit logging (e2e)', () => {
 
     ({ authHeader: adminAuth } = await createAuthenticatedUser(moduleFixture, 'ADMIN'));
     ({ authHeader: landRecordsAuth } = await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER'));
-    ({ authHeader: citizenAuth } = await createAuthenticatedUser(moduleFixture, 'CITIZEN'));
+    const citizenAuthResult = await createAuthenticatedUser(moduleFixture, 'CITIZEN');
+    citizenAuth = citizenAuthResult.authHeader;
+    // Every POST /workflows call below files against `parcel` as this
+    // citizen, so it must be linked (docs/FRONTEND_UPGRADE_SPEC.md §4 - see
+    // workflows.controller.ts create()).
+    await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel });
   });
 
   afterAll(async () => {

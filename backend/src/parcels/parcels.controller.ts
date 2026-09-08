@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException, ForbiddenException, UseGuards } from '@nestjs/common';
 import { ParcelsService } from './parcels.service';
 import { ResponseAggregatorService } from '../interoperability/response-aggregator.service';
 import { WorkflowsService } from '../workflows/workflows.service';
@@ -102,6 +102,26 @@ export class ParcelsController {
       throw new NotFoundException(`Parcel not found with id: ${id}`);
     }
     return result;
+  }
+
+  // Citizen-restricted (docs/FEATURE_AUDIT.md §8a): staff always see it;
+  // a citizen only sees it for a parcel actually in their own
+  // citizen_parcels association, never for any parcel they merely view.
+  @Get(':id/ownership-history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ALL_STAFF_ROLES, CITIZEN_ROLE)
+  async getOwnershipHistory(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    const parcel = await this.parcelsService.findOne(id);
+    if (!parcel) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    if (user.role === CITIZEN_ROLE) {
+      const associated = await this.parcelsService.isCitizenAssociatedWithParcel(user.id, id);
+      if (!associated) {
+        throw new ForbiddenException('Ownership history is only visible for parcels associated with your account');
+      }
+    }
+    return this.parcelsService.getOwnershipHistory(id);
   }
 
   @Get(':id/risk-score')

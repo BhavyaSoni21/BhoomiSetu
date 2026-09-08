@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
@@ -20,10 +20,13 @@ const SEVERITY_STYLES: Record<string, string> = {
 const severityBadgeClass = (severity: string) =>
   `inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest mr-2 ${SEVERITY_STYLES[severity] ?? 'bg-muted text-ink'}`;
 
+const ALERTS_PER_PAGE = 5;
+
 const GovernanceAlertsPanel: React.FC = () => {
   const queryClient = useQueryClient();
   const [explanations, setExplanations] = useState<Record<string, AiExplanation>>({});
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const { data: alerts = [], isLoading, error } = useQuery<GovernanceAlert[]>(
     ['governance-alerts', 'OPEN'],
@@ -32,6 +35,15 @@ const GovernanceAlertsPanel: React.FC = () => {
       return response.data;
     },
   );
+
+  const pageCount = Math.max(1, Math.ceil(alerts.length / ALERTS_PER_PAGE));
+  // An alert leaving the list (reviewed/dismissed elsewhere, or this page's
+  // last alert acted on) can strand `page` past the new last page - clamp
+  // rather than showing an empty page with working prev/next controls.
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [page, pageCount]);
+  const pagedAlerts = alerts.slice(page * ALERTS_PER_PAGE, page * ALERTS_PER_PAGE + ALERTS_PER_PAGE);
 
   const statusMutation = useMutation(
     async ({ id, status }: { id: string; status: 'REVIEWED' | 'DISMISSED' }) => {
@@ -70,7 +82,7 @@ const GovernanceAlertsPanel: React.FC = () => {
 
   return (
     <div className="space-y-3">
-      {alerts.map((alert) => (
+      {pagedAlerts.map((alert) => (
         <div key={alert.id} className="bg-surface border-2 border-ink shadow-hard-sm px-3.5 py-3 transition hover:-translate-y-1">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -109,6 +121,32 @@ const GovernanceAlertsPanel: React.FC = () => {
           </div>
         </div>
       ))}
+
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between gap-3 border-t-2 border-ink/10 pt-3 text-xs font-bold uppercase tracking-widest text-ink/70">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="inline-flex items-center gap-1 px-3 py-1.5 border-2 border-ink bg-surface shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            Prev
+          </button>
+          <span>
+            Page {page + 1} of {pageCount} ({alerts.length} alerts)
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+            className="inline-flex items-center gap-1 px-3 py-1.5 border-2 border-ink bg-surface shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:pointer-events-none"
+          >
+            Next
+            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       {selectedAlert && (
         <GovernanceAlertDetailModal

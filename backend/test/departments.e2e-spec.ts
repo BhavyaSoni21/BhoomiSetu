@@ -16,6 +16,7 @@ import { PlanningRecord } from '../src/departments/planning-record.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { RestrictionRecord } from '../src/departments/restriction-record.entity';
 import { DisputeRecord } from '../src/departments/dispute-record.entity';
+import { EncumbranceRecord } from '../src/departments/encumbrance-record.entity';
 
 describe('Mock department APIs (e2e)', () => {
   let app: INestApplication;
@@ -28,6 +29,7 @@ describe('Mock department APIs (e2e)', () => {
   let taxRepository: Repository<TaxRecord>;
   let restrictionRepository: Repository<RestrictionRecord>;
   let disputeRepository: Repository<DisputeRecord>;
+  let encumbranceRepository: Repository<EncumbranceRecord>;
 
   let mhParcel: Parcel;
   let dlParcel: Parcel;
@@ -60,6 +62,7 @@ describe('Mock department APIs (e2e)', () => {
     taxRepository = moduleFixture.get(getRepositoryToken(TaxRecord));
     restrictionRepository = moduleFixture.get(getRepositoryToken(RestrictionRecord));
     disputeRepository = moduleFixture.get(getRepositoryToken(DisputeRecord));
+    encumbranceRepository = moduleFixture.get(getRepositoryToken(EncumbranceRecord));
 
     mhParcel = await parcelRepository.save({
       canonicalParcelId: 'DEPT-MH-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
@@ -101,6 +104,10 @@ describe('Mock department APIs (e2e)', () => {
     });
     await disputeRepository.save({
       parcelId: mhParcel.id, hasActiveDispute: true, disputeType: 'BOUNDARY', caseStatus: 'UNDER_REVIEW', filingDate: '2025-06-01', resolutionDate: null, resolutionSummary: null,
+    });
+    await encumbranceRepository.save({
+      parcelId: mhParcel.id, hasEncumbrance: true, encumbranceType: 'MORTGAGE', lenderName: 'Test Co-operative Bank',
+      instrumentReference: 'MORTGAGE-500001', registeredDate: '2022-03-01', dischargeDate: null,
     });
   });
 
@@ -197,14 +204,28 @@ describe('Mock department APIs (e2e)', () => {
     });
   });
 
+  describe('GET /api/v1/encumbrance/:parcelId', () => {
+    it('returns the encumbrance flag and type for a parcel', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/encumbrance/${mhParcel.id}`).expect(200);
+      expect(res.body.hasEncumbrance).toBe(true);
+      expect(res.body.encumbranceType).toBe('MORTGAGE');
+      expect(res.body.lenderName).toBe('Test Co-operative Bank');
+    });
+
+    it('returns 404 when no encumbrance record exists for the parcel', async () => {
+      await request(app.getHttpServer()).get(`/api/v1/encumbrance/${dlParcel.id}`).expect(404);
+    });
+  });
+
   describe('the department APIs operate independently', () => {
     it('each department only returns its own data shape - no field leakage between departments', async () => {
-      const [registration, planning, tax, restriction, dispute] = await Promise.all([
+      const [registration, planning, tax, restriction, dispute, encumbrance] = await Promise.all([
         request(app.getHttpServer()).get(`/api/v1/registration/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/planning/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/tax/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/restriction/${mhParcel.id}`).expect(200),
         request(app.getHttpServer()).get(`/api/v1/dispute/${mhParcel.id}`).expect(200),
+        request(app.getHttpServer()).get(`/api/v1/encumbrance/${mhParcel.id}`).expect(200),
       ]);
 
       expect(registration.body.landUse).toBeUndefined();
@@ -217,6 +238,8 @@ describe('Mock department APIs (e2e)', () => {
       expect(restriction.body.landUse).toBeUndefined();
       expect(dispute.body.taxStatus).toBeUndefined();
       expect(dispute.body.hasRestriction).toBeUndefined();
+      expect(encumbrance.body.taxStatus).toBeUndefined();
+      expect(encumbrance.body.hasRestriction).toBeUndefined();
     });
   });
 });

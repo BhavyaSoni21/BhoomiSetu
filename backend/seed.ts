@@ -19,6 +19,8 @@ import { PlanningRecord } from './src/departments/planning-record.entity';
 import { TaxRecord } from './src/departments/tax-record.entity';
 import { RestrictionRecord } from './src/departments/restriction-record.entity';
 import { DisputeRecord } from './src/departments/dispute-record.entity';
+import { EncumbranceRecord } from './src/departments/encumbrance-record.entity';
+import { OwnershipHistoryRecord } from './src/parcels/ownership-history-record.entity';
 import { GovernanceAlert } from './src/governance/governance-alert.entity';
 import { User } from './src/users/user.entity';
 
@@ -153,6 +155,10 @@ const IDENTIFIER_PROFILES: Record<string, Array<{ type: string; probability: num
     { type: 'PLOT_NUMBER', probability: 0.9, format: () => `P-${randInt(1, 9999)}` },
     { type: 'PROPERTY_NUMBER', probability: 0.6, format: () => `PROP-${randInt(1, 99999)}` },
   ],
+  CH: [
+    { type: 'PLOT_NUMBER', probability: 0.9, format: () => `SCO-${randInt(1, 999)}` },
+    { type: 'SECTOR_NUMBER', probability: 0.7, format: () => `SECTOR-${randInt(1, 47)}` },
+  ],
 };
 
 function randInt(min: number, max: number): number {
@@ -248,6 +254,8 @@ async function seedDatabase() {
       TaxRecord,
       RestrictionRecord,
       DisputeRecord,
+      EncumbranceRecord,
+      OwnershipHistoryRecord,
       GovernanceAlert,
       User,
       CitizenParcel,
@@ -272,11 +280,14 @@ async function seedDatabase() {
     const taxRepository = dataSource.getRepository(TaxRecord);
     const restrictionRecordRepository = dataSource.getRepository(RestrictionRecord);
     const disputeRecordRepository = dataSource.getRepository(DisputeRecord);
+    const encumbranceRecordRepository = dataSource.getRepository(EncumbranceRecord);
+    const ownershipHistoryRepository = dataSource.getRepository(OwnershipHistoryRecord);
     const governanceAlertRepository = dataSource.getRepository(GovernanceAlert);
     const userRepository = dataSource.getRepository(User);
     const citizenParcelRepository = dataSource.getRepository(CitizenParcel);
 
-    // Reset so re-running this script always leaves exactly 200 parcels.
+    // Reset so re-running this script always leaves the same parcel count
+    // (CLUSTER_CONFIGS.reduce((n, c) => n + c.parcelCount, 0)).
     // Plain DELETE, not .clear()'s TRUNCATE - Postgres refuses to TRUNCATE a
     // table that another table has a live FK constraint pointing at (e.g.
     // parcel_identifiers -> parcels) even once that referencing table's own
@@ -286,7 +297,8 @@ async function seedDatabase() {
     // the parents they reference.
     const tablesToClear = [
       citizenParcelRepository, userRepository, governanceAlertRepository, disputeRecordRepository, registrationRepository,
-      planningRepository, taxRepository, restrictionRecordRepository, stateARepository, stateBRepository,
+      planningRepository, taxRepository, restrictionRecordRepository, encumbranceRecordRepository, ownershipHistoryRepository,
+      stateARepository, stateBRepository,
       neighbourRepository, identifierRepository, changeDetectionRepository, restrictionRepository,
       zoningRepository, infrastructureRepository, parcelRepository,
     ];
@@ -343,6 +355,8 @@ async function seedDatabase() {
     const taxRecordsToSave: Partial<TaxRecord>[] = [];
     const restrictionRecordsToSave: Partial<RestrictionRecord>[] = [];
     const disputeRecordsToSave: Partial<DisputeRecord>[] = [];
+    const encumbranceRecordsToSave: Partial<EncumbranceRecord>[] = [];
+    const ownershipHistoryRecordsToSave: Partial<OwnershipHistoryRecord>[] = [];
 
     // Pune's saved parcels, so the zoning / restriction / infrastructure /
     // change-detection demo data below can reference exactly the right
@@ -386,21 +400,28 @@ async function seedDatabase() {
         // GET /api/v1/land-records/:parcelId can actually find a match
         // instead of the two being independently-random and unrelated.
         let primaryIdentifierValue: string | null = null;
+        // Captured (rather than inlined into the state-record push below) so
+        // Ownership History's final row - when a parcel gets one - can match
+        // whichever name the state schema already recorded as current owner/
+        // holder, instead of being independently random for the same parcel.
+        let currentOwnerName: string | null = null;
         if (config.stateCode === 'MH') {
           primaryIdentifierValue = `${randInt(1, 200)}/${randInt(1, 12)}`;
+          currentOwnerName = randomPersonName();
           stateARecordsToSave.push({
             surveyNumber: primaryIdentifierValue,
             subdivisionNumber: String(randInt(1, 9)),
-            ownerName: randomPersonName(),
+            ownerName: currentOwnerName,
             villageCode: `VIL${String(randInt(1, 40)).padStart(3, '0')}`,
             areaHectares: Math.round((savedParcel.areaSqM / SQM_PER_HECTARE) * 10000) / 10000,
             recordStatus: 'ACTIVE',
           });
         } else if (config.stateCode === 'DL') {
           primaryIdentifierValue = `P-${randInt(1000, 9999)}`;
+          currentOwnerName = randomPersonName();
           stateBRecordsToSave.push({
             plotId: primaryIdentifierValue,
-            holderName: randomPersonName(),
+            holderName: currentOwnerName,
             localityId: `LOC${String(randInt(1, 40)).padStart(3, '0')}`,
             landExtentSqft: Math.round(savedParcel.areaSqM * SQFT_PER_SQM * 100) / 100,
             recordCategory: 'Urban',
@@ -442,6 +463,10 @@ async function seedDatabase() {
         const assessedValue = Math.round(savedParcel.areaSqM * ratePerSqm * 100) / 100;
         const annualTaxAmount = Math.round(assessedValue * (0.003 + Math.random() * 0.007) * 100) / 100;
         const taxStatus = weightedPick<'PAID' | 'PENDING' | 'OVERDUE'>([['PAID', 6], ['PENDING', 3], ['OVERDUE', 1]]);
+        // Valuation reference (docs/FEATURE_AUDIT.md §8 item 18) - an
+        // independent market/circle-rate figure within a plausible spread of
+        // the tax authority's own assessedValue above, not derived from it.
+        const marketValueReference = Math.round(assessedValue * (0.85 + Math.random() * 0.4) * 100) / 100;
         taxRecordsToSave.push({
           parcelId: savedParcel.id,
           assessedValue,
@@ -449,6 +474,9 @@ async function seedDatabase() {
           taxStatus,
           outstandingAmount: taxStatus === 'PAID' ? 0 : Math.round(annualTaxAmount * (taxStatus === 'OVERDUE' ? 1 : 0.5) * 100) / 100,
           lastPaymentDate: taxStatus === 'PAID' ? randomDate(1) : taxStatus === 'PENDING' ? randomDate(2) : null,
+          marketValueReference,
+          valuationDate: randomDate(2),
+          valuationSource: weightedPick<string>([['CIRCLE_RATE', 2], ['COMPARABLE_SALE', 1]]),
         });
 
         // Pune parcels inside the flood zone are flagged consistent with
@@ -494,6 +522,46 @@ async function seedDatabase() {
               : 'Case dismissed for insufficient evidence.'
             : null,
         });
+
+        // Encumbrance/mortgage department (docs/FEATURE_AUDIT.md §8 item 17):
+        // same "independent per-parcel record" pattern as Dispute above,
+        // ~15-20% of parcels carry an active mortgage/lien/charge.
+        const hasEncumbrance = Math.random() < 0.17;
+        const encumbranceType = hasEncumbrance
+          ? weightedPick<string>([['MORTGAGE', 3], ['LIEN', 1], ['CHARGE', 1]])
+          : null;
+        encumbranceRecordsToSave.push({
+          parcelId: savedParcel.id,
+          hasEncumbrance,
+          encumbranceType,
+          lenderName: hasEncumbrance ? `${LAST_NAMES[randInt(0, LAST_NAMES.length - 1)]} Co-operative Bank` : null,
+          instrumentReference: hasEncumbrance ? `${encumbranceType}-${randInt(100000, 999999)}` : null,
+          registeredDate: hasEncumbrance ? randomDate(8) : null,
+          dischargeDate: null,
+        });
+
+        // Ownership history (docs/FEATURE_AUDIT.md §8a) - a representative
+        // subset of parcels (not all 200+), 1-3 prior owners each, ending at
+        // whichever name the state schema recorded as current owner/holder
+        // when one exists (MH/DL), or a fresh name otherwise (every other
+        // state already has no owner-name representation anywhere else).
+        if (Math.random() < 0.5) {
+          const priorOwnerCount = randInt(1, 3);
+          const entryCount = priorOwnerCount + 1; // + the current owner
+          // Dates drawn independently, then sorted oldest-first, so the
+          // chain is always strictly chronological regardless of how the
+          // individual random draws landed (a plain decreasing-bound draw
+          // per entry can't guarantee that on its own).
+          const dates = Array.from({ length: entryCount }, () => randomDate(20)).sort();
+          const chain: Partial<OwnershipHistoryRecord>[] = dates.map((transactionDate, k) => ({
+            parcelId: savedParcel.id,
+            ownerName: k === entryCount - 1 ? currentOwnerName ?? randomPersonName() : randomPersonName(),
+            transactionType: k === 0 ? 'ORIGINAL' : weightedPick<string>([['SALE', 3], ['GIFT', 1], ['INHERITANCE', 1], ['PARTITION', 1]]),
+            transactionDate,
+            documentReference: k === 0 ? null : `DEED-${randInt(100000, 999999)}`,
+          }));
+          ownershipHistoryRecordsToSave.push(...chain);
+        }
 
         // Local Parcel ID - every parcel, every state.
         identifiersToSave.push({
@@ -553,6 +621,10 @@ async function seedDatabase() {
     console.log(`Saved ${savedRestrictionRecords.length} restriction records`);
     const savedDisputeRecords = await disputeRecordRepository.save(disputeRecordsToSave);
     console.log(`Saved ${savedDisputeRecords.length} dispute records`);
+    const savedEncumbranceRecords = await encumbranceRecordRepository.save(encumbranceRecordsToSave);
+    console.log(`Saved ${savedEncumbranceRecords.length} encumbrance records`);
+    const savedOwnershipHistory = await ownershipHistoryRepository.save(ownershipHistoryRecordsToSave);
+    console.log(`Saved ${savedOwnershipHistory.length} ownership history records`);
 
     const savedNeighbours = await neighbourRepository.save(neighbourRowsToSave);
     console.log(`Saved ${savedNeighbours.length} explicit neighbour relationships (TOUCHING + NEARBY)`);

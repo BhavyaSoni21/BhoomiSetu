@@ -5,6 +5,7 @@ import { Parcel } from './parcel.entity';
 import { ParcelIdentifier } from './parcel-identifier.entity';
 import { ParcelNeighbour } from './parcel-neighbour.entity';
 import { CitizenParcel } from './citizen-parcel.entity';
+import { OwnershipHistoryRecord } from './ownership-history-record.entity';
 import { outerRing, parseGeometry, polygonDistanceMeters, ringCentroid } from '../common/geo-utils';
 import { isPostgisAvailable } from '../common/postgis';
 
@@ -36,6 +37,8 @@ export class ParcelsService {
     private parcelNeighbourRepository: Repository<ParcelNeighbour>,
     @InjectRepository(CitizenParcel)
     private citizenParcelRepository: Repository<CitizenParcel>,
+    @InjectRepository(OwnershipHistoryRecord)
+    private ownershipHistoryRepository: Repository<OwnershipHistoryRecord>,
   ) {}
 
   // Parcels linked to a citizen's account (docs/Plan.md Phase 12's "My
@@ -48,6 +51,27 @@ export class ParcelsService {
     });
     const parcels = links.map((link) => link.parcel);
     return { parcels, total: parcels.length };
+  }
+
+  // Whether a citizen is actually associated with a parcel (docs/FEATURE_AUDIT.md
+  // §8a) - the access check backing GET /parcels/:id/ownership-history, same
+  // citizen_parcels join findMine already reads.
+  async isCitizenAssociatedWithParcel(citizenId: string, parcelId: string): Promise<boolean> {
+    const link = await this.citizenParcelRepository.findOne({
+      where: { citizen: { id: citizenId }, parcel: { id: parcelId } },
+    });
+    return link !== null;
+  }
+
+  // Ownership history (docs/FEATURE_AUDIT.md §8a) - a parcel's chain of past
+  // owners, oldest first, sitting behind the current-owner fields State A/B
+  // land records already expose. Citizen-visibility is enforced by the
+  // caller (ParcelsController), not here.
+  async getOwnershipHistory(parcelId: string): Promise<OwnershipHistoryRecord[]> {
+    return this.ownershipHistoryRepository.find({
+      where: { parcelId },
+      order: { transactionDate: 'ASC' },
+    });
   }
 
   // Search parcels by various identifiers

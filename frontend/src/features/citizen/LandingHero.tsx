@@ -1,25 +1,29 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, MapPinned, ShieldCheck, Landmark, FileSearch, ShieldQuestion } from 'lucide-react';
+import { ArrowRight, LogIn, ShieldCheck, Landmark } from 'lucide-react';
+import { useAuthUser } from '../auth/auth';
 
-interface LandingHeroProps {
-  onSearchClick?: () => void;
-  onExploreMap?: () => void;
-  onVerifyClick?: () => void;
-}
-
-export const LandingHero: React.FC<LandingHeroProps> = ({
-  onSearchClick,
-  onExploreMap,
-  onVerifyClick,
-}) => {
+// Public Home hero (docs/FRONTEND_UPGRADE_SPEC.md §2's "Landing page header" -
+// value proposition over feature cards). Previously this rendered a
+// scroll-to-section hero for the old single-page CitizenPortal (search/map/
+// verify all lived below it on the same page); now that guest search is gone
+// and those tools moved behind sign-in into the Citizen Portal (§1), the two
+// CTAs point at /register and /login instead of scrolling anywhere on this
+// page, and the old 4-feature-card grid (which promised anonymous search) is
+// gone rather than updated in place - it was the actual thing this rewrite
+// needed to remove.
+//
+// Carries the BhoomiSetu logo/wordmark itself now (per the user's follow-up:
+// "remove bhoomisetu from the nav bar and add that to the landing home
+// page") - the navbar (App.tsx) no longer shows it at all. A signed-in
+// citizen can reach this page too (App.tsx's "/" route no longer redirects
+// citizens away, per "citizens should be able to see the home and about
+// page"), so the CTA row is auth-aware: Get Started/Sign In only make sense
+// for a guest.
+export const LandingHero: React.FC = () => {
   const { t } = useTranslation();
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const { data: authUser } = useAuthUser();
 
   return (
     <div className="relative w-full font-sans">
@@ -39,6 +43,25 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
         {/* Hero Content Container with Generous Breathing Space */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-24 w-full">
           <div className="max-w-3xl space-y-6 sm:space-y-7">
+            {/* BhoomiSetu brand mark - lives only here now, not in the navbar */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white p-1 flex items-center justify-center border-2 border-ink shadow-hard-sm shrink-0">
+                <img src="/bhoomisetu-logo.png" alt={t('nav.logoAlt')} className="w-full h-full object-contain" />
+              </div>
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl sm:text-[28px] font-black tracking-tight font-display text-white">
+                    <span className="text-primary">Bhoomi</span>
+                    <span className="text-secondary">Setu</span>
+                  </span>
+                  <span className="hidden sm:inline-block px-2.5 py-0.5 bg-secondary/20 text-accent border border-secondary/50 font-bold text-[10px] tracking-wider uppercase">
+                    {t('nav.badge')}
+                  </span>
+                </div>
+                <span className="text-[11px] sm:text-xs text-white/60 font-medium mt-0.5">{t('nav.brandTagline')}</span>
+              </div>
+            </div>
+
             {/* Government Initiative Badge with Flag Accent */}
             <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-surface/10 border-2 border-primary/50 text-primary text-xs font-bold tracking-wide">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -69,27 +92,33 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
 
             {/* Direct, Action-Oriented CTA Buttons */}
             <div className="flex flex-wrap items-center gap-4 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onSearchClick ? onSearchClick() : scrollTo('parcel-search-section');
-                }}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary hover:bg-secondary-strong px-6 py-3.5 text-white font-bold text-sm sm:text-base uppercase tracking-wide shadow-hard-md transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <span>{t('hero.ctaFindPlot')}</span>
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </button>
+              {authUser ? (
+                <Link
+                  to="/citizen"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary hover:bg-secondary-strong px-6 py-3.5 text-white font-bold text-sm sm:text-base uppercase tracking-wide shadow-hard-md transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                >
+                  <span>{t('hero.ctaGoToDashboard')}</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/register"
+                    className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary hover:bg-secondary-strong px-6 py-3.5 text-white font-bold text-sm sm:text-base uppercase tracking-wide shadow-hard-md transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                  >
+                    <span>{t('hero.ctaGetStarted')}</span>
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </Link>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onExploreMap ? onExploreMap() : scrollTo('map-view-section');
-                }}
-                className="inline-flex items-center gap-2 border-2 border-white/40 bg-white/5 hover:bg-white/10 px-6 py-3.5 text-white font-bold text-sm sm:text-base uppercase tracking-wide transition"
-              >
-                <MapPinned className="w-4 h-4" aria-hidden="true" />
-                <span>{t('hero.ctaOpenMap')}</span>
-              </button>
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-2 border-2 border-white/40 bg-white/5 hover:bg-white/10 px-6 py-3.5 text-white font-bold text-sm sm:text-base uppercase tracking-wide transition"
+                  >
+                    <LogIn className="w-4 h-4" aria-hidden="true" />
+                    <span>{t('hero.ctaSignIn')}</span>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Trust Signal / Quick Helper Text */}
@@ -97,118 +126,6 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <ShieldCheck className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
               <span>{t('hero.trustText')}</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Feature Cards Section — bordered, divided grid (design.md §8) */}
-      <div className="bg-bhoomi-dark px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-2 sm:border-4 border-ink divide-y-2 sm:divide-y-0 sm:divide-x-2 lg:divide-x-4 divide-ink">
-            {/* Card 1: Search */}
-            <button
-              type="button"
-              onClick={() => {
-                onSearchClick ? onSearchClick() : scrollTo('parcel-search-section');
-              }}
-              className="text-left bg-transparent hover:bg-white/5 p-5 sm:p-6 text-white transition-colors duration-150 cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 border-2 border-secondary/50 bg-secondary/20 flex items-center justify-center text-accent">
-                    <FileSearch className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-accent group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                </div>
-                <h3 className="font-black text-base sm:text-lg text-white uppercase tracking-tight font-display group-hover:text-accent transition-colors">
-                  {t('hero.card1Title')}
-                </h3>
-                <p className="text-xs sm:text-sm text-white/60 mt-2 leading-relaxed">
-                  {t('hero.card1Desc')}
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-white/10 text-[11px] text-accent font-bold uppercase tracking-wide flex items-center gap-1">
-                <span>{t('hero.card1Link')}</span>
-              </div>
-            </button>
-
-            {/* Card 2: Map */}
-            <button
-              type="button"
-              onClick={() => {
-                onExploreMap ? onExploreMap() : scrollTo('map-view-section');
-              }}
-              className="text-left bg-transparent hover:bg-white/5 p-5 sm:p-6 text-white transition-colors duration-150 cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 border-2 border-primary/50 bg-primary/20 flex items-center justify-center text-primary">
-                    <MapPinned className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-primary group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                </div>
-                <h3 className="font-black text-base sm:text-lg text-white uppercase tracking-tight font-display group-hover:text-primary transition-colors">
-                  {t('hero.card2Title')}
-                </h3>
-                <p className="text-xs sm:text-sm text-white/60 mt-2 leading-relaxed">
-                  {t('hero.card2Desc')}
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-white/10 text-[11px] text-primary font-bold uppercase tracking-wide flex items-center gap-1">
-                <span>{t('hero.card2Link')}</span>
-              </div>
-            </button>
-
-            {/* Card 3: Document Verification */}
-            <button
-              type="button"
-              onClick={() => {
-                onVerifyClick ? onVerifyClick() : scrollTo('document-verification-section');
-              }}
-              className="text-left bg-transparent hover:bg-white/5 p-5 sm:p-6 text-white transition-colors duration-150 cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 border-2 border-accent/50 bg-accent/20 flex items-center justify-center text-accent">
-                    <ShieldQuestion className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-accent group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                </div>
-                <h3 className="font-black text-base sm:text-lg text-white uppercase tracking-tight font-display group-hover:text-accent transition-colors">
-                  {t('hero.card3Title')}
-                </h3>
-                <p className="text-xs sm:text-sm text-white/60 mt-2 leading-relaxed">
-                  {t('hero.card3Desc')}
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-white/10 text-[11px] text-accent font-bold uppercase tracking-wide flex items-center gap-1">
-                <span>{t('hero.card3Link')}</span>
-              </div>
-            </button>
-
-            {/* Card 4: Officer & Admin Portal */}
-            <a
-              href="/officer"
-              className="bg-transparent hover:bg-white/5 p-5 sm:p-6 text-white transition-colors duration-150 cursor-pointer group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 border-2 border-primary/50 bg-primary/20 flex items-center justify-center text-primary">
-                    <ShieldCheck className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-primary group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                </div>
-                <h3 className="font-black text-base sm:text-lg text-white uppercase tracking-tight font-display group-hover:text-primary transition-colors">
-                  {t('hero.card4Title')}
-                </h3>
-                <p className="text-xs sm:text-sm text-white/60 mt-2 leading-relaxed">
-                  {t('hero.card4Desc')}
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-white/10 text-[11px] text-primary font-bold uppercase tracking-wide flex items-center gap-1">
-                <span>{t('hero.card4Link')}</span>
-              </div>
-            </a>
           </div>
         </div>
       </div>

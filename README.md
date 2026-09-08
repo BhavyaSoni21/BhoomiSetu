@@ -73,7 +73,7 @@ SIH_2026_BhoomiSetu/
    cd backend
    npm install
    cp .env.example .env   # defaults use SQLite, no edits needed for local dev
-   npm run seed            # populate ./data/dev.sqlite with 200 mock parcels + demo accounts
+   npm run seed            # populate ./data/dev.sqlite with 220 mock parcels + demo accounts
    npm run start:dev       # start on http://localhost:3000
    ```
    The first request that runs OCR (Document Verification) downloads Tesseract's English language model (~5MB) into `backend/` and caches it there for subsequent runs - this is gitignored and regenerates automatically, not something to commit.
@@ -90,7 +90,7 @@ SIH_2026_BhoomiSetu/
    - Backend API: http://localhost:3000/api/v1
    - Swagger docs: http://localhost:3000/api
 
-5. **Sign in** (optional for browsing - parcel search, the map, and document verification need no account; filing a service request and My Parcels do)
+5. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
    - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other 4 officer accounts are listed on the sign-in page itself)
    - Citizen: `citizen1@example.com` through `citizen20@example.com`, password `Demo@123` for all - each is linked to a random 0-5 parcels (see Citizen Sign-In / My Parcels below)
 
@@ -147,20 +147,26 @@ Two deliberately different schemas (Tech.md #12/#13), full CRUD, demonstrating t
 - `POST|GET /api/v1/state-b/land-records` (list supports `?plot_id=&locality_id=`), `GET|PATCH|DELETE /api/v1/state-b/land-records/:id` - urban plot schema (plotId, holderName, localityId, landExtentSqft, recordCategory)
 
 ### Mock Department APIs
-Six independent department mocks (five from Tech.md #16, plus Dispute), each `GET .../:parcelId`, none aware of each other or of the canonical model - that aggregation is the Interoperability layer below, via `GET /api/v1/parcels/:id/360`, not these:
-- `GET /api/v1/land-records/:parcelId` - resolves the parcel to its Phase 3 state schema record (MH via SURVEY_NUMBER, DL via PLOT_NUMBER); 404 for states with no schema configured (TN/KA) or no matching identifier
+Seven independent department mocks (five from Tech.md #16, plus Dispute and Encumbrance), each `GET .../:parcelId`, none aware of each other or of the canonical model - that aggregation is the Interoperability layer below, via `GET /api/v1/parcels/:id/360`, not these:
+- `GET /api/v1/land-records/:parcelId` - resolves the parcel to its Phase 3 state schema record (MH via SURVEY_NUMBER, DL via PLOT_NUMBER); 404 for states with no schema configured (TN/KA/CH) or no matching identifier
 - `GET /api/v1/registration/:parcelId` - registration status, registration number/date, last transaction
 - `GET /api/v1/planning/:parcelId` - land use, zoning classification, master plan reference, building permission status
-- `GET /api/v1/tax/:parcelId` - assessed value, annual tax, tax status, outstanding amount
+- `GET /api/v1/tax/:parcelId` - assessed value, annual tax, tax status, outstanding amount, plus an independent `marketValueReference`/`valuationDate`/`valuationSource` valuation reference (added 2026-09-09, per `docs/FEATURE_AUDIT.md` §8 item 18 - a circle-rate/comparable-sale figure, deliberately separate from the tax authority's own assessed value)
 - `GET /api/v1/restriction/:parcelId` - environmental/protected-area/flood-prone restriction flag (a per-parcel business record - distinct from the GIS `restriction-zones` polygon layer above)
 - `GET /api/v1/dispute/:parcelId` - active-dispute flag, dispute type (ownership/boundary/inheritance/encroachment), case status, filing/resolution dates - seeded on ~12% of parcels, the rest return a real "no dispute" record (not a 404)
+- `GET /api/v1/encumbrance/:parcelId` - active mortgage/lien/charge flag, lender name, instrument reference, registered/discharge dates (added 2026-09-09, per `docs/FEATURE_AUDIT.md` §8 item 17) - seeded on ~17% of parcels, the rest return a real "no encumbrance" record (not a 404)
+
+### Ownership History
+`backend/src/parcels/ownership-history-record.entity.ts` (added 2026-09-09) - a parcel's chain of past owners, not just the current one; sits behind the current-owner fields the State A/B schemas above already expose, not a replacement for them:
+- `GET /api/v1/parcels/:id/ownership-history` - rows ordered oldest-first (`ownerName`, `transactionType` ORIGINAL/SALE/GIFT/INHERITANCE/PARTITION, `transactionDate`, `documentReference`), seeded on a representative ~50% of parcels. **Citizen-restricted**: staff always see it; a citizen only sees it for a parcel actually linked to their own account (`citizen_parcels`), 403 otherwise - previous-owner names are personal information about people other than the viewing citizen
+- Frontend: a new "Ownership History" tab on Parcel 360, fetched only when that tab is opened
 
 ### Interoperability
 `backend/src/interoperability/` (Tech.md #14/#15/#22) ties the mock state schemas and department APIs together into one canonical view, surfaced entirely through `GET /api/v1/parcels/:id/360`:
 - **Identifier resolver** - any identifier (canonicalParcelId, ulpin, survey_number, plot_number, local_identifier) → canonical parcel UUID, and the reverse (parcel → the identifier a given department would recognise it by)
 - **State A/B adapters** - map each state schema's own field names/units to canonical fields exactly per Tech.md #14 (area_hectares × 10000, land_extent_sqft ÷ 10.7639)
 - **Canonical transformer** - builds the Tech.md #15 envelope (`parcel_id`, `identifiers`, `location`, `spatial`, `sources` - deliberately snake_case, matching that spec's JSON verbatim)
-- **Response aggregator** - calls all 6 department APIs in parallel, adapts Land Records through whichever state adapter applies, and returns the canonical envelope plus a `departments` object with each department's real data (`null` where nothing is linked for that parcel)
+- **Response aggregator** - calls all 7 department APIs in parallel, adapts Land Records through whichever state adapter applies, and returns the canonical envelope plus a `departments` object with each department's real data (`null` where nothing is linked for that parcel)
 
 ### Workflows (Citizen Service Requests + Officer Review)
 `backend/src/workflows/` (Tech.md #23/#24/#25) - a citizen request (e.g. "send me a copy of the RoR", a correction request) creates a `Workflow` and auto-generates a 3-step simulated review pipeline (`LAND_RECORDS → REGISTRATION → PLANNING`, all starting `PENDING`). A `DISPUTE_FILING` request gets its own single-step `DISPUTE`/`DISPUTE_OFFICER` pipeline instead:
@@ -178,7 +184,7 @@ The citizen portal's Parcel 360 view ("Request Documents" / "Report Issue" butto
 - Checks every identifier on file for that parcel (ULPIN/Survey Number/Plot Number/Local Identifier, whichever exist), owner name, and area - owner name/area are resolved via the same interoperability layer Parcel 360 uses, so a match means "matches the real record", not a separately-invented comparison. Matching is tolerant of real OCR noise: identifiers use a whitespace-insensitive substring match, names require a majority of expected words to appear, and area accepts any number within 5% (checked against both the sqm-converted value and the state's native unit)
 - Returns `{parcelId, canonicalParcelId, extractedText, ocrConfidence, fieldChecks: [{field, expectedValue, status}], overallVerdict}` where `overallVerdict` is `VERIFIED` / `PARTIAL_MATCH` / `MISMATCH` / `INSUFFICIENT_DATA` (the last for a blank/unreadable image, reported honestly rather than a misleading blanket mismatch); a field with no expected value for that parcel's state (e.g. owner name for a state with no land-record schema in this mock) is `NOT_AVAILABLE` and excluded from the verdict
 
-Frontend: a "Verify a Document" panel on the Citizen Portal (`frontend/src/features/document-verification/`), reusing whichever parcel is already selected via Parcel Search rather than a second search form.
+Frontend: a "Verify Documents" page in the Citizen Portal (`frontend/src/pages/citizen/VerifyDocumentsPage.tsx`, wrapping `frontend/src/features/document-verification/`), with an optional dropdown of the signed-in citizen's own parcels to tie the check to one of them.
 
 ### Governance Alerts
 `backend/src/governance/` (Tech.md #34) - the officer-facing output of the AI/change-detection pipeline. Seeded from spatial/tax data `seed.ts` already computes (flood restriction-zone overlap, the simulated change-detection event, overdue tax), plus real ones created by Change Detection below:
@@ -186,21 +192,21 @@ Frontend: a "Verify a Document" panel on the Citizen Portal (`frontend/src/featu
 - `GET /api/v1/governance-alerts/:id` - a single alert
 - `PATCH /api/v1/governance-alerts/:id/status` - officer marks it `REVIEWED` or `DISMISSED`
 
-Frontend: each alert in the Officer Portal has a "View Details" button opening a popout with the full record (severity, status, parcel, source, raised timestamp, full explanation) plus an "Explain with AI" button and its resulting summary - both moved out of the cramped inline row and into the popout (`GovernanceAlertDetailModal.tsx`).
+Frontend: each alert in the Officer Portal has a "View Details" button opening a popout with the full record (severity, status, parcel, source, raised timestamp, full explanation) plus an "Explain with AI" button and its resulting summary - both moved out of the cramped inline row and into the popout (`GovernanceAlertDetailModal.tsx`). The list itself is paginated client-side (5/page, added 2026-09-09) rather than rendering every open alert as one unbounded scroll.
 
 ### Authentication
 `backend/src/auth/` + `backend/src/users/` - real accounts, one `users` table shared by officers/admin and (optionally) citizens:
 - `users` table: email, bcrypt password hash, name, role (`ADMIN`, one of 4 officer roles, or `CITIZEN`). Seeded by `seed.ts` with 5 officer/admin demo accounts and 20 citizen demo accounts, all sharing password `Demo@123`
 - `POST /api/v1/auth/login` - `{email, password}` → a JWT (24h expiry, `@nestjs/jwt`) plus the public user shape; wrong credentials or an unknown email both 401 uniformly (no user enumeration)
 - `GET /api/v1/auth/me` - behind a `passport-jwt` guard; looks the user up fresh on every call, so a deleted account stops working immediately
-- Frontend: one sign-in page (`frontend/src/pages/LoginPage.tsx`) for all three account kinds, redirecting to `/admin`, `/officer`, or `/citizen` by role; `RequireAuth` gates `/officer`/`/admin`. Signing in is never required for the Citizen Portal's search or document verification - filing a service request (see Workflows above) and the My Parcels panel below both require a citizen account
+- Frontend: one sign-in page (`frontend/src/pages/LoginPage.tsx`) for all three account kinds, redirecting to `/admin`, `/officer`, or `/citizen` by role; `RequireAuth` gates `/officer/*`, `/admin`, and `/citizen/*` alike - the whole Citizen Portal (search, map, document verification, My Parcels, filing a service request) requires a citizen account now, not just the request-filing and My Parcels pieces
 - A `/register` page exists as a UI placeholder - the form is real but submission is disabled ("registration opens soon"), since no `POST /api/v1/auth/register` endpoint exists yet. Sign in with a demo citizen account instead
 
 ### Citizen Sign-In / My Parcels
 Optional citizen accounts (`CITIZEN` role, reusing the JWT auth above) linked to 0-5 parcels each - seeded with a weighted distribution (`[[0,2],[1,5],[2,5],[3,3],[4,2],[5,1]]`) so 1-2 parcels is most common and both 0 and 5 are the least likely:
 - `CitizenParcel` join table (`citizen_parcels`) links a citizen to their parcels - deliberately separate from a land record's own recorded owner name, which is a different concept
 - `GET /api/v1/parcels/mine` (see Parcel Endpoints above) returns them
-- Frontend: a "My Parcels" panel at the top of the Citizen Portal (`frontend/src/features/citizen/MyParcels.tsx`) - a sign-in prompt when signed out, the linked-parcel list + a sign-out link when signed in as a citizen
+- Frontend: a "My Parcels" page in the Citizen Portal (`frontend/src/pages/citizen/MyParcelsPage.tsx`, wrapping `frontend/src/features/citizen/MyParcels.tsx`) - the linked-parcel list + a sign-out link and a link into Profile
 - Citizen accounts are excluded from the Admin Portal's staff-only `GET /api/v1/users` list and its `totalUsers` analytics metric - both existed before citizens did and were never meant to include them
 
 ### Authorization (RBAC)
@@ -222,7 +228,7 @@ Optional citizen accounts (`CITIZEN` role, reusing the JWT auth above) linked to
 - Frontend: a "User Management" card, a "Recent Activity" card, and real System Overview counts
 
 ### Officer Portal
-`frontend/src/pages/OfficerPortal.tsx` + `frontend/src/features/officer/` - gated by real login. Once signed in: a dashboard of real counts (pending/decided workflows, open alerts), assigned workflows with a full review panel (approve/reject + remarks), and the governance alerts list with its detail popout.
+`frontend/src/pages/OfficerPortal.tsx` + `frontend/src/pages/officer/` + `frontend/src/features/officer/` - gated by real login, multi-page (`/officer/*`: Dashboard, Assigned Requests, Governance Alerts, Map, Documents\*, Notifications\*, Profile - \*placeholder, not yet built). Dashboard is real counts (pending/decided workflows, open alerts); Assigned Requests is the workflow list with a full review panel (approve/reject + remarks); Governance Alerts is the alerts list with its detail popout.
 
 ### Groq AI Endpoints
 `backend/src/ai/` (Tech.md #28-#32) - Groq is called only from the backend (`GroqService`, the official `openai` SDK pointed at Groq's OpenAI-compatible API); every response is Zod-validated before it reaches application logic, and a response that fails validation is a 502, never silently trusted. Without a `GROQ_API_KEY` configured, all endpoints return 503. Rate-limited tighter than the rest of the API (30 requests/minute/IP):
@@ -239,7 +245,7 @@ Frontend: a floating "Ask AI" chat widget (`frontend/src/features/ai/AskAiWidget
 - Every seeded parcel is tested against that region - a real `ST_Contains`/`ST_Centroid` query on Postgres, a JS point-in-polygon test against each parcel's centroid on SQLite - genuine spatial intersection, not hand-picked
 - A real `ChangeDetectionEvent` row and one `GovernanceAlert` per affected parcel are created, immediately visible in the Officer Portal and explainable via the AI endpoints above
 
-Frontend: an "Analyze Imagery" panel in the Officer Portal with file pickers, a bounds form (one-click "Use Pune cluster bounds" fill), and a result view linking affected parcels into Parcel 360.
+Frontend: `ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, and a result view linking affected parcels into Parcel 360) is not currently mounted anywhere in the app - it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per docs/FRONTEND_UPGRADE_SPEC.md §8 (the feature's name overpromised real satellite-imagery analysis; a scoped on-demand historical-comparison replacement is planned, not yet built). The backend endpoint and `image-diff.ts` are untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts`.
 
 ### Governance Analytics
 `backend/src/analytics/` - platform-wide rather than per-alert:
@@ -259,8 +265,8 @@ The implementation follows a phased MVP plan (full detail, including every live-
 3. **Mock State Schemas** ✅ - two structurally different state land-record schemas with full CRUD
 4. **Mock Department APIs** ✅ - 6 independent per-parcel department APIs
 5. **Interoperability** ✅ - identifier resolver, State A/B adapters, canonical transformer, response aggregator
-6. **Citizen Portal** ✅ - search, map, tabbed Parcel 360 view, and service requests
-7. **Officer Portal** ✅ - real login, assigned-workflow dashboard, per-step review, governance alerts panel (+ detail popout)
+6. **Citizen Portal** ✅ - multi-page, gated by citizen sign-in (docs/FRONTEND_UPGRADE_SPEC.md §4): search, map, tabbed Parcel 360 view, and service requests restricted to the citizen's own parcels
+7. **Officer Portal** ✅ - multi-page (docs/FRONTEND_UPGRADE_SPEC.md §5): real login, assigned-workflow review, governance alerts panel (+ detail popout)
 8. **AI Integration** ✅ - Groq-backed natural-language data queries *and* navigation help in one call, parcel/alert explanation, all Zod-validated, surfaced via a draggable floating "Ask AI" widget
 9. **Change Detection** ✅ - real pixel-diff imagery comparison, spatial intersection, and governance alert generation
 10. **Security and Audit** ✅ - authentication (officer/admin/citizen), RBAC, and audit logging
@@ -271,7 +277,7 @@ Also completed outside the phase numbering: **PostGIS run end-to-end** against a
 
 ## Mock Data
 
-`backend/seed.ts` generates exactly 200 mock parcels in four geographically real demo regions rather than scattering them randomly across India:
+`backend/seed.ts` generates exactly 220 mock parcels in five geographically real demo regions rather than scattering them randomly across India:
 
 | Cluster | State | District | Parcels |
 |---|---|---|---|
@@ -279,15 +285,16 @@ Also completed outside the phase numbering: **PostGIS run end-to-end** against a
 | Chennai | TN | Chennai | 40 |
 | Bangalore | KA | Bangalore | 40 |
 | New Delhi | DL | New Delhi | 20 |
+| Chandigarh | CH | Chandigarh | 20 (added 2026-09-09 - Chandigarh and Tamil Nadu are the two actual pilot locations named in the official "Land Stack" problem statement) |
 
 - **Irregular, topology-aware subdivision** (`backend/src/common/parcel-generation/`), not a uniform grid: each cluster gets its own irregular convex envelope (a jittered-ellipse point cloud reduced to its convex hull, oriented along a per-cluster "dominant road angle" so no two clusters look alike), recursively split into that cluster's parcel count via randomly-angled cuts. Most splits share an exact boundary (so adjacent parcels are built from the literal same coordinates); some leave a small real gap instead. Leaves range from triangles to heptagons, with genuinely varied sizes - the greedy "always split the largest piece" strategy alone produces that variance, with a compactness guard against paper-thin sliver shapes.
 - Every parcel carries a `clusterId` (e.g. `MH-PUNE-01`), and explicit `TOUCHING`/`NEARBY` relationships are precomputed at seed time in a `parcel_neighbours` table from real geometric distance between every pair of parcels in a cluster (an exact shared edge measures 0 → `TOUCHING`; an intentional small gap measures a few metres → `NEARBY`) - the same convention the live PostGIS `ST_Distance`/`ST_DWithin` queries use.
 - Identifier types are state-differentiated: Maharashtra favors Survey Number/ULPIN, Tamil Nadu Survey Number/Subdivision Number, Karnataka Survey Number/Hissa Number, Delhi Plot Number/Property Number - every parcel in every state also gets a Local Parcel ID.
 - The Pune cluster additionally seeds: 3 zoning overlays (residential/commercial/agricultural, latitude-banded across Pune's actual generated extent), a flood restriction zone, 4 infrastructure features (road, water line, 2 electricity points), and a simulated change-detection event - each zone is anchored to a real generated parcel's position and sized until it captures a plausible parcel count, then resolved with a real point-in-polygon test - not hand-picked coordinates.
 - Every Pune/MH parcel gets a State A land record and every New Delhi/DL parcel gets a State B land record, with `areaHectares`/`landExtentSqft` derived from that parcel's real geometry area, and its state-schema identifier matching the same parcel's `parcel_identifiers` row.
-- Every parcel gets Registration/Planning/Tax/Restriction/Dispute mock records; for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone. ~12% of parcels get a real dispute on file.
+- Every parcel gets Registration/Planning/Tax/Restriction/Dispute/Encumbrance mock records; for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone. ~12% of parcels get a real dispute on file, ~17% get a real mortgage/lien/charge, and a representative ~50% get a 1-3-entry ownership history chain (the final entry matching the State A/B owner name where one exists).
 - Governance alerts are generated from that same data: one per parcel actually inside the flood zone, one per parcel actually flagged by the change-detection event, and one per parcel whose seeded tax record actually came out `OVERDUE`.
-- **Accounts**: 5 officer/admin demo accounts (1 per role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 200 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
+- **Accounts**: 5 officer/admin demo accounts (1 per role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 220 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
 
 ## Documentation
 
@@ -298,9 +305,9 @@ Also completed outside the phase numbering: **PostGIS run end-to-end** against a
 - [`docs/STANDARD_TECHNICAL_DOCUMENT.md`](docs/STANDARD_TECHNICAL_DOCUMENT.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards, verified against the real codebase.
 - [`docs/FEATURE_AUDIT.md`](docs/FEATURE_AUDIT.md) - cross-reference of what's required (the official SIH problem statement), what the team's own spec additionally proposed, and what's actually built, with a scored backlog.
 - [`docs/Plan.md`](docs/Plan.md) - the phase-by-phase build log, with a dated verification note after every phase.
+- [`docs/FRONTEND_UPGRADE_SPEC.md`](docs/FRONTEND_UPGRADE_SPEC.md) - the master frontend-IA spec; partially built and marked as such section-by-section - the Home/Citizen-Portal split and both portals' multi-page restructure are done, mobile/email OTP auth, historical parcel-imagery comparison, and admin-configurable governance rules are still planning-only.
 
 **Planning only, not yet built:**
-- [`docs/FRONTEND_UPGRADE_SPEC.md`](docs/FRONTEND_UPGRADE_SPEC.md) - the master spec for the next frontend pass: mobile/email OTP auth, a real Home/Citizen-Portal split, historical parcel-imagery comparison, ownership history, admin-configurable governance rules.
 - [`docs/AUTH_VERIFICATION_UPGRADE.md`](docs/AUTH_VERIFICATION_UPGRADE.md) - backend-schema-level detail for the mobile/email OTP verification piece above.
 - [`docs/CITIZEN_FEATURES_UPGRADE_PLAN.md`](docs/CITIZEN_FEATURES_UPGRADE_PLAN.md) - citizen-dashboard upgrades (Land Claim, document persistence, officer routing) plus the three PS-compliance gaps `FEATURE_AUDIT.md` found (encumbrance/mortgage records, valuation references, a Chandigarh pilot cluster).
 

@@ -21,13 +21,18 @@ import { RestrictionService } from './restriction.service';
 import { DisputeRecord } from './dispute-record.entity';
 import { DisputeController } from './dispute.controller';
 import { DisputeService } from './dispute.service';
+import { EncumbranceRecord } from './encumbrance-record.entity';
+import { EncumbranceController } from './encumbrance.controller';
+import { EncumbranceService } from './encumbrance.service';
 
-// The mock department APIs (Tech.md #16-17, plus Dispute added afterward -
-// see docs/FEATURE_AUDIT.md - to close the SIH problem statement's literal
-// "land records, registration, dispute, planning, and fiscal" workflow
-// list), each independent of the others and of the canonical parcel model.
-// Phase 5's /integrations layer is the thing that calls into all of them
-// and aggregates them.
+// The mock department APIs (Tech.md #16-17, plus Dispute added afterward to
+// close the SIH problem statement's literal "land records, registration,
+// dispute, planning, and fiscal" workflow list, plus Encumbrance added
+// after that to close a required "essential layer" the fuller "Land Stack"
+// PS text named - see docs/FEATURE_AUDIT.md §1a/§8 item 17), each
+// independent of the others and of the canonical parcel model. Phase 5's
+// /integrations layer is the thing that calls into all of them and
+// aggregates them.
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -40,6 +45,7 @@ import { DisputeService } from './dispute.service';
       TaxRecord,
       RestrictionRecord,
       DisputeRecord,
+      EncumbranceRecord,
     ]),
   ],
   controllers: [
@@ -49,11 +55,12 @@ import { DisputeService } from './dispute.service';
     TaxController,
     RestrictionController,
     DisputeController,
+    EncumbranceController,
   ],
-  providers: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService],
+  providers: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService, EncumbranceService],
   // Exported so InteroperabilityModule's ResponseAggregatorService can call
   // into all of them without duplicating their lookup logic. One-directional:
   // Departments never imports Interoperability, so there's no module cycle.
-  exports: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService],
+  exports: [LandRecordsLookupService, RegistrationService, PlanningService, TaxService, RestrictionService, DisputeService, EncumbranceService],
 })
 export class DepartmentsModule {}
