@@ -873,42 +873,21 @@ async function seedDatabase() {
     });
     console.log(`Saved change-detection event affecting ${changeAffectedIds.length} parcels`);
 
-    // Governance alerts (Tech.md #34): the officer-facing output of the
-    // change-detection pipeline built in Phase 8/9. Derived from spatial/tax
-    // data already computed above rather than hand-picked, standing in for
-    // that pipeline until it exists: one alert per parcel actually inside the
-    // flood restriction zone, one per parcel actually flagged by the
-    // simulated change-detection event, and one per parcel whose seeded tax
-    // record actually came out OVERDUE.
-    const governanceAlertsToSave: Partial<GovernanceAlert>[] = [
-      ...floodAffectedIds.map((parcelId) => ({
-        parcelId,
-        alertType: 'RESTRICTION_ZONE_OVERLAP',
-        severity: 'MEDIUM',
-        source: 'RESTRICTION_MONITOR',
-        explanation:
-          'This parcel intersects the Pune flood-prone restriction zone. Any land-use change or construction request here should be reviewed against flood-zone regulations before approval.',
-      })),
-      ...changeAffectedIds.map((parcelId) => ({
-        parcelId,
-        alertType: 'UNAUTHORIZED_CHANGE_DETECTED',
-        severity: 'HIGH',
-        source: 'CHANGE_DETECTION',
-        explanation:
-          'Comparison of before/after imagery flagged a physical change (e.g. a new construction footprint) in this parcel that is not yet reflected in official land records. Recommend officer review.',
-      })),
-      ...savedTax
-        .filter((record) => record.taxStatus === 'OVERDUE')
-        .map((record) => ({
-          parcelId: record.parcelId,
-          alertType: 'TAX_OVERDUE',
-          severity: 'LOW',
-          source: 'TAX_MONITOR',
-          explanation: `Outstanding property tax of ${record.outstandingAmount} is overdue for this parcel.`,
-        })),
-    ];
-    const savedGovernanceAlerts = await governanceAlertRepository.save(governanceAlertsToSave);
-    console.log(`Saved ${savedGovernanceAlerts.length} governance alerts (restriction/change-detection/tax)`);
+    // Governance alerts are no longer hand-seeded here (removed 2026-09-10,
+    // per the user's explicit "remove the hardcoded alerts from it... I want
+    // only the current alerts displayed"). RESTRICTION_ZONE_OVERLAP,
+    // UNAUTHORIZED_CHANGE_DETECTED, and TAX_OVERDUE alerts used to be
+    // fabricated here from the flood zone/simulated change event/tax records
+    // above, disconnected from any real monitor - a governance alert should
+    // only ever come from something that actually happened: an admin
+    // authoring a real RestrictionZone (SpatialService.createRestrictionZone,
+    // real spatial-overlap computation), a real change-detection analysis
+    // (POST /change-detection/analyze), or a real historical-year comparison
+    // (HistoricalComparisonService.compare, now restricted to CURRENT_YEAR-1
+    // -> CURRENT_YEAR only). The flood zone / simulated change event / tax
+    // records themselves are still seeded above as real demo data for their
+    // own features (Map Layer Authoring, etc.) - only the practice of also
+    // fabricating a matching alert for them was removed.
 
     // Demo accounts for real login (Phase 10, docs/FEATURE_AUDIT.md §8 item 9)
     // - one per officer role plus one admin, all sharing one demo password.
