@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RequestsPage from './RequestsPage';
@@ -77,5 +77,43 @@ describe('RequestsPage', () => {
     renderPage();
 
     expect(await screen.findByText(/Something went wrong loading your requests/)).toBeInTheDocument();
+  });
+
+  // A decided request's per-department officer remarks (WorkflowStep.remarks,
+  // mandatory on every review decision) were already returned by
+  // GET /workflows/mine but never rendered - a citizen had no way to see why
+  // a request was approved/rejected. Collapsed by default (View Details toggle).
+  it('reveals per-department officer remarks, the citizen\'s own request text, and an overall note only once expanded', async () => {
+    const decided = {
+      id: 'wf3', parcelId: 'p3', workflowType: 'CORRECTION_REQUEST', currentStatus: 'REJECTED',
+      createdBy: null, requestDetails: 'My survey number is listed incorrectly.', lastRemarks: 'Escalated to district office.',
+      createdAt: '2026-03-01T00:00:00.000Z', updatedAt: '',
+      steps: [
+        { id: 's4', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'REJECTED', action: 'REJECT', remarks: 'Survey number matches our records; no correction needed.', completedAt: '2026-03-02T00:00:00.000Z' },
+      ],
+    };
+    vi.mocked(apiService.get).mockResolvedValue({ data: [decided] });
+    renderPage();
+    await screen.findByText('Correction request');
+
+    // Not shown until expanded.
+    expect(screen.queryByText(/Survey number matches our records/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /View Details/ }));
+
+    expect(await screen.findByText('My survey number is listed incorrectly.')).toBeInTheDocument();
+    expect(screen.getByText(/Survey number matches our records; no correction needed\./)).toBeInTheDocument();
+    expect(screen.getByText('Escalated to district office.')).toBeInTheDocument();
+  });
+
+  it('shows a "no remarks yet" placeholder for a step still pending review', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: [workflowOnParcelOne] });
+    renderPage();
+    await screen.findByText('Record of Rights (RoR) copy request');
+
+    fireEvent.click(screen.getByRole('button', { name: /View Details/ }));
+
+    const pendingStep = (await screen.findByText('REGISTRATION')).closest('div')!.parentElement!;
+    expect(within(pendingStep).getByText(/No remarks yet/)).toBeInTheDocument();
   });
 });

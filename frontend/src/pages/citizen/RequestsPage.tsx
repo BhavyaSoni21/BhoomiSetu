@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Inbox, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Inbox, Send } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 
@@ -32,6 +32,13 @@ function formatDate(value: string): string {
     : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 // The aggregated cross-parcel request list (docs/FRONTEND_UPGRADE_SPEC.md
 // §4's "Requests" page and dashboard placeholder card's target) - backed by
 // the new GET /workflows/mine endpoint (workflows.controller.ts), which
@@ -46,6 +53,21 @@ const RequestsPage: React.FC = () => {
     ['my-workflows'],
     async () => (await apiService.get('/workflows/mine')).data,
   );
+  // Which request cards are expanded to show full detail - department-by-
+  // department officer remarks (WorkflowStep.remarks, mandatory on every
+  // decision) were already returned by GET /workflows/mine but never
+  // rendered anywhere; a citizen had no way to see why a request was
+  // approved/rejected. Collapsed by default so a long request list still
+  // scans quickly - remarks/request text can run long.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="max-w-3xl">
@@ -74,37 +96,109 @@ const RequestsPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {workflows.map((workflow) => (
-            <div key={workflow.id} className="bg-surface border-2 border-ink shadow-hard-sm p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <p className="font-bold text-ink">
-                  {WORKFLOW_TYPE_LABELS[workflow.workflowType] ?? workflow.workflowType.replace(/_/g, ' ')}
-                </p>
-                <span
-                  className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${
-                    STATUS_COLORS[workflow.currentStatus] ?? 'bg-muted text-ink/70 border-ink/20'
-                  }`}
-                >
-                  {workflow.currentStatus}
-                </span>
-              </div>
-              <p className="text-xs text-ink/40 mb-3">
-                Parcel: {workflow.parcelId} · Submitted {formatDate(workflow.createdAt)}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {workflow.steps.map((step) => (
+          {workflows.map((workflow) => {
+            const expanded = expandedIds.has(workflow.id);
+            return (
+              <div key={workflow.id} className="bg-surface border-2 border-ink shadow-hard-sm p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="font-bold text-ink">
+                    {WORKFLOW_TYPE_LABELS[workflow.workflowType] ?? workflow.workflowType.replace(/_/g, ' ')}
+                  </p>
                   <span
-                    key={step.id}
-                    className={`border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      STEP_STATUS_COLORS[step.status] ?? 'bg-muted text-ink/60 border-ink/20'
+                    className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${
+                      STATUS_COLORS[workflow.currentStatus] ?? 'bg-muted text-ink/70 border-ink/20'
                     }`}
                   >
-                    {step.department.replace(/_/g, ' ')}: {step.status}
+                    {workflow.currentStatus}
                   </span>
-                ))}
+                </div>
+                <p className="text-xs text-ink/40 mb-3">
+                  Parcel: {workflow.parcelId} · Submitted {formatDate(workflow.createdAt)}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {workflow.steps.map((step) => (
+                    <span
+                      key={step.id}
+                      className={`border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        STEP_STATUS_COLORS[step.status] ?? 'bg-muted text-ink/60 border-ink/20'
+                      }`}
+                    >
+                      {step.department.replace(/_/g, ' ')}: {step.status}
+                    </span>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(workflow.id)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-primary hover:underline"
+                  aria-expanded={expanded}
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t('citizenPortal.requestsHideDetailsCta')}
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t('citizenPortal.requestsViewDetailsCta')}
+                    </>
+                  )}
+                </button>
+
+                {expanded && (
+                  <div className="mt-3 pt-3 border-t border-ink/15 space-y-3">
+                    {workflow.requestDetails && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-ink/50 mb-1">
+                          {t('citizenPortal.requestsYourRequestLabel')}
+                        </p>
+                        <p className="text-xs text-ink/80 whitespace-pre-wrap">{workflow.requestDetails}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {workflow.steps.map((step) => (
+                        <div key={step.id} className="bg-muted/40 border border-ink/15 p-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-ink">{step.department.replace(/_/g, ' ')}</span>
+                            <span
+                              className={`border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                STEP_STATUS_COLORS[step.status] ?? 'bg-muted text-ink/60 border-ink/20'
+                              }`}
+                            >
+                              {step.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink/60 mt-1.5">
+                            <span className="font-bold uppercase tracking-wide text-ink/50">
+                              {t('citizenPortal.requestsOfficerRemarksLabel')}:{' '}
+                            </span>
+                            {step.remarks || t('citizenPortal.requestsNoRemarksYet')}
+                          </p>
+                          {step.completedAt && (
+                            <p className="text-[10px] text-ink/40 mt-1">
+                              {t('citizenPortal.requestsDecidedOnLabel', { date: formatDateTime(step.completedAt) })}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {workflow.lastRemarks && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-ink/50 mb-1">
+                          {t('citizenPortal.requestsOverallNoteLabel')}
+                        </p>
+                        <p className="text-xs text-ink/80 whitespace-pre-wrap">{workflow.lastRemarks}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
