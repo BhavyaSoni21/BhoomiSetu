@@ -175,64 +175,64 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {import.meta.env.DEV && (
-          <details className="bg-accent/15 border-2 border-ink text-ink">
-            <summary className="flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer text-xs font-bold uppercase tracking-widest select-none">
-              {t('auth.demoAccountsToggle')}
-              <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
-            </summary>
-            <div className="px-4 pb-4 space-y-3 text-xs">
-              <p className="font-semibold">
-                {t('auth.demoAccountsPasswordNote')} <code className="font-mono">{DEMO_PASSWORD}</code>
+        {/* Shown in every environment, including a hosted demo build - judges/
+            reviewers need a way to sign in without real credentials. */}
+        <details className="bg-accent/15 border-2 border-ink text-ink">
+          <summary className="flex items-center justify-between gap-2 px-4 py-2.5 cursor-pointer text-xs font-bold uppercase tracking-widest select-none">
+            {t('auth.demoAccountsToggle')}
+            <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
+          </summary>
+          <div className="px-4 pb-4 space-y-3 text-xs">
+            <p className="font-semibold">
+              {t('auth.demoAccountsPasswordNote')} <code className="font-mono">{DEMO_PASSWORD}</code>
+            </p>
+
+            <div>
+              <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
+                {t('auth.demoAccountsAdmin')}
               </p>
-
-              <div>
-                <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
-                  {t('auth.demoAccountsAdmin')}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fillDemo(DEMO_ADMIN_EMAIL)}
-                  className="block text-left w-full hover:text-primary hover:underline"
-                >
-                  {DEMO_ADMIN_EMAIL} — Admin
-                </button>
-              </div>
-
-              <div>
-                <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
-                  {t('auth.demoAccountsOfficers')}
-                </p>
-                <ul className="space-y-0.5">
-                  {OFFICER_ROLES.map((role) => (
-                    <li key={role}>
-                      <button
-                        type="button"
-                        onClick={() => fillDemo(DEMO_OFFICER_EMAILS[role])}
-                        className="block text-left w-full hover:text-primary hover:underline"
-                      >
-                        {DEMO_OFFICER_EMAILS[role]} — {ROLE_LABELS[role]}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
-                  {t('auth.demoAccountsCitizens')}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fillDemo('citizen1@example.com')}
-                  className="block text-left w-full hover:text-primary hover:underline"
-                >
-                  {t('auth.demoAccountsCitizensNote')}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => fillDemo(DEMO_ADMIN_EMAIL)}
+                className="block text-left w-full hover:text-primary hover:underline"
+              >
+                {DEMO_ADMIN_EMAIL} — Admin
+              </button>
             </div>
-          </details>
-        )}
+
+            <div>
+              <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
+                {t('auth.demoAccountsOfficers')}
+              </p>
+              <ul className="space-y-0.5">
+                {OFFICER_ROLES.map((role) => (
+                  <li key={role}>
+                    <button
+                      type="button"
+                      onClick={() => fillDemo(DEMO_OFFICER_EMAILS[role])}
+                      className="block text-left w-full hover:text-primary hover:underline"
+                    >
+                      {DEMO_OFFICER_EMAILS[role]} — {ROLE_LABELS[role]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-bold uppercase tracking-widest text-[10px] text-ink/60 mb-1">
+                {t('auth.demoAccountsCitizens')}
+              </p>
+              <button
+                type="button"
+                onClick={() => fillDemo('citizen1@example.com')}
+                className="block text-left w-full hover:text-primary hover:underline"
+              >
+                {t('auth.demoAccountsCitizensNote')}
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   );
