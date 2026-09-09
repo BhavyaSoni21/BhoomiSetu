@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
 import { useCompareHistoricalYears } from './historicalImagery';
 import { CATEGORY_LABELS, CategorySwatch } from './HistoricalMapView';
 import { AffectedParcelResult } from '../../types/historicalImagery';
-
-const yearToggleClass = (active: boolean) =>
-  `px-3 py-1.5 text-xs font-bold uppercase tracking-wide border-2 border-ink transition ${
-    active ? 'bg-primary text-white' : 'bg-surface text-ink/70 hover:text-ink'
-  }`;
 
 const ParcelResultRow: React.FC<{ result: AffectedParcelResult }> = ({ result }) => {
   const { t } = useTranslation();
@@ -39,76 +34,53 @@ interface HistoricalYearCompareProps {
   years: number[];
 }
 
-// The actual two-year comparison (year pickers, Compare button, per-parcel
-// narrative results) - extracted out of HistoricalImageryPanel.tsx 2026-09-10
-// (per the user's explicit "the compare years data in the parcel 360 should
-// also not redirect to historical analysis, this analysis should be done
-// there only in the parcel 360") so Parcel360View.tsx can embed it directly
-// instead of navigating to the standalone /officer/historical-imagery page.
+// The actual two-year comparison (Compare button, per-parcel narrative
+// results) - extracted out of HistoricalImageryPanel.tsx 2026-09-10 (per the
+// user's explicit "the compare years data in the parcel 360 should also not
+// redirect to historical analysis, this analysis should be done there only
+// in the parcel 360") so Parcel360View.tsx can embed it directly instead of
+// navigating to the standalone /officer/historical-imagery page.
 // Unlike HistoricalImageryPanel, this component takes clusterId/years as
 // props rather than owning a cluster picker or the map itself - the caller
 // (HistoricalImageryPanel, or Parcel360View which already shows its own
 // year-based map above this) is responsible for both. Callers should key
-// this component by clusterId so switching clusters resets the year
-// selection cleanly (see LayerGeometryDrawMap.tsx for the same convention).
+// this component by clusterId so switching clusters resets cleanly (see
+// LayerGeometryDrawMap.tsx for the same convention).
+//
+// No year picker any more (removed 2026-09-10, per the user's explicit "I
+// want the governance alerts based on the 2025-2026 differences only") -
+// the backend (HistoricalComparisonService.compare) now rejects any pair
+// other than CURRENT_YEAR-1 -> CURRENT_YEAR with a 400, since that's the
+// only comparison allowed to generate governance alerts. `years` arrives
+// sorted ascending (HistoricalComparisonService.listClusters orders by
+// year ASC) ending at CURRENT_YEAR, so the two most recent entries are
+// exactly that pair - no hardcoded literals needed here.
 const HistoricalYearCompare: React.FC<HistoricalYearCompareProps> = ({ clusterId, years }) => {
   const { t } = useTranslation();
-  const [fromYear, setFromYear] = useState<number | null>(years[0] ?? null);
-  const [toYear, setToYear] = useState<number | null>(years[years.length - 1] ?? null);
+  const sortedYears = [...years].sort((a, b) => a - b);
+  const toYear = sortedYears.length > 0 ? sortedYears[sortedYears.length - 1] : null;
+  const fromYear = sortedYears.length > 1 ? sortedYears[sortedYears.length - 2] : null;
   const compareMutation = useCompareHistoricalYears();
 
   const result = compareMutation.data && compareMutation.data.clusterId === clusterId ? compareMutation.data : null;
 
+  if (fromYear === null || toYear === null) {
+    return <p className="text-xs text-ink/60 text-center">{t('officerPortal.notEnoughHistoricalYears')}</p>;
+  }
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1.5">{t('officerPortal.fromYearLabel')}</p>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('officerPortal.fromYearLabel')}>
-            {years.map((year) => (
-              <button
-                key={year}
-                type="button"
-                aria-pressed={fromYear === year}
-                onClick={() => setFromYear(year)}
-                className={yearToggleClass(fromYear === year)}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1.5">{t('officerPortal.toYearLabel')}</p>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('officerPortal.toYearLabel')}>
-            {years.map((year) => (
-              <button
-                key={year}
-                type="button"
-                aria-pressed={toYear === year}
-                onClick={() => setToYear(year)}
-                className={yearToggleClass(toYear === year)}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <p className="text-sm text-ink/70">{t('officerPortal.comparingYearsLabel', { fromYear, toYear })}</p>
 
       <button
         type="button"
-        onClick={() => clusterId && fromYear && toYear && compareMutation.mutate({ clusterId, fromYear, toYear })}
-        disabled={!clusterId || !fromYear || !toYear || fromYear === toYear || compareMutation.isLoading}
+        onClick={() => clusterId && compareMutation.mutate({ clusterId, fromYear, toYear })}
+        disabled={!clusterId || compareMutation.isLoading}
         className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold uppercase tracking-widest bg-accent text-ink border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
       >
         <Sparkles className="w-4 h-4" aria-hidden="true" />
         {compareMutation.isLoading ? t('officerPortal.comparing') : t('officerPortal.compareYearsCta')}
       </button>
-
-      {fromYear !== null && toYear !== null && fromYear === toYear && (
-        <p className="text-xs text-ink/60 text-center">{t('officerPortal.pickDifferentYears')}</p>
-      )}
 
       {compareMutation.isError && (
         <p className="text-xs font-medium text-secondary-strong text-center">{t('officerPortal.comparisonError')}</p>

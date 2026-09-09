@@ -42,7 +42,13 @@ const square = (minLng: number, minLat: number, size = 0.0006) =>
   });
 
 const OLD_YEAR = 2022;
-const OTHER_HISTORICAL_YEAR = 2023;
+// Comparisons that generate governance alerts are now restricted to exactly
+// CURRENT_YEAR-1 -> CURRENT_YEAR (docs/ADMIN_PANEL_ISSUES.md follow-up, per
+// the user's explicit "I want the governance alerts based on the 2025-2026
+// differences only") - PREVIOUS_YEAR is the only "from" value compare()
+// accepts any more; OLD_YEAR stays purely for the unrestricted browse
+// endpoints (GET .../years/:year/image, GET .../years/:year/parcels).
+const PREVIOUS_YEAR = CURRENT_YEAR - 1;
 const CLUSTER_ID = 'TEST-CLUSTER-01';
 // Kept separate from CLUSTER_ID so these fixture parcels don't leak into
 // the compare() tests below, which query every parcel in a cluster broadly.
@@ -89,7 +95,7 @@ describe('Historical Imagery (e2e)', () => {
     const flatImage = await makeFlatImage();
     const bounds = { minLng: 73.849, minLat: 18.519, maxLng: 73.852, maxLat: 18.522 };
     const imagePaths: Record<number, string> = {};
-    for (const year of [OLD_YEAR, OTHER_HISTORICAL_YEAR, CURRENT_YEAR]) {
+    for (const year of [OLD_YEAR, PREVIOUS_YEAR, CURRENT_YEAR]) {
       imagePaths[year] = path.join(tmpDir, `${CLUSTER_ID}-${year}.png`);
       await fs.writeFile(imagePaths[year], flatImage);
     }
@@ -116,7 +122,7 @@ describe('Historical Imagery (e2e)', () => {
         .expect(200);
 
       const entry = res.body.find((c: any) => c.clusterId === CLUSTER_ID);
-      expect(entry.years).toEqual([OLD_YEAR, OTHER_HISTORICAL_YEAR, CURRENT_YEAR]);
+      expect(entry.years).toEqual([OLD_YEAR, PREVIOUS_YEAR, CURRENT_YEAR]);
     });
 
     // Public (2026-09-08) - Parcel 360's own citizen-facing embed needs this,
@@ -249,15 +255,15 @@ describe('Historical Imagery (e2e)', () => {
         { parcelId: criticalDisputeParcel.id, hasRestriction: true, restrictionType: 'FLOOD_PRONE' },
       ]);
       await historicalStateRepository.save([
-        { parcelId: criticalDisputeParcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
+        { parcelId: criticalDisputeParcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'UNRESTRICTED' },
         { parcelId: criticalDisputeParcel.id, year: CURRENT_YEAR, restrictionStatus: 'UNRESTRICTED' },
-        { parcelId: highDisputeParcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
+        { parcelId: highDisputeParcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'UNRESTRICTED' },
         { parcelId: highDisputeParcel.id, year: CURRENT_YEAR, restrictionStatus: 'UNRESTRICTED' },
-        { parcelId: newRestrictionParcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
+        { parcelId: newRestrictionParcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'UNRESTRICTED' },
         { parcelId: newRestrictionParcel.id, year: CURRENT_YEAR, restrictionStatus: 'RESTRICTED' },
-        { parcelId: clearedParcel.id, year: OLD_YEAR, restrictionStatus: 'RESTRICTED' },
+        { parcelId: clearedParcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'RESTRICTED' },
         { parcelId: clearedParcel.id, year: CURRENT_YEAR, restrictionStatus: 'UNRESTRICTED' },
-        { parcelId: unaffectedParcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
+        { parcelId: unaffectedParcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'UNRESTRICTED' },
         { parcelId: unaffectedParcel.id, year: CURRENT_YEAR, restrictionStatus: 'UNRESTRICTED' },
       ]);
 
@@ -273,7 +279,7 @@ describe('Historical Imagery (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
         .set('Authorization', officerAuth)
-        .send({ fromYear: OLD_YEAR, toYear: CURRENT_YEAR })
+        .send({ fromYear: PREVIOUS_YEAR, toYear: CURRENT_YEAR })
         .expect(201);
 
       expect(res.body.changeDetected).toBe(true);
@@ -307,7 +313,7 @@ describe('Historical Imagery (e2e)', () => {
 
       expect(mockExplainParcelChanges).toHaveBeenCalledTimes(1);
       const callArgs = mockExplainParcelChanges.mock.calls[0];
-      expect(callArgs[0]).toBe(OLD_YEAR);
+      expect(callArgs[0]).toBe(PREVIOUS_YEAR);
       expect(callArgs[1]).toBe(CURRENT_YEAR);
       expect(callArgs[2]).toHaveLength(4);
     });
@@ -318,15 +324,15 @@ describe('Historical Imagery (e2e)', () => {
         geometry: square(73.86, 18.53),
       });
       await historicalStateRepository.save([
-        { parcelId: parcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
-        { parcelId: parcel.id, year: OTHER_HISTORICAL_YEAR, restrictionStatus: 'RESTRICTED' },
+        { parcelId: parcel.id, year: PREVIOUS_YEAR, restrictionStatus: 'UNRESTRICTED' },
+        { parcelId: parcel.id, year: CURRENT_YEAR, restrictionStatus: 'RESTRICTED' },
       ]);
       mockExplainParcelChanges.mockRejectedValueOnce(new Error('Vision AI service is not configured'));
 
       const res = await request(app.getHttpServer())
         .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
         .set('Authorization', officerAuth)
-        .send({ fromYear: OLD_YEAR, toYear: OTHER_HISTORICAL_YEAR })
+        .send({ fromYear: PREVIOUS_YEAR, toYear: CURRENT_YEAR })
         .expect(201);
 
       expect(res.body.changeDetected).toBe(true);
@@ -335,46 +341,14 @@ describe('Historical Imagery (e2e)', () => {
       expect(row.alertId).toBeTruthy();
     });
 
-    it('never applies dispute status to a comparison between two purely historical years', async () => {
-      const parcel = await parcelRepository.save({
-        canonicalParcelId: 'HI-OLD-YEARS-DISPUTE', clusterId: CLUSTER_ID, stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 100,
-        geometry: square(73.87, 18.54),
-      });
-      // A real, currently-active dispute - but comparing two years that are
-      // BOTH in the past should never surface it, since dispute status has
-      // no per-year history to draw on.
-      await disputeRepository.save({ parcelId: parcel.id, hasActiveDispute: true, disputeType: 'OWNERSHIP', caseStatus: 'FILED' });
-      await historicalStateRepository.save([
-        { parcelId: parcel.id, year: OLD_YEAR, restrictionStatus: 'UNRESTRICTED' },
-        { parcelId: parcel.id, year: OTHER_HISTORICAL_YEAR, restrictionStatus: 'UNRESTRICTED' },
-      ]);
-
-      const res = await request(app.getHttpServer())
-        .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
-        .set('Authorization', officerAuth)
-        .send({ fromYear: OLD_YEAR, toYear: OTHER_HISTORICAL_YEAR })
-        .expect(201);
-
-      expect(res.body.affectedParcels.find((p: any) => p.canonicalParcelId === 'HI-OLD-YEARS-DISPUTE')).toBeUndefined();
-    });
-
-    it('reports no change and creates nothing when comparing a year against itself', async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
-        .set('Authorization', officerAuth)
-        .send({ fromYear: OLD_YEAR, toYear: OLD_YEAR })
-        .expect(201);
-
-      expect(res.body.changeDetected).toBe(false);
-      expect(res.body.affectedParcels).toEqual([]);
-      expect(mockExplainParcelChanges).not.toHaveBeenCalled();
-    });
-
-    it('returns 404 for a missing year', async () => {
+    it('returns 404 for a missing snapshot even when the year pair is otherwise valid', async () => {
+      // MAP_ONLY_CLUSTER_ID has real parcels but no ClusterHistoricalSnapshot
+      // rows at all - the year pair itself passes the CURRENT_YEAR-1/CURRENT_YEAR
+      // guard, so this exercises the snapshot-existence check behind it.
       await request(app.getHttpServer())
-        .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
+        .post(`/api/v1/historical-imagery/clusters/${MAP_ONLY_CLUSTER_ID}/compare`)
         .set('Authorization', officerAuth)
-        .send({ fromYear: OLD_YEAR, toYear: 2099 })
+        .send({ fromYear: PREVIOUS_YEAR, toYear: CURRENT_YEAR })
         .expect(404);
     });
 
@@ -382,14 +356,14 @@ describe('Historical Imagery (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
         .set('Authorization', citizenAuth)
-        .send({ fromYear: OLD_YEAR, toYear: CURRENT_YEAR })
+        .send({ fromYear: PREVIOUS_YEAR, toYear: CURRENT_YEAR })
         .expect(403);
     });
 
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer())
         .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
-        .send({ fromYear: OLD_YEAR, toYear: CURRENT_YEAR })
+        .send({ fromYear: PREVIOUS_YEAR, toYear: CURRENT_YEAR })
         .expect(401);
     });
 
@@ -399,6 +373,38 @@ describe('Historical Imagery (e2e)', () => {
         .set('Authorization', officerAuth)
         .send({ fromYear: 'not-a-year', toYear: CURRENT_YEAR })
         .expect(400);
+    });
+
+    // Governance-alert-generating comparisons must always be exactly
+    // PREVIOUS_YEAR -> CURRENT_YEAR - every other pair is rejected before
+    // it ever reaches a snapshot lookup, regardless of whether those years
+    // actually have snapshots.
+    describe('year-pair restriction (only PREVIOUS_YEAR -> CURRENT_YEAR generates alerts)', () => {
+      it('rejects an arbitrary historical pair with 400', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
+          .set('Authorization', officerAuth)
+          .send({ fromYear: OLD_YEAR, toYear: PREVIOUS_YEAR })
+          .expect(400);
+        expect(res.body.message).toContain(`${PREVIOUS_YEAR}`);
+        expect(res.body.message).toContain(`${CURRENT_YEAR}`);
+      });
+
+      it('rejects the reversed pair (CURRENT_YEAR -> PREVIOUS_YEAR) with 400', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
+          .set('Authorization', officerAuth)
+          .send({ fromYear: CURRENT_YEAR, toYear: PREVIOUS_YEAR })
+          .expect(400);
+      });
+
+      it('rejects a same-year comparison with 400', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/historical-imagery/clusters/${CLUSTER_ID}/compare`)
+          .set('Authorization', officerAuth)
+          .send({ fromYear: CURRENT_YEAR, toYear: CURRENT_YEAR })
+          .expect(400);
+      });
     });
   });
 });

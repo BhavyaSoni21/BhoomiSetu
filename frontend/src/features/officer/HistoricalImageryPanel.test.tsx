@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HistoricalImageryPanel from './HistoricalImageryPanel';
 import apiService from '../../services/apiService';
@@ -59,17 +59,15 @@ describe('HistoricalImageryPanel', () => {
     expect(await screen.findByText('No historical imagery has been generated yet.')).toBeInTheDocument();
   });
 
-  it('loads the cluster list and defaults the From/To year toggle to oldest/newest', async () => {
+  it('loads the cluster list and compares the two most recent years only - no picker', async () => {
     mockApiForClusters();
     renderWithClient();
 
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/historical-imagery/clusters'));
     expect(await screen.findByRole('option', { name: 'MH-PUNE-01' })).toBeInTheDocument();
 
-    const fromGroup = screen.getByRole('group', { name: 'From year' });
-    const toGroup = screen.getByRole('group', { name: 'To year' });
-    expect(within(fromGroup).getByRole('button', { name: '2022' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(toGroup).getByRole('button', { name: '2025' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('Comparing 2024 to 2025 - the only pair that can generate governance alerts.')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'From year' })).not.toBeInTheDocument();
   });
 
   it('defaults the map year to the newest year, fetches real categorized parcels for it, and colors the map by category', async () => {
@@ -100,22 +98,11 @@ describe('HistoricalImageryPanel', () => {
     );
   });
 
-  it('disables Compare and hints when the same year is picked twice', async () => {
-    mockApiForClusters();
-    renderWithClient();
-
-    const fromGroup = await screen.findByRole('group', { name: 'From year' });
-    fireEvent.click(within(fromGroup).getByRole('button', { name: '2025' }));
-
-    expect(screen.getByRole('button', { name: /Compare Years/ })).toBeDisabled();
-    expect(await screen.findByText('Pick two different years to compare.')).toBeInTheDocument();
-  });
-
-  it('running a comparison posts the selected years and shows each affected parcel with its category change, narrative, and alert badge', async () => {
+  it('running a comparison posts the two most recent years and shows each affected parcel with its category change, narrative, and alert badge', async () => {
     mockApiForClusters();
     vi.mocked(apiService.post).mockResolvedValue({
       data: {
-        clusterId: 'MH-PUNE-01', fromYear: 2022, toYear: 2025, changeDetected: true,
+        clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: true,
         affectedParcels: [
           {
             parcelId: 'p1', canonicalParcelId: 'MH-PUN-0001', fromCategory: 'NONE', toCategory: 'DISPUTE_OWNERSHIP',
@@ -136,11 +123,11 @@ describe('HistoricalImageryPanel', () => {
     await waitFor(() =>
       expect(apiService.post).toHaveBeenCalledWith(
         '/historical-imagery/clusters/MH-PUNE-01/compare',
-        { fromYear: 2022, toYear: 2025 },
+        { fromYear: 2024, toYear: 2025 },
         { timeout: 60000 },
       ),
     );
-    expect(await screen.findByText('2 parcels changed status between 2022 and 2025.')).toBeInTheDocument();
+    expect(await screen.findByText('2 parcels changed status between 2024 and 2025.')).toBeInTheDocument();
 
     expect(screen.getByText('MH-PUN-0001')).toBeInTheDocument();
     expect(screen.getByText('This parcel has an active ownership dispute filed in 2025.')).toBeInTheDocument();
@@ -153,14 +140,14 @@ describe('HistoricalImageryPanel', () => {
   it('running a comparison with no changes shows the no-change state and no parcel rows', async () => {
     mockApiForClusters();
     vi.mocked(apiService.post).mockResolvedValue({
-      data: { clusterId: 'MH-PUNE-01', fromYear: 2022, toYear: 2025, changeDetected: false, affectedParcels: [] },
+      data: { clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: false, affectedParcels: [] },
     });
     renderWithClient();
 
     await screen.findByRole('option', { name: 'MH-PUNE-01' });
     fireEvent.click(screen.getByRole('button', { name: /Compare Years/ }));
 
-    expect(await screen.findByText("No parcel's status changed between 2022 and 2025.")).toBeInTheDocument();
+    expect(await screen.findByText("No parcel's status changed between 2024 and 2025.")).toBeInTheDocument();
   });
 
   it('shows an error message when the comparison request fails', async () => {
@@ -185,8 +172,7 @@ describe('HistoricalImageryPanel', () => {
     renderWithClient({ initialClusterId: 'MH-PUNE-02' });
 
     await waitFor(() => expect(screen.getByLabelText('Cluster')).toHaveValue('MH-PUNE-02'));
-    const fromGroup = screen.getByRole('group', { name: 'From year' });
-    expect(within(fromGroup).getByRole('button', { name: '2024' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('Comparing 2024 to 2025 - the only pair that can generate governance alerts.')).toBeInTheDocument();
     expect(screen.getByLabelText('Map year')).toHaveValue('2025');
   });
 });

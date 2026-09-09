@@ -329,7 +329,7 @@ describe('Parcel360View', () => {
     expect(await screen.findByText('AI is not configured on this server.')).toBeInTheDocument();
   });
 
-  it('shows a "Compare Years & Generate Alerts" toggle for staff when the parcel belongs to a cluster, expanding the comparison inline rather than navigating away', async () => {
+  it('shows a "Compare Years & Generate Alerts" toggle for staff when the parcel belongs to a cluster, expanding the comparison inline (fixed to the two most recent years) rather than navigating away', async () => {
     mockGet({
       parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' },
       historicalClusters: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023, 2026] }],
@@ -337,18 +337,18 @@ describe('Parcel360View', () => {
     renderWithProviders('p1', officer);
 
     const toggle = await screen.findByRole('button', { name: 'Compare Years & Generate Alerts' });
-    // Not navigation - the comparison UI (year pickers) isn't in the document until expanded.
-    expect(screen.queryByRole('group', { name: 'From year' })).not.toBeInTheDocument();
+    // Not navigation - the comparison UI isn't in the document until expanded.
+    expect(screen.queryByText(/Comparing 2023 to 2026/)).not.toBeInTheDocument();
 
     fireEvent.click(toggle);
 
-    expect(await screen.findByRole('group', { name: 'From year' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'To year' })).toBeInTheDocument();
+    // Fixed to the two most recent years - no picker, nothing to choose.
+    expect(await screen.findByText(/Comparing 2023 to 2026/)).toBeInTheDocument();
     // Still on Parcel 360, not the standalone Historical Imagery page.
     expect(screen.getByText('Parcel 360')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Hide Compare Years' }));
-    expect(screen.queryByRole('group', { name: 'From year' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Comparing 2023 to 2026/)).not.toBeInTheDocument();
   });
 
   it('does not show "Compare Years & Generate Alerts" for a citizen even when the parcel belongs to a cluster', async () => {

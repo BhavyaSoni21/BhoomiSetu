@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { readFile } from 'fs/promises';
@@ -131,7 +131,20 @@ export class HistoricalComparisonService {
     }));
   }
 
+  // Governance alerts must only ever come from the most recent year-over-year
+  // difference (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit
+  // "I want the governance alerts based on the 2025-2026 differences only") -
+  // this is the ONLY method that creates GovernanceAlert rows from historical
+  // comparison, so enforcing it here (not just in the frontend's year picker)
+  // guarantees no other year pair can ever generate one, regardless of
+  // caller. CURRENT_YEAR-1 -> CURRENT_YEAR is 2025 -> 2026 today; using the
+  // named constant instead of literals keeps this correct if CURRENT_YEAR
+  // ever moves.
   async compare(clusterId: string, fromYear: number, toYear: number): Promise<HistoricalComparisonResult> {
+    if (fromYear !== CURRENT_YEAR - 1 || toYear !== CURRENT_YEAR) {
+      throw new BadRequestException(`Comparisons that generate governance alerts must run from ${CURRENT_YEAR - 1} to ${CURRENT_YEAR}.`);
+    }
+
     const [fromSnapshot, toSnapshot] = await Promise.all([
       this.snapshotRepository.findOneBy({ clusterId, year: fromYear }),
       this.snapshotRepository.findOneBy({ clusterId, year: toYear }),
