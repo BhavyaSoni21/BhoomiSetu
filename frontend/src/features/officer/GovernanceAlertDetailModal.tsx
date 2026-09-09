@@ -1,25 +1,28 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { X, Sparkles, AlertCircle, CheckCircle2, XCircle, MapPinned } from 'lucide-react';
+import { X, Sparkles, AlertCircle, MapPinned } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import AiExplanationCard from '../ai/AiExplanationCard';
+import {
+  AlertStage,
+  NEXT_ACTIONS,
+  STAGE_CONFIG,
+  STAGE_TRACK,
+  STAGE_TRACK_LABEL_KEYS,
+  STATUS_BADGE_STYLES,
+  STATUS_LABEL_KEYS,
+} from './GovernanceAlertReasonPrompt';
 
-// Severity/status badges share the same semantics as GovernanceAlertsPanel
-// (status wins over the portal's role color where the two would conflict -
-// docs/design.md): OPEN -> accent, REVIEWED -> primary, DISMISSED -> secondary.
+// Severity badges share the same low-key-to-critical palette as
+// GovernanceAlertsPanel; status badges (STATUS_BADGE_STYLES) come from
+// GovernanceAlertReasonPrompt so the two panels never drift.
 const SEVERITY_STYLES: Record<string, string> = {
   LOW: 'bg-muted text-ink',
   MEDIUM: 'bg-accent text-ink',
   HIGH: 'bg-secondary text-white',
   CRITICAL: 'bg-secondary-strong text-white',
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  OPEN: 'bg-accent text-ink',
-  REVIEWED: 'bg-primary text-white',
-  DISMISSED: 'bg-secondary text-white',
 };
 
 const badgeClass = (styles: Record<string, string>, key: string) =>
@@ -31,10 +34,38 @@ interface GovernanceAlertDetailModalProps {
   isExplaining: boolean;
   explainError: boolean;
   onExplain: () => void;
-  onMarkReviewed: () => void;
-  onDismiss: () => void;
+  onAdvance: (stage: AlertStage) => void;
   onClose: () => void;
 }
+
+// Four-stage progress line (docs/ADMIN_PANEL_ISSUES.md Officer #4) - Detected
+// -> Acknowledged -> Field Verified -> Resolved, current stage highlighted.
+// DISMISSED is a separate early-exit outcome, not a track position, so it's
+// shown as a standalone note under the track instead of trying to place it
+// on a line it may never have fully traversed.
+const StageProgress: React.FC<{ status: string }> = ({ status }) => {
+  const { t } = useTranslation();
+  if (status === 'DISMISSED') {
+    return <p className="text-xs font-bold uppercase tracking-widest text-secondary-strong mb-4">{t('officerPortal.stageDismissedNote')}</p>;
+  }
+  const currentIndex = STAGE_TRACK.indexOf(status as (typeof STAGE_TRACK)[number]);
+  return (
+    <div className="flex items-center gap-1 mb-4" aria-label={t('officerPortal.verificationStagesAria')}>
+      {STAGE_TRACK.map((stage, index) => (
+        <React.Fragment key={stage}>
+          {index > 0 && <span className={`h-0.5 flex-1 ${index <= currentIndex ? 'bg-primary' : 'bg-ink/15'}`} aria-hidden="true" />}
+          <span
+            className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-1 border-2 border-ink whitespace-nowrap ${
+              index === currentIndex ? 'bg-primary text-white' : index < currentIndex ? 'bg-primary/30 text-ink' : 'bg-surface text-ink/50'
+            }`}
+          >
+            {t(STAGE_TRACK_LABEL_KEYS[stage])}
+          </span>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
 
 // The popout triggered by "View Details" on GovernanceAlertsPanel - full
 // alert detail plus the "Explain with AI" action, both of which used to be
@@ -47,8 +78,7 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
   isExplaining,
   explainError,
   onExplain,
-  onMarkReviewed,
-  onDismiss,
+  onAdvance,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -60,8 +90,8 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
             <span className={badgeClass(SEVERITY_STYLES, alert.severity)}>
               {alert.severity}
             </span>
-            <span className={badgeClass(STATUS_STYLES, alert.status)}>
-              {alert.status}
+            <span className={badgeClass(STATUS_BADGE_STYLES, alert.status)}>
+              {t(STATUS_LABEL_KEYS[alert.status] ?? alert.status)}
             </span>
             <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink mt-2">{alert.alertType.replace(/_/g, ' ')}</h3>
           </div>
@@ -73,6 +103,8 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
+
+        <StageProgress status={alert.status} />
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4 border-b-2 border-ink pb-4">
           <div>
@@ -131,20 +163,19 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
         )}
 
         <div className="flex flex-wrap gap-2 justify-end mt-4">
-          <button
-            onClick={onMarkReviewed}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('officerPortal.markReviewedCta')}
-          </button>
-          <button
-            onClick={onDismiss}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-          >
-            <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('officerPortal.dismissCta')}
-          </button>
+          {(NEXT_ACTIONS[alert.status] ?? []).map((stage) => {
+            const { labelKey, Icon, colorClass } = STAGE_CONFIG[stage];
+            return (
+              <button
+                key={stage}
+                onClick={() => onAdvance(stage)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${colorClass}`}
+              >
+                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                {t(labelKey)}
+              </button>
+            );
+          })}
           <button
             onClick={onClose}
             className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-surface text-ink border-2 border-ink shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"

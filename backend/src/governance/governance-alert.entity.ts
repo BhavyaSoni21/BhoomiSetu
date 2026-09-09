@@ -25,8 +25,18 @@ export class GovernanceAlert {
   @Column({ type: 'varchar', length: 40 })
   source: string; // RESTRICTION_MONITOR | CHANGE_DETECTION | TAX_MONITOR | HISTORICAL_IMAGERY
 
+  // Four verification stages (docs/ADMIN_PANEL_ISSUES.md Officer #4, added
+  // 2026-09-10): OPEN (detected) -> ACKNOWLEDGED -> FIELD_VERIFIED -> RESOLVED,
+  // with DISMISSED reachable from any of the first three as an early-exit for
+  // a false alarm. Enforced as a linear progression by
+  // GovernanceAlertsService.updateStatus's VALID_TRANSITIONS map - a flat
+  // status column advancing through values, same modeling choice
+  // Workflow.currentStatus already uses (SUBMITTED -> UNDER_REVIEW ->
+  // APPROVED/REJECTED), not a child-steps table like WorkflowStep (that's for
+  // *parallel per-department* steps, a different concept that doesn't fit a
+  // single-department alert).
   @Column({ type: 'varchar', length: 20, default: 'OPEN' })
-  status: string; // OPEN | REVIEWED | DISMISSED
+  status: string; // OPEN | ACKNOWLEDGED | FIELD_VERIFIED | RESOLVED | DISMISSED
 
   @Column({ type: 'text' })
   explanation: string;

@@ -42,11 +42,11 @@ describe('GovernanceAlertsPanel', () => {
     vi.mocked(apiService.post).mockReset();
   });
 
-  it('requests only OPEN alerts', async () => {
+  it('requests only ACTIVE alerts', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: [] });
     renderWithClient();
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/governance-alerts', { params: { status: 'OPEN' } }));
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/governance-alerts', { params: { status: 'ACTIVE' } }));
   });
 
   it('renders each alert with severity, type, parcel, and explanation', async () => {
@@ -60,11 +60,11 @@ describe('GovernanceAlertsPanel', () => {
     expect(screen.getByText('RESTRICTION ZONE OVERLAP')).toBeInTheDocument();
   });
 
-  it('shows an empty state when there are no open alerts', async () => {
+  it('shows an empty state when there are no active alerts', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: [] });
     renderWithClient();
 
-    expect(await screen.findByText('No open governance alerts requiring attention.')).toBeInTheDocument();
+    expect(await screen.findByText('No active governance alerts requiring attention.')).toBeInTheDocument();
   });
 
   it('clicking Dismiss on a row opens a reason popup instead of submitting immediately', async () => {
@@ -85,8 +85,8 @@ describe('GovernanceAlertsPanel', () => {
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Reviewed' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm Mark Reviewed' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Acknowledge' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Acknowledge' }));
 
     expect(await screen.findByText('A reason is required.')).toBeInTheDocument();
     expect(apiService.patch).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe('GovernanceAlertsPanel', () => {
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Reviewed' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Acknowledge' })[0]);
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Some text' } });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -131,7 +131,9 @@ describe('GovernanceAlertsPanel', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText('CHANGE DETECTION')).toBeInTheDocument(); // source
-    expect(within(dialog).getByText('OPEN')).toBeInTheDocument(); // status
+    // "Detected" appears twice for an OPEN alert - the status badge and the
+    // 4-stage progress stepper's first (current) step both show it.
+    expect(within(dialog).getAllByText('Detected').length).toBeGreaterThan(0);
     expect(within(dialog).getByRole('button', { name: 'Explain with AI' })).toBeInTheDocument();
   });
 
@@ -184,36 +186,75 @@ describe('GovernanceAlertsPanel', () => {
     expect(within(screen.getByRole('dialog')).getByText('Escalated to admin.')).toBeInTheDocument();
   });
 
-  it('clicking Mark Reviewed inside the details popout closes it and opens the reason popup instead', async () => {
+  it('clicking Acknowledge inside the details popout closes it and opens the reason popup instead', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
     fireEvent.click(screen.getAllByRole('button', { name: 'View Details' })[0]);
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Mark Reviewed' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Acknowledge' }));
 
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('Mark Reviewed', { selector: 'h3' })).toBeInTheDocument();
+    expect(within(dialog).getByText('Acknowledge', { selector: 'h3' })).toBeInTheDocument();
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument();
     expect(apiService.patch).not.toHaveBeenCalled();
   });
 
-  it('confirming Mark Reviewed from the popup that followed the details view submits the reason and closes', async () => {
+  it('confirming Acknowledge from the popup that followed the details view submits the reason and closes', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
-    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'REVIEWED', reason: 'Confirmed unauthorized.' } });
+    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'ACKNOWLEDGED', reason: 'Confirmed unauthorized.' } });
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
     fireEvent.click(screen.getAllByRole('button', { name: 'View Details' })[0]);
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Mark Reviewed' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Acknowledge' }));
 
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Confirmed unauthorized.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm Mark Reviewed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Acknowledge' }));
 
     await waitFor(() =>
-      expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'REVIEWED', reason: 'Confirmed unauthorized.' }),
+      expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'ACKNOWLEDGED', reason: 'Confirmed unauthorized.' }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  describe('4-stage verification', () => {
+    it('shows Mark Field Verified/Dismiss (not Acknowledge) for an ACKNOWLEDGED alert', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: [{ ...alerts[0], status: 'ACKNOWLEDGED' }] });
+      renderWithClient();
+
+      await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+      expect(screen.getByRole('button', { name: 'Mark Field Verified' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Acknowledge' })).not.toBeInTheDocument();
+    });
+
+    it('shows Resolve/Dismiss for a FIELD_VERIFIED alert', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: [{ ...alerts[0], status: 'FIELD_VERIFIED' }] });
+      renderWithClient();
+
+      await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+      expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
+    });
+
+    it('shows no advance/dismiss buttons for a terminal (RESOLVED) alert reached via deep link', async () => {
+      const resolvedAlert = { ...alerts[0], status: 'RESOLVED', reason: 'Addressed.' };
+      vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+        if (url === '/governance-alerts') return { data: [] };
+        if (url === '/governance-alerts/a1') return { data: resolvedAlert };
+        throw new Error(`unexpected url: ${url}`);
+      });
+      renderWithClient(['/officer/alerts?alert=a1']);
+
+      const dialog = await screen.findByRole('dialog');
+      // "Resolved" appears twice - the status badge and the stepper's final step.
+      expect(within(dialog).getAllByText('Resolved').length).toBeGreaterThan(0);
+      expect(within(dialog).queryByRole('button', { name: 'Acknowledge' })).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument();
+      // Only Close remains.
+      expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    });
   });
 
   describe('?alert= deep link (NotificationFeed.tsx)', () => {
@@ -227,10 +268,10 @@ describe('GovernanceAlertsPanel', () => {
       expect(apiService.get).not.toHaveBeenCalledWith('/governance-alerts/a2');
     });
 
-    it('falls back to fetching the alert directly when it is no longer OPEN (a REVIEWED/DISMISSED notification)', async () => {
+    it('falls back to fetching the alert directly when it is no longer active (a RESOLVED/DISMISSED notification)', async () => {
       const resolvedAlert = { ...alerts[0], status: 'DISMISSED', reason: 'Not a real issue.' };
       vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-        if (url === '/governance-alerts') return { data: [] }; // nothing OPEN right now
+        if (url === '/governance-alerts') return { data: [] }; // nothing active right now
         if (url === '/governance-alerts/a1') return { data: resolvedAlert };
         throw new Error(`unexpected url: ${url}`);
       });
@@ -238,9 +279,9 @@ describe('GovernanceAlertsPanel', () => {
 
       const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByText('UNAUTHORIZED CHANGE DETECTED')).toBeInTheDocument();
-      expect(within(dialog).getByText('DISMISSED')).toBeInTheDocument();
-      // Not the generic empty state, even though the OPEN list is empty.
-      expect(screen.queryByText('No open governance alerts requiring attention.')).not.toBeInTheDocument();
+      expect(within(dialog).getByText('Dismissed')).toBeInTheDocument();
+      // Not the generic empty state, even though the active list is empty.
+      expect(screen.queryByText('No active governance alerts requiring attention.')).not.toBeInTheDocument();
     });
   });
 });

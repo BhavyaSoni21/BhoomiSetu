@@ -1,7 +1,10 @@
 import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 
 export class UpdateGovernanceAlertStatusDto {
-  @IsIn(['OPEN', 'REVIEWED', 'DISMISSED'])
+  // OPEN excluded on purpose - an alert starts there and can never be
+  // PATCHed back to it (GovernanceAlertsService.updateStatus's
+  // VALID_TRANSITIONS enforces the actual reachable-from-current-stage set).
+  @IsIn(['ACKNOWLEDGED', 'FIELD_VERIFIED', 'RESOLVED', 'DISMISSED'])
   status: string;
 
   // Mandatory as of 2026-09-09, per the user's explicit follow-up: an

@@ -126,15 +126,15 @@ describe('NotificationFeed', () => {
       expect(await screen.findByText('Assigned Requests Stub')).toBeInTheDocument();
     });
 
-    it('sends a GOVERNANCE_ALERT_REVIEWED notification to Governance Alerts', async () => {
+    it('sends a GOVERNANCE_ALERT_RESOLVED notification to Governance Alerts', async () => {
       const alertNotification: AppNotification = {
-        id: 'n4', userId: 'u1', type: 'GOVERNANCE_ALERT_REVIEWED', title: 'A governance alert was reviewed',
+        id: 'n4', userId: 'u1', type: 'GOVERNANCE_ALERT_RESOLVED', title: 'A governance alert was resolved',
         message: 'Restriction confirmed unauthorized.', parcelId: 'p1', workflowId: null, alertId: 'a1',
         read: false, createdAt: '2026-09-10T11:00:00.000Z',
       };
       vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alertNotification, read: true } });
       renderFeed([alertNotification], ['/notifications'], officer);
-      fireEvent.click(await screen.findByText('A governance alert was reviewed'));
+      fireEvent.click(await screen.findByText('A governance alert was resolved'));
 
       expect(await screen.findByText('Governance Alerts Stub')).toBeInTheDocument();
     });

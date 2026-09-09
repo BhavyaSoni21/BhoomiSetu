@@ -2,16 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import GovernanceAlertDetailModal from './GovernanceAlertDetailModal';
-import GovernanceAlertReasonPrompt from './GovernanceAlertReasonPrompt';
+import GovernanceAlertReasonPrompt, {
+  AlertStage,
+  NEXT_ACTIONS,
+  STAGE_CONFIG,
+  STATUS_BADGE_STYLES,
+  STATUS_LABEL_KEYS,
+} from './GovernanceAlertReasonPrompt';
 
 interface PendingAction {
   alertId: string;
-  status: 'REVIEWED' | 'DISMISSED';
+  status: AlertStage;
 }
 
 // Severity is its own axis from workflow/alert *status* - not literally
@@ -51,21 +57,22 @@ const GovernanceAlertsPanel: React.FC = () => {
   }, [searchParams]);
 
   const { data: alerts = [], isLoading, error } = useQuery<GovernanceAlert[]>(
-    ['governance-alerts', 'OPEN'],
+    ['governance-alerts', 'ACTIVE'],
     async () => {
-      const response = await apiService.get('/governance-alerts', { params: { status: 'OPEN' } });
+      const response = await apiService.get('/governance-alerts', { params: { status: 'ACTIVE' } });
       return response.data;
     },
   );
 
   const selectedAlertInList = alerts.find((a) => a.id === selectedAlertId) ?? null;
-  // A GOVERNANCE_ALERT_REVIEWED/DISMISSED notification deep-links to an
-  // alert that is, by definition, no longer OPEN - this list only ever
-  // holds OPEN alerts, so that alert would otherwise be unreachable. Fetch
-  // it directly (by id, any status) only once the OPEN list has actually
-  // settled and still doesn't contain it - waiting on `isLoading` avoids
-  // firing this redundantly during the list's own first load, when `alerts`
-  // is still its [] default and every deep-linked id would look "missing".
+  // A GOVERNANCE_ALERT_RESOLVED/DISMISSED notification deep-links to an
+  // alert that is, by definition, no longer active - this list only ever
+  // holds active (OPEN/ACKNOWLEDGED/FIELD_VERIFIED) alerts, so that alert
+  // would otherwise be unreachable. Fetch it directly (by id, any status)
+  // only once the active list has actually settled and still doesn't
+  // contain it - waiting on `isLoading` avoids firing this redundantly
+  // during the list's own first load, when `alerts` is still its [] default
+  // and every deep-linked id would look "missing".
   const { data: fallbackAlert } = useQuery<GovernanceAlert>(
     ['governance-alert', selectedAlertId],
     async () => (await apiService.get(`/governance-alerts/${selectedAlertId}`)).data,
@@ -82,16 +89,19 @@ const GovernanceAlertsPanel: React.FC = () => {
   const pagedAlerts = alerts.slice(page * ALERTS_PER_PAGE, page * ALERTS_PER_PAGE + ALERTS_PER_PAGE);
 
   const statusMutation = useMutation(
-    async ({ id, status, reason }: { id: string; status: 'REVIEWED' | 'DISMISSED'; reason: string }) => {
+    async ({ id, status, reason }: { id: string; status: AlertStage; reason: string }) => {
       const response = await apiService.patch(`/governance-alerts/${id}/status`, { status, reason });
       return response.data;
     },
     {
       onSuccess: (_data, variables) => {
-        queryClient.invalidateQueries(['governance-alerts', 'OPEN']);
-        // The list only shows OPEN alerts, so an alert acted on from inside
-        // the detail modal is about to disappear from underneath it -
-        // closing here avoids leaving the modal open on a stale reference.
+        queryClient.invalidateQueries(['governance-alerts', 'ACTIVE']);
+        // The list only shows active alerts, so an alert moved to RESOLVED/
+        // DISMISSED from inside the detail modal is about to disappear from
+        // underneath it - closing here avoids leaving the modal open on a
+        // stale reference. (Advancing to ACKNOWLEDGED/FIELD_VERIFIED keeps it
+        // in the list, so this is harmless either way - selectedAlertId just
+        // gets cleared and the officer can reopen the row if they want.)
         setSelectedAlertId((current) => (current === variables.id ? null : current));
         setPendingAction((current) => (current?.alertId === variables.id ? null : current));
       },
@@ -113,11 +123,11 @@ const GovernanceAlertsPanel: React.FC = () => {
 
   const selectedAlert = selectedAlertInList ?? fallbackAlert ?? null;
 
-  // The "no open alerts" empty state only applies when there's also nothing
-  // deep-linked in from a notification to show - a resolved alert someone
-  // was just told about is still worth seeing even with an empty queue.
+  // The "no active alerts" empty state only applies when there's also
+  // nothing deep-linked in from a notification to show - a resolved alert
+  // someone was just told about is still worth seeing even with an empty queue.
   if (alerts.length === 0 && !selectedAlert) {
-    return <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">{t('officerPortal.noOpenAlerts')}</div>;
+    return <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">{t('officerPortal.noActiveAlerts')}</div>;
   }
 
   const pendingAlert = pendingAction
@@ -133,6 +143,11 @@ const GovernanceAlertsPanel: React.FC = () => {
               <span className={severityBadgeClass(alert.severity)}>
                 {alert.severity}
               </span>
+              <span
+                className={`inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest mr-2 ${STATUS_BADGE_STYLES[alert.status] ?? 'bg-muted text-ink'}`}
+              >
+                {t(STATUS_LABEL_KEYS[alert.status] ?? alert.status)}
+              </span>
               <span className="font-bold text-sm uppercase tracking-wide text-ink">{alert.alertType.replace(/_/g, ' ')}</span>
               <p className="text-xs text-ink/60 mt-0.5">{t('officerPortal.parcelLabel', { id: alert.parcelId })}</p>
               <p className="text-sm text-ink/70 mt-1">{alert.explanation}</p>
@@ -146,22 +161,23 @@ const GovernanceAlertsPanel: React.FC = () => {
               <Eye className="w-3.5 h-3.5" aria-hidden="true" />
               {t('officerPortal.viewDetailsCta')}
             </button>
-            <button
-              onClick={() => setPendingAction({ alertId: alert.id, status: 'REVIEWED' })}
-              disabled={statusMutation.isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-              {t('officerPortal.markReviewedCta')}
-            </button>
-            <button
-              onClick={() => setPendingAction({ alertId: alert.id, status: 'DISMISSED' })}
-              disabled={statusMutation.isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-              {t('officerPortal.dismissCta')}
-            </button>
+            {/* Whichever stage(s) are actually reachable from this alert's
+                current status (docs/ADMIN_PANEL_ISSUES.md Officer #4) - up to
+                2 buttons (advance + dismiss), 0 once RESOLVED/DISMISSED. */}
+            {(NEXT_ACTIONS[alert.status] ?? []).map((stage) => {
+              const { labelKey, Icon, colorClass } = STAGE_CONFIG[stage];
+              return (
+                <button
+                  key={stage}
+                  onClick={() => setPendingAction({ alertId: alert.id, status: stage })}
+                  disabled={statusMutation.isLoading}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 ${colorClass}`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  {t(labelKey)}
+                </button>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -199,15 +215,11 @@ const GovernanceAlertsPanel: React.FC = () => {
           isExplaining={explainMutation.isLoading && explainMutation.variables === selectedAlert.id}
           explainError={explainMutation.isError && explainMutation.variables === selectedAlert.id}
           onExplain={() => explainMutation.mutate(selectedAlert.id)}
-          // Both actions open the reason prompt (below) instead of
+          // Every action opens the reason prompt (below) instead of
           // submitting directly - closing the detail view first keeps
           // exactly one modal on screen at a time.
-          onMarkReviewed={() => {
-            setPendingAction({ alertId: selectedAlert.id, status: 'REVIEWED' });
-            setSelectedAlertId(null);
-          }}
-          onDismiss={() => {
-            setPendingAction({ alertId: selectedAlert.id, status: 'DISMISSED' });
+          onAdvance={(stage) => {
+            setPendingAction({ alertId: selectedAlert.id, status: stage });
             setSelectedAlertId(null);
           }}
           onClose={() => setSelectedAlertId(null)}

@@ -1,10 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsWhere, Not, In, Repository } from 'typeorm';
 import { GovernanceAlert } from './governance-alert.entity';
 import { User } from '../users/user.entity';
 import { DEPARTMENT_ROLE } from '../auth/roles.constants';
 import { NotificationFeedService } from '../notification-feed/notification-feed.service';
+
+// Four verification stages (docs/ADMIN_PANEL_ISSUES.md Officer #4): a linear
+// OPEN -> ACKNOWLEDGED -> FIELD_VERIFIED -> RESOLVED progression, with
+// DISMISSED reachable from any of the first three as an early exit for a
+// false alarm. RESOLVED/DISMISSED are terminal - an empty array here, same
+// as WorkflowsService.reviewStep's "a step can only be decided once" rule.
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  OPEN: ['ACKNOWLEDGED', 'DISMISSED'],
+  ACKNOWLEDGED: ['FIELD_VERIFIED', 'DISMISSED'],
+  FIELD_VERIFIED: ['RESOLVED', 'DISMISSED'],
+  RESOLVED: [],
+  DISMISSED: [],
+};
+
+// Alerts still needing attention - OPEN/ACKNOWLEDGED/FIELD_VERIFIED, i.e.
+// anything not yet closed. Used both by findAll's `status=ACTIVE` special
+// case and by AnalyticsService's "Open Alerts" total.
+export const CLOSED_ALERT_STATUSES = ['RESOLVED', 'DISMISSED'];
 
 // Which department an alert concerns, derived from its existing alertType -
 // no new manual field needed. Used to notify that department's officer(s)
@@ -36,7 +54,11 @@ export class GovernanceAlertsService {
 
   async findAll(filters: { status?: string; severity?: string }): Promise<GovernanceAlert[]> {
     const where: FindOptionsWhere<GovernanceAlert> = {};
-    if (filters.status) where.status = filters.status;
+    // ACTIVE is a pseudo-status, not a real column value - "still needs
+    // attention" now spans 3 real statuses (OPEN/ACKNOWLEDGED/FIELD_VERIFIED)
+    // since the 4-stage rework, not just OPEN.
+    if (filters.status === 'ACTIVE') where.status = Not(In(CLOSED_ALERT_STATUSES));
+    else if (filters.status) where.status = filters.status;
     if (filters.severity) where.severity = filters.severity;
 
     return this.alertRepository.find({ where, order: { createdAt: 'DESC' } });
@@ -50,11 +72,23 @@ export class GovernanceAlertsService {
     const alert = await this.alertRepository.findOneBy({ id });
     if (!alert) return null;
 
+    const reachable = VALID_TRANSITIONS[alert.status] ?? [];
+    if (!reachable.includes(status)) {
+      throw new BadRequestException(
+        reachable.length > 0
+          ? `Cannot move a "${alert.status}" alert directly to "${status}" - the next stage(s) from here are: ${reachable.join(', ')}.`
+          : `This alert is already "${alert.status}" and can't be moved to another stage.`,
+      );
+    }
+
     alert.status = status;
     alert.reason = reason;
     const saved = await this.alertRepository.save(alert);
 
-    if (status === 'REVIEWED' || status === 'DISMISSED') {
+    // Only notify on final closure (RESOLVED/DISMISSED), not on every
+    // intermediate stage - ACKNOWLEDGED/FIELD_VERIFIED would otherwise spam
+    // the department for progress that isn't a decision yet.
+    if (status === 'RESOLVED' || status === 'DISMISSED') {
       await this.notifyDepartmentOfReview(saved);
     }
 
@@ -69,11 +103,11 @@ export class GovernanceAlertsService {
     const officers = await this.userRepository.find({ where: { role } });
     if (officers.length === 0) return;
 
-    const verb = alert.status === 'DISMISSED' ? 'dismissed' : 'reviewed';
+    const verb = alert.status === 'DISMISSED' ? 'dismissed' : 'resolved';
     await this.notificationFeedService.notifyUsers(
       officers.map((officer) => officer.id),
       {
-        type: alert.status === 'DISMISSED' ? 'GOVERNANCE_ALERT_DISMISSED' : 'GOVERNANCE_ALERT_REVIEWED',
+        type: alert.status === 'DISMISSED' ? 'GOVERNANCE_ALERT_DISMISSED' : 'GOVERNANCE_ALERT_RESOLVED',
         title: `A ${department} alert was ${verb}`,
         // reason is mandatory as of 2026-09-09 (UpdateGovernanceAlertStatusDto),
         // so it's always real text here - no fallback needed.

@@ -64,7 +64,7 @@ describe('Governance Alerts (e2e)', () => {
       alertType: 'TAX_OVERDUE',
       severity: 'LOW',
       source: 'TAX_MONITOR',
-      status: 'REVIEWED',
+      status: 'RESOLVED',
       explanation: 'Outstanding property tax of 500 is overdue.',
     });
 
@@ -95,6 +95,16 @@ describe('Governance Alerts (e2e)', () => {
       const ids = res.body.map((a: any) => a.id);
       expect(ids).toEqual(expect.arrayContaining([floodAlert.id, changeAlert.id]));
       expect(ids).not.toContain(taxAlert.id);
+    });
+
+    it('filters by status=ACTIVE (a pseudo-status meaning "not RESOLVED/DISMISSED")', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/governance-alerts?status=ACTIVE')
+        .set('Authorization', officerAuth)
+        .expect(200);
+      const ids = res.body.map((a: any) => a.id);
+      expect(ids).toEqual(expect.arrayContaining([floodAlert.id, changeAlert.id]));
+      expect(ids).not.toContain(taxAlert.id); // taxAlert is seeded RESOLVED
     });
 
     it('filters by severity', async () => {
@@ -143,38 +153,93 @@ describe('Governance Alerts (e2e)', () => {
     });
   });
 
-  describe('PATCH /api/v1/governance-alerts/:id/status', () => {
-    it('updates status (e.g. an officer dismissing an alert)', async () => {
+  describe('PATCH /api/v1/governance-alerts/:id/status - 4-stage verification', () => {
+    const freshAlert = (parcelId: string, status = 'OPEN') =>
+      alertRepository.save({
+        parcelId,
+        alertType: 'RESTRICTION_ZONE_OVERLAP',
+        severity: 'MEDIUM',
+        source: 'RESTRICTION_MONITOR',
+        status,
+        explanation: 'Parcel intersects a restriction zone.',
+      });
+
+    it('advances an alert through all 4 stages, notifying the department only on the final RESOLVED transition', async () => {
+      const alert = await freshAlert('44444444-4444-4444-4444-444444444444');
+
+      const ack = await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'ACKNOWLEDGED', reason: 'Looking into this now.' })
+        .expect(200);
+      expect(ack.body.status).toBe('ACKNOWLEDGED');
+      expect(await notificationRepository.find({ where: { alertId: alert.id } })).toHaveLength(0);
+
+      const verified = await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'FIELD_VERIFIED', reason: 'Confirmed on-site - the restriction is real.' })
+        .expect(200);
+      expect(verified.body.status).toBe('FIELD_VERIFIED');
+      expect(await notificationRepository.find({ where: { alertId: alert.id } })).toHaveLength(0);
+
+      const resolved = await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'RESOLVED', reason: 'Restriction survey team addressed the overlap.' })
+        .expect(200);
+      expect(resolved.body.status).toBe('RESOLVED');
+      expect(resolved.body.reason).toBe('Restriction survey team addressed the overlap.');
+
+      // RESTRICTION_ZONE_OVERLAP derives to the RESTRICTION department
+      // (alertDepartmentFor in governance-alerts.service.ts) - its officer,
+      // not the LAND_RECORD_OFFICER who resolved it, gets notified.
+      const notifications = await notificationRepository.find({ where: { userId: restrictionOfficerId, type: 'GOVERNANCE_ALERT_RESOLVED' } });
+      const forThisAlert = notifications.find((n) => n.alertId === alert.id);
+      expect(forThisAlert).toBeTruthy();
+      expect(forThisAlert!.message).toContain('Restriction survey team addressed the overlap');
+    });
+
+    it('lets DISMISSED short-circuit from a non-terminal stage, and notifies on dismissal', async () => {
+      const alert = await freshAlert('55555555-5555-5555-5555-555555555555', 'ACKNOWLEDGED');
+
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/governance-alerts/${changeAlert.id}/status`)
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
         .set('Authorization', officerAuth)
         .send({ status: 'DISMISSED', reason: 'Duplicate of an already-resolved alert.' })
         .expect(200);
       expect(res.body.status).toBe('DISMISSED');
 
-      const refetched = await request(app.getHttpServer())
-        .get(`/api/v1/governance-alerts/${changeAlert.id}`)
-        .set('Authorization', officerAuth)
-        .expect(200);
-      expect(refetched.body.status).toBe('DISMISSED');
+      const notifications = await notificationRepository.find({ where: { userId: restrictionOfficerId, type: 'GOVERNANCE_ALERT_DISMISSED' } });
+      expect(notifications.find((n) => n.alertId === alert.id)).toBeTruthy();
     });
 
-    it('records the reason and notifies the relevant department officer(s)', async () => {
+    it('rejects skipping a stage (OPEN straight to FIELD_VERIFIED) with 400', async () => {
+      const alert = await freshAlert('66666666-6666-6666-6666-666666666666');
       const res = await request(app.getHttpServer())
-        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
         .set('Authorization', officerAuth)
-        .send({ status: 'REVIEWED', reason: 'Confirmed with the restriction survey team - overlap is legitimate.' })
-        .expect(200);
-      expect(res.body.status).toBe('REVIEWED');
-      expect(res.body.reason).toBe('Confirmed with the restriction survey team - overlap is legitimate.');
+        .send({ status: 'FIELD_VERIFIED', reason: 'x' })
+        .expect(400);
+      expect(res.body.message).toContain('OPEN');
+    });
 
-      // RESTRICTION_ZONE_OVERLAP derives to the RESTRICTION department
-      // (alertDepartmentFor in governance-alerts.service.ts) - its officer,
-      // not the LAND_RECORD_OFFICER who reviewed it, gets notified.
-      const notifications = await notificationRepository.find({ where: { userId: restrictionOfficerId, type: 'GOVERNANCE_ALERT_REVIEWED' } });
-      const forThisAlert = notifications.find((n) => n.alertId === floodAlert.id);
-      expect(forThisAlert).toBeTruthy();
-      expect(forThisAlert!.message).toContain('Confirmed with the restriction survey team');
+    it('rejects skipping straight from OPEN to RESOLVED with 400', async () => {
+      const alert = await freshAlert('77777777-7777-7777-7777-777777777777');
+      await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'RESOLVED', reason: 'x' })
+        .expect(400);
+    });
+
+    it('rejects any further PATCH on a terminal (RESOLVED) alert with 400', async () => {
+      const alert = await freshAlert('88888888-8888-8888-8888-888888888888', 'RESOLVED');
+      await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'DISMISSED', reason: 'x' })
+        .expect(400);
     });
 
     it('rejects an invalid status value with 400', async () => {
@@ -185,19 +250,21 @@ describe('Governance Alerts (e2e)', () => {
         .expect(400);
     });
 
-    it('rejects a missing reason with 400 - mandatory for both Mark Reviewed and Dismiss', async () => {
+    it('rejects a missing reason with 400', async () => {
+      const alert = await freshAlert('99999999-9999-9999-9999-999999999999');
       await request(app.getHttpServer())
-        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
         .set('Authorization', officerAuth)
-        .send({ status: 'REVIEWED' })
+        .send({ status: 'ACKNOWLEDGED' })
         .expect(400);
     });
 
     it('rejects an empty-string reason with 400', async () => {
+      const alert = await freshAlert('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
       await request(app.getHttpServer())
-        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .patch(`/api/v1/governance-alerts/${alert.id}/status`)
         .set('Authorization', officerAuth)
-        .send({ status: 'DISMISSED', reason: '' })
+        .send({ status: 'ACKNOWLEDGED', reason: '' })
         .expect(400);
     });
 
@@ -205,14 +272,14 @@ describe('Governance Alerts (e2e)', () => {
       await request(app.getHttpServer())
         .patch('/api/v1/governance-alerts/00000000-0000-0000-0000-000000000000/status')
         .set('Authorization', officerAuth)
-        .send({ status: 'REVIEWED', reason: 'x' })
+        .send({ status: 'ACKNOWLEDGED', reason: 'x' })
         .expect(404);
     });
 
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
-        .send({ status: 'REVIEWED', reason: 'x' })
+        .send({ status: 'ACKNOWLEDGED', reason: 'x' })
         .expect(401);
     });
   });

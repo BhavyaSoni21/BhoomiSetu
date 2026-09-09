@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThan, Repository } from 'typeorm';
+import { In, MoreThan, Not, Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
 import { TaxRecord } from '../departments/tax-record.entity';
 import { RegistrationRecord } from '../departments/registration-record.entity';
@@ -11,6 +11,7 @@ import { GovernanceAlert } from '../governance/governance-alert.entity';
 import { User } from '../users/user.entity';
 import { AuditLog } from '../audit/audit-log.entity';
 import { ALL_STAFF_ROLES } from '../auth/roles.constants';
+import { CLOSED_ALERT_STATUSES } from '../governance/governance-alerts.service';
 
 export interface Distribution {
   key: string;
@@ -92,7 +93,10 @@ export class AnalyticsService {
     ] = await Promise.all([
       this.parcelRepository.count(),
       this.workflowRepository.count(),
-      this.alertRepository.count({ where: { status: 'OPEN' } }),
+      // "Open Alerts" means "still needs attention" - since the 4-stage
+      // rework (docs/ADMIN_PANEL_ISSUES.md Officer #4) that's 3 real statuses
+      // (OPEN/ACKNOWLEDGED/FIELD_VERIFIED), not just the literal OPEN one.
+      this.alertRepository.count({ where: { status: Not(In(CLOSED_ALERT_STATUSES)) } }),
       this.disputeRepository.count({ where: { hasActiveDispute: true } }),
       // Staff only - matches UsersService.findAll()'s scoping, so this
       // "Total Users" metric keeps meaning "how many officer/admin accounts

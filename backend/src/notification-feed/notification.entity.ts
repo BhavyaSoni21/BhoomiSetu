@@ -19,7 +19,7 @@ export class Notification {
   userId: string;
 
   @Column({ type: 'varchar', length: 40 })
-  type: string; // WORKFLOW_ASSIGNED | WORKFLOW_STEP_APPROVED | WORKFLOW_STEP_REJECTED | GOVERNANCE_ALERT_REVIEWED | GOVERNANCE_ALERT_DISMISSED
+  type: string; // WORKFLOW_ASSIGNED | WORKFLOW_STEP_APPROVED | WORKFLOW_STEP_REJECTED | GOVERNANCE_ALERT_RESOLVED | GOVERNANCE_ALERT_DISMISSED
 
   @Column({ type: 'varchar', length: 120 })
   title: string;

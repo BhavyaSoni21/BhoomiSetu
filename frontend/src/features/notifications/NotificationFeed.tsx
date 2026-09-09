@@ -11,7 +11,7 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   WORKFLOW_ASSIGNED: ClipboardCheck,
   WORKFLOW_STEP_APPROVED: ClipboardCheck,
   WORKFLOW_STEP_REJECTED: ClipboardCheck,
-  GOVERNANCE_ALERT_REVIEWED: ShieldAlert,
+  GOVERNANCE_ALERT_RESOLVED: ShieldAlert,
   GOVERNANCE_ALERT_DISMISSED: ShieldAlert,
   // An Admin flagging a pending step for urgent review (AdminWorkflowOversightPage.tsx)
   // - see WorkflowsService.escalateStep.
