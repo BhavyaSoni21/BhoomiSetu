@@ -1,6 +1,6 @@
 # BhoomiSetu Design System
 
-**Status: design reference only — nothing in this file has been implemented yet.** This document exists so the upcoming implementation flow has a settled visual language to build against. Do not start restyling components from this doc alone; wait for the page-by-page flow.
+**Status: implemented.** This document captured the settled visual language before the site-wide Bauhaus redesign; that redesign is now built across every portal (Citizen/Officer/Admin) and the public site — see `docs/FEATURES.md` for what's built where. Kept as the living reference for the visual language itself (color tokens, typography, dark mode, component conventions) — still accurate for that purpose, just no longer "not yet implemented."
 
 ---
 

@@ -1,5 +1,7 @@
 # Execution Plan for BhoomiSetu Implementation
 
+**Status: historical build log, phases 1-12 (through Citizen Sign-In).** This is the original phase-by-phase execution plan and remains accurate for the phases it covers, each with a dated verification note. It was never extended to cover the later Admin/Officer Portal restructuring or the 2026-09-10 follow-up round (Governance Alert 4-stage verification, Officer Monitoring, Map Layer Authoring, etc.) — see `docs/FRONTEND_UPGRADE_SPEC.md` and `docs/ADMIN_PANEL_ISSUES.md` for those, and `docs/FEATURES.md` for the current as-built feature index. The "Immediate Next Steps"/"Current Blockers" sections at the very end of this file are leftover from the earliest days of the project (before the seed script had even been run) and are long since resolved — not a reflection of anything currently pending.
+
 ## Context
 BhoomiSetu is a GIS-based, parcel-centric land governance and interoperability platform designed to connect fragmented land-related datasets through a unified digital framework. The prototype demonstrates a practical implementation aligned with the Land Stack vision, addressing the challenge of accessing complete parcel-level information across multiple government departments. This plan outlines the execution steps to build a functional prototype based on the technical documentation provided in BHOOMISETU.md and Tech.md.
 
