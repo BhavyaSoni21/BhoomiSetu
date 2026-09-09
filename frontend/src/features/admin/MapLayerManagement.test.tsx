@@ -84,11 +84,12 @@ describe('MapLayerManagement', () => {
     vi.mocked(apiService.delete).mockReset();
   });
 
-  it('lists every layer with its name, type, and state-district', async () => {
+  it('lists every layer with its name, type, state-district, and computed affected-parcel count', async () => {
     renderPanel();
     expect(await screen.findByText('Downtown Residential')).toBeInTheDocument();
     expect(screen.getByText('RESIDENTIAL')).toBeInTheDocument();
     expect(screen.getByText('MH-PUN · Polygon')).toBeInTheDocument();
+    expect(screen.getByText('1 parcel affected')).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no layers', async () => {
@@ -96,12 +97,13 @@ describe('MapLayerManagement', () => {
     expect(await screen.findByText('No layers yet.')).toBeInTheDocument();
   });
 
-  it('creates a new layer via the Add Layer form, parsing the geometry JSON', async () => {
+  it('creates a new layer via the Add Layer form, parsing the geometry JSON, without a client-editable parcel-ids field', async () => {
     vi.mocked(apiService.post).mockResolvedValue({ data: {} });
     renderPanel();
     await screen.findByText('Downtown Residential');
 
     fireEvent.click(screen.getByRole('button', { name: 'Add Layer' }));
+    expect(screen.queryByPlaceholderText(/Parcel IDs/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'New Zone' } });
     fireEvent.change(screen.getByPlaceholderText('State Code (e.g. MH)'), { target: { value: 'dl' } });
     fireEvent.change(screen.getByPlaceholderText('District'), { target: { value: 'NEW' } });
@@ -117,7 +119,6 @@ describe('MapLayerManagement', () => {
         stateCode: 'DL',
         district: 'NEW',
         geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
-        parcelIds: [],
       }),
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Create Layer' })).not.toBeInTheDocument());
@@ -175,7 +176,6 @@ describe('MapLayerManagement', () => {
         stateCode: 'MH',
         district: 'PUN',
         geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
-        parcelIds: ['p1'],
       }),
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument());

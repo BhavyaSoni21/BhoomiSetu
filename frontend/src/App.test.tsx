@@ -22,6 +22,9 @@ vi.mock('./features/map/MapComponent', () => ({
 vi.mock('./features/admin/LayerGeometryDrawMap', () => ({
   default: () => <div data-testid="draw-map-stub" />,
 }));
+vi.mock('./features/admin/AdminCombinedLayerMap', () => ({
+  default: () => <div data-testid="combined-map-stub" />,
+}));
 
 function mockApi() {
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {

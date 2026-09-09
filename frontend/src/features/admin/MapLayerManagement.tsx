@@ -49,11 +49,10 @@ interface LayerForm {
   stateCode: string;
   district: string;
   geometryText: string;
-  idsText: string;
 }
 
 function emptyForm(config: LayerTypeConfig): LayerForm {
-  return { name: '', type: config.typeOptions?.[0] ?? '', notes: '', stateCode: '', district: '', geometryText: '', idsText: '' };
+  return { name: '', type: config.typeOptions?.[0] ?? '', notes: '', stateCode: '', district: '', geometryText: '' };
 }
 
 function parseGeometry(text: string): GeoJSON.Geometry | null {
@@ -74,10 +73,11 @@ function buildPayload(config: LayerTypeConfig, form: LayerForm, geometry: Record
   };
   if (config.typeField) payload[config.typeField] = form.type;
   if (config.notesField) payload[config.notesField] = form.notes || undefined;
-  if (config.idsField) {
-    const ids = form.idsText.split(',').map((s) => s.trim()).filter(Boolean);
-    payload[config.idsField] = ids;
-  }
+  // idsField (parcelIds/affectedParcelIds) is intentionally NOT sent - the
+  // backend now computes it authoritatively from real spatial intersection
+  // (SpatialService.computeAffectedParcelIds), so a client-typed value would
+  // just be ignored/overridden. See the read-only "N parcels affected" count
+  // below instead.
   return payload;
 }
 
@@ -139,13 +139,7 @@ const LayerFormFields: React.FC<LayerFormFieldsProps> = ({ config, form, onChang
         required
       />
       {config.idsField && (
-        <input
-          type="text"
-          placeholder={t('adminPortal.idsFieldSuffix', { label: config.idsLabel ?? t('adminPortal.affectedParcelIdsLabel') })}
-          value={form.idsText}
-          onChange={(e) => onChange({ ...form, idsText: e.target.value })}
-          className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary md:col-span-2"
-        />
+        <p className="text-[11px] text-ink/50 md:col-span-2">{t('adminPortal.idsComputedNotice', { label: config.idsLabel ?? t('adminPortal.affectedParcelIdsLabel') })}</p>
       )}
       {config.notesField && (
         <textarea
@@ -251,7 +245,6 @@ const MapLayerManagement: React.FC<MapLayerManagementProps> = ({ config }) => {
   const startEdit = (feature: LayerFeature) => {
     setEditingId(feature.properties.id);
     setEditError(null);
-    const ids = config.idsField ? (feature.properties[config.idsField] as string[] | undefined) ?? [] : [];
     setEditForm({
       name: feature.properties.name,
       type: config.typeField ? (feature.properties[config.typeField] as string | undefined) ?? config.typeOptions?.[0] ?? '' : '',
@@ -259,7 +252,6 @@ const MapLayerManagement: React.FC<MapLayerManagementProps> = ({ config }) => {
       stateCode: (feature.properties.stateCode as string | undefined) ?? '',
       district: (feature.properties.district as string | undefined) ?? '',
       geometryText: JSON.stringify(feature.geometry, null, 2),
-      idsText: ids.join(', '),
     });
   };
 
@@ -358,6 +350,11 @@ const MapLayerManagement: React.FC<MapLayerManagementProps> = ({ config }) => {
                   {config.notesField && feature.properties[config.notesField] ? (
                     <p className="text-xs text-ink/60 mt-0.5 italic">{String(feature.properties[config.notesField])}</p>
                   ) : null}
+                  {config.idsField && (
+                    <p className="text-xs text-ink/60 mt-0.5">
+                      {t('adminPortal.parcelsAffectedCount', { count: ((feature.properties[config.idsField] as string[] | undefined) ?? []).length })}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button

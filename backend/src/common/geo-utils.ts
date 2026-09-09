@@ -119,6 +119,26 @@ export function pointInRing([x, y]: [number, number], ring: Ring): boolean {
   return inside;
 }
 
+// True polygon-vs-polygon overlap test (unlike polygonDistanceMeters, which
+// only tests first-vertex containment before falling through to edge
+// distance) - checks every vertex of each ring against the other (catches
+// full/partial containment) and every edge pair (catches a crossing where
+// neither ring has a vertex inside the other, e.g. two rectangles overlapping
+// corner-to-corner). Used to reject two admin-drawn zones of the same layer
+// type (RestrictionZone vs RestrictionZone, ZoningOverlay vs ZoningOverlay)
+// from overlapping - lng/lat is fine here (no meters projection needed),
+// since this is a boolean test, not a distance measurement.
+export function ringsOverlap(ringA: Ring, ringB: Ring): boolean {
+  if (ringA.some((p) => pointInRing(p, ringB))) return true;
+  if (ringB.some((p) => pointInRing(p, ringA))) return true;
+  for (let i = 0; i < ringA.length - 1; i++) {
+    for (let j = 0; j < ringB.length - 1; j++) {
+      if (segmentsIntersect(ringA[i], ringA[i + 1], ringB[j], ringB[j + 1])) return true;
+    }
+  }
+  return false;
+}
+
 // Shortest distance in metres between two polygon rings (edge-to-edge,
 // accounting for containment/overlap as 0), projected locally around refLat.
 export function polygonDistanceMeters(ringA: Ring, ringB: Ring, refLat: number): number {

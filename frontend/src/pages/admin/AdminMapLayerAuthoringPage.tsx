@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapPinned, Shield, Zap, Lock } from 'lucide-react';
+import { MapPinned, Shield, Zap, Lock, Layers } from 'lucide-react';
 import CornerMarker from '../../features/admin/CornerMarker';
 import MapLayerManagement, { LayerTypeConfig } from '../../features/admin/MapLayerManagement';
+import AdminCombinedLayerMap from '../../features/admin/AdminCombinedLayerMap';
+
+const COMBINED_KEY = 'combined' as const;
 
 // Coming Soon #3 (docs/ADMIN_PANEL_ISSUES.md) - the backend's zoning/
 // restriction/infrastructure create-edit-delete APIs already work
@@ -71,8 +74,8 @@ const AdminMapLayerAuthoringPage: React.FC = () => {
     },
   ];
 
-  const [activeKey, setActiveKey] = useState(LAYER_CONFIGS[0].key);
-  const activeConfig = LAYER_CONFIGS.find((c) => c.key === activeKey)!;
+  const [activeKey, setActiveKey] = useState<string>(LAYER_CONFIGS[0].key);
+  const activeConfig = LAYER_CONFIGS.find((c) => c.key === activeKey);
 
   return (
     <div className="space-y-6">
@@ -97,12 +100,25 @@ const AdminMapLayerAuthoringPage: React.FC = () => {
               {config.tabLabel}
             </button>
           ))}
+          {/* Combined View (docs/ADMIN_PANEL_ISSUES.md follow-up, per the
+              user's explicit "common map showing all layer in admin only") -
+              not a LayerTypeConfig since it has no single CRUD endpoint;
+              renders AdminCombinedLayerMap instead of MapLayerManagement. */}
+          <button
+            onClick={() => setActiveKey(COMBINED_KEY)}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+              activeKey === COMBINED_KEY ? 'border-primary text-primary' : 'border-transparent text-ink/50 hover:border-ink/30 hover:text-ink'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('adminPortal.combinedMapTab')}
+          </button>
         </nav>
       </div>
 
       <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
         <CornerMarker />
-        <MapLayerManagement key={activeConfig.key} config={activeConfig} />
+        {activeConfig ? <MapLayerManagement key={activeConfig.key} config={activeConfig} /> : <AdminCombinedLayerMap />}
       </div>
     </div>
   );

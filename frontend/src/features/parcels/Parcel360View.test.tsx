@@ -22,8 +22,8 @@ const officer: AuthUser = { id: 'o1', email: 'officer1@example.gov.in', name: 'A
 // and service-request flow. Exposes onParcelClick so tests can simulate
 // clicking a different parcel on the map.
 vi.mock('../map/MapComponent', () => ({
-  default: (props: { onParcelClick?: (id: string) => void }) => (
-    <div data-testid="mock-map">
+  default: (props: { onParcelClick?: (id: string) => void; visibleLayerKeys?: string[] }) => (
+    <div data-testid="mock-map" data-visible-layer-keys={props.visibleLayerKeys ? props.visibleLayerKeys.join(',') : 'all'}>
       <button onClick={() => props.onParcelClick?.('p2')}>Simulate map click on p2</button>
     </div>
   ),
@@ -84,37 +84,19 @@ const secondResponse = {
   identifiers: { ulpin: null, survey_number: null, plot_number: null, local_identifier: 'MH-PUN-0200' },
 };
 
-const riskScoreFixture = {
-  parcelId: 'p1',
-  overallScore: 46,
-  riskBand: 'MEDIUM',
-  dataCompleteness: 1,
-  factors: [
-    { key: 'TAX_DELINQUENCY', label: 'Tax Delinquency', weight: 0.4, available: true, score: 0, rationale: 'Tax status is PAID.' },
-    { key: 'ACTIVE_DISPUTE', label: 'Dispute Exposure', weight: 0.3, available: true, score: 65, rationale: 'An active boundary dispute is under review.' },
-    { key: 'GOVERNANCE_ALERTS', label: 'Open Governance Alerts', weight: 0.2, available: true, score: 0, rationale: 'No open governance alerts.' },
-    { key: 'RESTRICTION', label: 'Land-Use Restriction', weight: 0.1, available: false, score: 0, rationale: 'No restriction record on file for this parcel.' },
-  ],
-};
-
-// Parcel360View fires a /360, a /risk-score, a /workflows, AND a
-// /historical-imagery/clusters query per parcel; every test needs all four
+// Parcel360View fires a /360, a /parcels/mine (for citizens), AND a
+// /historical-imagery/clusters query per parcel; every test needs all three
 // satisfied (not just the one it cares about) or the unmocked one rejects
-// with "unexpected url" noise, or - with a blanket mockResolvedValue - the
-// risk-score query would resolve with 360-shaped data and crash on
-// `.factors.map`. /workflows defaults to empty so RequestNotifications
-// renders nothing extra unless a test overrides it; historicalClusters
-// defaults to empty so the Parcel Map falls back to the plain (no year
-// dropdown) map unless a test overrides it.
+// with "unexpected url" noise. historicalClusters defaults to empty so the
+// Parcel Map falls back to the plain (no year dropdown) map unless a test
+// overrides it.
 // Defaults to "the signed-in citizen owns p1" (fullResponse's parcel_id) so
 // every existing test that expects the citizen-only Actions buttons to
 // render doesn't need to know about /parcels/mine at all; tests about the
 // ownership gate itself override myParcels explicitly.
-function mockGet(overrides: { parcel360?: unknown; riskScore?: unknown; workflows?: unknown; historicalClusters?: unknown; myParcels?: unknown } = {}) {
+function mockGet(overrides: { parcel360?: unknown; historicalClusters?: unknown; myParcels?: unknown } = {}) {
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-    if (url.includes('/risk-score')) return { data: overrides.riskScore ?? riskScoreFixture };
     if (url === '/parcels/mine') return { data: overrides.myParcels ?? { parcels: [{ id: 'p1' }], total: 1 } };
-    if (url.includes('/workflows')) return { data: overrides.workflows ?? [] };
     if (url === '/historical-imagery/clusters') return { data: overrides.historicalClusters ?? [] };
     if (url.includes('/historical-imagery/clusters/') && url.endsWith('/parcels')) return { data: [] };
     if (url.includes('/360')) return { data: overrides.parcel360 ?? fullResponse };
@@ -143,45 +125,6 @@ describe('Parcel360View', () => {
     expect(screen.getByText('55/2')).toBeInTheDocument();
     expect(screen.getByText('VIL555')).toBeInTheDocument();
     expect(screen.getByText('26,714 m²')).toBeInTheDocument();
-  });
-
-  it('shows the "Your Requests" notification feed when the parcel has service requests', async () => {
-    mockGet({
-      workflows: [
-        {
-          id: 'wf-1', parcelId: 'p1', workflowType: 'ROR_COPY_REQUEST', currentStatus: 'APPROVED',
-          createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-02T10:00:00.000Z',
-          steps: [{ id: 's1', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'APPROVED', action: 'APPROVE', remarks: null, completedAt: '2026-09-02T10:00:00.000Z' }],
-        },
-      ],
-    });
-    renderWithProviders();
-
-    expect(await screen.findByText('Your Requests')).toBeInTheDocument();
-    expect(screen.getByText(/has been approved/)).toBeInTheDocument();
-  });
-
-  it('does not show the notification feed when the parcel has no service requests', async () => {
-    mockGet();
-    renderWithProviders();
-
-    await screen.findByText('Parcel 360');
-    expect(screen.queryByText('Your Requests')).not.toBeInTheDocument();
-  });
-
-  it('fetches and renders the risk assessment card with its factor breakdown', async () => {
-    mockGet();
-    renderWithProviders();
-
-    expect(await screen.findByText('Risk Assessment')).toBeInTheDocument();
-    expect(screen.getByText('46')).toBeInTheDocument();
-    expect(screen.getByText('MEDIUM')).toBeInTheDocument();
-    expect(screen.getByText('100% data coverage')).toBeInTheDocument();
-    expect(screen.getByText('Tax status is PAID.')).toBeInTheDocument();
-    expect(screen.getByText('An active boundary dispute is under review.')).toBeInTheDocument();
-    // The unavailable RESTRICTION factor renders "N/A" rather than its (meaningless) 0 score.
-    const restrictionRow = screen.getByText('Land-Use Restriction').closest('.flex') as HTMLElement;
-    expect(within(restrictionRow).getByText('N/A')).toBeInTheDocument();
   });
 
   it('shows AVAILABLE/NOT_AVAILABLE badges for every department source', async () => {
@@ -339,8 +282,7 @@ describe('Parcel360View', () => {
     vi.mocked(apiService.get).mockImplementation(async (url: string) => {
       if (url === '/parcels/p1/360') return { data: fullResponse };
       if (url === '/parcels/p2/360') return { data: secondResponse };
-      if (url.includes('/risk-score')) return { data: { ...riskScoreFixture, parcelId: url.split('/')[2] } };
-      if (url.includes('/workflows')) return { data: [] };
+      if (url === '/parcels/mine') return { data: { parcels: [{ id: 'p1' }, { id: 'p2' }], total: 2 } };
       if (url === '/historical-imagery/clusters') return { data: [] };
       throw new Error(`unexpected url: ${url}`);
     });
@@ -450,5 +392,19 @@ describe('Parcel360View', () => {
 
     await screen.findByText('Parcel 360');
     expect(screen.queryByLabelText('Map year')).not.toBeInTheDocument();
+  });
+
+  it('gives a citizen only the "View Zoning" layer toggle on the map, not the full staff legend', async () => {
+    mockGet();
+    renderWithProviders('p1', citizen);
+
+    expect(await screen.findByTestId('mock-map')).toHaveAttribute('data-visible-layer-keys', 'zoning');
+  });
+
+  it('gives staff the full map layer legend', async () => {
+    mockGet();
+    renderWithProviders('p1', officer);
+
+    expect(await screen.findByTestId('mock-map')).toHaveAttribute('data-visible-layer-keys', 'all');
   });
 });

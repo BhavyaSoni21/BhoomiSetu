@@ -346,6 +346,15 @@ describe('MapComponent', () => {
       }
     });
 
+    it('renders only the checkboxes named in visibleLayerKeys, when given', async () => {
+      mockApiRoutes();
+      renderWithClient(<MapComponent parcels={[]} visibleLayerKeys={['zoning']} />);
+
+      expect(screen.getByLabelText('Zoning Layer')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Selected Parcel')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Restriction Layer')).not.toBeInTheDocument();
+    });
+
     it('toggling a layer checkbox updates maplibre layer visibility', async () => {
       mockApiRoutes({ '/gis/parcels': { parcels: [sampleParcel] } });
       renderWithClient(<MapComponent />);

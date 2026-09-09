@@ -11,6 +11,8 @@ import { ZoningOverlay } from '../src/spatial/zoning-overlay.entity';
 import { RestrictionZone } from '../src/spatial/restriction-zone.entity';
 import { InfrastructureFeature } from '../src/spatial/infrastructure-feature.entity';
 import { ChangeDetectionEvent } from '../src/spatial/change-detection-event.entity';
+import { Parcel } from '../src/parcels/parcel.entity';
+import { GovernanceAlert } from '../src/governance/governance-alert.entity';
 import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Spatial demo layers (e2e)', () => {
@@ -18,6 +20,11 @@ describe('Spatial demo layers (e2e)', () => {
   // Write endpoints are admin-only (docs/FEATURE_AUDIT.md §8 item 13).
   let adminAuth: string;
   let officerAuth: string;
+  let parcelRepo: Repository<Parcel>;
+  let alertRepo: Repository<GovernanceAlert>;
+  let alertTestParcelId: string;
+  let updateTestParcelAId: string;
+  let updateTestParcelBId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -33,6 +40,8 @@ describe('Spatial demo layers (e2e)', () => {
     const restrictionRepo: Repository<RestrictionZone> = moduleFixture.get(getRepositoryToken(RestrictionZone));
     const infraRepo: Repository<InfrastructureFeature> = moduleFixture.get(getRepositoryToken(InfrastructureFeature));
     const changeRepo: Repository<ChangeDetectionEvent> = moduleFixture.get(getRepositoryToken(ChangeDetectionEvent));
+    parcelRepo = moduleFixture.get(getRepositoryToken(Parcel));
+    alertRepo = moduleFixture.get(getRepositoryToken(GovernanceAlert));
 
     const squareGeoJSON = JSON.stringify({
       type: 'Polygon',
@@ -78,6 +87,46 @@ describe('Spatial demo layers (e2e)', () => {
       geometry: squareGeoJSON,
       affectedParcelIds: ['p1', 'p2'],
     });
+
+    // Real parcels for the new "RestrictionZone overlap -> real
+    // GovernanceAlert" tests below - distinct coordinate boxes from every
+    // zone/overlay above so creating a zone here never trips the new
+    // no-overlap validation against unrelated fixture data.
+    const alertTestParcel = await parcelRepo.save({
+      stateCode: 'MH',
+      districtCode: 'Pune',
+      localBodyCode: 'TEST',
+      areaSqM: 500,
+      geometry: JSON.stringify({
+        type: 'Polygon',
+        coordinates: [[[74.005, 19.005], [74.015, 19.005], [74.015, 19.015], [74.005, 19.015], [74.005, 19.005]]],
+      }),
+    });
+    alertTestParcelId = alertTestParcel.id;
+
+    const updateTestParcelA = await parcelRepo.save({
+      stateCode: 'MH',
+      districtCode: 'Pune',
+      localBodyCode: 'TEST',
+      areaSqM: 400,
+      geometry: JSON.stringify({
+        type: 'Polygon',
+        coordinates: [[[74.304, 19.304], [74.306, 19.304], [74.306, 19.306], [74.304, 19.306], [74.304, 19.304]]],
+      }),
+    });
+    updateTestParcelAId = updateTestParcelA.id;
+
+    const updateTestParcelB = await parcelRepo.save({
+      stateCode: 'MH',
+      districtCode: 'Pune',
+      localBodyCode: 'TEST',
+      areaSqM: 400,
+      geometry: JSON.stringify({
+        type: 'Polygon',
+        coordinates: [[[74.349, 19.349], [74.351, 19.349], [74.351, 19.351], [74.349, 19.351], [74.349, 19.349]]],
+      }),
+    });
+    updateTestParcelBId = updateTestParcelB.id;
 
     adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
     officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
@@ -179,10 +228,18 @@ describe('Spatial demo layers (e2e)', () => {
 
   describe('PATCH and DELETE /api/v1/gis/zoning-overlays/:id', () => {
     it('updates and then deletes a zoning overlay as admin', async () => {
+      // A distinct, non-overlapping polygon from validPolygon above - the
+      // "creates a zoning overlay as admin" test (above) already saved a
+      // zoning overlay at validPolygon and never deletes it, so reusing that
+      // geometry here would now be rejected by the new no-overlap validation.
+      const tempZonePolygon = {
+        type: 'Polygon',
+        coordinates: [[[73.7, 18.3], [73.71, 18.3], [73.71, 18.31], [73.7, 18.31], [73.7, 18.3]]],
+      };
       const created = await request(app.getHttpServer())
         .post('/api/v1/gis/zoning-overlays')
         .set('Authorization', adminAuth)
-        .send({ name: 'Temp Zone', zoneType: 'RESIDENTIAL', stateCode: 'MH', district: 'Pune', geometry: validPolygon })
+        .send({ name: 'Temp Zone', zoneType: 'RESIDENTIAL', stateCode: 'MH', district: 'Pune', geometry: tempZonePolygon })
         .expect(201);
 
       const updated = await request(app.getHttpServer())
@@ -348,6 +405,115 @@ describe('Spatial demo layers (e2e)', () => {
         .delete('/api/v1/gis/admin-notes/00000000-0000-0000-0000-000000000000')
         .set('Authorization', adminAuth)
         .expect(404);
+    });
+  });
+
+  // Real spatial overlap -> real GovernanceAlert (docs/ADMIN_PANEL_ISSUES.md
+  // item 9's Officer #3, redefined per the user: alerts should be based on
+  // real admin-drawn zoning/restriction data, not a one-time seed row).
+  describe('RestrictionZone spatial overlap -> real GovernanceAlert, and no-overlap validation', () => {
+    it('creates a RestrictionZone overlapping a real parcel, computes affectedParcelIds server-side, and creates a matching GovernanceAlert', async () => {
+      const zonePolygon = {
+        type: 'Polygon',
+        coordinates: [[[74.0, 19.0], [74.02, 19.0], [74.02, 19.02], [74.0, 19.02], [74.0, 19.0]]],
+      };
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', adminAuth)
+        // affectedParcelIds is client-supplied here on purpose (a stale/lying
+        // value) to prove the server ignores it and computes its own.
+        .send({ name: 'Alert Test Zone', restrictionType: 'ENVIRONMENTAL', stateCode: 'MH', district: 'Pune', geometry: zonePolygon, affectedParcelIds: ['not-a-real-parcel'] })
+        .expect(201);
+
+      expect(res.body.affectedParcelIds).toEqual([alertTestParcelId]);
+
+      const alerts = await alertRepo.find({ where: { parcelId: alertTestParcelId, alertType: 'RESTRICTION_ZONE_OVERLAP' } });
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0].source).toBe('RESTRICTION_MONITOR');
+      expect(alerts[0].severity).toBe('MEDIUM');
+      expect(alerts[0].status).toBe('OPEN');
+    });
+
+    it('rejects a second RestrictionZone overlapping the first with 400', async () => {
+      const overlappingPolygon = {
+        type: 'Polygon',
+        coordinates: [[[74.005, 19.005], [74.025, 19.005], [74.025, 19.025], [74.005, 19.025], [74.005, 19.005]]],
+      };
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Overlapping Zone', restrictionType: 'FLOOD', stateCode: 'MH', district: 'Pune', geometry: overlappingPolygon })
+        .expect(400);
+      expect(res.body.message).toContain('Alert Test Zone');
+    });
+
+    it('rejects a second overlapping ZoningOverlay with 400 (same layer type)', async () => {
+      const zonePolygon = {
+        type: 'Polygon',
+        coordinates: [[[74.1, 19.1], [74.12, 19.1], [74.12, 19.12], [74.1, 19.12], [74.1, 19.1]]],
+      };
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'First Overlap-Test Zoning', zoneType: 'RESIDENTIAL', stateCode: 'MH', district: 'Pune', geometry: zonePolygon })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Second Overlap-Test Zoning', zoneType: 'COMMERCIAL', stateCode: 'MH', district: 'Pune', geometry: zonePolygon })
+        .expect(400);
+    });
+
+    it('does NOT reject a ZoningOverlay and a RestrictionZone covering the same area (different layer types)', async () => {
+      const sharedPolygon = {
+        type: 'Polygon',
+        coordinates: [[[74.2, 19.2], [74.22, 19.2], [74.22, 19.22], [74.2, 19.22], [74.2, 19.2]]],
+      };
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/zoning-overlays')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Cross-Type Zoning', zoneType: 'AGRICULTURAL', stateCode: 'MH', district: 'Pune', geometry: sharedPolygon })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Cross-Type Restriction', restrictionType: 'PROTECTED_AREA', stateCode: 'MH', district: 'Pune', geometry: sharedPolygon })
+        .expect(201);
+    });
+
+    it('updating a RestrictionZone to newly cover a second parcel creates exactly one new alert, and none for the already-covered parcel', async () => {
+      const smallZone = {
+        type: 'Polygon',
+        coordinates: [[[74.3, 19.3], [74.31, 19.3], [74.31, 19.31], [74.3, 19.31], [74.3, 19.3]]],
+      };
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/gis/restriction-zones')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Update Test Zone', restrictionType: 'FLOOD', stateCode: 'MH', district: 'Pune', geometry: smallZone })
+        .expect(201);
+      expect(created.body.affectedParcelIds).toEqual([updateTestParcelAId]);
+
+      const alertsForAAfterCreate = await alertRepo.find({ where: { parcelId: updateTestParcelAId, alertType: 'RESTRICTION_ZONE_OVERLAP' } });
+      expect(alertsForAAfterCreate).toHaveLength(1);
+
+      const bigZone = {
+        type: 'Polygon',
+        coordinates: [[[74.3, 19.3], [74.4, 19.3], [74.4, 19.4], [74.3, 19.4], [74.3, 19.3]]],
+      };
+      const updated = await request(app.getHttpServer())
+        .patch(`/api/v1/gis/restriction-zones/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .send({ geometry: bigZone })
+        .expect(200);
+      expect(updated.body.affectedParcelIds.sort()).toEqual([updateTestParcelAId, updateTestParcelBId].sort());
+
+      const alertsForAAfterUpdate = await alertRepo.find({ where: { parcelId: updateTestParcelAId, alertType: 'RESTRICTION_ZONE_OVERLAP' } });
+      expect(alertsForAAfterUpdate).toHaveLength(1); // unchanged - no duplicate
+
+      const alertsForB = await alertRepo.find({ where: { parcelId: updateTestParcelBId, alertType: 'RESTRICTION_ZONE_OVERLAP' } });
+      expect(alertsForB).toHaveLength(1); // exactly one new alert
     });
   });
 });

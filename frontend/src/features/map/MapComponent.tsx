@@ -20,6 +20,8 @@ interface MapComponentProps {
   parcelLabels?: Record<string, string>;
   /** Zoom/pan to fit the `parcels` prop's own bounds once they load - opt-in so this never changes existing behavior for callers that show all-of-India search results (bare /map, CitizenPortal) without a specific area in mind. */
   fitToParcels?: boolean;
+  /** Which legend checkboxes to render (defaults to every LayerKey, i.e. today's behavior) - lets a caller offer a simpler subset, e.g. Parcel 360 showing citizens only a "View Zoning" toggle instead of the full staff-oriented legend. Layer visibility state itself is unaffected; layers not offered here just keep their default visibility. */
+  visibleLayerKeys?: LayerKey[];
 }
 
 type LayerKey =
@@ -140,6 +142,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   parcelColors,
   parcelLabels,
   fitToParcels,
+  visibleLayerKeys,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -571,7 +574,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
           {t('map.layersHeading')}
         </p>
-        {LAYER_KEYS.map((key) => (
+        {(visibleLayerKeys ?? LAYER_KEYS).map((key) => (
           <label key={key} className="flex items-center gap-1.5 py-0.5 text-ink/80 font-medium cursor-pointer">
             <input
               type="checkbox"

@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { ArrowLeft, FileText, Flag, History, MessageSquareWarning, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
-import RequestNotifications from './RequestNotifications';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
 import { ParcelSummary } from '../../types/parcel';
 import { AiExplanation } from '../../types/aiExplanation';
-import { RiskScore } from '../../types/riskScore';
 import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
 import { useHistoricalClusters } from '../officer/historicalImagery';
@@ -19,13 +17,6 @@ import HistoricalMapView from '../officer/HistoricalMapView';
 import HistoricalYearCompare from '../officer/HistoricalYearCompare';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
-
-const RISK_BAND_COLORS: Record<string, string> = {
-  LOW: 'bg-muted text-ink/70 border-ink/20',
-  MEDIUM: 'bg-accent/20 text-secondary-strong border-accent/50',
-  HIGH: 'bg-secondary/15 text-secondary-strong border-secondary/50',
-  CRITICAL: 'bg-secondary text-white border-ink',
-};
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
@@ -68,7 +59,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 const Parcel360View: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: authUser } = useAuthUser();
   const isOfficer = !!authUser && (OFFICER_ROLES as readonly string[]).includes(authUser.role);
   const isCitizen = authUser?.role === 'CITIZEN';
@@ -82,12 +72,8 @@ const Parcel360View: React.FC = () => {
   // (extracted out of HistoricalImageryPanel.tsx for exactly this).
   const [showHistoricalCompare, setShowHistoricalCompare] = useState(false);
 
-  // Closing the form (whether cancelled or after a successful submission)
-  // refreshes the notification feed below - cheapest way to make a brand new
-  // request show up immediately without a manual page reload.
   const closeServiceRequest = () => {
     setServiceRequest(null);
-    queryClient.invalidateQueries(['parcel-workflows', id]);
   };
 
   const { data: parcel360, isLoading, error } = useQuery<Parcel360Response>(
@@ -125,15 +111,6 @@ const Parcel360View: React.FC = () => {
   // known yet.
   const { data: historicalClusters = [] } = useHistoricalClusters();
   const historicalCluster = parcel360 ? historicalClusters.find((c) => c.clusterId === parcel360.clusterId) : undefined;
-
-  const { data: riskScore } = useQuery<RiskScore>(
-    ['risk-score', id],
-    async () => {
-      const response = await apiService.get(`/parcels/${id}/risk-score`);
-      return response.data;
-    },
-    { enabled: !!id },
-  );
 
   // Ownership history is citizen-restricted (docs/FEATURE_AUDIT.md §8a) - a
   // 401/403 here is an expected, normal response for a guest or an
@@ -188,6 +165,98 @@ const Parcel360View: React.FC = () => {
           onClose={closeServiceRequest}
         />
       )}
+
+      {/* Actions moved to the top of the page (docs/ADMIN_PANEL_ISSUES.md
+          follow-up, per the user's explicit "bring the actions tab on top"). */}
+      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Actions</h2>
+        <div className="flex flex-wrap gap-3">
+          {isOwnParcel && (
+            <>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                Request Documents
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <Flag className="w-3.5 h-3.5" aria-hidden="true" />
+                Report Issue
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
+                File a Dispute
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DOCUMENT_VERIFICATION_REQUEST', title: 'Verify Documents' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                Verify Documents
+              </button>
+            </>
+          )}
+          <button
+            className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
+            onClick={() => window.history.back()}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            {/* "to Search" implies a citizen's Find Parcels flow (docs/ADMIN_PANEL_ISSUES.md
+                Admin #2's last remaining piece) - an Officer/Admin viewer more often
+                arrives here from a workflow, alert, or audit log entry instead, so
+                the label stays neutral for them. Left visible either way (unlike
+                Request Documents/Report Issue/File a Dispute/Verify Documents above,
+                gated on isOwnParcel) since browser-back navigation itself isn't a
+                citizen-only action. */}
+            {isCitizen ? 'Back to Search' : 'Back'}
+          </button>
+          {isOfficer && historicalCluster && (
+            <button
+              onClick={() => setShowHistoricalCompare((v) => !v)}
+              aria-expanded={showHistoricalCompare}
+              className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
+            >
+              <History className="w-3.5 h-3.5" aria-hidden="true" />
+              {showHistoricalCompare ? 'Hide Compare Years' : 'Compare Years & Generate Alerts'}
+            </button>
+          )}
+          <button
+            onClick={() => explainMutation.mutate()}
+            disabled={explainMutation.isLoading}
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-4 py-2 text-xs font-bold uppercase tracking-wider text-background shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+            {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
+          </button>
+        </div>
+
+        {showHistoricalCompare && historicalCluster && (
+          <div className="mt-4 pt-4 border-t-2 border-ink/10">
+            <h3 className="text-sm font-black uppercase tracking-widest text-ink/70 mb-3">Compare Years & Generate Alerts</h3>
+            <HistoricalYearCompare key={historicalCluster.clusterId} clusterId={historicalCluster.clusterId} years={historicalCluster.years} />
+          </div>
+        )}
+
+        {explainMutation.isError && (
+          <p className="text-sm font-medium text-secondary-strong mt-4">
+            {axios.isAxiosError(explainMutation.error) && explainMutation.error.response?.status === 503
+              ? 'AI is not configured on this server.'
+              : 'Something went wrong generating an explanation. Please try again.'}
+          </p>
+        )}
+        {explainMutation.isSuccess && (
+          <div className="mt-4">
+            <AiExplanationCard explanation={explainMutation.data} />
+          </div>
+        )}
+      </div>
 
       <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
         <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
@@ -247,6 +316,39 @@ const Parcel360View: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="md:col-span-2 overflow-hidden">
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Parcel Map</h2>
+              <p className="text-sm text-ink/60 mb-3 leading-relaxed">
+                Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
+                Click another parcel on the map to view its Parcel 360 details.
+                {historicalCluster &&
+                  ' Parcels are colored by each one’s real dispute/restriction status for the year chosen below.'}
+              </p>
+              {historicalCluster ? (
+                <HistoricalMapView
+                  clusterId={historicalCluster.clusterId}
+                  years={historicalCluster.years}
+                  selectedParcelId={parcel360.parcel_id}
+                  onParcelClick={(clickedId) => {
+                    if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                  }}
+                />
+              ) : (
+                <MapComponent
+                  parcels={[]}
+                  selectedParcelId={parcel360.parcel_id}
+                  onParcelClick={(clickedId) => {
+                    if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                  }}
+                  // A citizen sees just a "View Zoning" toggle instead of the
+                  // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
+                  // follow-up, per the user's explicit "zoning layer addition
+                  // just the view option for citizens").
+                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
+                />
+              )}
             </div>
           </div>
         )}
@@ -399,157 +501,6 @@ const Parcel360View: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
-        )}
-      </div>
-
-      <RequestNotifications parcelId={parcel360.parcel_id} />
-
-      {riskScore && (
-        <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-          <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-accent border-2 border-ink" aria-hidden="true" />
-          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">Risk Assessment</h2>
-          <p className="text-sm text-ink/60 mb-4 leading-relaxed">
-            A heuristic score combining tax, dispute, governance-alert, and restriction signals — not a prediction
-            from a trained model. Each factor below is weighted by how directly it threatens undisputed ownership.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="text-3xl font-black text-ink">{riskScore.overallScore}</span>
-            <span className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide ${RISK_BAND_COLORS[riskScore.riskBand] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
-              {riskScore.riskBand}
-            </span>
-            <span className="text-xs text-ink/40 font-medium">{Math.round(riskScore.dataCompleteness * 100)}% data coverage</span>
-          </div>
-          <div className="space-y-1 divide-y-2 divide-ink/10">
-            {riskScore.factors.map((factor) => (
-              <div key={factor.key} className="flex items-start justify-between gap-3 text-sm py-2 first:pt-0 last:pb-0">
-                <div>
-                  <span className="font-bold text-ink">{factor.label}</span>
-                  <p className="text-xs text-ink/50 mt-0.5">{factor.rationale}</p>
-                </div>
-                <span className={factor.available ? 'font-bold text-ink whitespace-nowrap' : 'text-xs text-ink/40 italic whitespace-nowrap'}>
-                  {factor.available ? factor.score : 'N/A'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6 overflow-hidden">
-        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">Parcel Map</h2>
-        <p className="text-sm text-ink/60 mb-3 leading-relaxed">
-          Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
-          Click another parcel on the map to view its Parcel 360 details.
-          {historicalCluster &&
-            ' Parcels are colored by each one’s real dispute/restriction status for the year chosen below.'}
-        </p>
-        {historicalCluster ? (
-          <HistoricalMapView
-            clusterId={historicalCluster.clusterId}
-            years={historicalCluster.years}
-            selectedParcelId={parcel360.parcel_id}
-            onParcelClick={(clickedId) => {
-              if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
-            }}
-          />
-        ) : (
-          <MapComponent
-            parcels={[]}
-            selectedParcelId={parcel360.parcel_id}
-            onParcelClick={(clickedId) => {
-              if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
-            }}
-          />
-        )}
-      </div>
-
-      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Actions</h2>
-        <div className="flex flex-wrap gap-3">
-          {isOwnParcel && (
-            <>
-              <button
-                onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-                Request Documents
-              </button>
-              <button
-                onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <Flag className="w-3.5 h-3.5" aria-hidden="true" />
-                Report Issue
-              </button>
-              <button
-                onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
-                File a Dispute
-              </button>
-              <button
-                onClick={() => setServiceRequest({ workflowType: 'DOCUMENT_VERIFICATION_REQUEST', title: 'Verify Documents' })}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                Verify Documents
-              </button>
-            </>
-          )}
-          <button
-            className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
-            onClick={() => window.history.back()}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            {/* "to Search" implies a citizen's Find Parcels flow (docs/ADMIN_PANEL_ISSUES.md
-                Admin #2's last remaining piece) - an Officer/Admin viewer more often
-                arrives here from a workflow, alert, or audit log entry instead, so
-                the label stays neutral for them. Left visible either way (unlike
-                Request Documents/Report Issue/File a Dispute/Verify Documents above,
-                gated on isOwnParcel) since browser-back navigation itself isn't a
-                citizen-only action. */}
-            {isCitizen ? 'Back to Search' : 'Back'}
-          </button>
-          {isOfficer && historicalCluster && (
-            <button
-              onClick={() => setShowHistoricalCompare((v) => !v)}
-              aria-expanded={showHistoricalCompare}
-              className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
-            >
-              <History className="w-3.5 h-3.5" aria-hidden="true" />
-              {showHistoricalCompare ? 'Hide Compare Years' : 'Compare Years & Generate Alerts'}
-            </button>
-          )}
-          <button
-            onClick={() => explainMutation.mutate()}
-            disabled={explainMutation.isLoading}
-            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-4 py-2 text-xs font-bold uppercase tracking-wider text-background shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-          >
-            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
-          </button>
-        </div>
-
-        {showHistoricalCompare && historicalCluster && (
-          <div className="mt-4 pt-4 border-t-2 border-ink/10">
-            <h3 className="text-sm font-black uppercase tracking-widest text-ink/70 mb-3">Compare Years & Generate Alerts</h3>
-            <HistoricalYearCompare key={historicalCluster.clusterId} clusterId={historicalCluster.clusterId} years={historicalCluster.years} />
-          </div>
-        )}
-
-        {explainMutation.isError && (
-          <p className="text-sm font-medium text-secondary-strong mt-4">
-            {axios.isAxiosError(explainMutation.error) && explainMutation.error.response?.status === 503
-              ? 'AI is not configured on this server.'
-              : 'Something went wrong generating an explanation. Please try again.'}
-          </p>
-        )}
-        {explainMutation.isSuccess && (
-          <div className="mt-4">
-            <AiExplanationCard explanation={explainMutation.data} />
           </div>
         )}
       </div>

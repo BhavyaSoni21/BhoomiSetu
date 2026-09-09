@@ -17,6 +17,9 @@ vi.mock('../services/apiService', () => ({
 vi.mock('../features/admin/LayerGeometryDrawMap', () => ({
   default: () => <div data-testid="draw-map-stub" />,
 }));
+vi.mock('../features/admin/AdminCombinedLayerMap', () => ({
+  default: () => <div data-testid="combined-map-stub" />,
+}));
 
 const admin: AuthUser = { id: 'u1', email: 'admin@test.gov.in', name: 'Rina Admin', role: 'ADMIN' };
 const managedAdmin = { ...admin, createdAt: '2026-01-01T00:00:00.000Z' };
