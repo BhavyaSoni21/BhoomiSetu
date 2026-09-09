@@ -190,7 +190,7 @@ The full UI switches language live, with the choice remembered across visits —
 
 Every endpoint is throttled; the costlier ones (AI, change detection, document OCR) are throttled tighter.
 
-- **Backend:** `@nestjs/throttler` — global 200 req/min/IP default; 30 req/min/IP on `ai/` and `change-detection/`; 20 req/min/IP on `document-verification/`. `X-RateLimit-*` response headers included. `trust proxy` is set so per-IP limiting reads the real client IP behind a reverse proxy.
+- **Backend:** `@nestjs/throttler` — global 200 req/min/IP default; 30 req/min/IP on `ai/`, `change-detection/`, and `historical-imagery/`; 20 req/min/IP on `parcels/identify-from-document` (the OCR-based land-claim lookup — there's no separate `document-verification/` module, it lives in `parcels`). `X-RateLimit-*` response headers included. `trust proxy` is set so per-IP limiting reads the real client IP behind a reverse proxy.
 - **Frontend:** none.
 
 ## 24. PostGIS / Production Database Support
