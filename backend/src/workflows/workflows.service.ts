@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import * as fs from 'fs/promises';
+import { downloadFromStorage } from '../common/supabase-storage';
 import { Parcel } from '../parcels/parcel.entity';
 import { CitizenParcel } from '../parcels/citizen-parcel.entity';
 import { ParcelDocument } from '../parcels/parcel-document.entity';
@@ -322,7 +322,7 @@ export class WorkflowsService {
     const workflow = await this.workflowRepository.findOneBy({ id });
     if (!workflow || !workflow.evidenceFilePath) return null;
     try {
-      const buffer = await fs.readFile(workflow.evidenceFilePath);
+      const buffer = await downloadFromStorage(workflow.evidenceFilePath);
       return { buffer, mimeType: workflow.evidenceMimeType ?? 'image/png' };
     } catch {
       return null;

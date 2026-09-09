@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { readFile } from 'fs/promises';
+import { downloadFromStorage } from '../common/supabase-storage';
 import { ClusterHistoricalSnapshot } from './cluster-historical-snapshot.entity';
 import { NarrativeService, ParcelChangeFact } from './narrative.service';
 import { Parcel } from '../parcels/parcel.entity';
@@ -89,7 +89,7 @@ export class HistoricalComparisonService {
     if (!snapshot) {
       throw new NotFoundException(`No snapshot for cluster ${clusterId}, year ${year}`);
     }
-    return readFile(snapshot.imagePath);
+    return downloadFromStorage(snapshot.imagePath);
   }
 
   // Real parcel geometry + a real ParcelCategory per parcel for one year -

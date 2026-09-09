@@ -1,8 +1,6 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe, NotFoundException, BadRequestException, ForbiddenException, ConflictException, UseGuards, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import * as path from 'path';
-import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { WorkflowsService, WorkflowEvidenceInput } from './workflows.service';
 import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto } from './dto/workflow.dto';
@@ -14,14 +12,9 @@ import { ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT } from '../auth/roles.co
 import { User } from '../users/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { extractText } from '../document-verification/ocr';
+import { uploadToStorage } from '../common/supabase-storage';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB, matching the old document-verification controller's own limit
-// Runtime-written uploads (unlike cluster-snapshots/parcel-documents, which
-// are only ever written by seed.ts) - path.resolve against process.cwd()
-// rather than __dirname, matching how database.config.ts's SQLite path
-// already resolves relative to wherever the process was started (the
-// backend root, per npm run start:dev).
-const EVIDENCE_DIR = path.resolve(process.cwd(), 'uploads/workflow-evidence');
 
 // Tech.md #23 Workflow API - citizen service requests (Phase 6) and the
 // officer review actions that advance them (Phase 7) both go through this
@@ -89,10 +82,9 @@ export class WorkflowsController {
         throw new BadRequestException('The attached document must be an image');
       }
       const { text } = await extractText(file.buffer);
-      await fs.mkdir(EVIDENCE_DIR, { recursive: true });
       const fileName = `${randomUUID()}.${file.mimetype.split('/')[1] || 'png'}`;
-      const filePath = path.join(EVIDENCE_DIR, fileName);
-      await fs.writeFile(filePath, file.buffer);
+      const filePath = `workflow-evidence/${fileName}`;
+      await uploadToStorage(filePath, file.buffer, file.mimetype);
       evidence = { fileName, filePath, mimeType: file.mimetype, extractedText: text };
     }
 

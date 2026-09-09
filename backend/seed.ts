@@ -1,6 +1,4 @@
 import 'dotenv/config';
-import * as path from 'path';
-import * as fs from 'fs/promises';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { getDatabaseConnectionOptions } from './src/database.config';
@@ -8,6 +6,7 @@ import { CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generateClusterParcels }
 import { computeClusterBounds, renderClusterSnapshot } from './src/common/parcel-generation/cluster-snapshot-generator';
 import { renderParcelDocumentImage } from './src/common/parcel-generation/parcel-document-generator';
 import { extractText } from './src/document-verification/ocr';
+import { ensureStorageBucketExists, uploadToStorage } from './src/common/supabase-storage';
 import { categoryFor, CURRENT_YEAR } from './src/common/parcel-generation/parcel-category';
 import { pointInRing, polygonDistanceMeters } from './src/common/geo-utils';
 import { Parcel } from './src/parcels/parcel.entity';
@@ -390,16 +389,18 @@ async function seedDatabase() {
 
     // Historical parcel-imagery archive (docs/FRONTEND_UPGRADE_SPEC.md §8) -
     // a small, fixed set of generated PNGs (one per cluster per year), the
-    // first place in this codebase that persists a generated image to disk
-    // rather than processing an in-memory upload and discarding it.
+    // first place in this codebase that persists a generated image rather
+    // than processing an in-memory upload and discarding it. Uploaded to
+    // Supabase Storage rather than local disk (2026-09-10) - a hosted
+    // deployment's filesystem doesn't survive a redeploy/restart, so a path
+    // like backend/uploads/... would 404 once actually deployed.
     // CURRENT_YEAR (2026, see parcel-category.ts) is included alongside the
     // four purely historical years so the year-toggle always has a "now" to
     // compare against; it's the only year rendered with real DisputeRecord-
     // based coloring (see the loop below), everything else is colored by
     // that year's recorded restrictionStatus only.
     const SNAPSHOT_YEARS = [2022, 2023, 2024, 2025, CURRENT_YEAR];
-    const SNAPSHOT_DIR = path.resolve(__dirname, 'uploads/cluster-snapshots');
-    await fs.mkdir(SNAPSHOT_DIR, { recursive: true });
+    await ensureStorageBucketExists();
 
     // Pune's saved parcels, so the zoning / restriction / infrastructure /
     // change-detection demo data below can reference exactly the right
@@ -717,8 +718,8 @@ async function seedDatabase() {
           categoryFor(e.restrictionByYear.get(year) ?? null, year === CURRENT_YEAR ? e : null),
         );
         const png = await renderClusterSnapshot(rings, bounds, categories);
-        const imagePath = path.join(SNAPSHOT_DIR, `${config.clusterId}-${year}.png`);
-        await fs.writeFile(imagePath, png);
+        const imagePath = `cluster-snapshots/${config.clusterId}-${year}.png`;
+        await uploadToStorage(imagePath, png, 'image/png');
         clusterHistoricalSnapshotsToSave.push({ clusterId: config.clusterId, year, imagePath, bounds: JSON.stringify(bounds) });
       }
     }
@@ -748,7 +749,7 @@ async function seedDatabase() {
     const savedParcelHistoricalStates = await parcelHistoricalStateRepository.save(parcelHistoricalStatesToSave);
     console.log(`Saved ${savedParcelHistoricalStates.length} parcel historical state records`);
     const savedClusterSnapshots = await clusterHistoricalSnapshotRepository.save(clusterHistoricalSnapshotsToSave);
-    console.log(`Saved ${savedClusterSnapshots.length} cluster historical snapshot images (${SNAPSHOT_DIR})`);
+    console.log(`Saved ${savedClusterSnapshots.length} cluster historical snapshot images (Supabase Storage, bucket 'bhoomisetu-uploads')`);
 
     const savedNeighbours = await neighbourRepository.save(neighbourRowsToSave);
     console.log(`Saved ${savedNeighbours.length} explicit neighbour relationships (TOUCHING + NEARBY)`);
@@ -957,9 +958,6 @@ async function seedDatabase() {
     // smaller share UNREGISTERED, so an officer's Land Claim/Verify
     // Documents queue has real pre-existing unregistered paperwork to act on
     // from day one rather than everything looking freshly pristine.
-    const DOCUMENTS_DIR = path.resolve(__dirname, 'uploads/parcel-documents');
-    await fs.mkdir(DOCUMENTS_DIR, { recursive: true });
-
     const parcelDocumentsToSave: Partial<ParcelDocument>[] = [];
     for (const link of savedCitizenLinks) {
       if (Math.random() >= 0.55) continue;
@@ -976,8 +974,8 @@ async function seedDatabase() {
         registrationStatus,
       });
       const fileName = `${parcel.id}.png`;
-      const filePath = path.join(DOCUMENTS_DIR, fileName);
-      await fs.writeFile(filePath, png);
+      const filePath = `parcel-documents/${fileName}`;
+      await uploadToStorage(filePath, png, 'image/png');
       // OCR'd once here (tesseract.js, same as the old standalone
       // document-verification feature used at request time) and stored, so
       // WorkflowsService's automatic pre-check never re-OCRs it later.

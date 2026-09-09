@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import * as fs from 'fs/promises';
+import { downloadFromStorage } from '../common/supabase-storage';
 import { Parcel } from './parcel.entity';
 import { ParcelIdentifier } from './parcel-identifier.entity';
 import { ParcelNeighbour } from './parcel-neighbour.entity';
@@ -95,11 +95,11 @@ export class ParcelsService {
     const document = await this.parcelDocumentRepository.findOne({ where: { id: docId, parcelId } });
     if (!document || !document.filePath) return null;
     try {
-      const buffer = await fs.readFile(document.filePath);
+      const buffer = await downloadFromStorage(document.filePath);
       return { buffer, mimeType: document.mimeType };
     } catch {
       // A bare row created on workflow approval (WorkflowsService.markParcelDocumentRegistered)
-      // for a parcel with nothing seeded has no real image on disk.
+      // for a parcel with nothing seeded has no real image in storage.
       return null;
     }
   }

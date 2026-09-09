@@ -3,13 +3,15 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // One row per cluster per year (docs/FRONTEND_UPGRADE_SPEC.md §8) - a small,
 // fixed archive (~25 rows: 5 clusters x 5 years, 2022-2026 - 2026 being the
 // app's current year), not one per parcel.
-// `imagePath` points at a PNG on disk (backend/uploads/cluster-snapshots/,
-// gitignored) served back through HistoricalImageryController - the first
-// place in this codebase that persists a generated image to disk rather
-// than processing an uploaded one in memory and discarding it (see
-// ChangeDetectionService for the in-memory convention this deliberately
-// departs from, since these need to be fetched again on-demand later, not
-// just processed once).
+// `imagePath` holds a Supabase Storage object key (e.g.
+// 'cluster-snapshots/pune-cluster-1-2026.png', see common/supabase-storage.ts)
+// served back through HistoricalImageryController - the first place in this
+// codebase that persists a generated image rather than processing an
+// uploaded one in memory and discarding it (see ChangeDetectionService for
+// the in-memory convention this deliberately departs from, since these need
+// to be fetched again on-demand later, not just processed once). Moved off
+// local disk 2026-09-10 - a hosted deployment's filesystem doesn't survive
+// a redeploy/restart, so a local path would 404 once actually deployed.
 @Entity('cluster_historical_snapshots')
 @Index(['clusterId', 'year'], { unique: true })
 export class ClusterHistoricalSnapshot {

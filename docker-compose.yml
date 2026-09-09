@@ -38,6 +38,8 @@ services:
       - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}
       - CORS_ORIGIN=${CORS_ORIGIN:-}
       - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY:-}
     depends_on:
       - postgis
 
