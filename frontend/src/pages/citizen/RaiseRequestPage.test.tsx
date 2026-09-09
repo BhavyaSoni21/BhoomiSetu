@@ -70,6 +70,27 @@ describe('RaiseRequestPage', () => {
     expect(screen.getByRole('button', { name: 'Request Documents' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Report Issue' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'File a Dispute' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Verify Documents' })).toBeInTheDocument();
+  });
+
+  it('files a Verify Documents request (DOCUMENT_VERIFICATION_REQUEST) against the selected parcel', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: {
+        id: 'wf2', parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST', currentStatus: 'SUBMITTED',
+        createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '',
+        steps: [{ id: 's2', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'PENDING', action: null, remarks: null, completedAt: null }],
+      },
+    });
+    renderPage();
+
+    fireEvent.change(await screen.findByLabelText(/Select a parcel/), { target: { value: 'p1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify Documents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit Request' }));
+
+    await waitFor(() =>
+      expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })),
+    );
   });
 
   it('files the request against the selected parcel, not any other one', async () => {

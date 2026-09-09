@@ -5,6 +5,12 @@ import apiService from '../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import GovernanceAlertDetailModal from './GovernanceAlertDetailModal';
+import GovernanceAlertReasonPrompt from './GovernanceAlertReasonPrompt';
+
+interface PendingAction {
+  alertId: string;
+  status: 'REVIEWED' | 'DISMISSED';
+}
 
 // Severity is its own axis from workflow/alert *status* - not literally
 // approved/pending/rejected - so it borrows the palette rather than the
@@ -27,6 +33,7 @@ const GovernanceAlertsPanel: React.FC = () => {
   const [explanations, setExplanations] = useState<Record<string, AiExplanation>>({});
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   const { data: alerts = [], isLoading, error } = useQuery<GovernanceAlert[]>(
     ['governance-alerts', 'OPEN'],
@@ -46,8 +53,8 @@ const GovernanceAlertsPanel: React.FC = () => {
   const pagedAlerts = alerts.slice(page * ALERTS_PER_PAGE, page * ALERTS_PER_PAGE + ALERTS_PER_PAGE);
 
   const statusMutation = useMutation(
-    async ({ id, status }: { id: string; status: 'REVIEWED' | 'DISMISSED' }) => {
-      const response = await apiService.patch(`/governance-alerts/${id}/status`, { status });
+    async ({ id, status, reason }: { id: string; status: 'REVIEWED' | 'DISMISSED'; reason: string }) => {
+      const response = await apiService.patch(`/governance-alerts/${id}/status`, { status, reason });
       return response.data;
     },
     {
@@ -57,6 +64,7 @@ const GovernanceAlertsPanel: React.FC = () => {
         // the detail modal is about to disappear from underneath it -
         // closing here avoids leaving the modal open on a stale reference.
         setSelectedAlertId((current) => (current === variables.id ? null : current));
+        setPendingAction((current) => (current?.alertId === variables.id ? null : current));
       },
     },
   );
@@ -79,6 +87,7 @@ const GovernanceAlertsPanel: React.FC = () => {
   }
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) ?? null;
+  const pendingAlert = pendingAction ? alerts.find((a) => a.id === pendingAction.alertId) ?? null : null;
 
   return (
     <div className="space-y-3">
@@ -103,7 +112,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               View Details
             </button>
             <button
-              onClick={() => statusMutation.mutate({ id: alert.id, status: 'REVIEWED' })}
+              onClick={() => setPendingAction({ alertId: alert.id, status: 'REVIEWED' })}
               disabled={statusMutation.isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
@@ -111,7 +120,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               Mark Reviewed
             </button>
             <button
-              onClick={() => statusMutation.mutate({ id: alert.id, status: 'DISMISSED' })}
+              onClick={() => setPendingAction({ alertId: alert.id, status: 'DISMISSED' })}
               disabled={statusMutation.isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
@@ -154,11 +163,29 @@ const GovernanceAlertsPanel: React.FC = () => {
           explanation={explanations[selectedAlert.id]}
           isExplaining={explainMutation.isLoading && explainMutation.variables === selectedAlert.id}
           explainError={explainMutation.isError && explainMutation.variables === selectedAlert.id}
-          isUpdatingStatus={statusMutation.isLoading}
           onExplain={() => explainMutation.mutate(selectedAlert.id)}
-          onMarkReviewed={() => statusMutation.mutate({ id: selectedAlert.id, status: 'REVIEWED' })}
-          onDismiss={() => statusMutation.mutate({ id: selectedAlert.id, status: 'DISMISSED' })}
+          // Both actions open the reason prompt (below) instead of
+          // submitting directly - closing the detail view first keeps
+          // exactly one modal on screen at a time.
+          onMarkReviewed={() => {
+            setPendingAction({ alertId: selectedAlert.id, status: 'REVIEWED' });
+            setSelectedAlertId(null);
+          }}
+          onDismiss={() => {
+            setPendingAction({ alertId: selectedAlert.id, status: 'DISMISSED' });
+            setSelectedAlertId(null);
+          }}
           onClose={() => setSelectedAlertId(null)}
+        />
+      )}
+
+      {pendingAlert && pendingAction && (
+        <GovernanceAlertReasonPrompt
+          alert={pendingAlert}
+          status={pendingAction.status}
+          isSubmitting={statusMutation.isLoading}
+          onConfirm={(reason) => statusMutation.mutate({ id: pendingAction.alertId, status: pendingAction.status, reason })}
+          onCancel={() => setPendingAction(null)}
         />
       )}
     </div>

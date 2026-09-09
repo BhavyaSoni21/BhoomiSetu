@@ -9,7 +9,10 @@ import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
 import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
+import { ParcelDocument } from '../src/parcels/parcel-document.entity';
+import { Notification } from '../src/notification-feed/notification.entity';
 import { createAuthenticatedUser } from './helpers/auth';
+import { renderParcelDocumentImage } from '../src/common/parcel-generation/parcel-document-generator';
 
 const square = (minLng: number, minLat: number, size = 0.001) =>
   JSON.stringify({
@@ -21,7 +24,11 @@ const square = (minLng: number, minLat: number, size = 0.001) =>
 
 describe('Workflows (service requests) (e2e)', () => {
   let app: INestApplication;
+  let testingModule: TestingModule;
   let parcelRepository: Repository<Parcel>;
+  let citizenParcelRepository: Repository<CitizenParcel>;
+  let parcelDocumentRepository: Repository<ParcelDocument>;
+  let notificationRepository: Repository<Notification>;
   let parcel: Parcel;
   let otherParcel: Parcel;
   // GET (list/single) and PATCH .../status, .../steps/:stepId are all
@@ -33,14 +40,17 @@ describe('Workflows (service requests) (e2e)', () => {
   // exercise that check for real.
   let adminAuth: string;
   let landRecordsAuth: string;
+  let landRecordsOfficerId: string;
   let registrationAuth: string;
   let citizenAuth: string;
+  let citizenUserId: string;
   let unassociatedCitizenAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
+    testingModule = moduleFixture;
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
@@ -48,7 +58,9 @@ describe('Workflows (service requests) (e2e)', () => {
     await app.init();
 
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
-    const citizenParcelRepository: Repository<CitizenParcel> = moduleFixture.get(getRepositoryToken(CitizenParcel));
+    notificationRepository = moduleFixture.get(getRepositoryToken(Notification));
+    citizenParcelRepository = moduleFixture.get(getRepositoryToken(CitizenParcel));
+    parcelDocumentRepository = moduleFixture.get(getRepositoryToken(ParcelDocument));
 
     parcel = await parcelRepository.save({
       canonicalParcelId: 'WF-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.85, 18.52),
@@ -58,7 +70,9 @@ describe('Workflows (service requests) (e2e)', () => {
     });
 
     adminAuth = (await createAuthenticatedUser(moduleFixture, 'ADMIN')).authHeader;
-    landRecordsAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+    const landRecordsOfficer = await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER');
+    landRecordsAuth = landRecordsOfficer.authHeader;
+    landRecordsOfficerId = landRecordsOfficer.user.id;
     registrationAuth = (await createAuthenticatedUser(moduleFixture, 'REGISTRATION_OFFICER')).authHeader;
 
     // Every POST /workflows test below files a request as this citizen
@@ -66,6 +80,7 @@ describe('Workflows (service requests) (e2e)', () => {
     // §4's "Raise Request only for associated parcels" - see workflows.controller.ts create()).
     const citizenAuthResult = await createAuthenticatedUser(moduleFixture, 'CITIZEN');
     citizenAuth = citizenAuthResult.authHeader;
+    citizenUserId = citizenAuthResult.user.id;
     await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel });
     await citizenParcelRepository.save({ citizen: citizenAuthResult.user, parcel: otherParcel });
 
@@ -90,6 +105,25 @@ describe('Workflows (service requests) (e2e)', () => {
       expect(res.body.steps.map((s: any) => s.department)).toEqual(['LAND_RECORDS', 'REGISTRATION', 'PLANNING']);
       expect(res.body.steps.every((s: any) => s.status === 'PENDING')).toBe(true);
       expect(res.body.steps.map((s: any) => s.stepOrder)).toEqual([1, 2, 3]);
+      // No GROQ_API_KEY in the test environment - RequestRoutingService's AI
+      // call fails and falls back to the deterministic pipelineFor(), which
+      // is exactly what the assertions above confirm; routingNotes stays
+      // null since it's only ever set when the AI call actually succeeds.
+      expect(res.body.routingNotes).toBeNull();
+    });
+
+    it('notifies every officer holding the assigned role(s) when a request is submitted', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      const notifications = await notificationRepository.find({ where: { userId: landRecordsOfficerId, type: 'WORKFLOW_ASSIGNED' } });
+      const forThisWorkflow = notifications.find((n) => n.workflowId === res.body.id);
+      expect(forThisWorkflow).toBeTruthy();
+      expect(forThisWorkflow!.parcelId).toBe(parcel.id);
+      expect(forThisWorkflow!.read).toBe(false);
     });
 
     it('accepts a workflow with no createdBy/requestDetails (both optional) and defaults createdBy to the filing citizen', async () => {
@@ -476,6 +510,26 @@ describe('Workflows (service requests) (e2e)', () => {
       expect(stillPending.body.steps.find((s: any) => s.id === registrationStep.id).status).toBe('PENDING');
     });
 
+    it('notifies the citizen who owns the parcel when their step is decided', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'All documents verified' })
+        .expect(200);
+
+      const notifications = await notificationRepository.find({ where: { userId: citizenUserId, type: 'WORKFLOW_STEP_APPROVED' } });
+      const forThisWorkflow = notifications.find((n) => n.workflowId === created.body.id);
+      expect(forThisWorkflow).toBeTruthy();
+      expect(forThisWorkflow!.message).toContain('All documents verified');
+    });
+
     it('lets ADMIN decide a step regardless of department', async () => {
       const created = await request(app.getHttpServer())
         .post('/api/v1/workflows')
@@ -526,6 +580,336 @@ describe('Workflows (service requests) (e2e)', () => {
 
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer()).get('/api/v1/workflows/mine').expect(401);
+    });
+  });
+
+  describe('LAND_CLAIM_REQUEST (docs/FRONTEND_UPGRADE_SPEC.md follow-up)', () => {
+    it('is exempt from the association check - a citizen can file it for a parcel they are NOT yet linked to', async () => {
+      const unclaimed = await parcelRepository.save({
+        canonicalParcelId: 'WF-CLAIM-1', stateCode: 'KA', districtCode: 'BAN', localBodyCode: 'KALB001', areaSqM: 400, geometry: square(77.6, 12.95),
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', unassociatedCitizenAuth)
+        .send({ parcelId: unclaimed.id, workflowType: 'LAND_CLAIM_REQUEST' })
+        .expect(201);
+
+      expect(res.body.steps).toHaveLength(1);
+      expect(res.body.steps[0]).toEqual(
+        expect.objectContaining({ department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'PENDING' }),
+      );
+      // No link exists yet - filing a claim doesn't grant access by itself.
+      const link = await citizenParcelRepository.findOne({ where: { parcel: { id: unclaimed.id } } });
+      expect(link).toBeNull();
+    });
+
+    it('rejects a claim on a parcel already linked to another citizen, with 409', async () => {
+      // `parcel` is already linked to `citizenAuth`'s account (beforeAll).
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', unassociatedCitizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'LAND_CLAIM_REQUEST' })
+        .expect(409);
+    });
+
+    it('approving the claim step creates the citizen_parcels link, so the parcel then appears in /parcels/mine', async () => {
+      const unclaimed = await parcelRepository.save({
+        canonicalParcelId: 'WF-CLAIM-2', stateCode: 'KA', districtCode: 'BAN', localBodyCode: 'KALB001', areaSqM: 410, geometry: square(77.61, 12.95),
+      });
+      const claimant = await createAuthenticatedUser(testingModule, 'CITIZEN');
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', claimant.authHeader)
+        .send({ parcelId: unclaimed.id, workflowType: 'LAND_CLAIM_REQUEST' })
+        .expect(201);
+
+      const approveRes = await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Papers verified' })
+        .expect(200);
+      expect(approveRes.body.currentStatus).toBe('APPROVED');
+
+      const mineRes = await request(app.getHttpServer())
+        .get('/api/v1/parcels/mine')
+        .set('Authorization', claimant.authHeader)
+        .expect(200);
+      expect(mineRes.body.parcels.some((p: any) => p.id === unclaimed.id)).toBe(true);
+    });
+
+    it('re-checks for a conflict at review time, rejecting approval with 409 if the parcel became linked to someone else since filing', async () => {
+      const unclaimed = await parcelRepository.save({
+        canonicalParcelId: 'WF-CLAIM-3', stateCode: 'KA', districtCode: 'BAN', localBodyCode: 'KALB001', areaSqM: 420, geometry: square(77.62, 12.95),
+      });
+      const claimant = await createAuthenticatedUser(testingModule, 'CITIZEN');
+      const someoneElse = await createAuthenticatedUser(testingModule, 'CITIZEN');
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', claimant.authHeader)
+        .send({ parcelId: unclaimed.id, workflowType: 'LAND_CLAIM_REQUEST' })
+        .expect(201);
+
+      // A conflict appears after filing but before review (e.g. another
+      // claim was approved first, or - as simulated directly here - the
+      // parcel got linked some other way in the meantime).
+      await citizenParcelRepository.save({ citizen: someoneElse.user, parcel: unclaimed });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(409);
+    });
+  });
+
+  describe('DOCUMENT_VERIFICATION_REQUEST (docs/FRONTEND_UPGRADE_SPEC.md follow-up)', () => {
+    it('requires the usual association check (not exempt like LAND_CLAIM_REQUEST) and routes to LAND_RECORDS', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', unassociatedCitizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })
+        .expect(403);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })
+        .expect(201);
+
+      expect(res.body.steps).toHaveLength(1);
+      expect(res.body.steps[0].department).toBe('LAND_RECORDS');
+    });
+
+    it('approving the step creates a bare REGISTERED ParcelDocument when the parcel had none on file', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      const document = await parcelDocumentRepository.findOne({ where: { parcelId: parcel.id } });
+      expect(document).toBeTruthy();
+      expect(document!.registrationStatus).toBe('REGISTERED');
+    });
+
+    it('flips an existing UNREGISTERED ParcelDocument to REGISTERED on approval', async () => {
+      await parcelDocumentRepository.save({
+        parcelId: otherParcel.id, documentType: 'ROR_COPY', fileName: 'x.png', filePath: '', mimeType: 'image/png', registrationStatus: 'UNREGISTERED',
+      });
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: otherParcel.id, workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      const document = await parcelDocumentRepository.findOne({ where: { parcelId: otherParcel.id } });
+      expect(document!.registrationStatus).toBe('REGISTERED');
+    });
+  });
+
+  describe('Evidence upload on POST /api/v1/workflows (multipart, docs/FRONTEND_UPGRADE_SPEC.md follow-up)', () => {
+    it('stores an uploaded document as workflow evidence and runs the pre-check against it', async () => {
+      const claimant = await createAuthenticatedUser(testingModule, 'CITIZEN');
+      const unclaimed = await parcelRepository.save({
+        canonicalParcelId: 'WF-EVIDENCE-1', stateCode: 'KA', districtCode: 'BAN', localBodyCode: 'KALB001', areaSqM: 500, geometry: square(77.63, 12.95),
+      });
+      const image = await renderParcelDocumentImage({
+        ownerName: claimant.user.name, surveyNumber: 'N/A', areaSqM: 500, stateCode: 'KA', districtCode: 'BAN', registrationStatus: 'UNREGISTERED',
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', claimant.authHeader)
+        .field('parcelId', unclaimed.id)
+        .field('workflowType', 'LAND_CLAIM_REQUEST')
+        .attach('document', image, 'document.png')
+        .expect(201);
+
+      expect(res.body.evidenceFileName).toBeTruthy();
+      expect(res.body.evidenceFilePath).toBeTruthy();
+      expect(res.body.evidenceMimeType).toBe('image/png');
+      const precheck = JSON.parse(res.body.verificationPrecheck);
+      expect(precheck.verdict).toBe('MATCHED');
+      expect(precheck.checks.find((c: any) => c.field === 'OWNER_NAME').status).toBe('MATCHED');
+    });
+
+    it("approving promotes the workflow's evidence into the parcel's ParcelDocument, overwriting whatever was there", async () => {
+      const claimant = await createAuthenticatedUser(testingModule, 'CITIZEN');
+      const unclaimed = await parcelRepository.save({
+        canonicalParcelId: 'WF-EVIDENCE-2', stateCode: 'KA', districtCode: 'BAN', localBodyCode: 'KALB001', areaSqM: 500, geometry: square(77.64, 12.95),
+      });
+      await parcelDocumentRepository.save({
+        parcelId: unclaimed.id, documentType: 'ROR_COPY', fileName: 'stale.png', filePath: '', mimeType: 'image/png',
+        extractedText: 'stale unrelated text', registrationStatus: 'UNREGISTERED',
+      });
+      const image = await renderParcelDocumentImage({
+        ownerName: claimant.user.name, surveyNumber: 'N/A', areaSqM: 500, stateCode: 'KA', districtCode: 'BAN', registrationStatus: 'UNREGISTERED',
+      });
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', claimant.authHeader)
+        .field('parcelId', unclaimed.id)
+        .field('workflowType', 'LAND_CLAIM_REQUEST')
+        .attach('document', image, 'document.png')
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      const document = await parcelDocumentRepository.findOne({ where: { parcelId: unclaimed.id } });
+      expect(document!.registrationStatus).toBe('REGISTERED');
+      expect(document!.fileName).not.toBe('stale.png');
+      expect(document!.extractedText).toContain(claimant.user.name);
+    });
+
+    it('a plain JSON request (no file attached) still works exactly as before', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      expect(res.body.evidenceFileName).toBeNull();
+      expect(res.body.evidenceFilePath).toBeNull();
+    });
+  });
+
+  describe('DISPUTE_FILING association exemption + conflict->dispute flow (docs/FRONTEND_UPGRADE_SPEC.md follow-up)', () => {
+    it('is exempt from the association check - a citizen can file a dispute against a parcel that is not theirs', async () => {
+      // `parcel` is linked to `citizenAuth`'s account, not `unassociatedCitizenAuth`'s.
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', unassociatedCitizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'DISPUTE_FILING', requestDetails: 'I believe this parcel is actually mine.' })
+        .expect(201);
+
+      expect(res.body.steps).toHaveLength(1);
+      expect(res.body.steps[0].department).toBe('DISPUTE');
+    });
+
+    it("lets a citizen file a Dispute for a parcel their own Land Claim just conflicted on, carrying the same evidence", async () => {
+      const disputer = await createAuthenticatedUser(testingModule, 'CITIZEN');
+      const image = await renderParcelDocumentImage({
+        ownerName: disputer.user.name, surveyNumber: 'N/A', areaSqM: 500, stateCode: 'MH', districtCode: 'PUN', registrationStatus: 'UNREGISTERED',
+      });
+
+      // `parcel` is already linked to `citizenAuth` - the claim conflicts.
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', disputer.authHeader)
+        .field('parcelId', parcel.id)
+        .field('workflowType', 'LAND_CLAIM_REQUEST')
+        .attach('document', image, 'document.png')
+        .expect(409);
+
+      // The pointer actually works now: filing a dispute for that same
+      // parcel, with the same evidence, succeeds rather than 403ing.
+      const disputeRes = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', disputer.authHeader)
+        .field('parcelId', parcel.id)
+        .field('workflowType', 'DISPUTE_FILING')
+        .field('requestDetails', 'This parcel is linked to another account, but I believe it is mine.')
+        .attach('document', image, 'document.png')
+        .expect(201);
+
+      expect(disputeRes.body.evidenceFileName).toBeTruthy();
+    });
+
+    it("never promotes a Dispute Filing's evidence into the parcel's ParcelDocument, even on approval", async () => {
+      const disputer = await createAuthenticatedUser(testingModule, 'CITIZEN');
+      const freshParcel = await parcelRepository.save({
+        canonicalParcelId: 'WF-DISPUTE-NOPROMOTE', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: square(73.86, 18.52),
+      });
+      const image = await renderParcelDocumentImage({
+        ownerName: disputer.user.name, surveyNumber: 'N/A', areaSqM: 500, stateCode: 'MH', districtCode: 'PUN', registrationStatus: 'UNREGISTERED',
+      });
+
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', disputer.authHeader)
+        .field('parcelId', freshParcel.id)
+        .field('workflowType', 'DISPUTE_FILING')
+        .attach('document', image, 'document.png')
+        .expect(201);
+      expect(created.body.verificationPrecheck).toBeNull();
+
+      const disputeOfficerAuth = (await createAuthenticatedUser(testingModule, 'DISPUTE_OFFICER')).authHeader;
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
+        .set('Authorization', disputeOfficerAuth)
+        .send({ action: 'APPROVE' })
+        .expect(200);
+
+      const document = await parcelDocumentRepository.findOne({ where: { parcelId: freshParcel.id } });
+      // freshParcel never had a ParcelDocument - a Dispute Filing's approval
+      // must never create/flip one, unlike a Land Claim's.
+      expect(document).toBeNull();
+    });
+  });
+
+  describe('GET /api/v1/workflows/:id/evidence', () => {
+    it("serves a workflow's submitted evidence file to staff", async () => {
+      const image = await renderParcelDocumentImage({
+        ownerName: 'Evidence Test', surveyNumber: 'N/A', areaSqM: 500, stateCode: 'MH', districtCode: 'PUN', registrationStatus: 'UNREGISTERED',
+      });
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .field('parcelId', parcel.id)
+        .field('workflowType', 'CORRECTION_REQUEST')
+        .attach('document', image, 'document.png')
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}/evidence`)
+        .set('Authorization', adminAuth)
+        .expect(200);
+      expect(res.headers['content-type']).toBe('image/png');
+    });
+
+    it('returns 404 when the workflow carries no evidence', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}/evidence`)
+        .set('Authorization', adminAuth)
+        .expect(404);
+    });
+
+    it('rejects a citizen account with 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/workflows/00000000-0000-0000-0000-000000000000/evidence')
+        .set('Authorization', citizenAuth)
+        .expect(403);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/workflows/00000000-0000-0000-0000-000000000000/evidence').expect(401);
     });
   });
 });

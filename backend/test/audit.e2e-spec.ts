@@ -194,7 +194,7 @@ describe('Audit logging (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${alert.id}/status`)
         .set('Authorization', landRecordsAuth)
-        .send({ status: 'DISMISSED' })
+        .send({ status: 'DISMISSED', reason: 'Not a real issue.' })
         .expect(200);
 
       const res = await request(app.getHttpServer())
@@ -205,7 +205,7 @@ describe('Audit logging (e2e)', () => {
       const entry = res.body.find((e: any) => e.entityId === alert.id);
       expect(entry.action).toBe('GOVERNANCE_ALERT_STATUS_CHANGED');
       expect(entry.entityType).toBe('GOVERNANCE_ALERT');
-      expect(entry.metadata).toEqual({ status: 'DISMISSED' });
+      expect(entry.metadata).toEqual({ status: 'DISMISSED', reason: 'Not a real issue.' });
     });
   });
 

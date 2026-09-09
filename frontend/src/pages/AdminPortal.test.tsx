@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
-import { fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AdminPortal from './AdminPortal';
@@ -8,20 +7,24 @@ import apiService from '../services/apiService';
 import { AuthUser } from '../features/auth/auth';
 
 vi.mock('../services/apiService', () => ({
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
 const admin: AuthUser = { id: 'u1', email: 'admin@test.gov.in', name: 'Rina Admin', role: 'ADMIN' };
 const managedAdmin = { ...admin, createdAt: '2026-01-01T00:00:00.000Z' };
 
-function renderPortal(user: AuthUser | null = admin) {
+// AdminPortal owns its own relative <Routes> now (docs/FRONTEND_UPGRADE_SPEC.md
+// §7, Phase 3), same pattern as OfficerPortal.tsx - a bare MemoryRouter's
+// default "/" location hits its index route (the Dashboard); pass
+// initialEntries to reach another of its pages.
+function renderPortal(user: AuthUser | null = admin, initialEntries: string[] = ['/']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['auth-me'], user);
   return {
     client,
     ...render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
           <AdminPortal />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -44,6 +47,7 @@ function mockApi() {
     if (url === '/predictive-analytics/top-risk-parcels') return { data: [] };
     if (url === '/users') return { data: [managedAdmin] };
     if (url === '/audit') return { data: [] };
+    if (url === '/admin/departments') return { data: [] };
     throw new Error(`unexpected url: ${url}`);
   });
 }
@@ -56,10 +60,10 @@ describe('AdminPortal', () => {
 
   it('renders nothing when there is no authenticated user', () => {
     renderPortal(null);
-    expect(screen.queryByText('Admin Portal')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Welcome,/)).not.toBeInTheDocument();
   });
 
-  it("shows the signed-in admin's name and the analytics/risk widgets", async () => {
+  it("shows the signed-in admin's name and the analytics/risk widgets on the Dashboard", async () => {
     mockApi();
     renderPortal();
 
@@ -68,34 +72,32 @@ describe('AdminPortal', () => {
     expect(screen.getByText('Top At-Risk Parcels')).toBeInTheDocument();
   });
 
-  it('shows real total users and recent login counts, not static placeholders', async () => {
-    mockApi();
-    renderPortal();
-
-    const usersValue = await screen.findByText('5');
-    expect(within(usersValue.closest('div')!).getByText('Total Users')).toBeInTheDocument();
-    const loginsValue = await screen.findByText('2');
-    expect(within(loginsValue.closest('div')!).getByText('Logins (24h)')).toBeInTheDocument();
-  });
-
-  it('shows the User Management and Recent Activity sections', async () => {
+  it('shows the User Management section with real users on the Dashboard', async () => {
     mockApi();
     renderPortal();
 
     expect(await screen.findByText('User Management')).toBeInTheDocument();
-    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
     expect(await screen.findByText('Rina Admin')).toBeInTheDocument(); // from the users list
-    expect(screen.getByText('No activity recorded yet.')).toBeInTheDocument();
   });
 
-  it('logging out clears the shared session and the portal renders nothing', async () => {
+  it('the Departments page shows the department directory', async () => {
     mockApi();
-    const { client } = renderPortal();
+    renderPortal(admin, ['/departments']);
 
-    expect(await screen.findByText(/Welcome, Rina Admin/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
+    expect(await screen.findByText('Department Directory')).toBeInTheDocument();
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/admin/departments'));
+    expect(screen.getByText('No departments yet.')).toBeInTheDocument();
+  });
 
-    expect(client.getQueryData(['auth-me'])).toBeNull();
-    await waitFor(() => expect(screen.queryByText('Admin Portal')).not.toBeInTheDocument());
+  it('the System Monitoring page shows real system totals and the activity log', async () => {
+    mockApi();
+    renderPortal(admin, ['/system-monitoring']);
+
+    expect(await screen.findByRole('heading', { name: 'System Monitoring' })).toBeInTheDocument();
+    const usersValue = await screen.findByText('5');
+    expect(within(usersValue.closest('div')!).getByText('Total Users')).toBeInTheDocument();
+    const loginsValue = await screen.findByText('2');
+    expect(within(loginsValue.closest('div')!).getByText('Logins (24h)')).toBeInTheDocument();
+    expect(await screen.findByText('No activity recorded yet.')).toBeInTheDocument();
   });
 });

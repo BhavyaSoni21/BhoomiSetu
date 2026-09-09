@@ -8,5 +8,6 @@ export interface GovernanceAlert {
   source: string;
   status: string;
   explanation: string;
+  reason: string | null;
   createdAt: string;
 }

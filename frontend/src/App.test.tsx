@@ -128,11 +128,14 @@ describe('App navbar is per-role, not just per-guest', () => {
     expect(nav.queryByRole('link', { name: 'My Parcels' })).not.toBeInTheDocument();
   });
 
-  it('an admin sees only Admin Portal', () => {
+  it("an admin sees their own portal page list only - no Home/About, no citizen/officer pages", () => {
     renderAs('ADMIN');
     const nav = within(screen.getByRole('banner'));
-    expect(nav.getByRole('link', { name: 'Admin Portal' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'Departments' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'System Monitoring' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: 'Assigned Requests' })).not.toBeInTheDocument();
   });
 
   it('the navbar never shows the BhoomiSetu logo, for any role', () => {
@@ -151,10 +154,11 @@ describe('App sign-out', () => {
   });
 
   // Logout is a single global affordance now (the utility bar's "Sign Out"),
-  // not duplicated per-portal - OfficerPortal.tsx/CitizenPortal.tsx no
-  // longer have their own logout button (previously OfficerPortal.tsx did).
-  // useLogout()'s own cache-clearing behaviour is unit-tested directly in
-  // auth.test.tsx; this covers the UI wiring.
+  // not duplicated per-portal - OfficerPortal.tsx/CitizenPortal.tsx/
+  // AdminPortal.tsx no longer have their own logout button (previously
+  // OfficerPortal.tsx and AdminPortal.tsx each did). useLogout()'s own
+  // cache-clearing behaviour is unit-tested directly in auth.test.tsx; this
+  // covers the UI wiring.
   it('clears the session and returns to the public Home page', async () => {
     renderApp();
     fireEvent.click(screen.getByRole('button', { name: 'Sign Out' }));
@@ -211,5 +215,46 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
 
     fireEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Features' }));
     expect(await screen.findByRole('heading', { name: 'What BhoomiSetu Does' })).toBeInTheDocument();
+  });
+});
+
+describe('App auth pages get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md §3)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(apiService.get).mockReset();
+    mockApi();
+  });
+
+  function renderAt(path: string) {
+    window.history.pushState({}, '', path);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <App />
+      </QueryClientProvider>,
+    );
+  }
+
+  it('shows only a brand-only strip on /login, not Home/About/Features or Get Started', () => {
+    renderAt('/login');
+    const header = screen.getByRole('banner');
+    expect(header.querySelector('img[alt="BhoomiSetu Official Logo"]')).toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'Features' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'Get Started' })).not.toBeInTheDocument();
+  });
+
+  it('shows only a brand-only strip on /register too', () => {
+    renderAt('/register');
+    const header = screen.getByRole('banner');
+    expect(header.querySelector('img[alt="BhoomiSetu Official Logo"]')).toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
+  });
+
+  it('the brand strip links back to the public Home page', () => {
+    renderAt('/login');
+    const logoLink = screen.getByAltText('BhoomiSetu Official Logo').closest('a');
+    expect(logoLink).toHaveAttribute('href', '/');
   });
 });

@@ -1,20 +1,31 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, LogIn, Send, UserPlus } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { CheckCircle2, LogIn, Send, UserPlus, Paperclip, MessageSquareWarning } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser } from '../auth/auth';
 import { Workflow } from '../../types/workflow';
+import { ParcelDocument } from '../../types/parcelDocument';
 
 interface ServiceRequestFormProps {
   parcelId: string;
   workflowType: string;
   title: string;
   onClose: () => void;
+  // Pre-attached file (e.g. carried over from LandClaimPanel's upload/identify
+  // steps, or a failed Land Claim's evidence re-offered for a Dispute Filing) -
+  // docs/FRONTEND_UPGRADE_SPEC.md follow-up.
+  initialFile?: File | null;
+  // Called instead of showing the generic error message when the server
+  // reports a 409 conflict (only ever LAND_CLAIM_REQUEST today) - the parent
+  // (LandClaimPanel) uses this to offer "File a Dispute Instead" with the
+  // same file already in hand.
+  onConflict?: () => void;
 }
 
-const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workflowType, title, onClose }) => {
+const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workflowType, title, onClose, initialFile, onConflict }) => {
   const { t } = useTranslation();
   // Backend requires an authenticated CITIZEN to create a workflow
   // (workflows.controller.ts: POST /workflows is @Roles(CITIZEN_ROLE)-guarded)
@@ -23,21 +34,54 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
   const { data: user, isLoading: userLoading } = useAuthUser();
   const isCitizen = user?.role === 'CITIZEN';
 
-  const [createdBy, setCreatedBy] = useState('');
   const [requestDetails, setRequestDetails] = useState('');
+  const [file, setFile] = useState<File | null>(initialFile ?? null);
+
+  // Verify Documents only prompts an upload when the parcel genuinely has no
+  // stored papers yet (docs/FRONTEND_UPGRADE_SPEC.md follow-up, confirmed
+  // 2026-09-09: "ask for papers only if missing, else fetch from backend") -
+  // Land Claim always arrives here with initialFile already set (the
+  // upload-first flow lives in LandClaimPanel, before this form ever mounts).
+  const isVerifyDocuments = workflowType === 'DOCUMENT_VERIFICATION_REQUEST';
+  const isDispute = workflowType === 'DISPUTE_FILING';
+  const { data: existingDocuments } = useQuery<ParcelDocument[]>(
+    ['parcel-documents', parcelId],
+    async () => (await apiService.get(`/parcels/${parcelId}/documents`)).data,
+    { enabled: isVerifyDocuments },
+  );
+  const needsUpload = isVerifyDocuments && !!existingDocuments && existingDocuments.length === 0;
 
   const mutation = useMutation<Workflow, Error>(async () => {
+    if (file) {
+      const formData = new FormData();
+      formData.append('parcelId', parcelId);
+      formData.append('workflowType', workflowType);
+      if (requestDetails.trim()) formData.append('requestDetails', requestDetails.trim());
+      formData.append('document', file);
+      // apiService defaults every request to Content-Type: application/json;
+      // for a FormData body that must be unset (not just relabeled) so the
+      // browser can set its own multipart boundary itself - same fix already
+      // established by ChangeDetectionPanel.tsx's own image upload.
+      const response = await apiService.post('/workflows', formData, { headers: { 'Content-Type': undefined } });
+      return response.data;
+    }
     const response = await apiService.post('/workflows', {
       parcelId,
       workflowType,
-      createdBy: createdBy.trim() || undefined,
       requestDetails: requestDetails.trim() || undefined,
     });
     return response.data;
   });
 
+  const isConflict = axios.isAxiosError(mutation.error) && mutation.error.response?.status === 409;
+  // Gated in JS (not just the input's own `required` attribute) so the
+  // submit button's disabled state is consistent and testable, rather than
+  // depending on native HTML5 constraint-validation UX.
+  const missingRequiredUpload = needsUpload && !file;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (missingRequiredUpload) return;
     mutation.mutate();
   };
 
@@ -117,21 +161,8 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
         <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">{title}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="requestedByInput" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-              Your Name
-            </label>
-            <input
-              id="requestedByInput"
-              type="text"
-              value={createdBy}
-              onChange={(e) => setCreatedBy(e.target.value)}
-              className="w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-              placeholder="Optional"
-            />
-          </div>
-          <div>
             <label htmlFor="requestDetailsInput" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-              Details
+              Reason
             </label>
             <textarea
               id="requestDetailsInput"
@@ -139,11 +170,56 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
               onChange={(e) => setRequestDetails(e.target.value)}
               rows={4}
               className="w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-              placeholder="Describe your request..."
+              placeholder="Why are you raising this request?"
             />
           </div>
-          {mutation.isError && (
-            <p className="text-sm font-medium text-secondary-strong">Something went wrong submitting your request. Please try again.</p>
+
+          {(needsUpload || isDispute) && (
+            <div>
+              <p className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+                {isDispute ? 'Supporting Document (optional)' : 'Upload Your Papers'}
+              </p>
+              <label
+                htmlFor="documentUploadInput"
+                className="flex items-center gap-2 border-2 border-dashed border-ink/40 px-3.5 py-2.5 text-sm text-ink/70 cursor-pointer hover:border-ink transition"
+              >
+                <Paperclip className="w-4 h-4 shrink-0" aria-hidden="true" />
+                {file ? file.name : 'Choose an image...'}
+              </label>
+              <input
+                id="documentUploadInput"
+                type="file"
+                accept="image/*"
+                aria-label={isDispute ? 'Supporting Document (optional)' : 'Upload Your Papers'}
+                className="sr-only"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              {needsUpload && (
+                <p className="text-xs text-ink/50 mt-1">No papers are on file for this parcel yet - please attach a photo of your document.</p>
+              )}
+            </div>
+          )}
+
+          {isConflict ? (
+            <div className="border-2 border-secondary/50 bg-secondary/10 px-3.5 py-3 space-y-2">
+              <p className="text-sm font-medium text-secondary-strong">
+                {axios.isAxiosError(mutation.error) && mutation.error.response?.data?.message}
+              </p>
+              {onConflict && (
+                <button
+                  type="button"
+                  onClick={onConflict}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-white text-xs font-bold uppercase tracking-wide border-2 border-ink hover:bg-secondary-strong transition"
+                >
+                  <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
+                  File a Dispute Instead
+                </button>
+              )}
+            </div>
+          ) : (
+            mutation.isError && (
+              <p className="text-sm font-medium text-secondary-strong">Something went wrong submitting your request. Please try again.</p>
+            )
           )}
           <div className="flex justify-end gap-3">
             <button
@@ -155,7 +231,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
             </button>
             <button
               type="submit"
-              disabled={mutation.isLoading}
+              disabled={mutation.isLoading || missingRequiredUpload}
               className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-sm font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
               <Send className="w-4 h-4" aria-hidden="true" />

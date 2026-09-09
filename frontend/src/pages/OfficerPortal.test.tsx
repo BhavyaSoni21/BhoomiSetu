@@ -128,4 +128,16 @@ describe('OfficerPortal', () => {
 
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
+
+  it('the historical-imagery route renders with a deep-linked cluster preselected from ?cluster=', async () => {
+    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+      if (url === '/historical-imagery/clusters') return { data: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023] }] };
+      if (url.includes('/parcels')) return { data: [] };
+      throw new Error(`unexpected url: ${url}`);
+    });
+    renderPortal(landRecordOfficer, ['/historical-imagery?cluster=MH-PUNE-01']);
+
+    expect(await screen.findByRole('heading', { name: /Historical Imagery/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Cluster')).toHaveValue('MH-PUNE-01'));
+  });
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { FileText, Flag, MessageSquareWarning, MapPin } from 'lucide-react';
+import { FileText, Flag, MessageSquareWarning, MapPin, ShieldCheck } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import ServiceRequestForm from '../../features/parcels/ServiceRequestForm';
@@ -109,6 +109,13 @@ const RaiseRequestPage: React.FC = () => {
                 >
                   <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
                   File a Dispute
+                </button>
+                <button
+                  onClick={() => setServiceRequest({ workflowType: 'DOCUMENT_VERIFICATION_REQUEST', title: 'Verify Documents' })}
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                  Verify Documents
                 </button>
               </div>
             </>

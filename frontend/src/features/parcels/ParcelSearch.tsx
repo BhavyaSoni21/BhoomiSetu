@@ -10,13 +10,17 @@ interface ParcelSearchProps {
   onResultsChange?: (parcels: ParcelSummary[]) => void;
   selectedParcelId?: string | null;
   onSelectParcel?: (parcelId: string) => void;
+  // Optional extra per-result action (e.g. Land Claim's "Claim This
+  // Parcel" button, CitizenDashboardPage) - rendered alongside the default
+  // View button, not instead of it.
+  renderResultAction?: (parcel: ParcelSummary) => React.ReactNode;
 }
 
 const inputClass =
   'w-full px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary transition';
 const labelClass = 'block text-xs font-bold uppercase tracking-widest text-ink mb-1';
 
-const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedParcelId, onSelectParcel }) => {
+const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedParcelId, onSelectParcel, renderResultAction }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [urlParams] = useUrlSearchParams();
@@ -234,6 +238,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                     >
                       {t('parcelSearch.viewButton')}
                     </button>
+                    {renderResultAction && <div className="mt-1.5">{renderResultAction(parcel)}</div>}
                   </div>
                 </div>
               </div>

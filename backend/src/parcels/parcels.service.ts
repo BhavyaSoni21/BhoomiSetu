@@ -1,13 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import * as fs from 'fs/promises';
 import { Parcel } from './parcel.entity';
 import { ParcelIdentifier } from './parcel-identifier.entity';
 import { ParcelNeighbour } from './parcel-neighbour.entity';
 import { CitizenParcel } from './citizen-parcel.entity';
+import { ParcelDocument } from './parcel-document.entity';
 import { OwnershipHistoryRecord } from './ownership-history-record.entity';
+import { ParcelHistoricalState } from './parcel-historical-state.entity';
 import { outerRing, parseGeometry, polygonDistanceMeters, ringCentroid } from '../common/geo-utils';
 import { isPostgisAvailable } from '../common/postgis';
+import { extractText } from '../document-verification/ocr';
+import { textContainsIdentifier } from '../document-verification/field-matcher';
 
 const DEFAULT_NEIGHBOUR_DISTANCE_M = 200;
 const TOUCH_EPSILON_M = 3;
@@ -37,8 +42,12 @@ export class ParcelsService {
     private parcelNeighbourRepository: Repository<ParcelNeighbour>,
     @InjectRepository(CitizenParcel)
     private citizenParcelRepository: Repository<CitizenParcel>,
+    @InjectRepository(ParcelDocument)
+    private parcelDocumentRepository: Repository<ParcelDocument>,
     @InjectRepository(OwnershipHistoryRecord)
     private ownershipHistoryRepository: Repository<OwnershipHistoryRecord>,
+    @InjectRepository(ParcelHistoricalState)
+    private parcelHistoricalStateRepository: Repository<ParcelHistoricalState>,
   ) {}
 
   // Parcels linked to a citizen's account (docs/Plan.md Phase 12's "My
@@ -71,6 +80,81 @@ export class ParcelsService {
     return this.ownershipHistoryRepository.find({
       where: { parcelId },
       order: { transactionDate: 'ASC' },
+    });
+  }
+
+  // Land property papers (docs/FRONTEND_UPGRADE_SPEC.md follow-up) - listing
+  // is public (matching Parcel 360's own public-tab precedent - this is
+  // metadata, not the image itself); the actual file is gated (see
+  // getDocumentFile's caller, ParcelsController).
+  async getDocuments(parcelId: string): Promise<ParcelDocument[]> {
+    return this.parcelDocumentRepository.find({ where: { parcelId }, order: { createdAt: 'ASC' } });
+  }
+
+  async getDocumentFile(parcelId: string, docId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    const document = await this.parcelDocumentRepository.findOne({ where: { id: docId, parcelId } });
+    if (!document || !document.filePath) return null;
+    try {
+      const buffer = await fs.readFile(document.filePath);
+      return { buffer, mimeType: document.mimeType };
+    } catch {
+      // A bare row created on workflow approval (WorkflowsService.markParcelDocumentRegistered)
+      // for a parcel with nothing seeded has no real image on disk.
+      return null;
+    }
+  }
+
+  // Upload-first Land Claim (docs/FRONTEND_UPGRADE_SPEC.md follow-up,
+  // 2026-09-09): OCRs an uploaded land document and identifies which real
+  // parcel it's for, so the citizen doesn't have to already know their
+  // ULPIN/survey number. Pure read - no persistence, no workflow created;
+  // WorkflowsController.create() re-OCRs the same file once the citizen
+  // actually confirms a parcel (simpler than threading OCR state across two
+  // requests, and this dataset is small enough that re-running OCR once
+  // more is cheap). Checked against every parcel's own ulpin AND every
+  // parcel_identifiers row (ULPIN isn't always duplicated into the latter -
+  // see seed.ts's IDENTIFIER_PROFILES) - small enough dataset (~220 parcels,
+  // ~540 identifiers) to fetch and filter in JS, matching this codebase's
+  // existing convention for read models.
+  async identifyFromDocument(imageBuffer: Buffer): Promise<{ extractedText: string; ocrConfidence: number; candidates: Parcel[] }> {
+    const { text, confidence } = await extractText(imageBuffer);
+    if (text.trim().length === 0) {
+      return { extractedText: text, ocrConfidence: confidence, candidates: [] };
+    }
+
+    const matchedParcelIds = new Set<string>();
+
+    const parcelsWithUlpin = await this.parcelRepository
+      .createQueryBuilder('parcel')
+      .where('parcel.ulpin IS NOT NULL')
+      .getMany();
+    for (const parcel of parcelsWithUlpin) {
+      if (textContainsIdentifier(text, parcel.ulpin!)) matchedParcelIds.add(parcel.id);
+    }
+
+    const identifiers = await this.parcelIdentifierRepository.find({ relations: ['parcel'] });
+    for (const identifier of identifiers) {
+      if (textContainsIdentifier(text, identifier.identifierValue)) matchedParcelIds.add(identifier.parcel.id);
+    }
+
+    const candidates =
+      matchedParcelIds.size === 0
+        ? []
+        : await this.parcelRepository.find({ where: { id: In([...matchedParcelIds].slice(0, 5)) } });
+
+    return { extractedText: text, ocrConfidence: confidence, candidates };
+  }
+
+  // Attribute-level history per year (docs/CITIZEN_FEATURES_UPGRADE_PLAN.md
+  // §3.4, docs/FRONTEND_UPGRADE_SPEC.md §8's prerequisite) - land use/
+  // zoning/restriction/tax status snapshotted per year, oldest first. Public,
+  // same as every other Parcel 360 tab (getParcel360/getRiskScore) - not
+  // citizen-restricted like ownership history, since this is departmental
+  // status info, not personal owner names.
+  async getHistoricalStates(parcelId: string, year?: number): Promise<ParcelHistoricalState[]> {
+    return this.parcelHistoricalStateRepository.find({
+      where: year !== undefined ? { parcelId, year } : { parcelId },
+      order: { year: 'ASC' },
     });
   }
 

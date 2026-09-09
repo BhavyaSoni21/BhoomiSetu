@@ -14,6 +14,12 @@ interface MapComponentProps {
   selectedParcelId?: string | null;
   /** Called when a parcel polygon is clicked, in addition to the info popup. */
   onParcelClick?: (parcelId: string) => void;
+  /** Per-parcel fill color (hex), keyed by parcel id - overrides the default by-stateCode coloring on the base parcels layer. Used by HistoricalImageryPanel to color parcels by ParcelCategory for a chosen year. */
+  parcelColors?: Record<string, string>;
+  /** Per-parcel extra popup line, keyed by parcel id - shown under the standard fields when present. */
+  parcelLabels?: Record<string, string>;
+  /** Zoom/pan to fit the `parcels` prop's own bounds once they load - opt-in so this never changes existing behavior for callers that show all-of-India search results (bare /map, CitizenPortal) without a specific area in mind. */
+  fitToParcels?: boolean;
 }
 
 type LayerKey =
@@ -124,7 +130,17 @@ function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.Feat
   source?.setData(data);
 }
 
-const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selectedParcelId, onParcelClick }) => {
+const DEFAULT_STATE_COLORS: Record<string, string> = { DL: '#ef4444', MH: '#f97316', KA: '#10b981' };
+const DEFAULT_PARCEL_COLOR = '#6b7280';
+
+const MapComponent: React.FC<MapComponentProps> = ({
+  parcels: parcelsProp,
+  selectedParcelId,
+  onParcelClick,
+  parcelColors,
+  parcelLabels,
+  fitToParcels,
+}) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -240,20 +256,18 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
         paint: { 'fill-color': '#9ca3af', 'fill-opacity': 0.15, 'fill-outline-color': '#6b7280' },
       });
 
-      // Base "search results" layer.
+      // Base "search results" layer. Fill color comes from a `fillColor`
+      // property computed per-feature in JS (see the base-parcels effect
+      // below) rather than a maplibre match expression, so an optional
+      // `parcelColors` override (HistoricalImageryPanel coloring parcels by
+      // ParcelCategory for a chosen year) is just a different value in that
+      // same property - the layer paint itself never needs to change.
       ensureLayer(map, 'parcels-source', {
         id: 'parcels-layer',
         type: 'fill',
         source: 'parcels-source',
         paint: {
-          'fill-color': [
-            'match',
-            ['get', 'stateCode'],
-            'DL', '#ef4444',
-            'MH', '#f97316',
-            'KA', '#10b981',
-            '#6b7280',
-          ],
+          'fill-color': ['get', 'fillColor'],
           'fill-opacity': 0.6,
           'fill-outline-color': '#ffffff',
         },
@@ -374,6 +388,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.district'))}:</strong> ${escapeHtml(String(props.districtCode))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM).toLocaleString()} m&sup2;</p>
+              ${props.extraLabel ? `<p class="text-ink text-xs py-0.5 mt-1 pt-1 border-t-2 border-ink/10">${escapeHtml(String(props.extraLabel))}</p>` : ''}
             </div>
           `)
           .addTo(map);
@@ -397,27 +412,36 @@ const MapComponent: React.FC<MapComponentProps> = ({ parcels: parcelsProp, selec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Base parcels layer data.
+  // Base parcels layer data. When `fitToParcels` is set (HistoricalMapView -
+  // a cluster picked from a dropdown, with no `selectedParcelId` to drive
+  // the context-based zoom below), also pan/zoom to fit whatever this batch
+  // of parcels covers - without this the map just sits at its default
+  // all-of-India view no matter which cluster is selected.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    setSourceData(map, 'parcels-source', {
-      type: 'FeatureCollection',
-      features: parcels.map((parcel) => ({
-        type: 'Feature',
-        properties: {
-          id: parcel.id,
-          canonicalParcelId: parcel.canonicalParcelId,
-          ulpin: parcel.ulpin,
-          stateCode: parcel.stateCode,
-          districtCode: parcel.districtCode,
-          localBodyCode: parcel.localBodyCode,
-          areaSqM: parcel.areaSqM,
-        },
-        geometry: parseParcelGeometry(parcel.geometry),
-      })),
-    });
-  }, [parcels, mapReady]);
+    const features: GeoJSON.Feature[] = parcels.map((parcel) => ({
+      type: 'Feature',
+      properties: {
+        id: parcel.id,
+        canonicalParcelId: parcel.canonicalParcelId,
+        ulpin: parcel.ulpin,
+        stateCode: parcel.stateCode,
+        districtCode: parcel.districtCode,
+        localBodyCode: parcel.localBodyCode,
+        areaSqM: parcel.areaSqM,
+        fillColor: parcelColors?.[parcel.id] ?? DEFAULT_STATE_COLORS[parcel.stateCode] ?? DEFAULT_PARCEL_COLOR,
+        extraLabel: parcelLabels?.[parcel.id] ?? null,
+      },
+      geometry: parseParcelGeometry(parcel.geometry),
+    }));
+    setSourceData(map, 'parcels-source', { type: 'FeatureCollection', features });
+
+    if (fitToParcels && features.length > 0) {
+      const bounds = boundsOfFeatures(features);
+      if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
+    }
+  }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady]);
 
   // Same-district layer.
   useEffect(() => {

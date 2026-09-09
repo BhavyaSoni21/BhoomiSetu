@@ -102,6 +102,9 @@ export interface Parcel360Response {
   location: { state: string; district: string; locality: string };
   spatial: { area_sq_m: number; geometry: GeoJSON.Geometry };
   sources: CanonicalSource[];
+  // Not part of Tech.md #15's canonical envelope - only present so the UI
+  // can offer a "View Historical Imagery" link for this parcel's cluster.
+  clusterId: string | null;
   departments: {
     landRecords: AdaptedLandRecord | null;
     registration: RegistrationRecord | null;

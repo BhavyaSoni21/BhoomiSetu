@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import apiService from '../../services/apiService';
 import { useAuthUser } from '../../features/auth/auth';
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
-import ComingSoonCard from '../../features/citizen/ComingSoonCard';
+import LandClaimPanel from '../../features/citizen/LandClaimPanel';
 
 // Summary only - the detailed data lives on its own dedicated page
 // (docs/FRONTEND_UPGRADE_SPEC.md §4's "Dashboard: a summary only"). Reuses
@@ -16,6 +16,7 @@ import ComingSoonCard from '../../features/citizen/ComingSoonCard';
 const CitizenDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { data: user } = useAuthUser();
+  const [showLandClaim, setShowLandClaim] = useState(false);
 
   const { data: parcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
     ['my-parcels'],
@@ -31,7 +32,7 @@ const CitizenDashboardPage: React.FC = () => {
     { to: '/citizen/find', Icon: Search, label: t('citizenNav.findParcels') },
     { to: '/citizen/raise-request', Icon: Send, label: t('citizenNav.raiseRequest') },
     { to: '/citizen/requests', Icon: ListChecks, label: t('citizenNav.requests') },
-    { to: '/citizen/verify', Icon: ShieldQuestion, label: t('citizenNav.verifyDocuments') },
+    { to: '/citizen/raise-request', Icon: ShieldQuestion, label: t('citizenNav.verifyDocuments') },
   ];
 
   return (
@@ -82,12 +83,30 @@ const CitizenDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <ComingSoonCard
-        icon={Flag}
-        title={t('placeholders.landClaimTitle')}
-        description={t('placeholders.landClaimDesc')}
-        accentClass="bg-secondary"
-      />
+      <div className="bg-surface border-2 border-ink shadow-hard-sm p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 shrink-0 flex items-center justify-center border-2 border-ink bg-secondary/20 text-secondary">
+              <Flag className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-ink mb-1">{t('placeholders.landClaimTitle')}</h3>
+              <p className="text-sm text-ink/60 max-w-xl">{t('placeholders.landClaimDesc')}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowLandClaim((v) => !v)}
+            className="shrink-0 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+          >
+            {showLandClaim ? 'Hide' : 'Search & Claim'}
+          </button>
+        </div>
+        {showLandClaim && (
+          <div className="mt-4">
+            <LandClaimPanel />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

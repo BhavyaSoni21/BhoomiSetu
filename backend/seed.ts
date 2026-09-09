@@ -1,13 +1,20 @@
 import 'dotenv/config';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { getDatabaseConnectionOptions } from './src/database.config';
 import { CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generateClusterParcels } from './src/common/parcel-generation/cluster-generator';
+import { computeClusterBounds, renderClusterSnapshot } from './src/common/parcel-generation/cluster-snapshot-generator';
+import { renderParcelDocumentImage } from './src/common/parcel-generation/parcel-document-generator';
+import { extractText } from './src/document-verification/ocr';
+import { categoryFor, CURRENT_YEAR } from './src/common/parcel-generation/parcel-category';
 import { pointInRing, polygonDistanceMeters } from './src/common/geo-utils';
 import { Parcel } from './src/parcels/parcel.entity';
 import { ParcelIdentifier } from './src/parcels/parcel-identifier.entity';
 import { ParcelNeighbour } from './src/parcels/parcel-neighbour.entity';
 import { CitizenParcel } from './src/parcels/citizen-parcel.entity';
+import { ParcelDocument } from './src/parcels/parcel-document.entity';
 import { ZoningOverlay } from './src/spatial/zoning-overlay.entity';
 import { RestrictionZone } from './src/spatial/restriction-zone.entity';
 import { InfrastructureFeature } from './src/spatial/infrastructure-feature.entity';
@@ -21,8 +28,11 @@ import { RestrictionRecord } from './src/departments/restriction-record.entity';
 import { DisputeRecord } from './src/departments/dispute-record.entity';
 import { EncumbranceRecord } from './src/departments/encumbrance-record.entity';
 import { OwnershipHistoryRecord } from './src/parcels/ownership-history-record.entity';
+import { ParcelHistoricalState } from './src/parcels/parcel-historical-state.entity';
+import { ClusterHistoricalSnapshot } from './src/historical-imagery/cluster-historical-snapshot.entity';
 import { GovernanceAlert } from './src/governance/governance-alert.entity';
 import { User } from './src/users/user.entity';
+import { Department } from './src/admin/department.entity';
 
 function districtCode(district: string): string {
   return district.substring(0, 3).toUpperCase();
@@ -203,6 +213,13 @@ interface ClusterParcelEntry {
   parcel: Parcel;
   ring: Ring;
   centroid: Point;
+  hasActiveDispute: boolean;
+  disputeType: string | null;
+  // restrictionStatus for every SNAPSHOT_YEARS year (populated by the
+  // per-parcel historical-state loop below) - the historical-imagery
+  // snapshot renderer needs this per parcel per year to compute a real
+  // ParcelCategory, not just the current live restriction flag.
+  restrictionByYear: Map<number, string>;
 }
 
 const TOUCH_EPSILON_M = 3; // matches ParcelsService's own TOUCHING threshold
@@ -256,9 +273,13 @@ async function seedDatabase() {
       DisputeRecord,
       EncumbranceRecord,
       OwnershipHistoryRecord,
+      ParcelHistoricalState,
+      ClusterHistoricalSnapshot,
       GovernanceAlert,
       User,
       CitizenParcel,
+      ParcelDocument,
+      Department,
     ],
   } as DataSourceOptions);
 
@@ -282,9 +303,13 @@ async function seedDatabase() {
     const disputeRecordRepository = dataSource.getRepository(DisputeRecord);
     const encumbranceRecordRepository = dataSource.getRepository(EncumbranceRecord);
     const ownershipHistoryRepository = dataSource.getRepository(OwnershipHistoryRecord);
+    const parcelHistoricalStateRepository = dataSource.getRepository(ParcelHistoricalState);
+    const clusterHistoricalSnapshotRepository = dataSource.getRepository(ClusterHistoricalSnapshot);
     const governanceAlertRepository = dataSource.getRepository(GovernanceAlert);
     const userRepository = dataSource.getRepository(User);
     const citizenParcelRepository = dataSource.getRepository(CitizenParcel);
+    const parcelDocumentRepository = dataSource.getRepository(ParcelDocument);
+    const departmentRepository = dataSource.getRepository(Department);
 
     // Reset so re-running this script always leaves the same parcel count
     // (CLUSTER_CONFIGS.reduce((n, c) => n + c.parcelCount, 0)).
@@ -296,8 +321,11 @@ async function seedDatabase() {
     // was invisible until now. Order still matters here: children before
     // the parents they reference.
     const tablesToClear = [
+      departmentRepository,
+      parcelDocumentRepository,
       citizenParcelRepository, userRepository, governanceAlertRepository, disputeRecordRepository, registrationRepository,
       planningRepository, taxRepository, restrictionRecordRepository, encumbranceRecordRepository, ownershipHistoryRepository,
+      parcelHistoricalStateRepository, clusterHistoricalSnapshotRepository,
       stateARepository, stateBRepository,
       neighbourRepository, identifierRepository, changeDetectionRepository, restrictionRepository,
       zoningRepository, infrastructureRepository, parcelRepository,
@@ -357,6 +385,21 @@ async function seedDatabase() {
     const disputeRecordsToSave: Partial<DisputeRecord>[] = [];
     const encumbranceRecordsToSave: Partial<EncumbranceRecord>[] = [];
     const ownershipHistoryRecordsToSave: Partial<OwnershipHistoryRecord>[] = [];
+    const parcelHistoricalStatesToSave: Partial<ParcelHistoricalState>[] = [];
+    const clusterHistoricalSnapshotsToSave: Partial<ClusterHistoricalSnapshot>[] = [];
+
+    // Historical parcel-imagery archive (docs/FRONTEND_UPGRADE_SPEC.md §8) -
+    // a small, fixed set of generated PNGs (one per cluster per year), the
+    // first place in this codebase that persists a generated image to disk
+    // rather than processing an in-memory upload and discarding it.
+    // CURRENT_YEAR (2026, see parcel-category.ts) is included alongside the
+    // four purely historical years so the year-toggle always has a "now" to
+    // compare against; it's the only year rendered with real DisputeRecord-
+    // based coloring (see the loop below), everything else is colored by
+    // that year's recorded restrictionStatus only.
+    const SNAPSHOT_YEARS = [2022, 2023, 2024, 2025, CURRENT_YEAR];
+    const SNAPSHOT_DIR = path.resolve(__dirname, 'uploads/cluster-snapshots');
+    await fs.mkdir(SNAPSHOT_DIR, { recursive: true });
 
     // Pune's saved parcels, so the zoning / restriction / infrastructure /
     // change-detection demo data below can reference exactly the right
@@ -365,6 +408,12 @@ async function seedDatabase() {
     // Every saved parcel, every cluster - used below to link a random subset
     // to demo citizen accounts (docs/Plan.md Phase 12).
     const allSavedParcels: Parcel[] = [];
+    // Owner name/primary identifier captured per parcel at creation time
+    // (below), so the later Land Property Papers step (after citizen links
+    // exist) can print a document that matches whichever name/identifier
+    // this parcel's own state schema (or ownership history) already
+    // recorded, instead of an independently-random name for the same parcel.
+    const parcelDocumentInfoById = new Map<string, { ownerName: string; identifierValue: string | null }>();
 
     // --- PHASE 2: build DB entities + every per-parcel department record
     // from the pre-generated geometry ------------------------------------
@@ -388,7 +437,14 @@ async function seedDatabase() {
         parcel.areaSqM = gp.areaSqM;
 
         const savedParcel = await parcelRepository.save(parcel);
-        const entry: ClusterParcelEntry = { parcel: savedParcel, ring: gp.ring, centroid: gp.centroid };
+        const entry: ClusterParcelEntry = {
+          parcel: savedParcel,
+          ring: gp.ring,
+          centroid: gp.centroid,
+          hasActiveDispute: false,
+          disputeType: null,
+          restrictionByYear: new Map(),
+        };
         clusterEntries.push(entry);
         allSavedParcels.push(savedParcel);
         if (config.district === 'Pune') puneEntries.push(entry);
@@ -427,6 +483,10 @@ async function seedDatabase() {
             recordCategory: 'Urban',
           });
         }
+        parcelDocumentInfoById.set(savedParcel.id, {
+          ownerName: currentOwnerName ?? randomPersonName(),
+          identifierValue: primaryIdentifierValue,
+        });
 
         // --- Phase 4 mock department records, one per parcel every cluster ---
         const isRegistered = Math.random() < 0.75;
@@ -509,9 +569,12 @@ async function seedDatabase() {
           ? weightedPick<string>([['FILED', 2], ['UNDER_REVIEW', 2], ['RESOLVED', 3], ['DISMISSED', 1]])
           : null;
         const isClosedCase = caseStatus === 'RESOLVED' || caseStatus === 'DISMISSED';
+        const hasActiveDispute = caseStatus === 'FILED' || caseStatus === 'UNDER_REVIEW';
+        entry.hasActiveDispute = hasActiveDispute;
+        entry.disputeType = hasActiveDispute ? disputeType : null;
         disputeRecordsToSave.push({
           parcelId: savedParcel.id,
-          hasActiveDispute: caseStatus === 'FILED' || caseStatus === 'UNDER_REVIEW',
+          hasActiveDispute,
           disputeType,
           caseStatus,
           filingDate: hasDispute ? randomDate(3) : null,
@@ -563,6 +626,40 @@ async function seedDatabase() {
           ownershipHistoryRecordsToSave.push(...chain);
         }
 
+        // Attribute-level history per year, 2022-2026 (docs/CITIZEN_FEATURES_UPGRADE_PLAN.md
+        // §3.4, the prerequisite docs/FRONTEND_UPGRADE_SPEC.md §8's imagery-
+        // comparison feature cross-checks against). 2026 - the app's current
+        // year - is the anchor: its row always matches this parcel's own
+        // current landUse/hasRestriction/taxStatus computed above - not
+        // independently random - so "current" and "the most recent history
+        // row" never silently disagree. Walking backward from 2026, each
+        // earlier year has a small independent chance of differing from the
+        // year after it, so most parcels get a flat, unremarkable history
+        // and a minority show a real change landing on a specific year -
+        // exactly the two cases the imagery feature's legitimate-vs-
+        // unauthorized check needs to tell apart.
+        {
+          let historyLandUse = landUse;
+          let historyZoning = weightedPick<string>([['APPROVED', 3], ['PENDING', 1], ['NOT_REQUIRED', 1]]);
+          let historyRestriction: 'RESTRICTED' | 'UNRESTRICTED' = hasRestriction ? 'RESTRICTED' : 'UNRESTRICTED';
+          let historyTax: string = taxStatus;
+          for (const year of [CURRENT_YEAR, 2025, 2024, 2023, 2022]) {
+            entry.restrictionByYear.set(year, historyRestriction);
+            parcelHistoricalStatesToSave.push({
+              parcelId: savedParcel.id,
+              year,
+              landUse: historyLandUse,
+              zoningStatus: historyZoning,
+              restrictionStatus: historyRestriction,
+              taxStatus: historyTax,
+            });
+            if (Math.random() < 0.12) historyLandUse = weightedPick(LAND_USES);
+            if (Math.random() < 0.12) historyZoning = weightedPick<string>([['APPROVED', 3], ['PENDING', 1], ['NOT_REQUIRED', 1]]);
+            if (Math.random() < 0.1) historyRestriction = historyRestriction === 'RESTRICTED' ? 'UNRESTRICTED' : 'RESTRICTED';
+            if (Math.random() < 0.15) historyTax = weightedPick<string>([['PAID', 6], ['PENDING', 3], ['OVERDUE', 1]]);
+          }
+        }
+
         // Local Parcel ID - every parcel, every state.
         identifiersToSave.push({
           parcel: savedParcel,
@@ -601,6 +698,29 @@ async function seedDatabase() {
 
       neighbourRowsToSave.push(...computeNeighbourRows(clusterEntries, config.centerLat));
       console.log(`Built ${clusterEntries.length} parcel entities + department records for cluster ${config.clusterId}`);
+
+      // One snapshot image per year, all five sharing the identical bounding
+      // box computed from this cluster's own real (already-saved) parcel
+      // boundaries - no image-registration step needed later when comparing
+      // two years (docs/FRONTEND_UPGRADE_SPEC.md §8's "key simplification").
+      // Each parcel's fill color per year is a real, data-driven
+      // ParcelCategory (parcel-category.ts) - restrictionByYear for every
+      // year, real current DisputeRecord for CURRENT_YEAR only - not a
+      // synthetic randomly-"changed" pixel set (removed 2026-09-08 per the
+      // user's follow-up: HistoricalComparisonService now detects what's
+      // different between two years by comparing this exact same category,
+      // so the render and the diff can never disagree).
+      const rings = clusterEntries.map((e) => e.ring);
+      const bounds = computeClusterBounds(rings);
+      for (const year of SNAPSHOT_YEARS) {
+        const categories = clusterEntries.map((e) =>
+          categoryFor(e.restrictionByYear.get(year) ?? null, year === CURRENT_YEAR ? e : null),
+        );
+        const png = await renderClusterSnapshot(rings, bounds, categories);
+        const imagePath = path.join(SNAPSHOT_DIR, `${config.clusterId}-${year}.png`);
+        await fs.writeFile(imagePath, png);
+        clusterHistoricalSnapshotsToSave.push({ clusterId: config.clusterId, year, imagePath, bounds: JSON.stringify(bounds) });
+      }
     }
 
     const savedIdentifiers = await identifierRepository.save(identifiersToSave);
@@ -625,6 +745,10 @@ async function seedDatabase() {
     console.log(`Saved ${savedEncumbranceRecords.length} encumbrance records`);
     const savedOwnershipHistory = await ownershipHistoryRepository.save(ownershipHistoryRecordsToSave);
     console.log(`Saved ${savedOwnershipHistory.length} ownership history records`);
+    const savedParcelHistoricalStates = await parcelHistoricalStateRepository.save(parcelHistoricalStatesToSave);
+    console.log(`Saved ${savedParcelHistoricalStates.length} parcel historical state records`);
+    const savedClusterSnapshots = await clusterHistoricalSnapshotRepository.save(clusterHistoricalSnapshotsToSave);
+    console.log(`Saved ${savedClusterSnapshots.length} cluster historical snapshot images (${SNAPSHOT_DIR})`);
 
     const savedNeighbours = await neighbourRepository.save(neighbourRowsToSave);
     console.log(`Saved ${savedNeighbours.length} explicit neighbour relationships (TOUCHING + NEARBY)`);
@@ -791,14 +915,25 @@ async function seedDatabase() {
     // Never real credentials: this is seed data for a hackathon prototype,
     // same as every other seeded record in this file.
     const DEMO_PASSWORD_HASH = bcrypt.hashSync('Demo@123', 10);
+    // emailVerified: true - admin-provisioned staff accounts are already
+    // trusted (docs/flow.md rule 5), no OTP concept applies to them
+    // (docs/FRONTEND_UPGRADE_SPEC.md §3), matching UsersController.create()'s
+    // own default for a real admin-created account.
     await userRepository.save([
-      { email: 'admin@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Admin User', role: 'ADMIN' },
-      { email: 'landrecords.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Asha Kulkarni', role: 'LAND_RECORD_OFFICER' },
-      { email: 'registration.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Rohan Mehta', role: 'REGISTRATION_OFFICER' },
-      { email: 'planning.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Priya Nair', role: 'PLANNING_OFFICER' },
-      { email: 'dispute.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Vikram Singh', role: 'DISPUTE_OFFICER' },
+      { email: 'admin@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Admin User', role: 'ADMIN', emailVerified: true },
+      { email: 'landrecords.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Asha Kulkarni', role: 'LAND_RECORD_OFFICER', emailVerified: true },
+      { email: 'registration.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Rohan Mehta', role: 'REGISTRATION_OFFICER', emailVerified: true },
+      { email: 'planning.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Priya Nair', role: 'PLANNING_OFFICER', emailVerified: true },
+      { email: 'dispute.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Vikram Singh', role: 'DISPUTE_OFFICER', emailVerified: true },
+      // Added so every department in the admin Department directory
+      // (docs/FRONTEND_UPGRADE_SPEC.md §7) has at least one real officer to
+      // receive AI-routed requests and governance-alert notifications - see
+      // RequestRoutingService/NotificationFeedService.
+      { email: 'tax.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Meera Iyer', role: 'TAX_OFFICER', emailVerified: true },
+      { email: 'restriction.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Arjun Deshmukh', role: 'RESTRICTION_OFFICER', emailVerified: true },
+      { email: 'encumbrance.officer@bhoomisetu.gov.in', passwordHash: DEMO_PASSWORD_HASH, name: 'Kavita Rao', role: 'ENCUMBRANCE_OFFICER', emailVerified: true },
     ]);
-    console.log('Saved 5 demo user accounts (1 admin + 4 officer roles, password: Demo@123)');
+    console.log('Saved 8 demo user accounts (1 admin + 7 officer roles, password: Demo@123)');
 
     // Optional citizen sign-in (docs/Plan.md Phase 12): each demo citizen
     // account gets linked to a random 0-5 parcels for the "My Parcels"
@@ -815,6 +950,11 @@ async function seedDatabase() {
       passwordHash: DEMO_PASSWORD_HASH,
       name: randomPersonName(),
       role: 'CITIZEN',
+      // Demo citizens have never gone through the real registration/OTP
+      // flow (docs/FRONTEND_UPGRADE_SPEC.md §3) - marked verified so the
+      // Profile page shows them as such rather than nudging every demo
+      // account to "verify" an email that was never actually theirs to prove.
+      emailVerified: true,
     }));
     const savedCitizens = await userRepository.save(citizensToSave);
 
@@ -827,6 +967,71 @@ async function seedDatabase() {
     }
     const savedCitizenLinks = await citizenParcelRepository.save(citizenParcelLinksToSave);
     console.log(`Saved ${savedCitizens.length} demo citizen accounts (password: Demo@123), linked to ${savedCitizenLinks.length} parcels total`);
+
+    // Land property papers (docs/FRONTEND_UPGRADE_SPEC.md follow-up) -
+    // deliberately partial and messy, not a uniform 1:1 seed: only
+    // citizen-linked parcels are even candidates, and even among those only
+    // a random subset actually gets a document (a realistic "paperwork
+    // genuinely missing" gap, not a bug - every never-linked parcel has none
+    // either). Dated as the current year only (CURRENT_YEAR) - no historical
+    // versions. Of the parcels that do get one, most are REGISTERED, a
+    // smaller share UNREGISTERED, so an officer's Land Claim/Verify
+    // Documents queue has real pre-existing unregistered paperwork to act on
+    // from day one rather than everything looking freshly pristine.
+    const DOCUMENTS_DIR = path.resolve(__dirname, 'uploads/parcel-documents');
+    await fs.mkdir(DOCUMENTS_DIR, { recursive: true });
+
+    const parcelDocumentsToSave: Partial<ParcelDocument>[] = [];
+    for (const link of savedCitizenLinks) {
+      if (Math.random() >= 0.55) continue;
+      const parcel = link.parcel;
+      const info = parcelDocumentInfoById.get(parcel.id) ?? { ownerName: randomPersonName(), identifierValue: null };
+      const registrationStatus = Math.random() < 0.7 ? 'REGISTERED' : 'UNREGISTERED';
+
+      const png = await renderParcelDocumentImage({
+        ownerName: info.ownerName,
+        surveyNumber: info.identifierValue ?? 'N/A',
+        areaSqM: Number(parcel.areaSqM),
+        stateCode: parcel.stateCode,
+        districtCode: parcel.districtCode,
+        registrationStatus,
+      });
+      const fileName = `${parcel.id}.png`;
+      const filePath = path.join(DOCUMENTS_DIR, fileName);
+      await fs.writeFile(filePath, png);
+      // OCR'd once here (tesseract.js, same as the old standalone
+      // document-verification feature used at request time) and stored, so
+      // WorkflowsService's automatic pre-check never re-OCRs it later.
+      const { text } = await extractText(png);
+
+      parcelDocumentsToSave.push({
+        parcelId: parcel.id,
+        documentType: 'ROR_COPY',
+        fileName,
+        filePath,
+        mimeType: 'image/png',
+        extractedText: text,
+        registrationStatus,
+      });
+    }
+    const savedParcelDocuments = await parcelDocumentRepository.save(parcelDocumentsToSave);
+    console.log(`Saved ${savedParcelDocuments.length} parcel documents (land property papers) out of ${savedCitizenLinks.length} citizen-linked parcels`);
+
+    // Admin Portal "Department management" (docs/FRONTEND_UPGRADE_SPEC.md §7,
+    // Phase 3) - display/admin metadata only, one row per existing hardcoded
+    // department code (ROLE_DEPARTMENT / the 7 mock department modules under
+    // src/departments/). Seeded so the admin CRUD page has real starting data
+    // to demo against instead of an empty list.
+    const savedDepartments = await departmentRepository.save([
+      { code: 'LAND_RECORDS', name: 'Land Records', description: 'Survey numbers, ownership records, and title documentation.', contactEmail: 'landrecords@bhoomisetu.gov.in' },
+      { code: 'REGISTRATION', name: 'Registration', description: 'Property registration and transaction recording.', contactEmail: 'registration@bhoomisetu.gov.in' },
+      { code: 'PLANNING', name: 'Planning', description: 'Zoning classification, land use, and master plan oversight.', contactEmail: 'planning@bhoomisetu.gov.in' },
+      { code: 'TAX', name: 'Tax', description: 'Property tax assessment and collection.', contactEmail: 'tax@bhoomisetu.gov.in' },
+      { code: 'RESTRICTION', name: 'Restriction', description: 'Environmental, protected-area, and other land-use restrictions.', contactEmail: 'restrictions@bhoomisetu.gov.in' },
+      { code: 'DISPUTE', name: 'Dispute', description: 'Ownership, boundary, inheritance, and encroachment dispute resolution.', contactEmail: 'disputes@bhoomisetu.gov.in' },
+      { code: 'ENCUMBRANCE', name: 'Encumbrance', description: 'Mortgages, liens, and other charges registered against a parcel.', contactEmail: 'encumbrance@bhoomisetu.gov.in' },
+    ]);
+    console.log(`Saved ${savedDepartments.length} departments`);
 
     const totalParcels = await parcelRepository.count();
     console.log(`Database seeding completed successfully! Total parcels: ${totalParcels}`);

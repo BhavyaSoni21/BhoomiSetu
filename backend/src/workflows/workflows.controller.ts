@@ -1,5 +1,10 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe, NotFoundException, BadRequestException, ForbiddenException, UseGuards } from '@nestjs/common';
-import { WorkflowsService } from './workflows.service';
+import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe, NotFoundException, BadRequestException, ForbiddenException, ConflictException, UseGuards, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { randomUUID } from 'crypto';
+import { WorkflowsService, WorkflowEvidenceInput } from './workflows.service';
 import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,6 +13,15 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT } from '../auth/roles.constants';
 import { User } from '../users/user.entity';
 import { AuditService } from '../audit/audit.service';
+import { extractText } from '../document-verification/ocr';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB, matching the old document-verification controller's own limit
+// Runtime-written uploads (unlike cluster-snapshots/parcel-documents, which
+// are only ever written by seed.ts) - path.resolve against process.cwd()
+// rather than __dirname, matching how database.config.ts's SQLite path
+// already resolves relative to wherever the process was started (the
+// backend root, per npm run start:dev).
+const EVIDENCE_DIR = path.resolve(process.cwd(), 'uploads/workflow-evidence');
 
 // Tech.md #23 Workflow API - citizen service requests (Phase 6) and the
 // officer review actions that advance them (Phase 7) both go through this
@@ -26,10 +40,16 @@ export class WorkflowsController {
     private readonly auditService: AuditService,
   ) {}
 
+  // Accepts multipart/form-data with an optional 'document' file (upload-first
+  // Land Claim, Verify Documents when the parcel has no papers on file yet,
+  // or Dispute Filing evidence) as well as a plain JSON body when no file is
+  // attached - FileInterceptor/multer only activates for multipart requests,
+  // so every existing JSON-only call site is unaffected.
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(CITIZEN_ROLE)
-  async create(@CurrentUser() user: User, @Body() dto: CreateWorkflowDto) {
+  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: MAX_IMAGE_BYTES } }))
+  async create(@CurrentUser() user: User, @Body() dto: CreateWorkflowDto, @UploadedFile() file?: Express.Multer.File) {
     // Raise Request restricted to the citizen's own parcels
     // (docs/FRONTEND_UPGRADE_SPEC.md §4). Existence is checked before
     // association - same ordering as ParcelsController's
@@ -39,12 +59,56 @@ export class WorkflowsController {
     if (!parcelExists) {
       throw new BadRequestException(`Parcel not found: ${dto.parcelId}`);
     }
-    const associated = await this.workflowsService.isCitizenAssociatedWithParcel(user.id, dto.parcelId);
-    if (!associated) {
-      throw new ForbiddenException('You can only raise a request for a parcel associated with your account');
+
+    // LAND_CLAIM_REQUEST and DISPUTE_FILING are the two exceptions to the
+    // association check below - claiming is precisely for a parcel the
+    // citizen ISN'T yet linked to, and a dispute (e.g. "this parcel is
+    // actually mine") is definitionally often about a parcel they don't
+    // hold either. A Land Claim additionally conflicts if the parcel is
+    // already linked to ANY citizen, pointed at Dispute Filing instead of a
+    // new conflict-tracking subsystem (re-checked at review time too, see
+    // WorkflowsService.reviewStep) - Dispute Filing itself has no such
+    // conflict check, since disputing an existing link is the whole point.
+    if (dto.workflowType === 'LAND_CLAIM_REQUEST') {
+      const conflict = await this.workflowsService.hasConflictingClaim(dto.parcelId);
+      if (conflict) {
+        throw new ConflictException(
+          'This parcel is already linked to another account. If you believe this is incorrect, file a dispute instead.',
+        );
+      }
+    } else if (dto.workflowType !== 'DISPUTE_FILING') {
+      const associated = await this.workflowsService.isCitizenAssociatedWithParcel(user.id, dto.parcelId);
+      if (!associated) {
+        throw new ForbiddenException('You can only raise a request for a parcel associated with your account');
+      }
     }
 
-    const result = await this.workflowsService.create({ ...dto, createdBy: dto.createdBy ?? user.name });
+    let evidence: WorkflowEvidenceInput | null = null;
+    if (file) {
+      if (!file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('The attached document must be an image');
+      }
+      const { text } = await extractText(file.buffer);
+      await fs.mkdir(EVIDENCE_DIR, { recursive: true });
+      const fileName = `${randomUUID()}.${file.mimetype.split('/')[1] || 'png'}`;
+      const filePath = path.join(EVIDENCE_DIR, fileName);
+      await fs.writeFile(filePath, file.buffer);
+      evidence = { fileName, filePath, mimeType: file.mimetype, extractedText: text };
+    }
+
+    // Simplified Raise Request (docs/FRONTEND_UPGRADE_SPEC.md follow-up):
+    // applicant contact/address snapshotted from the citizen's own profile,
+    // never client-entered - whichever contact method is actually verified,
+    // matching how WorkflowReviewPanel needs a real way to reach them back.
+    const applicantContact = user.mobileVerified ? user.mobileNumber : user.emailVerified ? user.email : null;
+    const result = await this.workflowsService.create({
+      ...dto,
+      createdBy: dto.createdBy ?? user.name,
+      citizenId: user.id,
+      applicantContact,
+      applicantAddress: user.address,
+      evidence,
+    });
     if (result === 'PARCEL_NOT_FOUND') {
       throw new BadRequestException(`Parcel not found: ${dto.parcelId}`);
     }
@@ -97,6 +161,23 @@ export class WorkflowsController {
     return workflow;
   }
 
+  // Serves a citizen-submitted evidence file (docs/FRONTEND_UPGRADE_SPEC.md
+  // follow-up) - staff-only, same as findOne above (a citizen never needs
+  // this back from the server: the browser already holds the bytes locally
+  // right after they upload it, via the File object/object URL, so only the
+  // reviewing officer's page ever calls this).
+  @Get(':id/evidence')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ALL_STAFF_ROLES)
+  async getEvidence(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const file = await this.workflowsService.getEvidenceFile(id);
+    if (!file) {
+      throw new NotFoundException(`No evidence file found for workflow: ${id}`);
+    }
+    res.set('Content-Type', file.mimeType);
+    res.send(file.buffer);
+  }
+
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ALL_STAFF_ROLES)
@@ -138,6 +219,11 @@ export class WorkflowsController {
     }
     if (result === 'STEP_ALREADY_DECIDED') {
       throw new BadRequestException('This workflow step has already been decided');
+    }
+    if (result === 'CLAIM_CONFLICT') {
+      throw new ConflictException(
+        'This parcel was linked to another account before this claim could be approved. Direct the citizen to file a dispute instead.',
+      );
     }
     const decidedStep = result.steps.find((s) => s.id === stepId)!;
     await this.auditService.log({

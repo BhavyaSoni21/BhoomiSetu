@@ -82,7 +82,7 @@ describe('LoginPage', () => {
 
     fillAndSubmit('lr@test.gov.in', 'WrongPassword');
 
-    expect(await screen.findByText('Invalid email or password.')).toBeInTheDocument();
+    expect(await screen.findByText('Invalid credentials.')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -99,5 +99,47 @@ describe('LoginPage', () => {
     renderPage();
     expect(screen.getByText(/admin@bhoomisetu.gov.in/)).toBeInTheDocument();
     expect(screen.getByText(/dispute.officer@bhoomisetu.gov.in/)).toBeInTheDocument();
+  });
+
+  // Method-selector (docs/FRONTEND_UPGRADE_SPEC.md §3) - a toggle, not both
+  // fields shown at once.
+  it('shows only the email field by default, and only the mobile field after switching', () => {
+    renderPage();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mobile Number')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Login with Mobile' }));
+
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Mobile Number')).toBeInTheDocument();
+  });
+
+  it('logs in with a mobile number when that method is selected', async () => {
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: { accessToken: 'tok', user: { id: 'u4', mobileNumber: '9000000001', name: 'Mobile Citizen', role: 'CITIZEN' } },
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Login with Mobile' }));
+    fireEvent.change(screen.getByLabelText('Mobile Number'), { target: { value: '9000000001' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Demo@123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    await waitFor(() =>
+      expect(apiService.post).toHaveBeenCalledWith('/auth/login', { mobileNumber: '9000000001', password: 'Demo@123' }),
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/citizen'));
+  });
+
+  it('toggles password visibility', () => {
+    renderPage();
+    const passwordInput = screen.getByLabelText('Password') as HTMLInputElement;
+    expect(passwordInput.type).toBe('password');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(passwordInput.type).toBe('text');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(passwordInput.type).toBe('password');
   });
 });

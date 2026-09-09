@@ -7,8 +7,12 @@ import apiService from '../../services/apiService';
 import { AuthUser } from '../auth/auth';
 
 vi.mock('../../services/apiService', () => ({
-  default: { post: vi.fn() },
+  default: { post: vi.fn(), get: vi.fn() },
 }));
+
+function makeFile(name = 'document.png') {
+  return new File(['fake-image-bytes'], name, { type: 'image/png' });
+}
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 const officer: AuthUser = { id: 'o1', email: 'officer@test.gov.in', name: 'An Officer', role: 'LAND_RECORD_OFFICER' };
@@ -30,6 +34,7 @@ function renderWithClient(ui: React.ReactElement, user: AuthUser | null = citize
 describe('ServiceRequestForm', () => {
   beforeEach(() => {
     vi.mocked(apiService.post).mockReset();
+    vi.mocked(apiService.get).mockReset();
   });
 
   it('calls onClose without submitting when Cancel is clicked', () => {
@@ -54,7 +59,6 @@ describe('ServiceRequestForm', () => {
       expect(apiService.post).toHaveBeenCalledWith('/workflows', {
         parcelId: 'p1',
         workflowType: 'CORRECTION_REQUEST',
-        createdBy: undefined,
         requestDetails: undefined,
       }),
     );
@@ -93,4 +97,98 @@ describe('ServiceRequestForm', () => {
       user,
     );
   }
+
+  describe('DOCUMENT_VERIFICATION_REQUEST (conditional upload)', () => {
+    it('shows no upload field and submits as JSON when the parcel already has a document on file', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', mimeType: 'image/png', registrationStatus: 'REGISTERED', createdAt: '' }] });
+      vi.mocked(apiService.post).mockResolvedValue({
+        data: { id: 'wf1', parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST', currentStatus: 'SUBMITTED', createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '', steps: [] },
+      });
+      renderWithClient(<ServiceRequestForm parcelId="p1" workflowType="DOCUMENT_VERIFICATION_REQUEST" title="Verify Documents" onClose={vi.fn()} />);
+
+      await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/parcels/p1/documents'));
+      expect(screen.queryByLabelText('Upload Your Papers')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+      await waitFor(() =>
+        expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })),
+      );
+    });
+
+    it('requires an upload and submits multipart when the parcel has no document on file', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: [] });
+      vi.mocked(apiService.post).mockResolvedValue({
+        data: { id: 'wf1', parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST', currentStatus: 'SUBMITTED', createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '', steps: [] },
+      });
+      renderWithClient(<ServiceRequestForm parcelId="p1" workflowType="DOCUMENT_VERIFICATION_REQUEST" title="Verify Documents" onClose={vi.fn()} />);
+
+      expect(await screen.findByText(/No papers are on file/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Submit Request' })).toBeDisabled();
+      const fileInput = document.getElementById('documentUploadInput') as HTMLInputElement;
+      fireEvent.change(fileInput, { target: { files: [makeFile()] } });
+
+      expect(screen.getByRole('button', { name: 'Submit Request' })).not.toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+      await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.any(FormData), { headers: { 'Content-Type': undefined } }));
+      const formData = vi.mocked(apiService.post).mock.calls[0][1] as FormData;
+      expect(formData.get('workflowType')).toBe('DOCUMENT_VERIFICATION_REQUEST');
+      expect(formData.get('document')).toBeInstanceOf(File);
+    });
+  });
+
+  describe('DISPUTE_FILING (optional evidence)', () => {
+    it('shows an always-optional evidence upload field, pre-filled from initialFile', async () => {
+      renderWithClient(
+        <ServiceRequestForm parcelId="p1" workflowType="DISPUTE_FILING" title="File a Dispute" onClose={vi.fn()} initialFile={makeFile('evidence.png')} />,
+      );
+
+      expect(screen.getByText('evidence.png')).toBeInTheDocument();
+      const fileInput = document.getElementById('documentUploadInput') as HTMLInputElement;
+      expect(fileInput).not.toBeRequired();
+    });
+
+    it('submits as JSON when no evidence file is attached', async () => {
+      vi.mocked(apiService.post).mockResolvedValue({
+        data: { id: 'wf1', parcelId: 'p1', workflowType: 'DISPUTE_FILING', currentStatus: 'SUBMITTED', createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '', steps: [] },
+      });
+      renderWithClient(<ServiceRequestForm parcelId="p1" workflowType="DISPUTE_FILING" title="File a Dispute" onClose={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+      await waitFor(() =>
+        expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DISPUTE_FILING' })),
+      );
+    });
+  });
+
+  describe('409 conflict handling', () => {
+    it("shows the server's message and a File a Dispute Instead button when onConflict is provided", async () => {
+      vi.mocked(apiService.post).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { message: 'This parcel is already linked to another account.' } },
+      });
+      const onConflict = vi.fn();
+      renderWithClient(
+        <ServiceRequestForm parcelId="p1" workflowType="LAND_CLAIM_REQUEST" title="Claim This Parcel" onClose={vi.fn()} initialFile={makeFile()} onConflict={onConflict} />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+
+      expect(await screen.findByText('This parcel is already linked to another account.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'File a Dispute Instead' }));
+      expect(onConflict).toHaveBeenCalled();
+    });
+
+    it('falls back to the generic error message when onConflict is not provided', async () => {
+      vi.mocked(apiService.post).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { message: 'Conflict.' } },
+      });
+      renderWithClient(<ServiceRequestForm parcelId="p1" workflowType="LAND_CLAIM_REQUEST" title="Claim This Parcel" onClose={vi.fn()} initialFile={makeFile()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+
+      expect(await screen.findByText('Conflict.')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'File a Dispute Instead' })).not.toBeInTheDocument();
+    });
+  });
 });

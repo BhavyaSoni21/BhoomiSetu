@@ -13,7 +13,18 @@ import { AuditService } from '../audit/audit.service';
 // duplicated rather than shared across the UsersModule/AuthModule boundary
 // (same convention as this codebase's other small cross-module overlaps).
 function toPublicUser(user: User) {
-  return { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt };
+  return {
+    id: user.id,
+    email: user.email,
+    mobileNumber: user.mobileNumber,
+    emailVerified: user.emailVerified,
+    mobileVerified: user.mobileVerified,
+    pendingEmail: user.pendingEmail,
+    pendingMobileNumber: user.pendingMobileNumber,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
 }
 
 // Admin-only throughout (docs/FEATURE_AUDIT.md §8 item 11 - Tech.md §38's
@@ -47,6 +58,11 @@ export class UsersController {
       passwordHash: bcrypt.hashSync(dto.password, 10),
       name: dto.name,
       role: dto.role,
+      // Admin-provisioned staff accounts are already trusted (docs/flow.md
+      // rule 5) - no OTP concept applies to them (docs/FRONTEND_UPGRADE_SPEC.md
+      // §3), so their email starts verified rather than needing a step that
+      // doesn't exist in their flow.
+      emailVerified: true,
     });
 
     await this.auditService.log({

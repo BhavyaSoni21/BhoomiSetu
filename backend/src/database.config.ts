@@ -34,7 +34,16 @@ export function getDatabaseConnectionOptions(): DataSourceOptions {
     entities: [],
     synchronize: true,
     ssl: useSsl ? { rejectUnauthorized: false } : false,
-    extra: { searchPath: ['public'] },
+    // keepAlive (TCP-level, not pg's own idle-client recycling - that's
+    // already on by default) matters specifically against Supabase's
+    // pgbouncer-based transaction pooler: a long-lived server process can
+    // end up holding a pooled connection whose underlying socket was
+    // silently dropped by the pooler/network without a clean FIN, which
+    // otherwise surfaces as a real request failing with a plain 500 the
+    // next time that connection is picked up - observed live (login
+    // returning 500 after the backend had been running for hours, resolved
+    // immediately by a restart).
+    extra: { searchPath: ['public'], keepAlive: true, connectionTimeoutMillis: 10000 },
   };
 }
 

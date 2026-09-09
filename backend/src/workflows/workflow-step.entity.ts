@@ -20,10 +20,10 @@ export class WorkflowStep {
   stepOrder: number;
 
   @Column({ type: 'varchar', length: 30 })
-  department: string; // LAND_RECORDS | REGISTRATION | PLANNING
+  department: string; // LAND_RECORDS | REGISTRATION | PLANNING | DISPUTE | TAX | RESTRICTION | ENCUMBRANCE
 
   @Column({ type: 'varchar', length: 40 })
-  assignedRole: string; // LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER
+  assignedRole: string; // LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER | DISPUTE_OFFICER | TAX_OFFICER | RESTRICTION_OFFICER | ENCUMBRANCE_OFFICER
 
   @Column({ type: 'varchar', length: 20, default: 'PENDING' })
   status: string; // PENDING | IN_PROGRESS | APPROVED | REJECTED

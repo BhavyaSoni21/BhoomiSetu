@@ -1,4 +1,7 @@
-import { Controller, Get, Query, Param, ParseUUIDPipe, NotFoundException, ForbiddenException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, Param, ParseUUIDPipe, NotFoundException, ForbiddenException, BadRequestException, UseGuards, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { ParcelsService } from './parcels.service';
 import { ResponseAggregatorService } from '../interoperability/response-aggregator.service';
 import { WorkflowsService } from '../workflows/workflows.service';
@@ -10,6 +13,8 @@ import { Roles } from '../auth/roles.decorator';
 import { ALL_STAFF_ROLES, CITIZEN_ROLE } from '../auth/roles.constants';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { User } from '../users/user.entity';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB, matching the old document-verification controller's own limit
 
 @Controller('parcels')
 export class ParcelsController {
@@ -42,6 +47,27 @@ export class ParcelsController {
       limit,
       offset,
     });
+  }
+
+  // Upload-first Land Claim (docs/FRONTEND_UPGRADE_SPEC.md follow-up) - OCRs
+  // an uploaded land document and returns whichever real parcel(s) it
+  // matches, so the citizen doesn't need to already know their ULPIN/survey
+  // number. Pure read (see ParcelsService.identifyFromDocument) - tighter
+  // rate limit than the app default since OCR is real CPU work per request,
+  // same reasoning as the old document-verification controller.
+  @Post('identify-from-document')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(CITIZEN_ROLE)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: MAX_IMAGE_BYTES } }))
+  async identifyFromDocument(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('A "document" image file is required');
+    }
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('File must be an image');
+    }
+    return this.parcelsService.identifyFromDocument(file.buffer);
   }
 
   // Registered before ':id' so 'mine' is never swallowed as an id param.
@@ -122,6 +148,53 @@ export class ParcelsController {
       }
     }
     return this.parcelsService.getOwnershipHistory(id);
+  }
+
+  // Land property papers (docs/FRONTEND_UPGRADE_SPEC.md follow-up) - listing
+  // is public metadata, same as Parcel 360's own public tabs; the actual
+  // image is gated below (the parcel's linked citizen, or staff), same
+  // pattern as ownership-history above.
+  @Get(':id/documents')
+  async getDocuments(@Param('id', ParseUUIDPipe) id: string) {
+    const parcel = await this.parcelsService.findOne(id);
+    if (!parcel) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return this.parcelsService.getDocuments(id);
+  }
+
+  @Get(':id/documents/:docId/file')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ALL_STAFF_ROLES, CITIZEN_ROLE)
+  async getDocumentFile(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @Res() res: Response,
+  ) {
+    if (user.role === CITIZEN_ROLE) {
+      const associated = await this.parcelsService.isCitizenAssociatedWithParcel(user.id, id);
+      if (!associated) {
+        throw new ForbiddenException('This document is only visible for parcels associated with your account');
+      }
+    }
+    const file = await this.parcelsService.getDocumentFile(id, docId);
+    if (!file) {
+      throw new NotFoundException(`Document not found: ${docId}`);
+    }
+    res.set('Content-Type', file.mimeType);
+    res.send(file.buffer);
+  }
+
+  // Public, same as getParcel360/getRiskScore below - attribute-level status
+  // per year, not personal data (unlike ownership-history above).
+  @Get(':id/history')
+  async getHistoricalStates(@Param('id', ParseUUIDPipe) id: string, @Query('year') year?: string) {
+    const parcel = await this.parcelsService.findOne(id);
+    if (!parcel) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return this.parcelsService.getHistoricalStates(id, year !== undefined ? Number(year) : undefined);
   }
 
   @Get(':id/risk-score')

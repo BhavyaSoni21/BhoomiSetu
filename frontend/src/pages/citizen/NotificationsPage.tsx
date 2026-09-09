@@ -1,25 +1,16 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { Bell } from 'lucide-react';
-import ComingSoonCard from '../../features/citizen/ComingSoonCard';
+import NotificationFeed from '../../features/notifications/NotificationFeed';
 
-// A per-department notification feed (received/under review/department
-// approved/department rejected/info requested/fully approved/fully
-// rejected) - docs/FRONTEND_UPGRADE_SPEC.md §4. The Requests page (built
-// this pass) already surfaces per-department step status on each request;
-// this is the distinct, not-yet-built structured feed on top of it.
-const NotificationsPage: React.FC = () => {
-  const { t } = useTranslation();
-  return (
-    <div className="max-w-2xl">
-      <ComingSoonCard
-        icon={Bell}
-        title={t('placeholders.notificationsTitle')}
-        description={t('placeholders.notificationsDesc')}
-        accentClass="bg-accent"
-      />
-    </div>
-  );
-};
+// The real in-app notification feed (docs/FRONTEND_UPGRADE_SPEC.md §11 item
+// 5, resolved 2026-09-09: in-app only) - replaces the old ComingSoonCard
+// placeholder. Shared with the Officer Portal's own Notifications page (see
+// features/notifications/NotificationFeed.tsx).
+const NotificationsPage: React.FC = () => (
+  <div className="max-w-2xl">
+    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink mb-1">Notifications</h1>
+    <p className="text-ink/60 mb-4">Updates on your service requests, from every department reviewing them.</p>
+    <NotificationFeed />
+  </div>
+);
 
 export default NotificationsPage;

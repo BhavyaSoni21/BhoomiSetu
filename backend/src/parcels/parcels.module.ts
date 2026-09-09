@@ -6,7 +6,9 @@ import { Parcel } from './parcel.entity';
 import { ParcelIdentifier } from './parcel-identifier.entity';
 import { ParcelNeighbour } from './parcel-neighbour.entity';
 import { CitizenParcel } from './citizen-parcel.entity';
+import { ParcelDocument } from './parcel-document.entity';
 import { OwnershipHistoryRecord } from './ownership-history-record.entity';
+import { ParcelHistoricalState } from './parcel-historical-state.entity';
 import { InteroperabilityModule } from '../interoperability/interoperability.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { PredictiveAnalyticsModule } from '../predictive-analytics/predictive-analytics.module';
@@ -14,7 +16,7 @@ import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Parcel, ParcelIdentifier, ParcelNeighbour, CitizenParcel, OwnershipHistoryRecord]),
+    TypeOrmModule.forFeature([Parcel, ParcelIdentifier, ParcelNeighbour, CitizenParcel, ParcelDocument, OwnershipHistoryRecord, ParcelHistoricalState]),
     InteroperabilityModule,
     WorkflowsModule,
     PredictiveAnalyticsModule,

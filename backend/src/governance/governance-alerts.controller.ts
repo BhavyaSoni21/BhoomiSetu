@@ -34,7 +34,7 @@ export class GovernanceAlertsController {
 
   @Patch(':id/status')
   async updateStatus(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateGovernanceAlertStatusDto) {
-    const alert = await this.alertsService.updateStatus(id, dto.status);
+    const alert = await this.alertsService.updateStatus(id, dto.status, dto.reason);
     if (!alert) throw new NotFoundException(`Governance alert not found: ${id}`);
     await this.auditService.log({
       userId: user.id,
@@ -43,7 +43,7 @@ export class GovernanceAlertsController {
       entityType: 'GOVERNANCE_ALERT',
       entityId: id,
       parcelId: alert.parcelId,
-      metadata: { status: dto.status },
+      metadata: { status: dto.status, reason: dto.reason },
     });
     return alert;
   }

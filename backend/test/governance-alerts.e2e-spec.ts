@@ -8,17 +8,20 @@ import { Repository } from 'typeorm';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
+import { Notification } from '../src/notification-feed/notification.entity';
 import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Governance Alerts (e2e)', () => {
   let app: INestApplication;
   let alertRepository: Repository<GovernanceAlert>;
+  let notificationRepository: Repository<Notification>;
   let floodAlert: GovernanceAlert;
   let changeAlert: GovernanceAlert;
   let taxAlert: GovernanceAlert;
   // Every route on this controller is officer/admin-only (docs/FEATURE_AUDIT.md
   // §8 item 5) - there's no citizen-facing use of governance alerts anywhere.
   let officerAuth: string;
+  let restrictionOfficerId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,6 +34,7 @@ describe('Governance Alerts (e2e)', () => {
     await app.init();
 
     alertRepository = moduleFixture.get(getRepositoryToken(GovernanceAlert));
+    notificationRepository = moduleFixture.get(getRepositoryToken(Notification));
 
     // SQLite's CURRENT_TIMESTAMP has second-level resolution, so creating
     // these back-to-back would tie and make "newest first" ordering
@@ -65,6 +69,8 @@ describe('Governance Alerts (e2e)', () => {
     });
 
     officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+    const restrictionOfficer = await createAuthenticatedUser(moduleFixture, 'RESTRICTION_OFFICER');
+    restrictionOfficerId = restrictionOfficer.user.id;
   }, 15000);
 
   afterAll(async () => {
@@ -142,7 +148,7 @@ describe('Governance Alerts (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${changeAlert.id}/status`)
         .set('Authorization', officerAuth)
-        .send({ status: 'DISMISSED' })
+        .send({ status: 'DISMISSED', reason: 'Duplicate of an already-resolved alert.' })
         .expect(200);
       expect(res.body.status).toBe('DISMISSED');
 
@@ -153,11 +159,45 @@ describe('Governance Alerts (e2e)', () => {
       expect(refetched.body.status).toBe('DISMISSED');
     });
 
+    it('records the reason and notifies the relevant department officer(s)', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'REVIEWED', reason: 'Confirmed with the restriction survey team - overlap is legitimate.' })
+        .expect(200);
+      expect(res.body.status).toBe('REVIEWED');
+      expect(res.body.reason).toBe('Confirmed with the restriction survey team - overlap is legitimate.');
+
+      // RESTRICTION_ZONE_OVERLAP derives to the RESTRICTION department
+      // (alertDepartmentFor in governance-alerts.service.ts) - its officer,
+      // not the LAND_RECORD_OFFICER who reviewed it, gets notified.
+      const notifications = await notificationRepository.find({ where: { userId: restrictionOfficerId, type: 'GOVERNANCE_ALERT_REVIEWED' } });
+      const forThisAlert = notifications.find((n) => n.alertId === floodAlert.id);
+      expect(forThisAlert).toBeTruthy();
+      expect(forThisAlert!.message).toContain('Confirmed with the restriction survey team');
+    });
+
     it('rejects an invalid status value with 400', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
         .set('Authorization', officerAuth)
-        .send({ status: 'NOT_A_REAL_STATUS' })
+        .send({ status: 'NOT_A_REAL_STATUS', reason: 'x' })
+        .expect(400);
+    });
+
+    it('rejects a missing reason with 400 - mandatory for both Mark Reviewed and Dismiss', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'REVIEWED' })
+        .expect(400);
+    });
+
+    it('rejects an empty-string reason with 400', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
+        .set('Authorization', officerAuth)
+        .send({ status: 'DISMISSED', reason: '' })
         .expect(400);
     });
 
@@ -165,14 +205,14 @@ describe('Governance Alerts (e2e)', () => {
       await request(app.getHttpServer())
         .patch('/api/v1/governance-alerts/00000000-0000-0000-0000-000000000000/status')
         .set('Authorization', officerAuth)
-        .send({ status: 'REVIEWED' })
+        .send({ status: 'REVIEWED', reason: 'x' })
         .expect(404);
     });
 
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/governance-alerts/${floodAlert.id}/status`)
-        .send({ status: 'REVIEWED' })
+        .send({ status: 'REVIEWED', reason: 'x' })
         .expect(401);
     });
   });

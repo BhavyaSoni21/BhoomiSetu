@@ -20,6 +20,11 @@ import { adaptLandRecordsResult, AdaptedLandRecord } from './land-record-adapter
 import { buildCanonicalEnvelope, CanonicalParcelEnvelope } from './canonical-transformer';
 
 export interface Parcel360Response extends CanonicalParcelEnvelope {
+  // Not part of Tech.md #15's canonical envelope (kept out of the spatial/
+  // identifiers block on purpose) - only here so the frontend can deep-link
+  // from Parcel 360 into the Historical Imagery review screen for this
+  // parcel's cluster, when it belongs to one.
+  clusterId: string | null;
   departments: {
     landRecords: AdaptedLandRecord | null;
     registration: RegistrationRecord | null;
@@ -93,6 +98,7 @@ export class ResponseAggregatorService {
 
     return {
       ...envelope,
+      clusterId: parcel.clusterId,
       departments: { landRecords, registration, planning, tax, restriction, dispute, encumbrance },
     };
   }

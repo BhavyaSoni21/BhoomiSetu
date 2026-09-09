@@ -1,6 +1,6 @@
 # Auth & Verification Upgrade + Frontend Upgrade List
 
-**Status: planning document only — nothing here has been implemented. Scheduled for 2026-09-09.** This captures a spec the user provided (`BhoomiSetu_Updated_Authentication_Frontend_Upgrade.md`) plus a list of "previously agreed" frontend upgrades referenced in the same document but not previously written down anywhere in this repo. Reviewed against the actual current codebase below — nothing here is implemented yet.
+**Status: ✅ built (2026-09-08)**, except Forgot/Reset Password (§8's `POST /auth/verify-mobile-otp`/`verify-email-otp` ended up consolidated into one `POST /auth/verify-otp` with a `method` field — see `docs/FRONTEND_UPGRADE_SPEC.md` §3 for the as-built endpoint list, schema, and provider detail; this document stays as the original design capture). This captures a spec the user provided (`BhoomiSetu_Updated_Authentication_Frontend_Upgrade.md`) plus a list of "previously agreed" frontend upgrades referenced in the same document but not previously written down anywhere in this repo.
 
 This **supersedes** `docs/flow.md` §4's registration design, which assumed a simple name/email/password form (itself a placeholder, since no backend existed for it either). The rules below replace that design; `docs/flow.md` §4 should be treated as outdated once work on this starts.
 

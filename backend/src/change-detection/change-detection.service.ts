@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { Parcel } from '../parcels/parcel.entity';
 import { ChangeDetectionEvent } from '../spatial/change-detection-event.entity';
 import { GovernanceAlert } from '../governance/governance-alert.entity';
-import { outerRing, parseGeometry, pointInRing, ringCentroid, Ring } from '../common/geo-utils';
+import { Ring, outerRing, parseGeometry, pointInRing, ringCentroid } from '../common/geo-utils';
 import { isPostgisAvailable } from '../common/postgis';
 import { diffImages, pixelBoxToGeoBox, GeoBounds } from './image-diff';
 
@@ -63,31 +63,10 @@ export class ChangeDetectionService {
     const changeRegion = { type: 'Polygon', coordinates: [changeRing] };
 
     // SPATIAL INTERSECTION: every parcel whose centroid falls inside the
-    // detected change region. On Postgres this is a real ST_Contains/
-    // ST_Centroid query; on SQLite (no PostGIS extension to run that
-    // against) it falls back to scanning every parcel and testing
-    // pointInRing in JS - fine at this mock's scale (<=a few hundred
-    // parcels), same JS-filtering preference this codebase already uses
-    // elsewhere (e.g. WorkflowsService.findAll) over a query-builder join
-    // (docs/FEATURE_AUDIT.md §8 item 14).
-    let affectedParcels: Parcel[];
-    if (isPostgisAvailable(this.parcelRepository)) {
-      const rows: { id: string }[] = await this.parcelRepository.query(
-        `SELECT id FROM parcels
-         WHERE ST_Contains(
-           ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
-           ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326))
-         )`,
-        [JSON.stringify(changeRegion)],
-      );
-      affectedParcels = rows.length > 0 ? await this.parcelRepository.find({ where: { id: In(rows.map((r) => r.id)) } }) : [];
-    } else {
-      const allParcels = await this.parcelRepository.find();
-      affectedParcels = allParcels.filter((parcel) => {
-        const ring = outerRing(parseGeometry(parcel.geometry));
-        return ring !== null && pointInRing(ringCentroid(ring), changeRing);
-      });
-    }
+    // detected change region (docs/FEATURE_AUDIT.md §8 item 14) - a real
+    // Postgres ST_Contains/ST_Centroid query, or a JS point-in-polygon
+    // fallback scan on SQLite.
+    const affectedParcels = await this.findParcelsInRegion(changeRegion);
     const affectedParcelIds = affectedParcels.map((p) => p.id);
 
     const event = await this.eventRepository.save({
@@ -117,5 +96,34 @@ export class ChangeDetectionService {
         : [];
 
     return { changeDetected: true, changedPixelRatio: diff.changedPixelRatio, changeRegion, eventId: event.id, affectedParcelIds, alertsCreated: alerts.length };
+  }
+
+  // Every parcel whose centroid falls inside a given GeoJSON Polygon region.
+  // Previously extracted into common/spatial-queries.ts for a second caller
+  // (HistoricalComparisonService); that feature was redesigned 2026-09-08 to
+  // detect change via real dispute/restriction data instead of pixel-diffed
+  // regions, so this went back to having exactly one caller - inlined here
+  // rather than kept as a "shared" module for a single consumer, matching
+  // this codebase's usual convention of duplicating small one-off helpers
+  // instead of sharing them across module boundaries.
+  private async findParcelsInRegion(region: { type: string; coordinates: number[][][] }): Promise<Parcel[]> {
+    if (isPostgisAvailable(this.parcelRepository)) {
+      const rows: { id: string }[] = await this.parcelRepository.query(
+        `SELECT id FROM parcels
+         WHERE ST_Contains(
+           ST_SetSRID(ST_GeomFromGeoJSON($1), 4326),
+           ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326))
+         )`,
+        [JSON.stringify(region)],
+      );
+      return rows.length > 0 ? this.parcelRepository.find({ where: { id: In(rows.map((r) => r.id)) } }) : [];
+    }
+
+    const regionRing: Ring = region.coordinates[0] as Ring;
+    const allParcels = await this.parcelRepository.find();
+    return allParcels.filter((parcel) => {
+      const ring = outerRing(parseGeometry(parcel.geometry));
+      return ring !== null && pointInRing(ringCentroid(ring), regionRing);
+    });
   }
 }

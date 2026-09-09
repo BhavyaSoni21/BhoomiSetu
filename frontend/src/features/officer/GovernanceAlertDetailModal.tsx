@@ -28,7 +28,6 @@ interface GovernanceAlertDetailModalProps {
   explanation?: AiExplanation;
   isExplaining: boolean;
   explainError: boolean;
-  isUpdatingStatus: boolean;
   onExplain: () => void;
   onMarkReviewed: () => void;
   onDismiss: () => void;
@@ -45,7 +44,6 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
   explanation,
   isExplaining,
   explainError,
-  isUpdatingStatus,
   onExplain,
   onMarkReviewed,
   onDismiss,
@@ -90,6 +88,12 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
 
         <p className="text-sm text-ink/80 mb-4">{alert.explanation}</p>
 
+        {alert.reason && (
+          <p className="text-xs text-ink/60 mb-4 border-l-4 border-ink/20 pl-3">
+            <strong className="font-bold text-ink/70">Reviewer's note:</strong> {alert.reason}
+          </p>
+        )}
+
         {explanation ? (
           <div className="mb-4">
             <AiExplanationCard explanation={explanation} />
@@ -114,16 +118,14 @@ const GovernanceAlertDetailModal: React.FC<GovernanceAlertDetailModalProps> = ({
         <div className="flex flex-wrap gap-2 justify-end mt-4">
           <button
             onClick={onMarkReviewed}
-            disabled={isUpdatingStatus}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
             <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
             Mark Reviewed
           </button>
           <button
             onClick={onDismiss}
-            disabled={isUpdatingStatus}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
             <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
             Dismiss

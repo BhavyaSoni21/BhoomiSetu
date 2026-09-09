@@ -15,6 +15,7 @@ vi.mock('../../services/apiService', () => ({
 // flow (Request Documents / Report Issue / File a Dispute), so the auth-me
 // cache is pre-seeded with a citizen the same way MyParcels.test.tsx does.
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
+const officer: AuthUser = { id: 'o1', email: 'officer1@example.gov.in', name: 'An Officer', role: 'LAND_RECORD_OFFICER' };
 
 // MapComponent's own behaviour (maplibre, contextual layers) is covered by
 // MapComponent.test.tsx - stub it here so this file focuses on the 360 data
@@ -28,9 +29,9 @@ vi.mock('../map/MapComponent', () => ({
   ),
 }));
 
-function renderWithProviders(parcelId = 'p1') {
+function renderWithProviders(parcelId = 'p1', user: AuthUser | null = citizen) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(['auth-me'], citizen);
+  client.setQueryData(['auth-me'], user);
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/parcels/${parcelId}`]}>
@@ -96,16 +97,26 @@ const riskScoreFixture = {
   ],
 };
 
-// Parcel360View fires a /360, a /risk-score, AND a /workflows query per
-// parcel; every test needs all three satisfied (not just the one it cares
-// about) or the unmocked one rejects with "unexpected url" noise, or - with
-// a blanket mockResolvedValue - the risk-score query would resolve with
-// 360-shaped data and crash on `.factors.map`. /workflows defaults to empty
-// so RequestNotifications renders nothing extra unless a test overrides it.
-function mockGet(overrides: { parcel360?: unknown; riskScore?: unknown; workflows?: unknown } = {}) {
+// Parcel360View fires a /360, a /risk-score, a /workflows, AND a
+// /historical-imagery/clusters query per parcel; every test needs all four
+// satisfied (not just the one it cares about) or the unmocked one rejects
+// with "unexpected url" noise, or - with a blanket mockResolvedValue - the
+// risk-score query would resolve with 360-shaped data and crash on
+// `.factors.map`. /workflows defaults to empty so RequestNotifications
+// renders nothing extra unless a test overrides it; historicalClusters
+// defaults to empty so the Parcel Map falls back to the plain (no year
+// dropdown) map unless a test overrides it.
+// Defaults to "the signed-in citizen owns p1" (fullResponse's parcel_id) so
+// every existing test that expects the citizen-only Actions buttons to
+// render doesn't need to know about /parcels/mine at all; tests about the
+// ownership gate itself override myParcels explicitly.
+function mockGet(overrides: { parcel360?: unknown; riskScore?: unknown; workflows?: unknown; historicalClusters?: unknown; myParcels?: unknown } = {}) {
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {
     if (url.includes('/risk-score')) return { data: overrides.riskScore ?? riskScoreFixture };
+    if (url === '/parcels/mine') return { data: overrides.myParcels ?? { parcels: [{ id: 'p1' }], total: 1 } };
     if (url.includes('/workflows')) return { data: overrides.workflows ?? [] };
+    if (url === '/historical-imagery/clusters') return { data: overrides.historicalClusters ?? [] };
+    if (url.includes('/historical-imagery/clusters/') && url.endsWith('/parcels')) return { data: [] };
     if (url.includes('/360')) return { data: overrides.parcel360 ?? fullResponse };
     throw new Error(`unexpected url: ${url}`);
   });
@@ -274,6 +285,49 @@ describe('Parcel360View', () => {
     expect(within(dialog).getByText('LAND RECORDS')).toBeInTheDocument(); // underscores humanized, same as the Overview tab
   });
 
+  it('opens the service request form with DOCUMENT_VERIFICATION_REQUEST when "Verify Documents" is clicked', async () => {
+    mockGet();
+    vi.mocked(apiService.post).mockResolvedValue({
+      data: {
+        id: 'wf3', parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST', currentStatus: 'SUBMITTED',
+        createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '',
+        steps: [{ id: 's7', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'PENDING', action: null, remarks: null, completedAt: null }],
+      },
+    });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    fireEvent.click(screen.getByRole('button', { name: 'Verify Documents' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
+
+    await waitFor(() =>
+      expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })),
+    );
+  });
+
+  it('hides Request Documents/Report Issue/File a Dispute/Verify Documents for a citizen who does not own this parcel', async () => {
+    mockGet({ myParcels: { parcels: [{ id: 'some-other-parcel' }], total: 1 } });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Request Documents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Report Issue' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'File a Dispute' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify Documents' })).not.toBeInTheDocument();
+  });
+
+  it('hides Request Documents/Report Issue/File a Dispute/Verify Documents for staff (not a citizen at all)', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' } });
+    renderWithProviders('p1', officer);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Request Documents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Report Issue' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'File a Dispute' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify Documents' })).not.toBeInTheDocument();
+  });
+
   it('shows "Parcel not found" and an error state appropriately', async () => {
     vi.mocked(apiService.get).mockRejectedValue(new Error('404'));
     renderWithProviders();
@@ -287,6 +341,7 @@ describe('Parcel360View', () => {
       if (url === '/parcels/p2/360') return { data: secondResponse };
       if (url.includes('/risk-score')) return { data: { ...riskScoreFixture, parcelId: url.split('/')[2] } };
       if (url.includes('/workflows')) return { data: [] };
+      if (url === '/historical-imagery/clusters') return { data: [] };
       throw new Error(`unexpected url: ${url}`);
     });
     renderWithProviders('p1');
@@ -330,5 +385,60 @@ describe('Parcel360View', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Explain with AI' }));
 
     expect(await screen.findByText('AI is not configured on this server.')).toBeInTheDocument();
+  });
+
+  it('shows a "Compare Years & Generate Alerts" link for staff when the parcel belongs to a cluster, and navigates there', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' } });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['auth-me'], officer);
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/parcels/p1']}>
+          <Routes>
+            <Route path="/parcels/:id" element={<Parcel360View />} />
+            <Route path="/officer/historical-imagery" element={<div>Historical Imagery Page Stub</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Compare Years & Generate Alerts' }));
+
+    expect(await screen.findByText('Historical Imagery Page Stub')).toBeInTheDocument();
+  });
+
+  it('does not show "Compare Years & Generate Alerts" for a citizen even when the parcel belongs to a cluster', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' } });
+    renderWithProviders('p1', citizen);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Compare Years & Generate Alerts' })).not.toBeInTheDocument();
+  });
+
+  it('does not show "Compare Years & Generate Alerts" for staff when the parcel has no cluster', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: null } });
+    renderWithProviders('p1', officer);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Compare Years & Generate Alerts' })).not.toBeInTheDocument();
+  });
+
+  it('shows a year dropdown on the Parcel Map for a citizen when the parcel belongs to a cluster', async () => {
+    mockGet({
+      parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' },
+      historicalClusters: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023, 2026] }],
+    });
+    renderWithProviders('p1', citizen);
+
+    expect(await screen.findByText('Parcel Map')).toBeInTheDocument();
+    expect(screen.getByLabelText('Map year')).toHaveValue('2026');
+  });
+
+  it('does not show a year dropdown on the Parcel Map when the parcel has no cluster', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: null } });
+    renderWithProviders('p1', citizen);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByLabelText('Map year')).not.toBeInTheDocument();
   });
 });

@@ -8,6 +8,12 @@ vi.mock('../../services/apiService', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
 }));
 
+// jsdom has no real Blob-URL implementation - AuthenticatedDocumentImage
+// already degrades gracefully without this (shows "Image unavailable"), but
+// the zoom tests below need an actual object URL to click through to.
+global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+global.URL.revokeObjectURL = vi.fn();
+
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
@@ -87,6 +93,93 @@ describe('WorkflowReviewPanel', () => {
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="TAX" />);
 
     expect(await screen.findByText('No step in this workflow is assigned to your department.')).toBeInTheDocument();
+  });
+
+  it('shows applicant contact/address snapshotted on the workflow', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({
+      data: { ...pendingWorkflow, createdBy: 'Jane Citizen', applicantContact: 'jane@example.com', applicantAddress: '12 MG Road, Pune' },
+    });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    expect(await screen.findByText('Jane Citizen')).toBeInTheDocument();
+    expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+    expect(screen.getByText('12 MG Road, Pune')).toBeInTheDocument();
+  });
+
+  it('does not show the land property papers / pre-check section for an ordinary workflow type', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    await screen.findByText('ROR COPY REQUEST');
+    expect(screen.queryByText('Land Property Papers')).not.toBeInTheDocument();
+  });
+
+  it('shows the stored document + OCR pre-check for a LAND_CLAIM_REQUEST', async () => {
+    const claimWorkflow = {
+      ...pendingWorkflow,
+      workflowType: 'LAND_CLAIM_REQUEST',
+      verificationPrecheck: JSON.stringify({
+        verdict: 'PARTIAL_MATCH',
+        checks: [
+          { field: 'OWNER_NAME', expectedValue: 'Jane Citizen', status: 'MATCHED' },
+          { field: 'AREA', expectedValue: '500 sqm', status: 'MISMATCH' },
+        ],
+      }),
+    };
+    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+      if (url.includes('/documents')) {
+        return { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'UNREGISTERED', createdAt: '' }] };
+      }
+      return { data: claimWorkflow };
+    });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    expect(await screen.findByText('UNREGISTERED')).toBeInTheDocument();
+    expect(screen.getByText('Land Property Papers')).toBeInTheDocument();
+    expect(screen.getByText('PARTIAL MATCH')).toBeInTheDocument();
+    expect(screen.getByText(/OWNER NAME: Jane Citizen/)).toBeInTheDocument();
+    expect(screen.getByText(/AREA: 500 sqm/)).toBeInTheDocument();
+  });
+
+  it('shows "no document on file" for a DOCUMENT_VERIFICATION_REQUEST with nothing stored yet', async () => {
+    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+      if (url.includes('/documents')) return { data: [] };
+      return { data: { ...pendingWorkflow, workflowType: 'DOCUMENT_VERIFICATION_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'NO_DOCUMENT_ON_FILE', checks: [] }) } };
+    });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    expect(await screen.findByText('No document is on file for this parcel.')).toBeInTheDocument();
+    expect(screen.getByText('NO DOCUMENT ON FILE')).toBeInTheDocument();
+  });
+
+  it('clicking a document thumbnail opens the full-screen zoom viewer', async () => {
+    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+      if (url.includes('/documents')) {
+        return { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'REGISTERED', createdAt: '' }] };
+      }
+      return { data: { ...pendingWorkflow, workflowType: 'LAND_CLAIM_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'MATCHED', checks: [] }) } };
+    });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    const zoomButton = await screen.findByRole('button', { name: 'Zoom into ROR_COPY' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(zoomButton);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows Submitted Evidence for a workflow carrying evidence, even for an ordinary workflow type', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({
+      data: { ...pendingWorkflow, workflowType: 'DISPUTE_FILING', evidenceFileName: 'evidence.png', evidenceMimeType: 'image/png' },
+    });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    expect(await screen.findByText('Submitted Evidence')).toBeInTheDocument();
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows/wf1/evidence', { responseType: 'blob' }));
+    // Not a verification type - no Land Property Papers/pre-check section.
+    expect(screen.queryByText('Land Property Papers')).not.toBeInTheDocument();
   });
 
   it('shows an error message when the patch fails', async () => {

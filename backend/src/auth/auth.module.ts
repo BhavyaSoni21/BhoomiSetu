@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
 import { AuditModule } from '../audit/audit.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -12,6 +13,7 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from './jwt.constants';
   imports: [
     UsersModule,
     AuditModule,
+    NotificationsModule,
     PassportModule,
     JwtModule.register({
       secret: JWT_SECRET,

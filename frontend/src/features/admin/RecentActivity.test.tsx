@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RecentActivity from './RecentActivity';
 import apiService from '../../services/apiService';
@@ -54,5 +54,25 @@ describe('RecentActivity', () => {
     vi.mocked(apiService.get).mockRejectedValue(new Error('network error'));
     renderPanel();
     expect(await screen.findByText('Error loading activity')).toBeInTheDocument();
+  });
+
+  it('re-fetches scoped to the chosen entity type when the filter changes', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: [] });
+    renderPanel();
+    await screen.findByText('No activity recorded yet.');
+
+    fireEvent.change(screen.getByLabelText('Filter activity by type'), { target: { value: 'DEPARTMENT' } });
+
+    await waitFor(() =>
+      expect(apiService.get).toHaveBeenCalledWith('/audit', { params: { entityType: 'DEPARTMENT' } }),
+    );
+  });
+
+  it('renders a plain-language line for a department action', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({
+      data: [{ id: 'a4', userId: 'u1', userRole: 'ADMIN', action: 'DEPARTMENT_CREATED', entityType: 'DEPARTMENT', entityId: 'd1', parcelId: null, metadata: null, createdAt: '2026-09-05T10:00:00.000Z' }],
+    });
+    renderPanel();
+    expect(await screen.findByText(/created a department/)).toBeInTheDocument();
   });
 });

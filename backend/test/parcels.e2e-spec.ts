@@ -5,12 +5,17 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
 import { ParcelIdentifier } from '../src/parcels/parcel-identifier.entity';
 import { ParcelNeighbour } from '../src/parcels/parcel-neighbour.entity';
 import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
+import { ParcelHistoricalState } from '../src/parcels/parcel-historical-state.entity';
+import { ParcelDocument } from '../src/parcels/parcel-document.entity';
 import { createAuthenticatedUser } from './helpers/auth';
 
 describe('Parcels endpoints (e2e)', () => {
@@ -526,6 +531,125 @@ describe('Parcels endpoints (e2e)', () => {
         .get('/api/v1/parcels/00000000-0000-0000-0000-000000000000/ownership-history')
         .set('Authorization', citizenAuth)
         .expect(404);
+    });
+  });
+
+  describe('GET /api/v1/parcels/:id/documents (land property papers)', () => {
+    let documentRepository: Repository<ParcelDocument>;
+    let documentFilePath: string;
+    let documentId: string;
+
+    beforeAll(async () => {
+      documentRepository = moduleFixture.get(getRepositoryToken(ParcelDocument));
+      documentFilePath = path.join(os.tmpdir(), `test-parcel-document-${Date.now()}.png`);
+      fs.writeFileSync(documentFilePath, Buffer.from('fake-png-bytes'));
+      const saved = await documentRepository.save({
+        parcelId: citizenLinkedParcel.id,
+        documentType: 'ROR_COPY',
+        fileName: 'test-parcel-document.png',
+        filePath: documentFilePath,
+        mimeType: 'image/png',
+        extractedText: 'Owner Name Test Owner',
+        registrationStatus: 'REGISTERED',
+      });
+      documentId = saved.id;
+    });
+
+    it('lists a parcel\'s document metadata publicly, with no auth needed', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents`).expect(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toEqual(
+        expect.objectContaining({ id: documentId, documentType: 'ROR_COPY', registrationStatus: 'REGISTERED' }),
+      );
+    });
+
+    it('returns an empty array for a parcel with no documents', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${parcelA.id}/documents`).expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it("serves the file to the parcel's linked citizen", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents/${documentId}/file`)
+        .set('Authorization', citizenAuth)
+        .expect(200);
+      expect(res.headers['content-type']).toBe('image/png');
+    });
+
+    it('serves the file to staff regardless of citizen association', async () => {
+      const officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents/${documentId}/file`)
+        .set('Authorization', officerAuth)
+        .expect(200);
+    });
+
+    it("rejects a citizen who isn't associated with the parcel, with 403", async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents/${documentId}/file`)
+        .set('Authorization', otherCitizenAuth)
+        .expect(403);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents/${documentId}/file`).expect(401);
+    });
+
+    it('returns 404 for a bare document row with no real file on disk (e.g. one created on workflow approval with nothing seeded)', async () => {
+      const bare = await documentRepository.save({
+        parcelId: citizenLinkedParcel.id, documentType: 'ROR_COPY', fileName: '', filePath: '', mimeType: 'image/png', registrationStatus: 'REGISTERED',
+      });
+      await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/documents/${bare.id}/file`)
+        .set('Authorization', citizenAuth)
+        .expect(404);
+    });
+  });
+
+  describe('GET /api/v1/parcels/:id/history', () => {
+    let historyParcel: Parcel;
+    let historyRepository: Repository<ParcelHistoricalState>;
+
+    beforeAll(async () => {
+      historyRepository = moduleFixture.get(getRepositoryToken(ParcelHistoricalState));
+      historyParcel = await parcelRepository.save({
+        canonicalParcelId: 'CAN-HISTORY-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500,
+        geometry: JSON.stringify({ type: 'Polygon', coordinates: [[[73.9, 18.6], [73.901, 18.6], [73.901, 18.601], [73.9, 18.601], [73.9, 18.6]]] }),
+      });
+      await historyRepository.save([
+        { parcelId: historyParcel.id, year: 2022, landUse: 'AGRICULTURAL', zoningStatus: 'NOT_REQUIRED', restrictionStatus: 'UNRESTRICTED', taxStatus: 'PAID' },
+        { parcelId: historyParcel.id, year: 2023, landUse: 'AGRICULTURAL', zoningStatus: 'NOT_REQUIRED', restrictionStatus: 'UNRESTRICTED', taxStatus: 'PAID' },
+        { parcelId: historyParcel.id, year: 2024, landUse: 'RESIDENTIAL', zoningStatus: 'APPROVED', restrictionStatus: 'UNRESTRICTED', taxStatus: 'PAID' },
+        { parcelId: historyParcel.id, year: 2025, landUse: 'RESIDENTIAL', zoningStatus: 'APPROVED', restrictionStatus: 'UNRESTRICTED', taxStatus: 'PENDING' },
+      ]);
+    });
+
+    it('is public - no auth required', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${historyParcel.id}/history`).expect(200);
+      expect(res.body).toHaveLength(4);
+    });
+
+    it('returns every year, oldest first', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${historyParcel.id}/history`).expect(200);
+      expect(res.body.map((r: any) => r.year)).toEqual([2022, 2023, 2024, 2025]);
+      // The recorded change between 2023 and 2024 is real and findable.
+      expect(res.body[1].landUse).toBe('AGRICULTURAL');
+      expect(res.body[2].landUse).toBe('RESIDENTIAL');
+    });
+
+    it('filters to a single year via ?year=', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${historyParcel.id}/history?year=2024`).expect(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].landUse).toBe('RESIDENTIAL');
+    });
+
+    it('returns an empty array for a parcel with no history rows', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${parcelA.id}/history`).expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('returns 404 for an unknown parcel', async () => {
+      await request(app.getHttpServer()).get('/api/v1/parcels/00000000-0000-0000-0000-000000000000/history').expect(404);
     });
   });
 });

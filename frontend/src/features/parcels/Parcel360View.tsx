@@ -2,15 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, FileText, Flag, MessageSquareWarning, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileText, Flag, History, MessageSquareWarning, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
 import RequestNotifications from './RequestNotifications';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
+import { ParcelSummary } from '../../types/parcel';
 import { AiExplanation } from '../../types/aiExplanation';
 import { RiskScore } from '../../types/riskScore';
+import { useAuthUser } from '../auth/auth';
+import { OFFICER_ROLES } from '../officer/officerAuth';
+import { useHistoricalClusters } from '../officer/historicalImagery';
+import HistoricalMapView from '../officer/HistoricalMapView';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
 
@@ -63,6 +68,9 @@ const Parcel360View: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: authUser } = useAuthUser();
+  const isOfficer = !!authUser && (OFFICER_ROLES as readonly string[]).includes(authUser.role);
+  const isCitizen = authUser?.role === 'CITIZEN';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
 
@@ -87,6 +95,28 @@ const Parcel360View: React.FC = () => {
     const response = await apiService.post(`/ai/parcels/${id}/explain`);
     return response.data;
   });
+
+  // The 3 request buttons below (+ Verify Documents) are citizen actions for
+  // THIS citizen's own parcel, not a generic "any signed-in citizen" action -
+  // the backend already 403s a mismatched citizen (workflows.controller.ts's
+  // isCitizenAssociatedWithParcel check), this just matches the UI to that
+  // reality instead of rendering buttons that would fail on submit (and,
+  // as a side effect, keeps them off an admin/officer's screen entirely -
+  // docs/ADMIN_PANEL_ISSUES.md #2).
+  const { data: myParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
+    ['my-parcels'],
+    async () => (await apiService.get('/parcels/mine')).data,
+    { enabled: isCitizen },
+  );
+  const isOwnParcel = isCitizen && !!myParcelsData?.parcels.some((p) => p.id === parcel360?.parcel_id);
+
+  // Public (2026-09-08) - when the parcel belongs to a cluster, upgrades the
+  // "Parcel Map" below into the year-dropdown/dispute-colored historical
+  // view, for citizens as much as staff. Cheap/cached (5 clusters total), so
+  // fetched unconditionally rather than gated on parcel360.clusterId being
+  // known yet.
+  const { data: historicalClusters = [] } = useHistoricalClusters();
+  const historicalCluster = parcel360 ? historicalClusters.find((c) => c.clusterId === parcel360.clusterId) : undefined;
 
   const { data: riskScore } = useQuery<RiskScore>(
     ['risk-score', id],
@@ -402,40 +432,64 @@ const Parcel360View: React.FC = () => {
         <p className="text-sm text-ink/60 mb-3 leading-relaxed">
           Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
           Click another parcel on the map to view its Parcel 360 details.
+          {historicalCluster &&
+            ' Parcels are colored by each one’s real dispute/restriction status for the year chosen below.'}
         </p>
-        <MapComponent
-          parcels={[]}
-          selectedParcelId={parcel360.parcel_id}
-          onParcelClick={(clickedId) => {
-            if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
-          }}
-        />
+        {historicalCluster ? (
+          <HistoricalMapView
+            clusterId={historicalCluster.clusterId}
+            years={historicalCluster.years}
+            selectedParcelId={parcel360.parcel_id}
+            onParcelClick={(clickedId) => {
+              if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+            }}
+          />
+        ) : (
+          <MapComponent
+            parcels={[]}
+            selectedParcelId={parcel360.parcel_id}
+            onParcelClick={(clickedId) => {
+              if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+            }}
+          />
+        )}
       </div>
 
       <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
         <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
-            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-          >
-            <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-            Request Documents
-          </button>
-          <button
-            onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
-            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-          >
-            <Flag className="w-3.5 h-3.5" aria-hidden="true" />
-            Report Issue
-          </button>
-          <button
-            onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
-            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-          >
-            <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
-            File a Dispute
-          </button>
+          {isOwnParcel && (
+            <>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                Request Documents
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <Flag className="w-3.5 h-3.5" aria-hidden="true" />
+                Report Issue
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
+                File a Dispute
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DOCUMENT_VERIFICATION_REQUEST', title: 'Verify Documents' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                Verify Documents
+              </button>
+            </>
+          )}
           <button
             className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
             onClick={() => window.history.back()}
@@ -443,6 +497,15 @@ const Parcel360View: React.FC = () => {
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back to Search
           </button>
+          {isOfficer && parcel360.clusterId && (
+            <button
+              onClick={() => navigate(`/officer/historical-imagery?cluster=${encodeURIComponent(parcel360.clusterId as string)}`)}
+              className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
+            >
+              <History className="w-3.5 h-3.5" aria-hidden="true" />
+              Compare Years &amp; Generate Alerts
+            </button>
+          )}
           <button
             onClick={() => explainMutation.mutate()}
             disabled={explainMutation.isLoading}

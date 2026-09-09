@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GovernanceAlert } from './governance-alert.entity';
+import { User } from '../users/user.entity';
 import { GovernanceAlertsController } from './governance-alerts.controller';
 import { GovernanceAlertsService } from './governance-alerts.service';
 import { AuditModule } from '../audit/audit.module';
+import { NotificationFeedModule } from '../notification-feed/notification-feed.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GovernanceAlert]), AuditModule],
+  imports: [TypeOrmModule.forFeature([GovernanceAlert, User]), AuditModule, NotificationFeedModule],
   controllers: [GovernanceAlertsController],
   providers: [GovernanceAlertsService],
   // Exported so AiModule's alert-explanation endpoint (Phase 8) can look up

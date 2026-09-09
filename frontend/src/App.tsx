@@ -17,7 +17,7 @@ import { OFFICER_ROLES } from './features/officer/officerAuth';
 import AskAiWidget from './features/ai/AskAiWidget';
 import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from './i18n/config';
 import { useTheme } from './theme/theme';
-import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS } from './navConfig';
+import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS } from './navConfig';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 px-3.5 py-2 text-sm font-bold uppercase tracking-wide transition-colors duration-150 border-b-2 whitespace-nowrap ${
@@ -31,21 +31,22 @@ const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 // One navbar, everywhere - no separate portal-owned sub-nav any more (the
 // user's explicit follow-up: "i dont want 2 diffrent navbars fit the things
-// in the orignal navbar only"). CitizenPortal.tsx/OfficerPortal.tsx are now
-// just their own <Routes>; every page they used to link to via their own tab
-// bar is listed here instead (navConfig.ts) and rendered in this same header
-// row guests already had. A guest still gets Home/About/Features; a citizen
-// additionally gets Home/About (per the user's explicit "citizens should be
-// able to see the home and about page") plus their full portal page list; an
-// officer gets their portal page list only (not asked to see Home/About);
-// admin is unchanged (still a single link - Admin Portal hasn't been split
-// into multiple pages yet, Phase 3).
+// in the orignal navbar only"). CitizenPortal.tsx/OfficerPortal.tsx/
+// AdminPortal.tsx are now just their own <Routes>; every page they used to
+// link to via their own tab bar is listed here instead (navConfig.ts) and
+// rendered in this same header row guests already had. A guest still gets
+// Home/About/Features; a citizen additionally gets Home/About (per the
+// user's explicit "citizens should be able to see the home and about page")
+// plus their full portal page list; an officer or admin gets their portal
+// page list only (not asked to see Home/About) - admin's list grew from a
+// single link to the full ADMIN_NAV_ITEMS once the Admin Portal was split
+// into multiple pages (Phase 3).
 function navItemsFor(role: string | undefined): NavItem[] {
   const home: NavItem = { to: '/', end: true, labelKey: 'nav.home' };
   const about: NavItem = { to: '/about', labelKey: 'nav.about' };
   if (!role) return [home, about, { to: '/features', labelKey: 'nav.features' }];
   if (role === 'CITIZEN') return [home, about, ...CITIZEN_NAV_ITEMS];
-  if (role === 'ADMIN') return [{ to: '/admin', end: true, labelKey: 'nav.adminPortal' }];
+  if (role === 'ADMIN') return ADMIN_NAV_ITEMS;
   return OFFICER_NAV_ITEMS; // one of the 4 OFFICER_ROLES
 }
 
@@ -90,7 +91,29 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
+      {/* Sign In / Register get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md
+          §3: "none with the main navbar, a lightweight logo/branding only")
+          - a small brand-only strip instead of the full utility bar + role
+          navbar every other page shows. */}
+      {isAuthPage && (
+        <header className="bg-bhoomi-spruce border-b-4 border-ink">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-white p-0.5 flex items-center justify-center border-2 border-ink shrink-0">
+                <img src="/bhoomisetu-logo.png" alt={t('nav.logoAlt')} className="w-full h-full object-contain" />
+              </div>
+              <span className="text-lg font-black tracking-tight font-display text-white">
+                <span className="text-primary">Bhoomi</span>
+                <span className="text-secondary">Setu</span>
+              </span>
+            </Link>
+          </div>
+        </header>
+      )}
+
       {/* Top Utility Bar with Official Government Touch */}
+      {!isAuthPage && (
+      <>
       <div className="bg-bhoomi-dark text-white/80 text-xs py-2 px-4 sm:px-6 lg:px-8 border-b-2 border-ink">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Left: Indian National Flag & Government Header */}
@@ -231,6 +254,8 @@ function AppShell() {
           </div>
         )}
       </header>
+      </>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1">
@@ -258,12 +283,10 @@ function AppShell() {
             }
           />
           <Route
-            path="/admin"
+            path="/admin/*"
             element={
               <RequireAuth roles={['ADMIN']}>
-                <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                  <AdminPortal />
-                </div>
+                <AdminPortal />
               </RequireAuth>
             }
           />

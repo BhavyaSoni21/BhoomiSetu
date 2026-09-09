@@ -20,11 +20,11 @@ function renderWithClient() {
 const alerts = [
   {
     id: 'a1', parcelId: 'p1', alertType: 'UNAUTHORIZED_CHANGE_DETECTED', severity: 'HIGH',
-    source: 'CHANGE_DETECTION', status: 'OPEN', explanation: 'New construction footprint detected.', createdAt: '',
+    source: 'CHANGE_DETECTION', status: 'OPEN', explanation: 'New construction footprint detected.', reason: null, createdAt: '',
   },
   {
     id: 'a2', parcelId: 'p2', alertType: 'RESTRICTION_ZONE_OVERLAP', severity: 'MEDIUM',
-    source: 'RESTRICTION_MONITOR', status: 'OPEN', explanation: 'Parcel intersects the flood zone.', createdAt: '',
+    source: 'RESTRICTION_MONITOR', status: 'OPEN', explanation: 'Parcel intersects the flood zone.', reason: null, createdAt: '',
   },
 ];
 
@@ -60,26 +60,58 @@ describe('GovernanceAlertsPanel', () => {
     expect(await screen.findByText('No open governance alerts requiring attention.')).toBeInTheDocument();
   });
 
-  it('dismissing an alert PATCHes its status', async () => {
+  it('clicking Dismiss on a row opens a reason popup instead of submitting immediately', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
-    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'DISMISSED' } });
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
     fireEvent.click(screen.getAllByRole('button', { name: 'Dismiss' })[0]);
 
-    await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'DISMISSED' }));
+    expect(apiService.patch).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Dismiss', { selector: 'h3' })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument();
   });
 
-  it('marking an alert reviewed PATCHes its status', async () => {
+  it('confirming without typing a reason shows an error and does not submit', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
-    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[1], status: 'REVIEWED' } });
     renderWithClient();
 
-    await screen.findByText('RESTRICTION ZONE OVERLAP');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Reviewed' })[1]);
+    await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Reviewed' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Mark Reviewed' }));
 
-    await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a2/status', { status: 'REVIEWED' }));
+    expect(await screen.findByText('A reason is required.')).toBeInTheDocument();
+    expect(apiService.patch).not.toHaveBeenCalled();
+  });
+
+  it('typing a reason and confirming Dismiss PATCHes the status with the reason, then closes the popup', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
+    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'DISMISSED', reason: 'Not a real issue.' } });
+    renderWithClient();
+
+    await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dismiss' })[0]);
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Not a real issue.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Dismiss' }));
+
+    await waitFor(() =>
+      expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'DISMISSED', reason: 'Not a real issue.' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('Cancel closes the popup without submitting', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
+    renderWithClient();
+
+    await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark Reviewed' })[0]);
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Some text' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(apiService.patch).not.toHaveBeenCalled();
   });
 
   it('"View Details" opens a popout with the full alert detail', async () => {
@@ -135,16 +167,45 @@ describe('GovernanceAlertsPanel', () => {
     expect(await screen.findByText('Could not generate an explanation. Please try again.')).toBeInTheDocument();
   });
 
-  it('marking an alert reviewed from inside the popout closes the popout once the alert leaves the OPEN list', async () => {
+  it("shows a previously-recorded reviewer's note inside the details popout", async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: [{ ...alerts[0], status: 'OPEN', reason: 'Escalated to admin.' }] });
+    renderWithClient();
+
+    await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+    fireEvent.click(screen.getByRole('button', { name: 'View Details' }));
+
+    expect(within(screen.getByRole('dialog')).getByText('Escalated to admin.')).toBeInTheDocument();
+  });
+
+  it('clicking Mark Reviewed inside the details popout closes it and opens the reason popup instead', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
-    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'REVIEWED' } });
     renderWithClient();
 
     await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
     fireEvent.click(screen.getAllByRole('button', { name: 'View Details' })[0]);
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Mark Reviewed' }));
 
-    await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'REVIEWED' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Mark Reviewed', { selector: 'h3' })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument();
+    expect(apiService.patch).not.toHaveBeenCalled();
+  });
+
+  it('confirming Mark Reviewed from the popup that followed the details view submits the reason and closes', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
+    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alerts[0], status: 'REVIEWED', reason: 'Confirmed unauthorized.' } });
+    renderWithClient();
+
+    await screen.findByText('UNAUTHORIZED CHANGE DETECTED');
+    fireEvent.click(screen.getAllByRole('button', { name: 'View Details' })[0]);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Mark Reviewed' }));
+
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Confirmed unauthorized.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Mark Reviewed' }));
+
+    await waitFor(() =>
+      expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'REVIEWED', reason: 'Confirmed unauthorized.' }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });

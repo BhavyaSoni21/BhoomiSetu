@@ -60,7 +60,7 @@ The actual machinery already sitting here that the original proposal didn't know
 | 9 | AI document summarization | **Small, follows an existing pattern** | Same shape as the two AI-explain endpoints that already exist for parcels/alerts (`ai/`, Zod-validated). Only needs a persisted verification result to explain — depends on item 8. |
 | 10 | Intelligent officer routing | **Upgrade** | `WorkflowStep.assignedRole` already filters *by department*. Auto-assigning *to a specific officer* needs a workload query (count of open steps per officer per role/district) — no new `OfficerProfile` entity required; `users` + a `COUNT` query is enough at this scale. See §3.3. |
 | 11 | Context-aware governance alerts (rule engine) | **Upgrade** | Reuses the existing `GovernanceAlert` creation function with a third call site: on `PARCEL_CLAIM`/complaint-type workflow creation, evaluate the parcel's real context (land use, restriction, tax — all already fetched by Parcel 360) against a small rule table. Not a new engine. |
-| 12 | Historical spatial state + timeline | **Fully new** | Confirmed gap in `docs/FEATURE_AUDIT.md` §7 ("no concept of a parcel's geometry changing over time"). This proposal's framing — versioning *attributes* per year, not geometry — is the tractable version. New `ParcelHistoricalState` table, new endpoint, new Parcel 360 tab. See §3.4. |
+| 12 | Historical spatial state + timeline | **Backend ✅ done (2026-09-08); Parcel 360 tab still open** | Confirmed gap in `docs/FEATURE_AUDIT.md` §7 ("no concept of a parcel's geometry changing over time"). This proposal's framing — versioning *attributes* per year, not geometry — is the tractable version. `ParcelHistoricalState` table + `GET /parcels/:id/history` built as a prerequisite for `docs/FRONTEND_UPGRADE_SPEC.md` §8's historical-imagery comparison feature (it's the "was this recorded" cross-check behind that feature's alert logic) — but the citizen-facing Parcel 360 timeline tab described below was not built alongside it. See §3.4. |
 | 13 | Bhuvan external layer | **Investigate first** | External ISRO geospatial service; API access/auth/rate limits unverified from here. Not a plan item yet — a spike, not a phase. |
 | 14 | Dashboard aggregation endpoint | **New, small** | Legitimate idea from the original doc, same shape as `GET /analytics/summary` (real aggregation query, not N+1 calls from the frontend). |
 
@@ -87,12 +87,13 @@ The actual machinery already sitting here that the original proposal didn't know
 - On workflow creation, a small routing function: `eligibleOfficers = users WHERE role = step.assignedRole` (district filtering only if/when officers gain a district field — flag as a follow-on, not a blocker), ranked by `COUNT(open WorkflowSteps WHERE assignedOfficerId = officer.id)` ascending, assign the lowest.
 - The Officer Portal dashboard's existing "assigned workflows" query just adds an `assignedOfficerId = currentUser.id` filter — no new UI concept, just a narrower existing list.
 
-### 3.4 Historical spatial state → new table, existing tab pattern
+### 3.4 Historical spatial state → new table, existing tab pattern — backend ✅ done (2026-09-08)
 
-- New `ParcelHistoricalState` table: `parcelId`, `year`, `landUse`, `zoningStatus`, `restrictionStatus`, `taxStatus`. Additive, touches no existing table.
-- `GET /parcels/:id/history` (list) and `GET /parcels/:id/history?year=` (one snapshot).
-- Since there's no real historical data source, `seed.ts` synthesizes 2-3 prior years per Pune-cluster parcel by starting from the current seeded state and applying small plausible deltas (same honesty standard the rest of `seed.ts` already follows — real generated data, not hand-picked fixtures).
-- Frontend: one more tab on `Parcel360View.tsx` (it's already tabbed — Land Records/Registration/Planning/Tax/Restriction/Dispute), not a new page. A year selector re-fetches and diffs against current state client-side.
+- ✅ `ParcelHistoricalState` table: `parcelId`, `year`, `landUse`, `zoningStatus`, `restrictionStatus`, `taxStatus`. Additive, touches no existing table.
+- ✅ `GET /parcels/:id/history` (list, oldest-first) and `GET /parcels/:id/history?year=` (one snapshot) — public, no auth required (same access level as the rest of Parcel 360's read-only data).
+- ✅ Since there's no real historical data source, `seed.ts` synthesizes 5 years (2022-2026, 2026 being the app's current year and the anchor the earlier four walk backward from) per parcel by applying small independent per-year mutation chances (same honesty standard the rest of `seed.ts` already follows — real generated data, not hand-picked fixtures).
+- ✅ Turned out to have a second consumer beyond the original citizen-timeline idea: it's the exact table `docs/FRONTEND_UPGRADE_SPEC.md` §8's historical-imagery comparison feature cross-checks against to decide whether a visually-detected change is already on record or worth a `GovernanceAlert` — built as part of that feature's prerequisites.
+- ⬜ **Not yet built**: the citizen-facing Parcel 360 tab itself (one more tab alongside Land Records/Registration/Planning/Tax/Restriction/Dispute, with a year selector diffing against current state client-side). The table and endpoint exist and are fully tested; only this presentation layer remains open.
 
 ---
 

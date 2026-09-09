@@ -14,10 +14,12 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { GovernanceModule } from './governance/governance.module';
 import { AiModule } from './ai/ai.module';
 import { ChangeDetectionModule } from './change-detection/change-detection.module';
-import { DocumentVerificationModule } from './document-verification/document-verification.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { PredictiveAnalyticsModule } from './predictive-analytics/predictive-analytics.module';
 import { AuditModule } from './audit/audit.module';
+import { HistoricalImageryModule } from './historical-imagery/historical-imagery.module';
+import { AdminModule } from './admin/admin.module';
+import { NotificationFeedModule } from './notification-feed/notification-feed.module';
 import { getDatabaseConnectionOptions } from './database.config';
 
 @Module({
@@ -48,10 +50,12 @@ import { getDatabaseConnectionOptions } from './database.config';
     GovernanceModule,
     AiModule,
     ChangeDetectionModule,
-    DocumentVerificationModule,
     AnalyticsModule,
     PredictiveAnalyticsModule,
     AuditModule,
+    HistoricalImageryModule,
+    AdminModule,
+    NotificationFeedModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -9,6 +9,7 @@ import OfficerMapPage from './officer/OfficerMapPage';
 import OfficerDocumentsPage from './officer/OfficerDocumentsPage';
 import OfficerNotificationsPage from './officer/OfficerNotificationsPage';
 import OfficerProfilePage from './officer/OfficerProfilePage';
+import HistoricalImageryPage from './officer/HistoricalImageryPage';
 
 // Multi-page Officer Portal (docs/FRONTEND_UPGRADE_SPEC.md §5), mounted once
 // at /officer/* by App.tsx (already wrapped in RequireAuth roles={OFFICER_ROLES}
@@ -34,6 +35,7 @@ const OfficerPortal: React.FC = () => {
         <Route index element={<OfficerDashboardPage department={department} />} />
         <Route path="requests" element={<AssignedRequestsPage department={department} />} />
         <Route path="alerts" element={<GovernanceAlertsPage />} />
+        <Route path="historical-imagery" element={<HistoricalImageryPage />} />
         <Route path="map" element={<OfficerMapPage />} />
         <Route path="documents" element={<OfficerDocumentsPage />} />
         <Route path="notifications" element={<OfficerNotificationsPage />} />

@@ -83,12 +83,18 @@ Officer-facing alerts generated from the change-detection and spatial/tax pipeli
 - **Backend:** `governance/` — `GET /governance-alerts` (filter by status/severity), `GET /governance-alerts/:id`, `PATCH /governance-alerts/:id/status` (officer marks `REVIEWED`/`DISMISSED`). Seeded from flood-zone overlap, the simulated change-detection event, and overdue tax; real ones also created by feature 18.
 - **Frontend:** `features/officer/GovernanceAlertsPanel.tsx` + `features/officer/GovernanceAlertDetailModal.tsx` on the Officer Portal — a "View Details" popout per alert with the full record and an "Explain with AI" button (feature 17). Client-side paginated (5 alerts/page, added 2026-09-09) rather than rendering every open alert as one unbounded scroll.
 
-## 11. Authentication
+## 11. Authentication (+ Citizen Registration & OTP Verification)
 
-Real accounts (not the earlier client-side-only "pick a name and role" simulation) shared by officers, admin, and (optionally) citizens.
+Real accounts (not the earlier client-side-only "pick a name and role" simulation) shared by officers, admin, and citizens - plus, as of 2026-09-08, real citizen self-registration and mobile/email OTP verification (`docs/FRONTEND_UPGRADE_SPEC.md` §3).
 
-- **Backend:** `auth/` + `users/` — one `users` table (email, bcrypt hash, name, role). `POST /auth/login` → JWT (24h, `@nestjs/jwt`), uniform 401 for wrong password or unknown email (no user enumeration). `GET /auth/me` (passport-jwt guard, looks the user up fresh every call).
-- **Frontend:** `pages/LoginPage.tsx` (one sign-in page for all three account kinds, redirects to `/admin`/`/officer`/`/citizen` by role) + `features/auth/RequireAuth.tsx` (route guard on `/officer/*`/`/admin`/`/citizen/*`) + `features/auth/auth.ts` (React Query-cached session state, read by `App.tsx`'s navbar). **As of 2026-09-09, signing in is required for the entire Citizen Portal** — search, the map, document verification, and My Parcels (feature 12), not just service requests — per `docs/FRONTEND_UPGRADE_SPEC.md` §1's "no guest search, anywhere in the flow". Only the public site (`/`, `/about`, `/features`) needs no account.
+- **Backend:** `auth/` + `users/` + `notifications/` — one `users` table (`email`/`mobileNumber` both nullable+unique, `emailVerified`/`mobileVerified`, `pendingEmail`/`pendingMobileNumber` for an in-progress change, bcrypt hash, name, role).
+  - `POST /auth/login` → `{email|mobileNumber, password}` → JWT (24h), uniform 401/400 for wrong credentials/unknown identifier/malformed input (no user enumeration).
+  - `POST /auth/register` (citizen-only) → a method-selector (`method: 'EMAIL'|'MOBILE'`), creates the account and returns a session immediately, fires that method's OTP.
+  - `POST /auth/verify-otp` / `resend-otp` (citizen-only) → mobile OTP is delegated entirely to Fast2SMS (`SmsService`: `/dev/otp/send` + `/dev/otp/verify` - the code never touches this database); email OTP is generated/bcrypt-hashed/checked locally (10-min expiry, 5-attempt lockout), sent via `EmailService` (plain SMTP/`nodemailer` - works with any SMTP-capable provider, not a specific vendor API).
+  - `POST /auth/profile/contact` (citizen-only) → add a missing method directly, or stage a change into `pendingEmail`/`pendingMobileNumber` (an already-verified value is never overwritten until the new one is itself confirmed).
+  - Both notification services follow `GroqService`'s "unset config → 503 at call time" pattern (`FAST2SMS_API_KEY`/`FAST2SMS_OTP_ID`, `SMTP_HOST`) - a failed send never fails the surrounding request, since the account/contact value is already saved regardless.
+  - `GET /auth/me` (passport-jwt guard, looks the user up fresh every call).
+- **Frontend:** `pages/LoginPage.tsx`/`RegisterPage.tsx` (method-selector toggle, no main navbar - just a lightweight logo strip, per `App.tsx`'s `isAuthPage` check) + `features/auth/OtpEntryForm.tsx` (6-digit entry, expiry countdown, rate-limited resend - shared by post-registration verification and Profile's add/change flow) + `features/auth/RequireAuth.tsx` (route guard on `/officer/*`/`/admin`/`/citizen/*`) + `features/auth/auth.ts` (React Query-cached session state, read by `App.tsx`'s navbar). **As of 2026-09-09, signing in is required for the entire Citizen Portal** — search, the map, document verification, and My Parcels (feature 12), not just service requests — per `docs/FRONTEND_UPGRADE_SPEC.md` §1's "no guest search, anywhere in the flow". Only the public site (`/`, `/about`, `/features`) needs no account.
 
 ## 12. Citizen Sign-In / My Parcels
 
@@ -108,15 +114,15 @@ Stops a signed-in user from calling an endpoint their role shouldn't reach.
 
 A real trail of who did what, when.
 
-- **Backend:** `audit/` — an `audit_logs` table records `AUTH_LOGIN`, `WORKFLOW_STEP_APPROVED`/`REJECTED`, `WORKFLOW_STATUS_CHANGED`, `GOVERNANCE_ALERT_STATUS_CHANGED`, `USER_CREATED`/`USER_ROLE_CHANGED`/`USER_DELETED`. `GET /audit` (admin-only, filterable), `GET /parcels/:id/audit` (staff-only).
-- **Frontend:** `features/admin/RecentActivity.tsx` — a live feed on the Admin Portal.
+- **Backend:** `audit/` — an `audit_logs` table records `AUTH_LOGIN`, `WORKFLOW_STEP_APPROVED`/`REJECTED`, `WORKFLOW_STATUS_CHANGED`, `GOVERNANCE_ALERT_STATUS_CHANGED`, `USER_CREATED`/`USER_ROLE_CHANGED`/`USER_DELETED`, `DEPARTMENT_CREATED`/`UPDATED`/`DELETED`. `GET /audit` (admin-only, filterable by `entityType`/`userId`), `GET /parcels/:id/audit` (staff-only).
+- **Frontend:** `features/admin/RecentActivity.tsx` — the full activity feed on the Admin Portal's System Monitoring page (feature 15), with an `entityType` filter dropdown.
 
-## 15. Admin Portal / User Management
+## 15. Admin Portal
 
-Real staff-account administration, not a placeholder screen.
+Multi-page portal for platform administration once signed in — restructured 2026-09-09 from a single dashboard into `Dashboard` / `Departments` / `System Monitoring` (`docs/FRONTEND_UPGRADE_SPEC.md` §7; `Users`/`Officers`/`Workflow Configuration`/`Governance Rules` remain planning-only, scoped as a separate engine-rewrite effort).
 
-- **Backend:** `users/users.controller.ts` — `GET /users` (staff only, excludes citizens), `POST /users` (create Officer/Admin), `PATCH /users/:id/role`, `DELETE /users/:id` — all admin-only, all audit-logged, self-lockout prevented. `GET /analytics/summary` includes `totalUsers`/`recentLogins24h`.
-- **Frontend:** `pages/AdminPortal.tsx` + `features/admin/UserManagement.tsx` (create/promote-demote/remove accounts) + `features/admin/RecentActivity.tsx` (feature 14) + real System Overview counts.
+- **Backend:** `users/users.controller.ts` — `GET /users` (staff only, excludes citizens), `POST /users` (create Officer/Admin), `PATCH /users/:id/role`, `DELETE /users/:id` — all admin-only, all audit-logged, self-lockout prevented. `admin/departments-admin.controller.ts` — `GET/POST/PATCH/DELETE /admin/departments`, admin-only CRUD over a display/admin `departments` table (name/description/contact info, seeded one row per existing hardcoded department code), audit-logged the same way. `GET /analytics/summary` includes `totalUsers`/`recentLogins24h`.
+- **Frontend:** `pages/AdminPortal.tsx` (layout shell + its own relative `<Routes>`) with pages under `pages/admin/`: Dashboard (`features/admin/UserManagement.tsx` — create/promote-demote/remove accounts — plus Governance Analytics, feature 19, and Top At-Risk Parcels, feature 20), Departments (`features/admin/DepartmentManagement.tsx` — list/add/edit/delete departments), System Monitoring (real System Overview counts + `features/admin/RecentActivity.tsx`, feature 14). Reachable from the global navbar's `ADMIN_NAV_ITEMS` (`navConfig.ts`), same pattern as the Officer/Citizen Portals.
 
 ## 16. Officer Portal
 
@@ -140,21 +146,21 @@ Natural-language queries, plain-language parcel/alert explanations, and site-nav
 Compares two satellite/aerial images of the same area and flags which real parcels fall inside the changed region.
 
 - **Backend:** `change-detection/` — `POST /change-detection/analyze` (multipart `before`/`after` images, 5MB cap each, + `minLng`/`minLat`/`maxLng`/`maxLat` real geographic bounds + optional description; rate-limited to 30 req/min/IP). `sharp` decodes/resizes both images; a hand-rolled pixel comparison (`image-diff.ts`) finds the bounding box of changed pixels and maps it to a geographic region. Every seeded parcel is tested against that region via a real `ST_Contains`/`ST_Centroid` query (Postgres) or JS point-in-polygon test (SQLite). Creates a `ChangeDetectionEvent` row and one `GovernanceAlert` per affected parcel.
-- **Frontend:** `features/change-detection/ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, a result view linking affected parcels into Parcel 360) is **not currently mounted anywhere in the app** — it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per `docs/FRONTEND_UPGRADE_SPEC.md` §8 (the name overpromised real satellite-imagery analysis for what is actually a hand-rolled pixel diff; a scoped on-demand historical-comparison feature is planned as its replacement, not yet built). The component and the backend endpoint above are both untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts` and `features/change-detection/ChangeDetectionPanel.test.tsx`.
+- **Frontend:** `features/change-detection/ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, a result view linking affected parcels into Parcel 360) is **not currently mounted anywhere in the app** — it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per `docs/FRONTEND_UPGRADE_SPEC.md` §8 (the name overpromised real satellite-imagery analysis for what is actually a hand-rolled pixel diff). Its on-demand replacement is feature 26. The component and the backend endpoint above are both untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts` and `features/change-detection/ChangeDetectionPanel.test.tsx`.
 
 ## 19. Governance Analytics Dashboard
 
 Platform-wide analytics, not just per-alert.
 
 - **Backend:** `analytics/` — `GET /analytics/summary`, real SQL `GROUP BY` aggregation across tax status, registration status, land use, dispute case status, workflow status/type, alert severity/status, plus overall totals.
-- **Frontend:** `features/analytics/AnalyticsDashboard.tsx` — an 8-chart `recharts` dashboard on the Admin Portal.
+- **Frontend:** `features/analytics/AnalyticsDashboard.tsx` — an 8-chart `recharts` dashboard on the Admin Portal's Dashboard page.
 
 ## 20. Predictive Analytics (Risk Score)
 
 A transparent, explainable risk score per parcel — deliberately a hand-weighted heuristic, not a trained model (no labeled outcome data exists to train/validate one).
 
 - **Backend:** `predictive-analytics/` — combines tax delinquency (0.4), dispute exposure (0.3), open governance alerts (0.2), land-use restriction (0.1), each with a plain-language rationale. `GET /parcels/:id/risk-score`, `GET /predictive-analytics/top-risk-parcels`.
-- **Frontend:** the "Risk Assessment" card on Parcel 360 (`features/parcels/Parcel360View.tsx`) and `features/analytics/TopRiskParcels.tsx` ("Top At-Risk Parcels" list) on the Admin Portal.
+- **Frontend:** the "Risk Assessment" card on Parcel 360 (`features/parcels/Parcel360View.tsx`) and `features/analytics/TopRiskParcels.tsx` ("Top At-Risk Parcels" list) on the Admin Portal's Dashboard page.
 
 ## 21. Spatial Layer Write APIs
 
@@ -193,9 +199,36 @@ A `docker compose up --build` that actually works from a fresh volume, plus publ
 
 ---
 
+## 26. Historical Imagery Comparison
+
+On-demand, staff-only replacement for feature 18's always-on upload panel: compares two years of a cluster's own synthetic snapshot archive instead of requiring a fresh upload, and only alerts on changes nothing already explains. Redesigned 2026-09-08 to drop pixel-diffing entirely in favor of a real per-parcel data comparison, per-parcel LLM-phrased narratives instead of an aggregate percentage, and a 6-color category legend.
+
+- **Backend:** `historical-imagery/` — `GET /historical-imagery/clusters` (which clusters/years have snapshots), `GET /historical-imagery/clusters/:clusterId/years/:year/image` (serves the stored PNG), `POST /historical-imagery/clusters/:clusterId/compare` (`{fromYear, toYear}`, rate-limited to 30 req/min). All three are staff-only (`ALL_STAFF_ROLES`). `common/parcel-generation/parcel-category.ts` defines `ParcelCategory` (`NONE`/`RESTRICTED`/`DISPUTE_OWNERSHIP`/`DISPUTE_BOUNDARY`/`DISPUTE_INHERITANCE`/`DISPUTE_ENCROACHMENT`, one color each) computed from real data — that year's `ParcelHistoricalState.restrictionStatus`, plus (current year only, since `DisputeRecord` has no per-year history) the parcel's real active dispute type; the same function colors the seed-time snapshot render and drives `HistoricalComparisonService`'s comparison, so a parcel is simply "affected" when its category differs between the two years — no pixel math, no bounding box, no spatial intersection. A newly-appearing or worsened category creates a `GovernanceAlert` (`DISPUTE_DETECTED` or `RESTRICTION_DETECTED`, `source: 'HISTORICAL_IMAGERY'`, severity `CRITICAL`/`HIGH`/`MEDIUM` by category and whether the parcel also has an active restriction); an improved category (e.g. a dispute resolved) is still reported but never gets a fresh alert. `NarrativeService` (OpenRouter, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, text-only) turns each affected parcel's real facts into one grounded sentence — e.g. "This parcel now has an active boundary dispute" — capped to the 20 most severe affected parcels to bound latency (a live test found the two snapshot images added 50-80s of latency for zero information gain once detection stopped depending on them, so they're no longer sent to this call); a failed/uncapped/unconfigured call falls back to the same real facts, plainly phrased. `ClusterHistoricalSnapshot` (one rendered PNG per cluster per year, 2022-2026) is generated at seed time by `common/parcel-generation/cluster-snapshot-generator.ts` (SVG polygons rasterized via `sharp`, each colored by its real `ParcelCategory`).
+`GET /historical-imagery/clusters/:clusterId/years/:year/parcels` (added 2026-09-08) returns real parcel geometry + a real `ParcelCategory` per parcel for one year, so the frontend can render a cluster's actual boundaries on the live map instead of only the flat snapshot PNG.
+- **Frontend:** `features/officer/HistoricalImageryPanel.tsx`, mounted at `/officer/historical-imagery` (`pages/officer/HistoricalImageryPage.tsx`) — pick a cluster, then a single year dropdown drives the real interactive map (`features/map/MapComponent.tsx`, extended with `parcelColors`/`parcelLabels` props) showing that year's actual parcel boundaries colored by category; separately, pick two years via a segmented year-toggle to run the comparison on demand and see one row per affected parcel: its category-change badge, its real narrative sentence, and an "Alert raised" tag where one was created. Deep-linkable from Parcel 360's "View Historical Imagery" action (staff only, shown when the viewed parcel belongs to a cluster) via `?cluster=`.
+
+## 27. In-App Notifications
+
+A real per-user notification feed (docs/FRONTEND_UPGRADE_SPEC.md §11 item 5, resolved 2026-09-09: in-app only, not push/SMS/email) — replaces both portals' `ComingSoonCard` Notifications placeholders.
+
+- **Backend:** `notification-feed/` (distinct from `notifications/`, which is OTP SMS/email delivery infra only) — a `Notification` entity (`userId`/`type`/`title`/`message`/`parcelId`/`workflowId`/`alertId`/`read`), `GET /notifications` and `PATCH /notifications/:id/read` (any authenticated role, scoped to the caller). Two write paths: `WorkflowsService.notifyAssignedOfficers()` (a new request notifies every officer holding the assigned department's role) and `WorkflowsService.notifyCitizenOfStepDecision()` (an officer's decision notifies the citizen back, resolved via `citizen_parcels` since `workflow.createdBy` is a display name, not a user id). Governance alert review/dismissal also notifies via this system — see feature 29.
+- **Frontend:** `features/notifications/NotificationFeed.tsx`, shared by `pages/citizen/NotificationsPage.tsx` and `pages/officer/OfficerNotificationsPage.tsx` — click-to-mark-read, links into the related parcel when one exists.
+
+## 28. AI-Based Request Routing
+
+`POST /workflows` analyses a citizen's free-text request and picks the real department(s) it concerns, instead of always the same hardcoded default pipeline.
+
+- **Backend:** `workflows/request-routing.service.ts` — Groq (`GroqService.completeJson`, extracted into its own `ai/groq.module.ts` so `WorkflowsModule` can reuse it without importing all of `AiModule`) classifies `requestDetails` against the 7 real department codes, returning `{departments, reason}`. Validated against a closed set (`DEPARTMENT_ROLE`, the reverse of `auth/roles.constants.ts`'s `ROLE_DEPARTMENT`); on any failure (unconfigured/error/malformed/empty) returns nothing and `WorkflowsService.create()` falls back to the original deterministic `pipelineFor()` unchanged — every existing workflow test still exercises that fallback path for real (no `GROQ_API_KEY` in the test environment). The AI's rationale is stored on the workflow (`routingNotes`) and surfaced in the assigned officer's notification. Required every department to have a real officer role first: `TAX_OFFICER`/`RESTRICTION_OFFICER`/`ENCUMBRANCE_OFFICER` added to `OFFICER_ROLES` (previously only 4 of the 7 departments had one), one seeded demo account each.
+- Live-verified against the real Supabase database and real Groq API: a `CORRECTION_REQUEST` describing an overdue tax bill was correctly routed to `TAX` alone (not the generic default), with the officer notification carrying the AI's actual rationale.
+
+## 29. Governance Alert Review Reason
+
+- **Backend:** `GovernanceAlert` gained a `reason` column, settable via `PATCH /governance-alerts/:id/status`. `alertDepartmentFor()` (`governance-alerts.service.ts`) derives which department an alert concerns from its existing `alertType` (no new manual field) and notifies that department's officer(s) — feature 27 — with the reviewing officer's reason as the message.
+- **Frontend:** a reason `<textarea>` on both `features/officer/GovernanceAlertsPanel.tsx` (per alert row) and `GovernanceAlertDetailModal.tsx`, which also now shows a previously-recorded reason as a "Reviewer's note".
+
 ## Mock Data (underlies every feature above)
 
-`backend/seed.ts` generates 220 parcels across 5 real regions (Pune 100, Chennai 40, Bangalore 40, New Delhi 20, Chandigarh 20 — the last added 2026-09-09 to represent both of the SIH "Land Stack" PS's actual named pilot locations, Tamil Nadu and Chandigarh) with irregular, topology-aware subdivision (`backend/src/common/parcel-generation/`) rather than a uniform grid — adjacent parcels share literal boundary coordinates, sized/shaped irregularly per cluster. Every parcel gets Registration/Planning/Tax/Restriction/Dispute/Encumbrance records, state-appropriate identifiers, and (Pune only) zoning/restriction/infrastructure/change-detection demo layers. ~50% of parcels also get a 1-3-entry ownership history chain. 5 officer/admin accounts + 20 citizen accounts, all password `Demo@123`.
+`backend/seed.ts` generates 220 parcels across 5 real regions (Pune 100, Chennai 40, Bangalore 40, New Delhi 20, Chandigarh 20 — the last added 2026-09-09 to represent both of the SIH "Land Stack" PS's actual named pilot locations, Tamil Nadu and Chandigarh) with irregular, topology-aware subdivision (`backend/src/common/parcel-generation/`) rather than a uniform grid — adjacent parcels share literal boundary coordinates, sized/shaped irregularly per cluster. Every parcel gets Registration/Planning/Tax/Restriction/Dispute/Encumbrance records, state-appropriate identifiers, and (Pune only) zoning/restriction/infrastructure/change-detection demo layers. ~50% of parcels also get a 1-3-entry ownership history chain. 8 officer/admin accounts (1 admin + 1 officer per department, all 7 departments covered as of 2026-09-09) + 20 citizen accounts, all password `Demo@123`.
 
 ## Where things aren't built yet
 
