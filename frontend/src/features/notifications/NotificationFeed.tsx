@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Bell, ClipboardCheck, ShieldAlert } from 'lucide-react';
+import { Loader2, Bell, ClipboardCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { AppNotification } from '../../types/notification';
+import { useAuthUser } from '../auth/auth';
+import { OFFICER_ROLES } from '../officer/officerAuth';
 
 const TYPE_ICON: Record<string, typeof Bell> = {
   WORKFLOW_ASSIGNED: ClipboardCheck,
@@ -11,6 +13,9 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   WORKFLOW_STEP_REJECTED: ClipboardCheck,
   GOVERNANCE_ALERT_REVIEWED: ShieldAlert,
   GOVERNANCE_ALERT_DISMISSED: ShieldAlert,
+  // An Admin flagging a pending step for urgent review (AdminWorkflowOversightPage.tsx)
+  // - see WorkflowsService.escalateStep.
+  ADMIN_ESCALATION: AlertTriangle,
 };
 
 function formatDateTime(value: string): string {
@@ -31,6 +36,8 @@ function formatDateTime(value: string): string {
 const NotificationFeed: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: user } = useAuthUser();
+  const isOfficer = !!user && (OFFICER_ROLES as readonly string[]).includes(user.role);
 
   const { data: notifications = [], isLoading, error } = useQuery<AppNotification[]>(['notifications'], async () => {
     const response = await apiService.get('/notifications');
@@ -44,8 +51,31 @@ const NotificationFeed: React.FC = () => {
     { onSuccess: () => queryClient.invalidateQueries(['notifications']) },
   );
 
+  // An officer's notification never opens Parcel 360 (docs/ADMIN_PANEL_ISSUES.md
+  // follow-up, per the user's explicit "the notification in officer must not
+  // lead to parcel 360 view... notification should lead to Assigned Requests
+  // / Governance Alerts these tabs as there is alerts raised") - it goes to
+  // whichever of the officer's own queue tabs actually deals with this
+  // notification: Governance Alerts for the two GOVERNANCE_ALERT_* types,
+  // Assigned Requests for everything else (WORKFLOW_ASSIGNED, ADMIN_ESCALATION,
+  // and any future workflow-related type). The specific workflow/alert is
+  // passed through as a query param (per the user's follow-up "the
+  // notification that is leading to the respective tab is also selected
+  // there") so the destination page can select/open it directly instead of
+  // just landing on the bare list - see AssignedRequestsPage's ?workflow=
+  // and GovernanceAlertsPanel's ?alert= handling. A citizen's own
+  // notifications are untouched - they still open the relevant parcel, same
+  // as before.
   const handleClick = (notification: AppNotification) => {
     if (!notification.read) markReadMutation.mutate(notification.id);
+    if (isOfficer) {
+      if (notification.type.startsWith('GOVERNANCE_ALERT')) {
+        navigate(notification.alertId ? `/officer/alerts?alert=${notification.alertId}` : '/officer/alerts');
+      } else {
+        navigate(notification.workflowId ? `/officer/requests?workflow=${notification.workflowId}` : '/officer/requests');
+      }
+      return;
+    }
     if (notification.parcelId) navigate(`/parcels/${notification.parcelId}`);
   };
 

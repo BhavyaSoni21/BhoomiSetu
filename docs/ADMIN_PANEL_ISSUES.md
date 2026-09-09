@@ -1,4 +1,4 @@
-# Admin & Officer Portal — Requirements & Issues (open, not yet started)
+# Admin & Officer Portal — Requirements & Issues
 
 Two audits combined into one pending-work doc:
 
@@ -9,24 +9,24 @@ Every item below was checked against the actual code (and, where noted, a live A
 
 ---
 
-## Coming Soon Placeholders (still shown to users, added 2026-09-10, first priority)
+## Coming Soon Placeholders — all three done (2026-09-10)
 
 Straightforward "not built yet" screens — distinct from the issues below
 (those are behavior/design gaps in already-*built* features; these three
-are just missing pages/panels, each with a plain `ComingSoonCard` or
-disabled placeholder card standing in for them today).
+were just missing pages/panels, each with a plain `ComingSoonCard` or
+disabled placeholder card standing in for them).
 
 ### 1. Officer Portal → Documents
 
-**Status: not built.** `frontend/src/pages/officer/OfficerDocumentsPage.tsx` — full `ComingSoonCard` placeholder: *"Documents submitted alongside a request, grouped by parcel and request, with inline review — not built yet."* Most of the underlying capability already exists via `frontend/src/features/officer/WorkflowReviewPanel.tsx` (an officer reviewing a Land Claim/Verify Documents/Dispute request already sees the stored papers + citizen-submitted evidence, zoomable) — this page would be a dedicated cross-request document browser (all documents, across every request, in one place), which was never built as its own page.
+**Status: done, then merged into Assigned Requests (2026-09-10).** Originally built as its own cross-request document browser (`OfficerDocumentsPage.tsx`). Per the user's explicit follow-up ("the documents should be the part of either Assigned Requests or Governance Alerts as the requests are raised... or combine them"), that page was deleted and its capability folded into `frontend/src/pages/officer/AssignedRequestsPage.tsx`: the left column now groups every workflow by parcel (showing stored land-property papers, zoomable, plus every request against that parcel) with a "Pending only" toggle (on by default, preserving the original Assigned Requests view); clicking a request loads `WorkflowReviewPanel` on the right, unchanged. The old `/officer/documents` route now redirects to `/officer/requests` (`<Navigate replace>`, same pattern `CitizenPortal.tsx` already uses for moved routes), and its nav entry was removed.
 
 ### 2. Admin Dashboard → Workflow Oversight
 
-**Status: not built.** `frontend/src/pages/admin/AdminDashboardPage.tsx:72-95` — disabled, dashed-border placeholder card. The backend already allows an Admin to act on any department's workflow step (`WorkflowsController.reviewStep` has no department restriction for the `ADMIN` role), but there is no review screen for it in the Admin Portal yet.
+**Status: done.** `frontend/src/pages/admin/AdminWorkflowOversightPage.tsx` (nav: "Workflows") lists every department's workflows (optionally filtered by department/pending-only) and opens `WorkflowReviewPanel` in its Admin oversight mode. That mode was redesigned per the user's explicit follow-up ("the admin dont have to approve the workflow... he can alert the officers for checking on some case at the earliest"): monitoring is the default, "Alert Officer" (a new `POST /workflows/:id/steps/:stepId/escalate` endpoint, ADMIN-only, notifies the responsible officer without deciding anything) is the primary action, and "Decide Myself" is an explicit opt-in that reveals the real Approve/Reject form only when clicked.
 
 ### 3. Admin Dashboard → Map Layer Authoring
 
-**Status: not built.** `frontend/src/pages/admin/AdminDashboardPage.tsx:97-117` — disabled, dashed-border placeholder card (this is also the "map section" Admin issue #6 below refers to — there is no *functioning* map anywhere in Admin, just this). Zoning, restriction, and infrastructure map layers already have working create/edit/delete APIs (`backend/src/gis/gis.controller.ts`); there's no admin screen to drive them yet.
+**Status: done.** `frontend/src/pages/admin/AdminMapLayerAuthoringPage.tsx` (nav: "Map Layer Authoring") drives the zoning/restriction/infrastructure create-edit-delete APIs via a tabbed, config-driven `MapLayerManagement.tsx`. Also picked up two follow-up asks from the user: (1) a map-drawing tool (`LayerGeometryDrawMap.tsx`, `@mapbox/mapbox-gl-draw` on top of the existing `maplibre-gl` dependency) scoped only to this admin screen — draw a shape instead of hand-typing GeoJSON; (2) a 4th, **admin-only** layer ("Admin Notes", free-form annotations) — `backend/src/spatial/admin-map-note.entity.ts` + `/gis/admin-notes`, every endpoint ADMIN-gated including reads (unlike the other three, which are public-read), and never fetched by the shared citizen/officer map (`features/map/MapComponent.tsx`).
 
 ---
 
@@ -36,19 +36,13 @@ disabled placeholder card standing in for them today).
 
 **Requirement** (Officer checklist #3, generalizes Admin issue's old #5): a government-style **left sidebar** for the Officer (and, implicitly, Admin) interface, with **Logout at the bottom, separated from normal nav items**.
 
-**Status: not implemented — and this reverses an earlier, deliberate design decision.** There is no sidebar anywhere in this codebase for any role. `frontend/src/App.tsx`'s `AppShell` (lines 199-256) renders one shared horizontal **top** navbar for Citizen/Officer/Admin alike. This was an explicit prior decision, documented in the code itself: `frontend/src/navConfig.ts:1-7` — *"no separate portal-owned sub-nav any more... the user's explicit follow-up: 'i dont want 2 diffrent navbars fit the things in the orignal navbar only'"*. "Sign Out" is a plain text link inside the top utility bar (`App.tsx:175-178`), sitting between the language selector and theme toggle — not a sidebar, nothing at a "bottom." Logout **functionality itself works correctly** (`handleLogout` → `useLogout()` clears the shared auth cache/token → redirects to `/`) — this is a placement/structure issue, not a broken feature.
-
-**Would need**: confirm intent before building, since it directly reverses the "one navbar, no sidebar" decision above. If confirmed, a real Officer/Admin-specific left sidebar component, with routing unchanged (`OfficerPortal.tsx`/`AdminPortal.tsx`'s existing `<Routes>`), and Logout moved out of the top utility bar into the sidebar's own bottom section for those two roles specifically (Citizen Portal presumably keeps the current top navbar, unless told otherwise).
+**Status: declined by the user (2026-09-10) — stays as-is.** Explicitly asked ("Skip - keep current navbar" vs. "Build it for Officer/Admin only"); the user chose to keep the single shared top navbar, consistent with their earlier explicit instruction ("i dont want 2 diffrent navbars, fit the things in the original navbar only"). No further action.
 
 ### B. Language change doesn't visibly affect Officer or Admin screens
 
 **Requirement** (Officer checklist #9, generalizes Admin issue's old #7): language selector must work across Home, Citizen, Officer, and Admin pages alike, not just Home/Citizen.
 
-**Status: mechanism is genuinely global; coverage is not.** `frontend/src/i18n/config.ts` initializes one `i18next` instance; `App.tsx`'s navbar calls `i18n.changeLanguage()` on that shared instance and persists the choice to `localStorage` (`bhoomisetu_language`), re-read on load — a language choice **does** survive navigation and reloads, via a real global provider (`react-i18next`), not per-page state. This part is not fake.
-
-The actual gap is **coverage**: `grep -c '\bt\('` returns **0** across all of `frontend/src/features/officer/**` and `frontend/src/pages/officer/**`, **0** across `frontend/src/features/admin/**`, and only **9** (all in one file — `AdminDashboardPage.tsx`'s two "coming soon" placeholder cards) across `frontend/src/pages/admin/**`. Every other Officer/Admin file is 100% hardcoded English: `OfficerDashboardPage`, `OfficerProfilePage`, `AssignedRequestsPage`, `OfficerMapPage`, `OfficerDocumentsPage`, `HistoricalImageryPage`/`HistoricalImageryPanel`, `GovernanceAlertsPanel`, `GovernanceAlertDetailModal`, `GovernanceAlertReasonPrompt`, `WorkflowReviewPanel`, `AdminDepartmentsPage`, `SystemMonitoringPage`, `DepartmentManagement`, `SystemMonitoring`, `UserManagement`. `frontend/src/navConfig.ts` documents this as deliberate: `OFFICER_NAV_ITEMS`/`ADMIN_NAV_ITEMS` use a plain `label` string, not the i18n `labelKey` path `CITIZEN_NAV_ITEMS` uses. Net effect: switching to Hindi visibly changes Home/Citizen Portal/shared navbar chrome, but changes nothing inside Officer or Admin screens — matching what the user observed, even though the underlying plumbing is global.
-
-**Would need**: add i18n keys for every hardcoded Officer + Admin string (mirroring the `citizenPortal.*`/`citizenNav.*` pattern in `frontend/src/i18n/locales/{en,hi}.json`) and switch both `OFFICER_NAV_ITEMS` and `ADMIN_NAV_ITEMS` from `label` to `labelKey`. Mechanical but touches many files across both portals.
+**Status: done (2026-09-10).** The mechanism was already genuinely global (`frontend/src/i18n/config.ts`'s single `i18next` instance, persisted via `localStorage`); the gap was coverage, which is now closed. Every Officer/Admin file that had zero `t()` calls now routes its text through two new namespace pairs — `officerNav`/`officerPortal` and `adminNav`/`adminPortal` — in `frontend/src/i18n/locales/{en,hi}.json`, with real Hindi translations (not copies of the English text): `OfficerDashboardPage`, `OfficerProfilePage`, `AssignedRequestsPage`, `OfficerMapPage`, `OfficerDocumentsPage`, `HistoricalImageryPage`/`HistoricalImageryPanel`, `GovernanceAlertsPanel`, `GovernanceAlertDetailModal`, `GovernanceAlertReasonPrompt`, `WorkflowReviewPanel`, `AdminDashboardPage`, `AdminDepartmentsPage`, `SystemMonitoringPage`, `DepartmentManagement`, `SystemMonitoring`, `UserManagement`, `RecentActivity`, plus the three newly-built Coming Soon pages and their supporting components. `frontend/src/navConfig.ts`'s `OFFICER_NAV_ITEMS`/`ADMIN_NAV_ITEMS` switched from plain `label` strings to the same `labelKey` path `CITIZEN_NAV_ITEMS` already used. English display text was kept byte-identical to what was hardcoded before, so every existing test that asserted specific English strings kept passing unchanged (272/272) — only the mechanism changed, not the rendered output.
 
 ---
 
@@ -62,15 +56,11 @@ The actual gap is **coverage**: `grep -c '\bt\('` returns **0** across all of `f
 
 ### 2. Citizen-service actions leaking into Admin
 
-**Status: 3 of 4 fixed (2026-09-09), as a side effect of unrelated work.** The land-claim/document-verification/profile feature work required gating Parcel 360's "Request Documents"/"Report Issue"/"File a Dispute" buttons (`frontend/src/features/parcels/Parcel360View.tsx`) on the signed-in citizen actually owning that specific parcel (`isOwnParcel`, checked against `GET /parcels/mine`). That gate also means an admin/officer viewing the same screen no longer sees any of these three buttons, since `isOwnParcel` is never true for a non-citizen. Verified live in `Parcel360View.test.tsx`.
-
-**Still open**: "Back to Search" is untouched (plain `window.history.back()`, not tied to a specific parcel). Small separate change if still wanted.
+**Status: done (2026-09-10).** The land-claim/document-verification/profile feature work required gating Parcel 360's "Request Documents"/"Report Issue"/"File a Dispute" buttons (`frontend/src/features/parcels/Parcel360View.tsx`) on the signed-in citizen actually owning that specific parcel (`isOwnParcel`, checked against `GET /parcels/mine`). That gate also means an admin/officer viewing the same screen no longer sees any of these three buttons, since `isOwnParcel` is never true for a non-citizen. Verified live in `Parcel360View.test.tsx`. The remaining piece, "Back to Search", stays visible to everyone (harmless browser-back navigation, not a citizen-only service action) but its label is now role-aware — "Back to Search" for a citizen, plain "Back" for Officer/Admin, since staff more often arrive at Parcel 360 from a workflow/alert/audit-log link than an actual search.
 
 ### 3. "Explain with AI" giving predefined answers
 
-**Status: reported as broken, but not reproducible as described — tested live and it works.** `POST /ai/parcels/:id/explain` returns genuinely distinct, data-grounded explanations for different parcels. No hardcoded/mock fallback path exists in `ai.service.ts`.
-
-**Open question, not yet resolved**: needs the user to specify exactly where they saw this.
+**Status: resolved, no action needed (confirmed by the user 2026-09-10).** Reported as broken, but not reproducible as described — tested live and it works. `POST /ai/parcels/:id/explain` returns genuinely distinct, data-grounded explanations for different parcels. No hardcoded/mock fallback path exists in `ai.service.ts`. Asked the user for specifics; they confirmed no further action needed.
 
 ### 4. Officer monitoring (how officers handle citizen issues)
 
@@ -94,15 +84,11 @@ The actual gap is **coverage**: `grep -c '\bt\('` returns **0** across all of `f
 
 ### 1. Remove Quick Actions
 
-**Status: not done — confirmed fully redundant.** `frontend/src/pages/officer/OfficerDashboardPage.tsx:99-113` has a "Quick Actions" grid (Assigned Requests, Governance Alerts, Map, Notifications) — all four already exist verbatim in the top nav (`frontend/src/navConfig.ts:28-37`, `OFFICER_NAV_ITEMS`).
-
-**Would need**: delete the Quick Actions block (lines 99-113) and its `quickLinks` array (lines 43-48). Small, safe, no design decision needed.
+**Status: done (2026-09-10).** The redundant "Quick Actions" grid and its `quickLinks` array were removed from `frontend/src/pages/officer/OfficerDashboardPage.tsx` — all four links already existed verbatim in the top nav.
 
 ### 2. Dedicated Profile section
 
-**Status: partially done.** `frontend/src/pages/officer/OfficerProfilePage.tsx` exists as its own page, separate from dashboard content, reachable via nav (`/officer/profile`). Shows Name/Email/Role/Department. But it's minimal — no edit capability, no extra fields, no visual richness compared to the Citizen Portal's `ProfilePage.tsx` (tabs, editable details, documents).
-
-**Would need**: a scope decision on how much richer it should be (edit fields? more info?) before building further.
+**Status: done (2026-09-10).** Per the user's explicit choice ("Match Citizen's Profile pattern"), `OfficerProfilePage.tsx` now has the same editable depth as the Citizen Portal's `ProfilePage.tsx`: an editable Profile Details card (name/address/government ID/occupation) and verified email/mobile contact methods with the OTP flow, plus Member Since. `ContactMethodCard`/`ProfileDetailsCard` were extracted out of `ProfilePage.tsx` into `features/auth/` so both portals share the exact same components rather than duplicating them; `POST /auth/verify-otp`, `/auth/resend-otp`, `/auth/profile/contact`, `/auth/profile/details` were widened from `CITIZEN_ROLE`-only to every role (the underlying `AuthService` methods were already role-agnostic). No second "Documents" tab, unlike Citizen — an officer has no personal linked-parcel documents to show.
 
 ### 3. Governance Alert must show the user's submitted document as proof
 
@@ -128,20 +114,32 @@ The actual gap is **coverage**: `grep -c '\bt\('` returns **0** across all of `f
 
 **Would need**: nothing removed wholesale — Notifications is the only in-app signal for new work assignments. If anything, only the governance-alert-review notification type is the genuinely-redundant slice; removing just that (not the whole page) would need confirming with the user first.
 
+### 7. Officer notifications should route to, and select, the specific item — not just open Parcel 360
+
+**Status: done (2026-09-10).** Two separate but related follow-ups from the user:
+
+- *"the notification in officer must not lead to parcel 360 view... notification should lead to Assigned Requests / Governance Alerts these tabs"* — `NotificationFeed.tsx` now branches on whether the signed-in user is an officer (`useAuthUser()` + `OFFICER_ROLES`): officer notifications never open `/parcels/:id` any more. `GOVERNANCE_ALERT_*` types route to `/officer/alerts`; everything else (`WORKFLOW_*`) routes to `/officer/requests`. Citizen notifications are unchanged (still open the relevant parcel).
+- *"it would be great if the notification that is leading to the respective tab is also selected there like there are workflow review and view details option"* — the route now also carries the specific id as a query param (`/officer/requests?workflow=<id>`, `/officer/alerts?alert=<id>`), and both destination pages read it on mount/change to auto-select that item: `AssignedRequestsPage.tsx` opens the matching `WorkflowReviewPanel`, `GovernanceAlertsPanel.tsx` opens the matching `GovernanceAlertDetailModal`. The alerts panel only queries *OPEN* alerts, so a `GOVERNANCE_ALERT_REVIEWED`/`DISMISSED` notification would otherwise point at an alert missing from that list — a fallback query (`GET /governance-alerts/:id`, enabled only once the OPEN list has settled and still doesn't contain the id) fetches it directly so the deep link still resolves.
+
+**"Is the Parcel 360 view not accessible to the officer?"** — it still is. `/parcels/:id` is a public, unguarded route (not wrapped in `RequireAuth`), reachable via the Map, direct URL, etc. — notifications simply stopped being *one* of the paths there. To keep it conveniently reachable from the contexts where an officer is most likely to want it, an explicit "View Parcel" link (`MapPinned` icon) was added next to the parcel id in both `WorkflowReviewPanel.tsx` and `GovernanceAlertDetailModal.tsx`.
+
 ---
 
-## Suggested sequencing (not yet agreed with the user)
+## Suggested sequencing — status as of 2026-09-10
 
-**First priority** — the three Coming Soon placeholders (added 2026-09-10, explicitly called out as first priority):
-1. **Coming Soon #1** (Officer → Documents) — real page needed; can lean on `WorkflowReviewPanel`'s existing document/evidence display rather than starting from scratch.
-2. **Coming Soon #2** (Admin → Workflow Oversight) — backend already supports it; needs a review screen.
-3. **Coming Soon #3** (Admin → Map Layer Authoring) — backend APIs already exist; needs an admin screen.
+Items 1–8 are done. The user explicitly confirmed decisions on 7 (declined),
+8 (richer, matching Citizen's pattern), and Admin #3 (resolved, no repro) via
+AskUserQuestion before this round started, and explicitly deferred all of 9.
 
-Then, cheapest/safest first:
-4. **Officer #1** (remove Quick Actions) — small, contained, no design decision.
-5. **Admin #2** (gate citizen buttons) — 3 of 4 done; "Back to Search" is the one small remaining piece if still wanted.
-6. **Cross-Portal B** (i18n coverage for Officer + Admin) — mechanical, no design decisions needed, but touches many files.
-7. **Cross-Portal A** (sidebar + logout placement) and **Admin #6**/**Officer #6** — need scope decisions first (see open questions above).
-8. **Officer #2** (richer Profile) — needs a scope decision on how much richer.
-9. **Admin #1** (sessions), **Admin #4** (officer monitoring), **Officer #3** (alert document proof), **Officer #4** (four verification stages) — genuine new features/architecture, each worth its own planning pass.
-10. **Admin #3** — blocked on the user clarifying where they saw the issue; **Admin #5** and **Officer #5** — already done, no action needed.
+1. **Coming Soon #1** (Officer → Documents) — ✅ done, later merged into Assigned Requests (see item 1 above).
+2. **Coming Soon #2** (Admin → Workflow Oversight) — ✅ done.
+3. **Coming Soon #3** (Admin → Map Layer Authoring) — ✅ done.
+4. **Officer #1** (remove Quick Actions) — ✅ done.
+5. **Admin #2** (gate citizen buttons) — ✅ done (the remaining "Back to Search" piece is now role-aware, not removed).
+6. **Cross-Portal B** (i18n coverage for Officer + Admin) — ✅ done.
+7. **Cross-Portal A** (sidebar + logout placement) — declined by the user, stays as the shared top navbar.
+8. **Officer #2** (richer Profile) — ✅ done, matches Citizen's `ProfilePage.tsx` depth.
+9. **Admin #1** (sessions), **Admin #4** (officer monitoring), **Officer #3** (alert document proof), **Officer #4** (four verification stages) — explicitly left out of this round by the user; genuine new features/architecture, each still worth its own planning pass whenever picked up.
+10. **Admin #3** — resolved, no action needed (user confirmed after the original repro attempt came back clean); **Admin #5** and **Officer #5** — already done, no action needed.
+
+Follow-up round after item 10 (not part of the original 10, raised separately by the user, all done 2026-09-10): Parcel 360's "Compare Years" now runs inline instead of redirecting to Historical Imagery; officer notifications no longer open Parcel 360 and instead deep-link to the specific workflow/alert on Assigned Requests / Governance Alerts (see **Cross-Portal Issues #7** above); Officer Documents merged into Assigned Requests (see item 1 above).

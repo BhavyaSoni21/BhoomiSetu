@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import WorkflowReviewPanel from './WorkflowReviewPanel';
 import apiService from '../../services/apiService';
 
 vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), patch: vi.fn() },
+  default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));
 
 // jsdom has no real Blob-URL implementation - AuthenticatedDocumentImage
@@ -14,9 +15,15 @@ vi.mock('../../services/apiService', () => ({
 global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
 global.URL.revokeObjectURL = vi.fn();
 
+// MemoryRouter wraps every render now - the "View Parcel" link needs a
+// Router context regardless of whether a given test cares about it.
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 }
 
 const pendingWorkflow = {
@@ -40,6 +47,7 @@ describe('WorkflowReviewPanel', () => {
   beforeEach(() => {
     vi.mocked(apiService.get).mockReset();
     vi.mocked(apiService.patch).mockReset();
+    vi.mocked(apiService.post).mockReset();
   });
 
   it('shows workflow details and steps', async () => {
@@ -60,6 +68,24 @@ describe('WorkflowReviewPanel', () => {
     expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
   });
 
+  it('disables Approve/Reject until remarks are typed, and enables them once typed', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+
+    const approveButton = await screen.findByRole('button', { name: 'Approve' });
+    const rejectButton = screen.getByRole('button', { name: 'Reject' });
+    expect(approveButton).toBeDisabled();
+    expect(rejectButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Remarks (required)'), { target: { value: 'Looks correct' } });
+    expect(approveButton).not.toBeDisabled();
+    expect(rejectButton).not.toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Remarks (required)'), { target: { value: '   ' } });
+    expect(approveButton).toBeDisabled();
+    expect(rejectButton).toBeDisabled();
+  });
+
   it('submits an approve action with remarks to the correct step', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     vi.mocked(apiService.patch).mockResolvedValue({
@@ -68,7 +94,7 @@ describe('WorkflowReviewPanel', () => {
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     await screen.findByRole('button', { name: 'Approve' });
-    fireEvent.change(screen.getByLabelText('Remarks (optional)'), { target: { value: 'Looks correct' } });
+    fireEvent.change(screen.getByLabelText('Remarks (required)'), { target: { value: 'Looks correct' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     await waitFor(() =>
@@ -188,8 +214,94 @@ describe('WorkflowReviewPanel', () => {
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     await screen.findByRole('button', { name: 'Approve' });
+    fireEvent.change(screen.getByLabelText('Remarks (required)'), { target: { value: 'Looks correct' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     expect(await screen.findByText(/Something went wrong submitting your decision/)).toBeInTheDocument();
+  });
+
+  describe('admin oversight mode (no officerDepartment)', () => {
+    it('defaults to monitoring: shows Alert Officer/Decide Myself, not Approve/Reject directly, for every pending step', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      await screen.findByText('ROR COPY REQUEST');
+      expect(screen.getByRole('heading', { level: 4, name: 'LAND RECORDS' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 4, name: 'REGISTRATION' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 4, name: 'PLANNING' })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Alert Officer' })).toHaveLength(3);
+      expect(screen.getAllByRole('button', { name: 'Decide Myself' })).toHaveLength(3);
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    });
+
+    it('only shows a row for steps still PENDING, skipping already-decided ones', async () => {
+      const partiallyDecided = {
+        ...pendingWorkflow,
+        steps: pendingWorkflow.steps.map((s) =>
+          s.department === 'LAND_RECORDS' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
+        ),
+      };
+      vi.mocked(apiService.get).mockResolvedValue({ data: partiallyDecided });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      await screen.findByText('ROR COPY REQUEST');
+      expect(screen.getAllByRole('button', { name: 'Alert Officer' })).toHaveLength(2);
+    });
+
+    it('Decide Myself reveals the Approve/Reject form and submits to the correct step id', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
+      vi.mocked(apiService.patch).mockResolvedValue({ data: pendingWorkflow });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      const registrationHeading = await screen.findByRole('heading', { level: 4, name: 'REGISTRATION' });
+      const registrationRow = within(registrationHeading.parentElement!.parentElement!);
+      fireEvent.click(registrationRow.getByRole('button', { name: 'Decide Myself' }));
+
+      fireEvent.change(registrationRow.getByLabelText('Remarks (required)'), { target: { value: 'Registration checked out' } });
+      fireEvent.click(registrationRow.getByRole('button', { name: 'Approve' }));
+
+      await waitFor(() =>
+        expect(apiService.patch).toHaveBeenCalledWith('/workflows/wf1/steps/s2', {
+          action: 'APPROVE',
+          remarks: 'Registration checked out',
+        }),
+      );
+    });
+
+    it('Alert Officer sends an escalation without approving/rejecting anything', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
+      vi.mocked(apiService.post).mockResolvedValue({ data: pendingWorkflow });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      const registrationHeading = await screen.findByRole('heading', { level: 4, name: 'REGISTRATION' });
+      const registrationRow = within(registrationHeading.parentElement!.parentElement!);
+      fireEvent.click(registrationRow.getByRole('button', { name: 'Alert Officer' }));
+
+      fireEvent.change(registrationRow.getByLabelText('Message to REGISTRATION OFFICER (required)'), {
+        target: { value: 'This one looks urgent, please check today.' },
+      });
+      fireEvent.click(registrationRow.getByRole('button', { name: 'Send Alert' }));
+
+      await waitFor(() =>
+        expect(apiService.post).toHaveBeenCalledWith('/workflows/wf1/steps/s2/escalate', {
+          message: 'This one looks urgent, please check today.',
+        }),
+      );
+      expect(await screen.findByText('Alert sent to REGISTRATION OFFICER.')).toBeInTheDocument();
+      expect(apiService.patch).not.toHaveBeenCalled();
+    });
+
+    it('shows "all steps decided" once every step has been reviewed', async () => {
+      const allDecided = {
+        ...pendingWorkflow,
+        steps: pendingWorkflow.steps.map((s) => ({ ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' })),
+      };
+      vi.mocked(apiService.get).mockResolvedValue({ data: allDecided });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      expect(await screen.findByText('All steps in this workflow have been decided.')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Alert Officer' })).not.toBeInTheDocument();
+    });
   });
 });

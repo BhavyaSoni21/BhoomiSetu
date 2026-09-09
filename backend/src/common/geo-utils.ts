@@ -84,7 +84,7 @@ function onSegment(a: [number, number], b: [number, number], c: [number, number]
   );
 }
 
-function segmentsIntersect(p1: [number, number], p2: [number, number], p3: [number, number], p4: [number, number]): boolean {
+export function segmentsIntersect(p1: [number, number], p2: [number, number], p3: [number, number], p4: [number, number]): boolean {
   const o1 = orientation(p1, p2, p3);
   const o2 = orientation(p1, p2, p4);
   const o3 = orientation(p3, p4, p1);

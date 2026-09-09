@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import apiService from '../../services/apiService';
@@ -11,23 +12,23 @@ import { AuditLogEntry } from '../../types/auditLog';
 // full, filterable audit feed - it used to sit on the Dashboard capped to 50
 // entries; the entityType filter and uncapped list only make sense with the
 // dedicated page's extra room.
-const ACTION_LABELS: Record<string, string> = {
-  AUTH_LOGIN: 'logged in',
-  WORKFLOW_STEP_APPROVED: 'approved a workflow step',
-  WORKFLOW_STEP_REJECTED: 'rejected a workflow step',
-  WORKFLOW_STATUS_CHANGED: 'changed a workflow status',
-  GOVERNANCE_ALERT_STATUS_CHANGED: 'updated a governance alert',
-  USER_CREATED: 'created a user account',
-  USER_ROLE_CHANGED: "changed a user's role",
-  USER_DELETED: 'deleted a user account',
-  DEPARTMENT_CREATED: 'created a department',
-  DEPARTMENT_UPDATED: 'updated a department',
-  DEPARTMENT_DELETED: 'deleted a department',
+const ACTION_LABEL_KEYS: Record<string, string> = {
+  AUTH_LOGIN: 'adminPortal.actionLabel.AUTH_LOGIN',
+  WORKFLOW_STEP_APPROVED: 'adminPortal.actionLabel.WORKFLOW_STEP_APPROVED',
+  WORKFLOW_STEP_REJECTED: 'adminPortal.actionLabel.WORKFLOW_STEP_REJECTED',
+  WORKFLOW_STATUS_CHANGED: 'adminPortal.actionLabel.WORKFLOW_STATUS_CHANGED',
+  GOVERNANCE_ALERT_STATUS_CHANGED: 'adminPortal.actionLabel.GOVERNANCE_ALERT_STATUS_CHANGED',
+  USER_CREATED: 'adminPortal.actionLabel.USER_CREATED',
+  USER_ROLE_CHANGED: 'adminPortal.actionLabel.USER_ROLE_CHANGED',
+  USER_DELETED: 'adminPortal.actionLabel.USER_DELETED',
+  DEPARTMENT_CREATED: 'adminPortal.actionLabel.DEPARTMENT_CREATED',
+  DEPARTMENT_UPDATED: 'adminPortal.actionLabel.DEPARTMENT_UPDATED',
+  DEPARTMENT_DELETED: 'adminPortal.actionLabel.DEPARTMENT_DELETED',
 };
 
 // Purely decorative marker dot per action family (docs/design.md's geometric-
 // shape-as-wayfinding idea) - keyed off the same `action` value already used
-// for ACTION_LABELS, so it needs no new data and can't drift from it.
+// for ACTION_LABEL_KEYS, so it needs no new data and can't drift from it.
 const ACTION_DOT_CLASS: Record<string, string> = {
   AUTH_LOGIN: 'bg-primary',
   WORKFLOW_STEP_APPROVED: 'bg-primary',
@@ -43,12 +44,12 @@ const ACTION_DOT_CLASS: Record<string, string> = {
 };
 
 const ENTITY_TYPE_OPTIONS = [
-  { value: '', label: 'All Activity' },
-  { value: 'USER', label: 'Users' },
-  { value: 'WORKFLOW', label: 'Workflows' },
-  { value: 'WORKFLOW_STEP', label: 'Workflow Steps' },
-  { value: 'GOVERNANCE_ALERT', label: 'Governance Alerts' },
-  { value: 'DEPARTMENT', label: 'Departments' },
+  { value: '', labelKey: 'adminPortal.entityTypeAll' },
+  { value: 'USER', labelKey: 'adminPortal.entityTypeUsers' },
+  { value: 'WORKFLOW', labelKey: 'adminPortal.entityTypeWorkflows' },
+  { value: 'WORKFLOW_STEP', labelKey: 'adminPortal.entityTypeWorkflowSteps' },
+  { value: 'GOVERNANCE_ALERT', labelKey: 'adminPortal.entityTypeGovernanceAlerts' },
+  { value: 'DEPARTMENT', labelKey: 'adminPortal.entityTypeDepartments' },
 ];
 
 function formatDateTime(value: string): string {
@@ -59,6 +60,7 @@ function formatDateTime(value: string): string {
 }
 
 const RecentActivity: React.FC = () => {
+  const { t } = useTranslation();
   const [entityType, setEntityType] = useState('');
   const { data: entries = [], isLoading, error } = useQuery<AuditLogEntry[]>(['audit-log', entityType], async () => {
     const response = await apiService.get('/audit', { params: entityType ? { entityType } : undefined });
@@ -69,13 +71,13 @@ const RecentActivity: React.FC = () => {
     <div>
       <div className="flex justify-end mb-3">
         <select
-          aria-label="Filter activity by type"
+          aria-label={t('adminPortal.filterActivityAria')}
           value={entityType}
           onChange={(e) => setEntityType(e.target.value)}
           className="px-3 py-2 border-2 border-ink bg-surface text-ink text-xs font-bold uppercase tracking-wide focus:outline-none focus:border-primary"
         >
           {ENTITY_TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -83,12 +85,12 @@ const RecentActivity: React.FC = () => {
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm font-medium text-ink/60 py-3">
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-          Loading activity...
+          {t('adminPortal.loadingActivity')}
         </div>
       ) : error ? (
-        <div className="text-sm font-medium text-ink/60 py-3">Error loading activity</div>
+        <div className="text-sm font-medium text-ink/60 py-3">{t('adminPortal.errorLoadingActivity')}</div>
       ) : entries.length === 0 ? (
-        <div className="text-sm font-medium text-ink/60 py-3">No activity recorded yet.</div>
+        <div className="text-sm font-medium text-ink/60 py-3">{t('adminPortal.noActivityRecorded')}</div>
       ) : (
         <div className="border-2 border-ink divide-y-2 divide-ink bg-surface max-h-[650px] overflow-y-auto">
           {entries.map((entry) => (
@@ -100,8 +102,8 @@ const RecentActivity: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <p className="text-ink">
                   <span className="font-bold uppercase text-xs tracking-wide text-ink/70">{entry.userRole.replace(/_/g, ' ')}</span>{' '}
-                  {ACTION_LABELS[entry.action] ?? entry.action.toLowerCase().replace(/_/g, ' ')}
-                  {entry.parcelId && <span className="text-ink/60"> on parcel {entry.parcelId.substring(0, 8)}...</span>}
+                  {ACTION_LABEL_KEYS[entry.action] ? t(ACTION_LABEL_KEYS[entry.action]) : entry.action.toLowerCase().replace(/_/g, ' ')}
+                  {entry.parcelId && <span className="text-ink/60"> {t('adminPortal.onParcelSuffix', { id: entry.parcelId.substring(0, 8) })}</span>}
                 </p>
                 <p className="text-xs text-ink/50 mt-0.5">{formatDateTime(entry.createdAt)}</p>
               </div>

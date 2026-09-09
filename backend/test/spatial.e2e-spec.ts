@@ -264,4 +264,90 @@ describe('Spatial demo layers (e2e)', () => {
         .expect(403);
     });
   });
+
+  // Admin-only layer (docs/ADMIN_PANEL_ISSUES.md Coming Soon #3 follow-up) -
+  // unlike zoning/restriction/infrastructure above, GET is ADMIN-gated too:
+  // an officer session must never see this layer, not just be blocked from
+  // writing to it.
+  describe('/api/v1/gis/admin-notes (admin-only layer - read AND write both gated)', () => {
+    it('creates, lists, updates, and deletes an admin note as ADMIN', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/gis/admin-notes')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Suspicious parcel cluster', notes: 'Flagged for internal review', stateCode: 'MH', district: 'Pune', geometry: { type: 'Point', coordinates: [73.9, 18.6] } })
+        .expect(201);
+      expect(created.body.notes).toBe('Flagged for internal review');
+      expect(created.body.createdByUserId).toBeTruthy();
+
+      const listed = await request(app.getHttpServer())
+        .get('/api/v1/gis/admin-notes')
+        .set('Authorization', adminAuth)
+        .query({ district: 'Pune' })
+        .expect(200);
+      const feature = listed.body.features.find((f: any) => f.properties.id === created.body.id);
+      expect(feature).toBeTruthy();
+      expect(feature.properties.notes).toBe('Flagged for internal review');
+      expect(feature.geometry.type).toBe('Point');
+
+      const updated = await request(app.getHttpServer())
+        .patch(`/api/v1/gis/admin-notes/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .send({ notes: 'Reviewed, no issue found' })
+        .expect(200);
+      expect(updated.body.notes).toBe('Reviewed, no issue found');
+      expect(updated.body.name).toBe('Suspicious parcel cluster'); // untouched field survives a partial update
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/gis/admin-notes/${created.body.id}`)
+        .set('Authorization', adminAuth)
+        .expect(204);
+
+      const afterDelete = await request(app.getHttpServer())
+        .get('/api/v1/gis/admin-notes')
+        .set('Authorization', adminAuth)
+        .query({ district: 'Pune' })
+        .expect(200);
+      expect(afterDelete.body.features.some((f: any) => f.properties.id === created.body.id)).toBe(false);
+    });
+
+    it('rejects any geometry type other than Point/LineString/Polygon with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/admin-notes')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Bad Note', stateCode: 'MH', district: 'Pune', geometry: { type: 'MultiPoint', coordinates: [[73.9, 18.6]] } })
+        .expect(400);
+    });
+
+    it('rejects a GET from a non-admin officer with 403 - not just writes', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/gis/admin-notes')
+        .set('Authorization', officerAuth)
+        .expect(403);
+    });
+
+    it('rejects a POST from a non-admin officer with 403', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/gis/admin-notes')
+        .set('Authorization', officerAuth)
+        .send({ name: 'New Note', stateCode: 'MH', district: 'Pune', geometry: { type: 'Point', coordinates: [73.9, 18.6] } })
+        .expect(403);
+    });
+
+    it('rejects an unauthenticated GET with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/gis/admin-notes').expect(401);
+    });
+
+    it('returns 404 updating/deleting an unknown admin note', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/v1/gis/admin-notes/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', adminAuth)
+        .send({ name: 'x' })
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .delete('/api/v1/gis/admin-notes/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', adminAuth)
+        .expect(404);
+    });
+  });
 });

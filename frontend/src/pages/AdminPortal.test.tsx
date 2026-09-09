@@ -10,6 +10,14 @@ vi.mock('../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
+// MapLibre needs real canvas/WebGL support that jsdom doesn't provide -
+// AdminPortal statically imports AdminMapLayerAuthoringPage, which pulls in
+// LayerGeometryDrawMap's own maplibre-gl usage, even though no test here
+// navigates to that route (same reason App.test.tsx stubs MapComponent).
+vi.mock('../features/admin/LayerGeometryDrawMap', () => ({
+  default: () => <div data-testid="draw-map-stub" />,
+}));
+
 const admin: AuthUser = { id: 'u1', email: 'admin@test.gov.in', name: 'Rina Admin', role: 'ADMIN' };
 const managedAdmin = { ...admin, createdAt: '2026-01-01T00:00:00.000Z' };
 

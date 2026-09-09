@@ -311,7 +311,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       const res = await request(app.getHttpServer())
@@ -405,10 +405,40 @@ describe('Workflows (service requests) (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       expect(res.body.currentStatus).toBe('IN_PROGRESS');
+    });
+
+    it('rejects a missing remarks with 400 - mandatory for both Approve and Reject', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE' })
+        .expect(400);
+    });
+
+    it('rejects an empty-string remarks with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'REJECT', remarks: '' })
+        .expect(400);
     });
 
     it('rejects reviewing an already-decided step with 400', async () => {
@@ -422,13 +452,13 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'REJECT' })
+        .send({ action: 'REJECT', remarks: 'Rejected' })
         .expect(400);
     });
 
@@ -436,7 +466,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch('/api/v1/workflows/00000000-0000-0000-0000-000000000000/steps/00000000-0000-0000-0000-000000000000')
         .set('Authorization', adminAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(404);
     });
 
@@ -455,7 +485,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${first.body.id}/steps/${second.body.steps[0].id}`)
         .set('Authorization', adminAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(404);
     });
 
@@ -482,7 +512,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(401);
     });
 
@@ -499,7 +529,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${registrationStep.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(403);
 
       // Confirm it's genuinely still PENDING, not silently decided.
@@ -541,7 +571,7 @@ describe('Workflows (service requests) (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${planningStep.id}`)
         .set('Authorization', adminAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       expect(res.body.steps.find((s: any) => s.id === planningStep.id).status).toBe('APPROVED');
@@ -660,7 +690,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(409);
     });
   });
@@ -693,7 +723,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       const document = await parcelDocumentRepository.findOne({ where: { parcelId: parcel.id } });
@@ -715,7 +745,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       const document = await parcelDocumentRepository.findOne({ where: { parcelId: otherParcel.id } });
@@ -773,7 +803,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       const document = await parcelDocumentRepository.findOne({ where: { parcelId: unclaimed.id } });
@@ -791,6 +821,93 @@ describe('Workflows (service requests) (e2e)', () => {
 
       expect(res.body.evidenceFileName).toBeNull();
       expect(res.body.evidenceFilePath).toBeNull();
+    });
+  });
+
+  describe('POST /api/v1/workflows/:workflowId/steps/:stepId/escalate (Admin "alert the officers" oversight action)', () => {
+    it('ADMIN can notify the officer holding a pending step without deciding it', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}/escalate`)
+        .set('Authorization', adminAuth)
+        .send({ message: 'This one looks stale, please check it today.' })
+        .expect(201);
+
+      // The step itself is untouched - escalating is not deciding it.
+      const untouchedStep = res.body.steps.find((s: any) => s.id === landRecordsStep.id);
+      expect(untouchedStep.status).toBe('PENDING');
+      expect(untouchedStep.action).toBeNull();
+
+      const notifications = await notificationRepository.find({ where: { userId: landRecordsOfficerId, type: 'ADMIN_ESCALATION' } });
+      const forThisWorkflow = notifications.find((n) => n.workflowId === created.body.id);
+      expect(forThisWorkflow).toBeTruthy();
+      expect(forThisWorkflow!.parcelId).toBe(parcel.id);
+      expect(forThisWorkflow!.message).toBe('This one looks stale, please check it today.');
+    });
+
+    it('rejects escalating an already-decided step with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Approved' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/escalate`)
+        .set('Authorization', adminAuth)
+        .send({ message: 'Too late, already decided' })
+        .expect(400);
+    });
+
+    it('rejects a missing message with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/escalate`)
+        .set('Authorization', adminAuth)
+        .send({})
+        .expect(400);
+    });
+
+    it('returns 404 for an unknown workflow', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows/00000000-0000-0000-0000-000000000000/steps/00000000-0000-0000-0000-000000000000/escalate')
+        .set('Authorization', adminAuth)
+        .send({ message: 'Please check' })
+        .expect(404);
+    });
+
+    it('rejects escalation from a non-ADMIN officer with 403', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/escalate`)
+        .set('Authorization', landRecordsAuth)
+        .send({ message: 'Please check' })
+        .expect(403);
     });
   });
 
@@ -858,7 +975,7 @@ describe('Workflows (service requests) (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${created.body.steps[0].id}`)
         .set('Authorization', disputeOfficerAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(200);
 
       const document = await parcelDocumentRepository.findOne({ where: { parcelId: freshParcel.id } });

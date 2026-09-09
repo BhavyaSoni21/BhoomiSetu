@@ -387,24 +387,26 @@ describe('Parcel360View', () => {
     expect(await screen.findByText('AI is not configured on this server.')).toBeInTheDocument();
   });
 
-  it('shows a "Compare Years & Generate Alerts" link for staff when the parcel belongs to a cluster, and navigates there', async () => {
-    mockGet({ parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' } });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    client.setQueryData(['auth-me'], officer);
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/parcels/p1']}>
-          <Routes>
-            <Route path="/parcels/:id" element={<Parcel360View />} />
-            <Route path="/officer/historical-imagery" element={<div>Historical Imagery Page Stub</div>} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+  it('shows a "Compare Years & Generate Alerts" toggle for staff when the parcel belongs to a cluster, expanding the comparison inline rather than navigating away', async () => {
+    mockGet({
+      parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' },
+      historicalClusters: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023, 2026] }],
+    });
+    renderWithProviders('p1', officer);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Compare Years & Generate Alerts' }));
+    const toggle = await screen.findByRole('button', { name: 'Compare Years & Generate Alerts' });
+    // Not navigation - the comparison UI (year pickers) isn't in the document until expanded.
+    expect(screen.queryByRole('group', { name: 'From year' })).not.toBeInTheDocument();
 
-    expect(await screen.findByText('Historical Imagery Page Stub')).toBeInTheDocument();
+    fireEvent.click(toggle);
+
+    expect(await screen.findByRole('group', { name: 'From year' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'To year' })).toBeInTheDocument();
+    // Still on Parcel 360, not the standalone Historical Imagery page.
+    expect(screen.getByText('Parcel 360')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Compare Years' }));
+    expect(screen.queryByRole('group', { name: 'From year' })).not.toBeInTheDocument();
   });
 
   it('does not show "Compare Years & Generate Alerts" for a citizen even when the parcel belongs to a cluster', async () => {
@@ -417,6 +419,14 @@ describe('Parcel360View', () => {
 
   it('does not show "Compare Years & Generate Alerts" for staff when the parcel has no cluster', async () => {
     mockGet({ parcel360: { ...fullResponse, clusterId: null } });
+    renderWithProviders('p1', officer);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Compare Years & Generate Alerts' })).not.toBeInTheDocument();
+  });
+
+  it('does not show "Compare Years & Generate Alerts" for staff when the parcel\'s cluster is set but not yet in the loaded clusters list', async () => {
+    mockGet({ parcel360: { ...fullResponse, clusterId: 'MH-PUNE-01' }, historicalClusters: [] });
     renderWithProviders('p1', officer);
 
     await screen.findByText('Parcel 360');

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2, Plus, X, Trash2, Pencil } from 'lucide-react';
@@ -16,6 +17,7 @@ const emptyEditForm = { name: '', description: '', contactEmail: '', contactPhon
 // prototype choice") - editing a department here changes what an admin sees,
 // not how workflows/roles route.
 const DepartmentManagement: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -55,8 +57,8 @@ const DepartmentManagement: React.FC = () => {
       onError: (err) => {
         setFormError(
           axios.isAxiosError(err) && err.response?.status === 409
-            ? 'A department with this code already exists.'
-            : 'Something went wrong creating this department.',
+            ? t('adminPortal.departmentDuplicateError')
+            : t('adminPortal.departmentCreateError'),
         );
       },
     },
@@ -78,7 +80,7 @@ const DepartmentManagement: React.FC = () => {
         setEditingId(null);
         setEditError(null);
       },
-      onError: () => setEditError('Something went wrong saving this department.'),
+      onError: () => setEditError(t('adminPortal.departmentSaveError')),
     },
   );
 
@@ -114,11 +116,11 @@ const DepartmentManagement: React.FC = () => {
     return (
       <div className="flex items-center gap-2 text-sm font-medium text-ink/60 py-3">
         <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-        Loading departments...
+        {t('adminPortal.loadingDepartments')}
       </div>
     );
   }
-  if (error) return <div className="text-sm font-medium text-ink/60 py-3">Error loading departments</div>;
+  if (error) return <div className="text-sm font-medium text-ink/60 py-3">{t('adminPortal.errorLoadingDepartments')}</div>;
 
   return (
     <div>
@@ -128,7 +130,7 @@ const DepartmentManagement: React.FC = () => {
           className="inline-flex items-center gap-2 border-2 border-ink bg-secondary hover:bg-secondary-strong text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
         >
           {showAddForm ? <X className="w-3.5 h-3.5" aria-hidden="true" /> : <Plus className="w-3.5 h-3.5" aria-hidden="true" />}
-          {showAddForm ? 'Cancel' : 'Add Department'}
+          {showAddForm ? t('adminPortal.cancelCta') : t('adminPortal.addDepartmentCta')}
         </button>
       </div>
 
@@ -137,7 +139,7 @@ const DepartmentManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
-              placeholder="Code (e.g. LAND_RECORDS)"
+              placeholder={t('adminPortal.departmentCodePlaceholder')}
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
@@ -145,7 +147,7 @@ const DepartmentManagement: React.FC = () => {
             />
             <input
               type="text"
-              placeholder="Name"
+              placeholder={t('adminPortal.namePlaceholder')}
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
@@ -153,20 +155,20 @@ const DepartmentManagement: React.FC = () => {
             />
             <input
               type="email"
-              placeholder="Contact Email"
+              placeholder={t('adminPortal.contactEmailPlaceholder')}
               value={form.contactEmail}
               onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
             />
             <input
               type="text"
-              placeholder="Contact Phone"
+              placeholder={t('adminPortal.contactPhonePlaceholder')}
               value={form.contactPhone}
               onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
             />
             <textarea
-              placeholder="Description"
+              placeholder={t('adminPortal.descriptionPlaceholder')}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary md:col-span-2"
@@ -179,12 +181,12 @@ const DepartmentManagement: React.FC = () => {
             disabled={createMutation.isLoading}
             className="inline-flex items-center gap-2 border-2 border-ink bg-primary hover:bg-primary-strong text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
-            {createMutation.isLoading ? 'Creating...' : 'Create Department'}
+            {createMutation.isLoading ? t('adminPortal.creatingLabel') : t('adminPortal.createDepartmentCta')}
           </button>
         </form>
       )}
 
-      {departments.length === 0 && <div className="text-sm font-medium text-ink/60 py-3">No departments yet.</div>}
+      {departments.length === 0 && <div className="text-sm font-medium text-ink/60 py-3">{t('adminPortal.noDepartmentsYet')}</div>}
 
       <div className="border-2 border-ink divide-y-2 divide-ink bg-surface">
         {departments.map((department) => (
@@ -194,7 +196,7 @@ const DepartmentManagement: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <input
                     type="text"
-                    placeholder="Name"
+                    placeholder={t('adminPortal.namePlaceholder')}
                     value={editForm.name}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                     className="px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary"
@@ -202,20 +204,20 @@ const DepartmentManagement: React.FC = () => {
                   />
                   <input
                     type="email"
-                    placeholder="Contact Email"
+                    placeholder={t('adminPortal.contactEmailPlaceholder')}
                     value={editForm.contactEmail}
                     onChange={(e) => setEditForm((f) => ({ ...f, contactEmail: e.target.value }))}
                     className="px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary"
                   />
                   <input
                     type="text"
-                    placeholder="Contact Phone"
+                    placeholder={t('adminPortal.contactPhonePlaceholder')}
                     value={editForm.contactPhone}
                     onChange={(e) => setEditForm((f) => ({ ...f, contactPhone: e.target.value }))}
                     className="px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary"
                   />
                   <textarea
-                    placeholder="Description"
+                    placeholder={t('adminPortal.descriptionPlaceholder')}
                     value={editForm.description}
                     onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                     className="px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary md:col-span-2"
@@ -229,14 +231,14 @@ const DepartmentManagement: React.FC = () => {
                     disabled={updateMutation.isLoading}
                     className="inline-flex items-center gap-1.5 border-2 border-ink bg-primary hover:bg-primary-strong text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition disabled:opacity-50"
                   >
-                    {updateMutation.isLoading ? 'Saving...' : 'Save'}
+                    {updateMutation.isLoading ? t('adminPortal.savingLabel') : t('adminPortal.saveCta')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingId(null)}
                     className="inline-flex items-center gap-1.5 border-2 border-ink px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-ink transition hover:bg-muted"
                   >
-                    Cancel
+                    {t('adminPortal.cancelCta')}
                   </button>
                 </div>
               </form>
@@ -258,17 +260,17 @@ const DepartmentManagement: React.FC = () => {
                     className="inline-flex items-center gap-1.5 border-2 border-ink text-ink hover:bg-muted px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition"
                   >
                     <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-                    Edit
+                    {t('adminPortal.editCta')}
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete the "${department.name}" department?`)) deleteMutation.mutate(department.id);
+                      if (window.confirm(t('adminPortal.deleteDepartmentConfirm', { name: department.name }))) deleteMutation.mutate(department.id);
                     }}
                     disabled={deleteMutation.isLoading}
                     className="inline-flex items-center gap-1.5 border-2 border-ink text-secondary-strong hover:bg-secondary/10 px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                    Delete
+                    {t('adminPortal.deleteCta')}
                   </button>
                 </div>
               </div>

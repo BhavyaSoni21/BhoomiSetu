@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { History } from 'lucide-react';
 import HistoricalImageryPanel from '../../features/officer/HistoricalImageryPanel';
 
@@ -8,6 +9,7 @@ const sectionHeadingClass = 'text-xl sm:text-2xl font-black uppercase tracking-t
 // ?cluster=<id> lets Parcel360View deep-link straight into that parcel's
 // cluster instead of landing on whichever cluster the panel defaults to.
 const HistoricalImageryPage: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const clusterId = searchParams.get('cluster');
 
@@ -15,7 +17,7 @@ const HistoricalImageryPage: React.FC = () => {
     <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
       <h2 className={sectionHeadingClass}>
         <History className="w-5 h-5 text-secondary" aria-hidden="true" />
-        Historical Imagery
+        {t('officerNav.historicalImagery')}
       </h2>
       <HistoricalImageryPanel initialClusterId={clusterId} />
     </div>

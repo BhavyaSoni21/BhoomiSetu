@@ -9,7 +9,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 import { CurrentUser } from './current-user.decorator';
-import { CITIZEN_ROLE } from './roles.constants';
+import { CITIZEN_ROLE, ALL_STAFF_ROLES } from './roles.constants';
 import { User } from '../users/user.entity';
 import { AuditService } from '../audit/audit.service';
 
@@ -58,9 +58,16 @@ export class AuthController {
   // Also serves Profile's "verify the contact method I just added/changed"
   // step - both cases check whichever value (pending, if a change is in
   // flight, otherwise live) is currently outstanding for this method.
+  // Widened from CITIZEN_ROLE-only to every role 2026-09-10 (docs/ADMIN_PANEL_ISSUES.md
+  // Officer #2 follow-up, "richer Officer Profile") - this endpoint and the
+  // three below it were already fully role-agnostic in AuthService (they
+  // operate on whichever User row @CurrentUser() resolves to), only the
+  // @Roles guard itself was CITIZEN-only; OfficerProfilePage.tsx now reuses
+  // the same ContactMethodCard/ProfileDetailsCard components as the Citizen
+  // Portal's ProfilePage.tsx against these same endpoints.
   @Post('verify-otp')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CITIZEN_ROLE)
+  @Roles(CITIZEN_ROLE, ...ALL_STAFF_ROLES)
   async verifyOtp(@CurrentUser() user: User, @Body() dto: VerifyOtpDto) {
     const updated = await this.authService.verifyOtp(user, dto.method, dto.code);
     await this.auditService.log({
@@ -76,7 +83,7 @@ export class AuthController {
 
   @Post('resend-otp')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CITIZEN_ROLE)
+  @Roles(CITIZEN_ROLE, ...ALL_STAFF_ROLES)
   async resendOtp(@CurrentUser() user: User, @Body() dto: ResendOtpDto) {
     await this.authService.resendOtp(user, dto.method);
     return { message: 'OTP sent' };
@@ -87,7 +94,7 @@ export class AuthController {
   // not a flag this endpoint's caller sends.
   @Post('profile/contact')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CITIZEN_ROLE)
+  @Roles(CITIZEN_ROLE, ...ALL_STAFF_ROLES)
   async updateContact(@CurrentUser() user: User, @Body() dto: ContactDto) {
     const updated = await this.authService.addOrChangeContact(user, dto);
     await this.auditService.log({
@@ -105,7 +112,7 @@ export class AuthController {
   // no OTP step, unlike updateContact above (see AuthService.updateProfileDetails).
   @Post('profile/details')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(CITIZEN_ROLE)
+  @Roles(CITIZEN_ROLE, ...ALL_STAFF_ROLES)
   async updateProfileDetails(@CurrentUser() user: User, @Body() dto: ProfileDetailsDto) {
     const updated = await this.authService.updateProfileDetails(user, dto);
     await this.auditService.log({

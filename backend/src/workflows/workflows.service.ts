@@ -8,7 +8,7 @@ import { ParcelDocument } from '../parcels/parcel-document.entity';
 import { User } from '../users/user.entity';
 import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
-import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
+import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto } from './dto/workflow.dto';
 import { RequestRoutingService } from './request-routing.service';
 import { NotificationFeedService } from '../notification-feed/notification-feed.service';
 import { textContainsApproxNumber, textContainsIdentifier, textContainsName } from '../document-verification/field-matcher';
@@ -489,6 +489,45 @@ export class WorkflowsService {
     }
 
     await this.notifyCitizenOfStepDecision(workflow, step);
+
+    return (await this.findOne(workflowId))!;
+  }
+
+  // Admin oversight "alert the officers" action (docs/ADMIN_PANEL_ISSUES.md
+  // Coming Soon #2 follow-up, per the user's explicit "the admin dont have
+  // to approve the workflow... he can alert the officers for checking on
+  // some case at the earliest"): an Admin is not expected to decide a
+  // pending step by default - this notifies whoever holds the step's
+  // assignedRole to prioritize it, without touching step.status/action at
+  // all. Deliberately reuses notifyUsers rather than a new module, same as
+  // notifyAssignedOfficers/notifyCitizenOfStepDecision below.
+  async escalateStep(
+    workflowId: string,
+    stepId: string,
+    dto: EscalateWorkflowStepDto,
+  ): Promise<WorkflowWithSteps | 'WORKFLOW_NOT_FOUND' | 'STEP_NOT_FOUND' | 'STEP_ALREADY_DECIDED'> {
+    const workflow = await this.workflowRepository.findOneBy({ id: workflowId });
+    if (!workflow) return 'WORKFLOW_NOT_FOUND';
+
+    const step = await this.stepRepository
+      .createQueryBuilder('step')
+      .where('step.id = :stepId', { stepId })
+      .andWhere('step.workflow_id = :workflowId', { workflowId })
+      .getOne();
+    if (!step) return 'STEP_NOT_FOUND';
+    if (step.status !== 'PENDING') return 'STEP_ALREADY_DECIDED';
+
+    const officers = await this.userRepository.find({ where: { role: step.assignedRole } });
+    await this.notificationFeedService.notifyUsers(
+      officers.map((officer) => officer.id),
+      {
+        type: 'ADMIN_ESCALATION',
+        title: `Admin flagged this ${workflow.workflowType.replace(/_REQUEST$/, '').replace(/_/g, ' ').toLowerCase()} request for urgent review`,
+        message: dto.message,
+        parcelId: workflow.parcelId,
+        workflowId: workflow.id,
+      },
+    );
 
     return (await this.findOne(workflowId))!;
   }

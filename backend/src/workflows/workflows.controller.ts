@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { WorkflowsService, WorkflowEvidenceInput } from './workflows.service';
-import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto } from './dto/workflow.dto';
+import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto } from './dto/workflow.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -234,6 +234,43 @@ export class WorkflowsController {
       entityId: stepId,
       parcelId: result.parcelId,
       metadata: { workflowId, department: decidedStep.department, remarks: decidedStep.remarks },
+    });
+    return result;
+  }
+
+  // Admin oversight "alert the officers" action - ADMIN-only (not
+  // ALL_STAFF_ROLES like the review endpoints above): an officer reviewing
+  // their own department's queue has no one else to escalate to, this is
+  // specifically the Admin nudging the officer who actually owns the step.
+  // Never changes the step's status/action - see WorkflowsService.escalateStep.
+  @Post(':workflowId/steps/:stepId/escalate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async escalateStep(
+    @CurrentUser() user: User,
+    @Param('workflowId', ParseUUIDPipe) workflowId: string,
+    @Param('stepId', ParseUUIDPipe) stepId: string,
+    @Body() dto: EscalateWorkflowStepDto,
+  ) {
+    const result = await this.workflowsService.escalateStep(workflowId, stepId, dto);
+    if (result === 'WORKFLOW_NOT_FOUND') {
+      throw new NotFoundException(`Workflow not found: ${workflowId}`);
+    }
+    if (result === 'STEP_NOT_FOUND') {
+      throw new NotFoundException(`Workflow step not found: ${stepId}`);
+    }
+    if (result === 'STEP_ALREADY_DECIDED') {
+      throw new BadRequestException('This workflow step has already been decided - nothing to escalate');
+    }
+    const escalatedStep = result.steps.find((s) => s.id === stepId)!;
+    await this.auditService.log({
+      userId: user.id,
+      userRole: user.role,
+      action: 'WORKFLOW_STEP_ESCALATED',
+      entityType: 'WORKFLOW_STEP',
+      entityId: stepId,
+      parcelId: result.parcelId,
+      metadata: { workflowId, department: escalatedStep.department, message: dto.message },
     });
     return result;
   }

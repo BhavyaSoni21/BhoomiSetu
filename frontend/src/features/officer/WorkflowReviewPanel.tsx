@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned } from 'lucide-react';
 import apiService from '../../services/apiService';
-import { Workflow, VerificationPrecheck } from '../../types/workflow';
+import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
 
 interface WorkflowReviewPanelProps {
   workflowId: string;
-  officerDepartment: string;
+  // Omit for Admin "any department" oversight (AdminWorkflowOversightPage.tsx)
+  // - an Admin may decide any still-PENDING step regardless of department
+  // (WorkflowsController.reviewStep has no department restriction for
+  // ADMIN), so every pending step gets its own review form instead of just
+  // the one matching a single officer's department.
+  officerDepartment?: string;
 }
 
 // LAND_CLAIM_REQUEST/DOCUMENT_VERIFICATION_REQUEST are the two workflow
@@ -53,24 +60,21 @@ const STATUS_STYLES: Record<string, string> = {
 const statusBadgeClass = (status: string) =>
   `inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${STATUS_STYLES[status] ?? 'bg-muted text-ink'}`;
 
-const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
+interface StepReviewFormProps {
+  workflowId: string;
+  step: WorkflowStep;
+}
+
+const StepReviewForm: React.FC<StepReviewFormProps> = ({ workflowId, step }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [remarks, setRemarks] = useState('');
 
-  const { data: workflow, isLoading, error } = useQuery<Workflow>(
-    ['workflow', workflowId],
-    async () => {
-      const response = await apiService.get(`/workflows/${workflowId}`);
-      return response.data;
-    },
-  );
-
   const reviewMutation = useMutation(
     async (action: 'APPROVE' | 'REJECT') => {
-      const myStep = workflow!.steps.find((s) => s.department === officerDepartment);
-      const response = await apiService.patch(`/workflows/${workflowId}/steps/${myStep!.id}`, {
+      const response = await apiService.patch(`/workflows/${workflowId}/steps/${step.id}`, {
         action,
-        remarks: remarks.trim() || undefined,
+        remarks: remarks.trim(),
       });
       return response.data as Workflow;
     },
@@ -79,7 +83,207 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         setRemarks('');
         queryClient.invalidateQueries(['workflow', workflowId]);
         queryClient.invalidateQueries(['officer-workflows']);
+        queryClient.invalidateQueries(['admin-workflows']);
       },
+    },
+  );
+
+  const remarksId = `review-remarks-${step.id}`;
+
+  return (
+    <div>
+      <label htmlFor={remarksId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+        {t('officerPortal.remarksRequiredLabel')}
+      </label>
+      <textarea
+        id={remarksId}
+        value={remarks}
+        onChange={(e) => setRemarks(e.target.value)}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
+        rows={3}
+        placeholder={t('officerPortal.remarksPlaceholder')}
+      />
+      <p className="text-xs text-ink/50 mt-1">
+        {t('officerPortal.remarksHelperText')}
+      </p>
+      {reviewMutation.isError && (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {t('officerPortal.reviewSubmitError')}
+        </p>
+      )}
+      <div className="flex gap-2 mt-3">
+        <button
+          onClick={() => reviewMutation.mutate('APPROVE')}
+          disabled={reviewMutation.isLoading || !remarks.trim()}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+        >
+          <Check className="w-4 h-4" aria-hidden="true" />
+          {t('officerPortal.approveCta')}
+        </button>
+        <button
+          onClick={() => reviewMutation.mutate('REJECT')}
+          disabled={reviewMutation.isLoading || !remarks.trim()}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-secondary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+        >
+          <XIcon className="w-4 h-4" aria-hidden="true" />
+          {t('officerPortal.rejectCta')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+interface EscalateStepFormProps {
+  workflowId: string;
+  step: WorkflowStep;
+  onCancel: () => void;
+}
+
+// Admin oversight "alert the officers" action (docs/ADMIN_PANEL_ISSUES.md
+// Coming Soon #2 follow-up, per the user's explicit "the admin dont have to
+// approve the workflow... he can alert the officers for checking on some
+// case at the earliest") - notifies whoever holds the step's assignedRole
+// without deciding it. POST /workflows/:id/steps/:stepId/escalate never
+// touches step.status.
+const EscalateStepForm: React.FC<EscalateStepFormProps> = ({ workflowId, step, onCancel }) => {
+  const { t } = useTranslation();
+  const [message, setMessage] = useState('');
+
+  const escalateMutation = useMutation(async () => {
+    const response = await apiService.post(`/workflows/${workflowId}/steps/${step.id}/escalate`, {
+      message: message.trim(),
+    });
+    return response.data as Workflow;
+  });
+
+  const fieldId = `escalate-message-${step.id}`;
+  const roleLabel = step.assignedRole.replace(/_/g, ' ');
+
+  if (escalateMutation.isSuccess) {
+    return (
+      <div className="mt-2 border-2 border-primary/50 bg-primary/10 p-3 flex items-center justify-between gap-2">
+        <p className="text-sm text-ink flex items-center gap-1.5">
+          <Check className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+          {t('officerPortal.alertSentTo', { role: roleLabel })}
+        </p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="shrink-0 text-xs font-bold uppercase tracking-wider text-ink/60 hover:text-ink"
+        >
+          {t('officerPortal.closeCta')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 border-2 border-accent/60 bg-accent/10 p-3">
+      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+        {t('officerPortal.escalateMessageLabel', { role: roleLabel })}
+      </label>
+      <textarea
+        id={fieldId}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
+        rows={2}
+        placeholder={t('officerPortal.escalateMessagePlaceholder')}
+      />
+      {escalateMutation.isError && (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {t('officerPortal.escalateSubmitError')}
+        </p>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="button"
+          onClick={() => escalateMutation.mutate()}
+          disabled={escalateMutation.isLoading || !message.trim()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-ink font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+        >
+          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+          {t('officerPortal.sendAlertCta')}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 border-2 border-ink text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+        >
+          {t('officerPortal.cancelCta')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+interface AdminStepRowProps {
+  workflowId: string;
+  step: WorkflowStep;
+}
+
+type AdminStepMode = 'idle' | 'escalate' | 'decide';
+
+// One row per still-pending step in Admin oversight mode. Monitoring is the
+// default - an Admin isn't expected to decide a step just because they can
+// (WorkflowsController.reviewStep has no department restriction for ADMIN,
+// but that's a capability, not an expectation). "Alert Officer" is the
+// primary action; "Decide Myself" is an explicit opt-in for when there's a
+// genuine issue the Admin wants to resolve directly.
+const AdminStepRow: React.FC<AdminStepRowProps> = ({ workflowId, step }) => {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<AdminStepMode>('idle');
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{step.department.replace(/_/g, ' ')}</h4>
+        {mode === 'idle' && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode('escalate')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 border-2 border-ink bg-accent text-ink font-bold text-[10px] uppercase tracking-widest hover:bg-accent/80 transition"
+            >
+              <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+              {t('officerPortal.alertOfficerCta')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('decide')}
+              className="px-2.5 py-1 border-2 border-ink/30 text-ink/60 font-bold text-[10px] uppercase tracking-widest hover:border-ink hover:text-ink transition"
+            >
+              {t('officerPortal.decideMyselfCta')}
+            </button>
+          </div>
+        )}
+      </div>
+      {mode === 'escalate' && <EscalateStepForm workflowId={workflowId} step={step} onCancel={() => setMode('idle')} />}
+      {mode === 'decide' && (
+        <div className="mt-2">
+          <StepReviewForm workflowId={workflowId} step={step} />
+          <button
+            type="button"
+            onClick={() => setMode('idle')}
+            className="mt-2 text-[10px] font-bold uppercase tracking-widest text-ink/50 hover:text-ink underline underline-offset-2"
+          >
+            {t('officerPortal.cancelJustMonitor')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
+  const { t } = useTranslation();
+  const { data: workflow, isLoading, error } = useQuery<Workflow>(
+    ['workflow', workflowId],
+    async () => {
+      const response = await apiService.get(`/workflows/${workflowId}`);
+      return response.data;
     },
   );
 
@@ -91,18 +295,20 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
     { enabled: isVerificationType },
   );
 
-  if (isLoading) return <div className="text-ink/60 text-sm">Loading workflow...</div>;
-  if (error || !workflow) return <div className="text-ink/60 text-sm">Error loading workflow</div>;
+  if (isLoading) return <div className="text-ink/60 text-sm">{t('officerPortal.loadingWorkflow')}</div>;
+  if (error || !workflow) return <div className="text-ink/60 text-sm">{t('officerPortal.errorLoadingWorkflow')}</div>;
 
-  const myStep = workflow.steps.find((s) => s.department === officerDepartment);
-  const canReview = myStep?.status === 'PENDING';
+  const isAdminMode = !officerDepartment;
+  const myStep = officerDepartment ? workflow.steps.find((s) => s.department === officerDepartment) : undefined;
+  const canReview = !isAdminMode && myStep?.status === 'PENDING';
+  const pendingStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'PENDING') : [];
   const precheck = parsePrecheck(workflow.verificationPrecheck);
 
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1">Applicant</h4>
-        <p className="text-sm text-ink">{workflow.createdBy ?? 'Unknown'}</p>
+        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1">{t('officerPortal.applicantLabel')}</h4>
+        <p className="text-sm text-ink">{workflow.createdBy ?? t('officerPortal.unknownLabel')}</p>
         {workflow.applicantContact && <p className="text-sm text-ink/60">{workflow.applicantContact}</p>}
         {workflow.applicantAddress && <p className="text-sm text-ink/60">{workflow.applicantAddress}</p>}
       </div>
@@ -111,9 +317,9 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         <div className="border-t-4 border-ink pt-4 space-y-3">
           {isVerificationType && (
             <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">Land Property Papers</h4>
+              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('officerPortal.landPropertyPapersLabel')}</h4>
               {documents.length === 0 ? (
-                <p className="text-sm text-ink/50">No document is on file for this parcel.</p>
+                <p className="text-sm text-ink/50">{t('officerPortal.noDocumentOnFile')}</p>
               ) : (
                 <div className="flex flex-wrap gap-3">
                   {documents.map((doc) => (
@@ -136,12 +342,12 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
 
           {workflow.evidenceFileName && (
             <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">Submitted Evidence</h4>
-              <p className="text-xs text-ink/50 mb-1.5">Attached by the applicant with this request.</p>
+              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('officerPortal.submittedEvidenceLabel')}</h4>
+              <p className="text-xs text-ink/50 mb-1.5">{t('officerPortal.attachedByApplicant')}</p>
               <div className="w-28">
                 <AuthenticatedDocumentImage
                   src={`/workflows/${workflow.id}/evidence`}
-                  alt="Submitted evidence"
+                  alt={t('officerPortal.submittedEvidenceAlt')}
                   className="w-28 h-36 object-cover border-2 border-ink"
                   zoomable
                 />
@@ -151,7 +357,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
 
           {precheck && (
             <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">Automatic Pre-Check</h4>
+              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('officerPortal.automaticPrecheckLabel')}</h4>
               <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${PRECHECK_VERDICT_STYLES[precheck.verdict] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
                 {precheck.verdict.replace(/_/g, ' ')}
               </span>
@@ -172,7 +378,20 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
 
       <div>
         <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{workflow.workflowType.replace(/_/g, ' ')}</h3>
-        <p className="text-sm text-ink/60">Parcel: {workflow.parcelId}</p>
+        <p className="text-sm text-ink/60 flex items-center gap-1.5 flex-wrap">
+          {t('officerPortal.parcelLabel', { id: workflow.parcelId })}
+          {/* Notifications stopped auto-opening Parcel 360 (docs/ADMIN_PANEL_ISSUES.md
+              follow-up), so this is now the direct path from a request's
+              review back to its parcel's full detail view - still fully
+              reachable, just not the automatic landing spot any more. */}
+          <Link
+            to={`/parcels/${workflow.parcelId}`}
+            className="inline-flex items-center gap-1 text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
+          >
+            <MapPinned className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('officerPortal.viewParcelCta')}
+          </Link>
+        </p>
         <span className={`mt-1 ${statusBadgeClass(workflow.currentStatus)}`}>
           {workflow.currentStatus}
         </span>
@@ -180,15 +399,15 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
       </div>
 
       <div className="space-y-2">
-        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">Review Steps</h4>
+        <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{t('officerPortal.reviewStepsLabel')}</h4>
         <div className="border-2 border-ink divide-y-2 divide-ink">
           {workflow.steps.map((step) => (
             <div key={step.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm bg-surface">
               <div>
                 <span className="font-bold text-ink">{step.department.replace(/_/g, ' ')}</span>
                 <span className="text-ink/60"> ({step.assignedRole.replace(/_/g, ' ')})</span>
-                {step.remarks && <p className="text-ink/60 text-xs mt-0.5">Remarks: {step.remarks}</p>}
-                {step.completedAt && <p className="text-ink/50 text-xs">Decided: {formatDate(step.completedAt)}</p>}
+                {step.remarks && <p className="text-ink/60 text-xs mt-0.5">{t('officerPortal.stepRemarksLabel', { text: step.remarks })}</p>}
+                {step.completedAt && <p className="text-ink/50 text-xs">{t('officerPortal.decidedLabel', { date: formatDate(step.completedAt) })}</p>}
               </div>
               <span className={statusBadgeClass(step.status)}>
                 {step.status}
@@ -200,45 +419,26 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
 
       {canReview ? (
         <div className="border-t-4 border-ink pt-4">
-          <label htmlFor="review-remarks" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-            Remarks (optional)
-          </label>
-          <textarea
-            id="review-remarks"
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
-            rows={3}
-            placeholder="Add remarks for this decision..."
-          />
-          {reviewMutation.isError && (
-            <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
-              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-              Something went wrong submitting your decision. Please try again.
-            </p>
-          )}
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => reviewMutation.mutate('APPROVE')}
-              disabled={reviewMutation.isLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              <Check className="w-4 h-4" aria-hidden="true" />
-              Approve
-            </button>
-            <button
-              onClick={() => reviewMutation.mutate('REJECT')}
-              disabled={reviewMutation.isLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-secondary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              <XIcon className="w-4 h-4" aria-hidden="true" />
-              Reject
-            </button>
-          </div>
+          <StepReviewForm workflowId={workflowId} step={myStep!} />
+        </div>
+      ) : isAdminMode && pendingStepsForAdmin.length > 0 ? (
+        <div className="border-t-4 border-ink pt-4 space-y-4 divide-y-2 divide-ink/10">
+          <p className="text-xs text-ink/50">
+            {t('officerPortal.adminMonitoringHint')}
+          </p>
+          {pendingStepsForAdmin.map((step, index) => (
+            <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
+              <AdminStepRow workflowId={workflowId} step={step} />
+            </div>
+          ))}
         </div>
       ) : (
         <p className="text-sm text-ink/60 border-t-4 border-ink pt-4">
-          {myStep ? 'Your department has already decided this step.' : 'No step in this workflow is assigned to your department.'}
+          {isAdminMode
+            ? t('officerPortal.allStepsDecided')
+            : myStep
+              ? t('officerPortal.departmentAlreadyDecided')
+              : t('officerPortal.noStepForDepartment')}
         </p>
       )}
     </div>

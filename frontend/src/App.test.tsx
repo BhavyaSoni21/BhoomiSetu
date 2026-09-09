@@ -16,6 +16,12 @@ vi.mock('./services/apiService', () => ({
 vi.mock('./features/map/MapComponent', () => ({
   default: () => <div data-testid="map-stub" />,
 }));
+// Same reason - AdminPortal statically imports AdminMapLayerAuthoringPage
+// (Admin Map Layer Authoring), which pulls in LayerGeometryDrawMap's own
+// maplibre-gl usage, even though no test here navigates to that route.
+vi.mock('./features/admin/LayerGeometryDrawMap', () => ({
+  default: () => <div data-testid="draw-map-stub" />,
+}));
 
 function mockApi() {
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {

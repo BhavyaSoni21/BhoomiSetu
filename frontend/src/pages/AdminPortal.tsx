@@ -4,6 +4,8 @@ import { useAuthUser } from '../features/auth/auth';
 import AdminDashboardPage from './admin/AdminDashboardPage';
 import AdminDepartmentsPage from './admin/AdminDepartmentsPage';
 import SystemMonitoringPage from './admin/SystemMonitoringPage';
+import AdminWorkflowOversightPage from './admin/AdminWorkflowOversightPage';
+import AdminMapLayerAuthoringPage from './admin/AdminMapLayerAuthoringPage';
 
 // Multi-page Admin Portal (docs/FRONTEND_UPGRADE_SPEC.md §7, Phase 3),
 // mounted once at /admin/* by App.tsx (already wrapped in RequireAuth
@@ -26,6 +28,8 @@ const AdminPortal: React.FC = () => {
         <Route index element={<AdminDashboardPage />} />
         <Route path="departments" element={<AdminDepartmentsPage />} />
         <Route path="system-monitoring" element={<SystemMonitoringPage />} />
+        <Route path="workflows" element={<AdminWorkflowOversightPage />} />
+        <Route path="map-layers" element={<AdminMapLayerAuthoringPage />} />
       </Routes>
     </div>
   );

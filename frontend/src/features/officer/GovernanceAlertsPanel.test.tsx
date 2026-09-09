@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import GovernanceAlertsPanel from './GovernanceAlertsPanel';
 import apiService from '../../services/apiService';
@@ -8,11 +9,17 @@ vi.mock('../../services/apiService', () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));
 
-function renderWithClient() {
+// MemoryRouter wraps every render now - GovernanceAlertsPanel reads
+// ?alert=<id> for notification deep-links (useSearchParams), and
+// GovernanceAlertDetailModal's new "View Parcel" link needs a Router
+// context too, regardless of whether a given test cares about either.
+function renderWithClient(initialEntries: string[] = ['/officer/alerts']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <GovernanceAlertsPanel />
+      <MemoryRouter initialEntries={initialEntries}>
+        <GovernanceAlertsPanel />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -207,5 +214,33 @@ describe('GovernanceAlertsPanel', () => {
       expect(apiService.patch).toHaveBeenCalledWith('/governance-alerts/a1/status', { status: 'REVIEWED', reason: 'Confirmed unauthorized.' }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  describe('?alert= deep link (NotificationFeed.tsx)', () => {
+    it('auto-opens the detail popout for an alert already in the OPEN list', async () => {
+      vi.mocked(apiService.get).mockResolvedValue({ data: alerts });
+      renderWithClient(['/officer/alerts?alert=a2']);
+
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('RESTRICTION ZONE OVERLAP')).toBeInTheDocument();
+      // Fetched from the OPEN list already in memory - no extra single-alert call needed.
+      expect(apiService.get).not.toHaveBeenCalledWith('/governance-alerts/a2');
+    });
+
+    it('falls back to fetching the alert directly when it is no longer OPEN (a REVIEWED/DISMISSED notification)', async () => {
+      const resolvedAlert = { ...alerts[0], status: 'DISMISSED', reason: 'Not a real issue.' };
+      vi.mocked(apiService.get).mockImplementation(async (url: string) => {
+        if (url === '/governance-alerts') return { data: [] }; // nothing OPEN right now
+        if (url === '/governance-alerts/a1') return { data: resolvedAlert };
+        throw new Error(`unexpected url: ${url}`);
+      });
+      renderWithClient(['/officer/alerts?alert=a1']);
+
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('UNAUTHORIZED CHANGE DETECTED')).toBeInTheDocument();
+      expect(within(dialog).getByText('DISMISSED')).toBeInTheDocument();
+      // Not the generic empty state, even though the OPEN list is empty.
+      expect(screen.queryByText('No open governance alerts requiring attention.')).not.toBeInTheDocument();
+    });
   });
 });

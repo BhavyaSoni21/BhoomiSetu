@@ -303,17 +303,21 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer()).post('/api/v1/auth/verify-otp').send({ method: 'EMAIL', code: '123456' }).expect(401);
     });
 
-    it('rejects a staff account (non-citizen) with 403', async () => {
+    it('allows a staff account too (widened 2026-09-10, docs/ADMIN_PANEL_ISSUES.md Officer #2 - Officer Profile reuses this endpoint)', async () => {
       const loginRes = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({ email: 'officer@test.gov.in', password: 'CorrectPass1' })
         .expect(201);
 
+      // The role gate passes (not 403) and falls through to AuthService -
+      // officerUser's email is already verified with no OTP ever issued, so
+      // a bogus code correctly 400s as "no code to check against", proving
+      // this reached real verification logic rather than being blocked.
       await request(app.getHttpServer())
         .post('/api/v1/auth/verify-otp')
         .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
         .send({ method: 'EMAIL', code: '123456' })
-        .expect(403);
+        .expect(400);
     });
 
     it('verifies the correct email code and flips emailVerified to true', async () => {
@@ -506,17 +510,19 @@ describe('Auth (e2e)', () => {
         .expect(400);
     });
 
-    it('rejects a staff account (non-citizen) with 403', async () => {
+    it('allows a staff account to add their own missing mobile number too (widened 2026-09-10, docs/ADMIN_PANEL_ISSUES.md Officer #2)', async () => {
       const loginRes = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({ email: 'officer@test.gov.in', password: 'CorrectPass1' })
         .expect(201);
 
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/profile/contact')
         .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
         .send({ method: 'MOBILE', mobileNumber: '9777777777' })
-        .expect(403);
+        .expect(201);
+
+      expect(res.body.mobileNumber).toBe('9777777777');
     });
   });
 
@@ -533,17 +539,19 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer()).post('/api/v1/auth/profile/details').send({ occupation: 'Farmer' }).expect(401);
     });
 
-    it('rejects a staff account (non-citizen) with 403', async () => {
+    it('allows a staff account to update their own profile details too (widened 2026-09-10, docs/ADMIN_PANEL_ISSUES.md Officer #2 - richer Officer Profile reuses this endpoint)', async () => {
       const loginRes = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({ email: 'officer@test.gov.in', password: 'CorrectPass1' })
         .expect(201);
 
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/profile/details')
         .set('Authorization', `Bearer ${loginRes.body.accessToken}`)
-        .send({ occupation: 'Farmer' })
-        .expect(403);
+        .send({ occupation: 'Senior Land Record Officer' })
+        .expect(201);
+
+      expect(res.body.occupation).toBe('Senior Land Record Officer');
     });
 
     it('updates name/address/governmentIdNumber/occupation with no OTP step', async () => {

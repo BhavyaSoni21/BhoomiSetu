@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateWorkflowDto {
   @IsUUID()
@@ -35,7 +35,24 @@ export class ReviewWorkflowStepDto {
   @IsIn(['APPROVE', 'REJECT'])
   action: 'APPROVE' | 'REJECT';
 
-  @IsOptional()
+  // Mandatory as of 2026-09-10, same reasoning/precedent as
+  // UpdateGovernanceAlertStatusDto.reason: an officer approving or rejecting
+  // a request must always record why - enforced here (400 without one), not
+  // just hidden/disabled in the UI (WorkflowReviewPanel.tsx disables both
+  // buttons until remarks is typed).
   @IsString()
-  remarks?: string;
+  @IsNotEmpty()
+  remarks: string;
+}
+
+// Admin oversight "alert the officers" action (docs/ADMIN_PANEL_ISSUES.md
+// Coming Soon #2 follow-up) - notifies whichever officer role owns a still-
+// pending step, without deciding it. Deliberately separate from
+// ReviewWorkflowStepDto: an Admin is not expected to approve/reject by
+// default (WorkflowsController.escalateStep never touches step.status),
+// only to flag a case for the responsible officer to prioritize.
+export class EscalateWorkflowStepDto {
+  @IsString()
+  @IsNotEmpty()
+  message: string;
 }

@@ -3,9 +3,12 @@ import { SpatialService } from './spatial.service';
 import { CreateZoningOverlayDto, UpdateZoningOverlayDto } from './dto/zoning-overlay.dto';
 import { CreateRestrictionZoneDto, UpdateRestrictionZoneDto } from './dto/restriction-zone.dto';
 import { CreateInfrastructureFeatureDto, UpdateInfrastructureFeatureDto } from './dto/infrastructure-feature.dto';
+import { CreateAdminMapNoteDto, UpdateAdminMapNoteDto } from './dto/admin-map-note.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { User } from '../users/user.entity';
 
 @Controller('gis')
 export class SpatialController {
@@ -110,5 +113,43 @@ export class SpatialController {
   async removeInfrastructureFeature(@Param('id', ParseUUIDPipe) id: string) {
     const deleted = await this.spatialService.removeInfrastructureFeature(id);
     if (!deleted) throw new NotFoundException(`Infrastructure feature not found: ${id}`);
+  }
+
+  // Admin-only layer (docs/ADMIN_PANEL_ISSUES.md Coming Soon #3 follow-up,
+  // per the user's explicit "a map layer that should be visible to admin
+  // only and editable by admin only") - unlike every read endpoint above,
+  // GET is ADMIN-gated too: a citizen or officer session simply never sees
+  // this layer, since features/map/MapComponent.tsx (their shared map) never
+  // calls this route at all.
+  @Get('admin-notes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getAdminMapNotes(@Query('state') state?: string, @Query('district') district?: string) {
+    return this.spatialService.findAdminMapNotes({ state, district });
+  }
+
+  @Post('admin-notes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async createAdminMapNote(@CurrentUser() user: User, @Body() dto: CreateAdminMapNoteDto) {
+    return this.spatialService.createAdminMapNote(dto, user.id);
+  }
+
+  @Patch('admin-notes/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async updateAdminMapNote(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAdminMapNoteDto) {
+    const row = await this.spatialService.updateAdminMapNote(id, dto);
+    if (!row) throw new NotFoundException(`Admin map note not found: ${id}`);
+    return row;
+  }
+
+  @Delete('admin-notes/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @HttpCode(204)
+  async removeAdminMapNote(@Param('id', ParseUUIDPipe) id: string) {
+    const deleted = await this.spatialService.removeAdminMapNote(id);
+    if (!deleted) throw new NotFoundException(`Admin map note not found: ${id}`);
   }
 }

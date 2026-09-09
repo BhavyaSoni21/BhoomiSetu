@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2, UserPlus, X, Trash2 } from 'lucide-react';
@@ -20,6 +21,7 @@ function formatDate(value: string): string {
 // role or delete their own account here - the backend enforces this too
 // (400), this just avoids offering a control that would only ever fail.
 const UserManagement: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: currentUser } = useAuthUser();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,8 +58,8 @@ const UserManagement: React.FC = () => {
       onError: (err) => {
         setFormError(
           axios.isAxiosError(err) && err.response?.status === 409
-            ? 'A user with this email already exists.'
-            : 'Something went wrong creating this account. Passwords must be at least 8 characters.',
+            ? t('adminPortal.userDuplicateError')
+            : t('adminPortal.userCreateError'),
         );
       },
     },
@@ -92,11 +94,11 @@ const UserManagement: React.FC = () => {
     return (
       <div className="flex items-center gap-2 text-sm font-medium text-ink/60 py-3">
         <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-        Loading users...
+        {t('adminPortal.loadingUsers')}
       </div>
     );
   }
-  if (error) return <div className="text-sm font-medium text-ink/60 py-3">Error loading users</div>;
+  if (error) return <div className="text-sm font-medium text-ink/60 py-3">{t('adminPortal.errorLoadingUsers')}</div>;
 
   return (
     <div>
@@ -106,7 +108,7 @@ const UserManagement: React.FC = () => {
           className="inline-flex items-center gap-2 border-2 border-ink bg-secondary hover:bg-secondary-strong text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
         >
           {showAddForm ? <X className="w-3.5 h-3.5" aria-hidden="true" /> : <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />}
-          {showAddForm ? 'Cancel' : 'Add User'}
+          {showAddForm ? t('adminPortal.cancelCta') : t('adminPortal.addUserCta')}
         </button>
       </div>
 
@@ -115,7 +117,7 @@ const UserManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
-              placeholder="Name"
+              placeholder={t('adminPortal.namePlaceholder')}
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
@@ -123,7 +125,7 @@ const UserManagement: React.FC = () => {
             />
             <input
               type="email"
-              placeholder="Email"
+              placeholder={t('adminPortal.emailPlaceholder')}
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
@@ -131,7 +133,7 @@ const UserManagement: React.FC = () => {
             />
             <input
               type="password"
-              placeholder="Password (min 8 characters)"
+              placeholder={t('adminPortal.passwordPlaceholder')}
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
@@ -154,7 +156,7 @@ const UserManagement: React.FC = () => {
             disabled={createMutation.isLoading}
             className="inline-flex items-center gap-2 border-2 border-ink bg-primary hover:bg-primary-strong text-white px-3.5 py-2 text-xs font-bold uppercase tracking-wider shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
           >
-            {createMutation.isLoading ? 'Creating...' : 'Create Account'}
+            {createMutation.isLoading ? t('adminPortal.creatingLabel') : t('adminPortal.createAccountCta')}
           </button>
         </form>
       )}
@@ -166,8 +168,8 @@ const UserManagement: React.FC = () => {
             <div key={user.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3 text-sm">
               <div>
                 <span className="font-bold text-ink">{user.name}</span>
-                {isSelf && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-widest text-ink/40">(You)</span>}
-                <p className="text-xs text-ink/60 mt-0.5">{user.email} · Joined {formatDate(user.createdAt)}</p>
+                {isSelf && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-widest text-ink/40">{t('adminPortal.youSuffix')}</span>}
+                <p className="text-xs text-ink/60 mt-0.5">{t('adminPortal.userJoinedLine', { email: user.email, date: formatDate(user.createdAt) })}</p>
               </div>
               <div className="flex items-center gap-2">
                 <select
@@ -182,13 +184,13 @@ const UserManagement: React.FC = () => {
                 </select>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Delete ${user.name}'s account? This cannot be undone.`)) deleteMutation.mutate(user.id);
+                    if (window.confirm(t('adminPortal.deleteUserConfirm', { name: user.name }))) deleteMutation.mutate(user.id);
                   }}
                   disabled={isSelf || deleteMutation.isLoading}
                   className="inline-flex items-center gap-1.5 border-2 border-ink text-secondary-strong hover:bg-secondary/10 px-2 py-1.5 text-xs font-bold uppercase tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                  Delete
+                  {t('adminPortal.deleteCta')}
                 </button>
               </div>
             </div>

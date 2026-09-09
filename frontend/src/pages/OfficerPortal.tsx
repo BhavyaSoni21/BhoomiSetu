@@ -1,12 +1,11 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { OfficerRole, ROLE_DEPARTMENT } from '../features/officer/officerAuth';
 import { useAuthUser } from '../features/auth/auth';
 import OfficerDashboardPage from './officer/OfficerDashboardPage';
 import AssignedRequestsPage from './officer/AssignedRequestsPage';
 import GovernanceAlertsPage from './officer/GovernanceAlertsPage';
 import OfficerMapPage from './officer/OfficerMapPage';
-import OfficerDocumentsPage from './officer/OfficerDocumentsPage';
 import OfficerNotificationsPage from './officer/OfficerNotificationsPage';
 import OfficerProfilePage from './officer/OfficerProfilePage';
 import HistoricalImageryPage from './officer/HistoricalImageryPage';
@@ -37,7 +36,11 @@ const OfficerPortal: React.FC = () => {
         <Route path="alerts" element={<GovernanceAlertsPage />} />
         <Route path="historical-imagery" element={<HistoricalImageryPage />} />
         <Route path="map" element={<OfficerMapPage />} />
-        <Route path="documents" element={<OfficerDocumentsPage />} />
+        {/* Documents merged into Assigned Requests 2026-09-10 (docs/ADMIN_PANEL_ISSUES.md
+            follow-up, per the user's explicit "the documents should be the
+            part of... Assigned Requests") - old links/bookmarks redirect,
+            same precedent as CitizenPortal.tsx's own redirected routes. */}
+        <Route path="documents" element={<Navigate to="/officer/requests" replace />} />
         <Route path="notifications" element={<OfficerNotificationsPage />} />
         <Route path="profile" element={<OfficerProfilePage />} />
       </Routes>

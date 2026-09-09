@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NotificationFeed from './NotificationFeed';
 import apiService from '../../services/apiService';
 import { AppNotification } from '../../types/notification';
+import { AuthUser } from '../auth/auth';
 
 vi.mock('../../services/apiService', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
@@ -20,9 +21,15 @@ const read: AppNotification = {
   message: 'Land Records approved your request.', parcelId: null, workflowId: 'w1', alertId: null,
   read: true, createdAt: '2026-09-08T09:00:00.000Z',
 };
+const officer: AuthUser = { id: 'o1', email: 'officer1@example.gov.in', name: 'An Officer', role: 'LAND_RECORD_OFFICER' };
 
-function renderFeed(notifications: AppNotification[] = [unread, read], initialEntries: string[] = ['/notifications']) {
+function renderFeed(
+  notifications: AppNotification[] = [unread, read],
+  initialEntries: string[] = ['/notifications'],
+  user: AuthUser | null = null,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  if (user) client.setQueryData(['auth-me'], user);
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {
     if (url === '/notifications') return { data: notifications };
     throw new Error(`unexpected url: ${url}`);
@@ -33,6 +40,8 @@ function renderFeed(notifications: AppNotification[] = [unread, read], initialEn
         <Routes>
           <Route path="/notifications" element={<NotificationFeed />} />
           <Route path="/parcels/:id" element={<div>Parcel 360 Stub</div>} />
+          <Route path="/officer/requests" element={<div>Assigned Requests Stub</div>} />
+          <Route path="/officer/alerts" element={<div>Governance Alerts Stub</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -92,5 +101,54 @@ describe('NotificationFeed', () => {
     fireEvent.click(await screen.findByText('Your request was approved'));
 
     expect(await screen.findByText('Your request was approved')).toBeInTheDocument(); // still on the feed
+  });
+
+  describe('officer routing (never opens Parcel 360)', () => {
+    it('sends a WORKFLOW_ASSIGNED notification to Assigned Requests, not the parcel', async () => {
+      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...unread, read: true } });
+      renderFeed([unread], ['/notifications'], officer);
+      fireEvent.click(await screen.findByText('New ror copy request request'));
+
+      await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/notifications/n1/read'));
+      expect(await screen.findByText('Assigned Requests Stub')).toBeInTheDocument();
+    });
+
+    it('sends an ADMIN_ESCALATION notification to Assigned Requests', async () => {
+      const escalation: AppNotification = {
+        id: 'n3', userId: 'u1', type: 'ADMIN_ESCALATION', title: 'Admin flagged this request for urgent review',
+        message: 'Please check today.', parcelId: 'p1', workflowId: 'w1', alertId: null,
+        read: false, createdAt: '2026-09-10T10:00:00.000Z',
+      };
+      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...escalation, read: true } });
+      renderFeed([escalation], ['/notifications'], officer);
+      fireEvent.click(await screen.findByText('Admin flagged this request for urgent review'));
+
+      expect(await screen.findByText('Assigned Requests Stub')).toBeInTheDocument();
+    });
+
+    it('sends a GOVERNANCE_ALERT_REVIEWED notification to Governance Alerts', async () => {
+      const alertNotification: AppNotification = {
+        id: 'n4', userId: 'u1', type: 'GOVERNANCE_ALERT_REVIEWED', title: 'A governance alert was reviewed',
+        message: 'Restriction confirmed unauthorized.', parcelId: 'p1', workflowId: null, alertId: 'a1',
+        read: false, createdAt: '2026-09-10T11:00:00.000Z',
+      };
+      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alertNotification, read: true } });
+      renderFeed([alertNotification], ['/notifications'], officer);
+      fireEvent.click(await screen.findByText('A governance alert was reviewed'));
+
+      expect(await screen.findByText('Governance Alerts Stub')).toBeInTheDocument();
+    });
+
+    it('sends a GOVERNANCE_ALERT_DISMISSED notification to Governance Alerts too', async () => {
+      const alertNotification: AppNotification = {
+        id: 'n5', userId: 'u1', type: 'GOVERNANCE_ALERT_DISMISSED', title: 'A governance alert was dismissed',
+        message: 'Not a real issue.', parcelId: 'p1', workflowId: null, alertId: 'a1',
+        read: false, createdAt: '2026-09-10T12:00:00.000Z',
+      };
+      renderFeed([alertNotification], ['/notifications'], officer);
+      fireEvent.click(await screen.findByText('A governance alert was dismissed'));
+
+      expect(await screen.findByText('Governance Alerts Stub')).toBeInTheDocument();
+    });
   });
 });

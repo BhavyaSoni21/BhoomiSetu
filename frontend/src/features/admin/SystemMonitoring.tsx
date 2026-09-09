@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Users, LogIn, Clock, Activity } from 'lucide-react';
 import apiService from '../../services/apiService';
@@ -13,6 +14,7 @@ import RecentActivity from './RecentActivity';
 // the Recent Activity feed, which now gets its own full page instead of a
 // capped 50-entry box.
 const SystemMonitoring: React.FC = () => {
+  const { t } = useTranslation();
   const { data: summary } = useQuery<AnalyticsSummary>(['analytics-summary'], async () => {
     const response = await apiService.get('/analytics/summary');
     return response.data;
@@ -24,39 +26,39 @@ const SystemMonitoring: React.FC = () => {
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">Total Users</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.totalUsersLabel')}</h3>
           </div>
           <p className="text-2xl font-black font-display text-ink">{summary?.totals.totalUsers ?? '—'}</p>
         </div>
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">
             <LogIn className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">Logins (24h)</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.logins24hLabel')}</h3>
           </div>
           <p className="text-2xl font-black font-display text-ink">{summary?.totals.recentLogins24h ?? '—'}</p>
         </div>
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary" aria-hidden="true" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">System Status</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.systemStatusLabel')}</h3>
           </div>
-          <p className="text-2xl font-black font-display text-ink">Online</p>
+          <p className="text-2xl font-black font-display text-ink">{t('adminPortal.systemStatusOnline')}</p>
         </div>
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-secondary" aria-hidden="true" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">Last Backup</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.lastBackupLabel')}</h3>
           </div>
-          <p className="text-2xl font-black font-display text-ink">Never</p>
+          <p className="text-2xl font-black font-display text-ink">{t('adminPortal.lastBackupNever')}</p>
         </div>
       </div>
 
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink">Activity Log</h2>
+          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.activityLogHeading')}</h2>
         </div>
-        <p className="text-sm text-ink/60 mb-4">Every officer/admin login and decision across the platform, filterable by type.</p>
+        <p className="text-sm text-ink/60 mb-4">{t('adminPortal.activityLogDesc')}</p>
         <RecentActivity />
       </div>
     </div>

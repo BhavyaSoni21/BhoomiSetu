@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle, X } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
 
@@ -24,6 +25,7 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [touched, setTouched] = useState(false);
   const trimmed = reason.trim();
@@ -36,7 +38,7 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
     onConfirm(trimmed);
   };
 
-  const actionLabel = status === 'DISMISSED' ? 'Dismiss' : 'Mark Reviewed';
+  const actionLabel = status === 'DISMISSED' ? t('officerPortal.dismissCta') : t('officerPortal.markReviewedCta');
   const ActionIcon = status === 'DISMISSED' ? XCircle : CheckCircle2;
   const actionColorClass = status === 'DISMISSED' ? 'bg-secondary' : 'bg-primary';
 
@@ -46,11 +48,11 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
         <div className="flex items-start justify-between mb-4 gap-3">
           <div>
             <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{actionLabel}</h3>
-            <p className="text-xs text-ink/60 mt-1">{alert.alertType.replace(/_/g, ' ')} &middot; Parcel {alert.parcelId}</p>
+            <p className="text-xs text-ink/60 mt-1">{t('officerPortal.alertTypeParcelLine', { alertType: alert.alertType.replace(/_/g, ' '), id: alert.parcelId })}</p>
           </div>
           <button
             onClick={onCancel}
-            aria-label="Close without submitting"
+            aria-label={t('officerPortal.closeWithoutSubmitting')}
             className="shrink-0 w-8 h-8 flex items-center justify-center border-2 border-ink bg-surface text-ink hover:bg-muted transition"
           >
             <X className="w-4 h-4" aria-hidden="true" />
@@ -58,27 +60,27 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
         </div>
 
         <label htmlFor="alert-reason-prompt" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1.5">
-          Reason
+          {t('officerPortal.reasonLabel')}
         </label>
         <textarea
           id="alert-reason-prompt"
           autoFocus
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Why are you taking this action? Shared with the relevant department."
+          placeholder={t('officerPortal.reasonPlaceholder')}
           rows={3}
           className={`w-full px-3 py-2 border-2 bg-surface text-ink text-sm placeholder:text-ink/40 focus:outline-none focus:border-primary ${
             touched && !trimmed ? 'border-secondary-strong' : 'border-ink'
           }`}
         />
-        {touched && !trimmed && <p className="text-xs font-medium text-secondary-strong mt-1">A reason is required.</p>}
+        {touched && !trimmed && <p className="text-xs font-medium text-secondary-strong mt-1">{t('officerPortal.reasonRequiredError')}</p>}
 
         <div className="flex flex-wrap gap-2 justify-end mt-4">
           <button
             onClick={onCancel}
             className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-surface text-ink border-2 border-ink shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
-            Cancel
+            {t('officerPortal.cancelCta')}
           </button>
           <button
             onClick={handleConfirm}
@@ -86,7 +88,7 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 ${actionColorClass}`}
           >
             <ActionIcon className="w-3.5 h-3.5" aria-hidden="true" />
-            {isSubmitting ? 'Submitting...' : `Confirm ${actionLabel}`}
+            {isSubmitting ? t('officerPortal.submittingLabel') : t('officerPortal.confirmActionCta', { action: actionLabel })}
           </button>
         </div>
       </div>

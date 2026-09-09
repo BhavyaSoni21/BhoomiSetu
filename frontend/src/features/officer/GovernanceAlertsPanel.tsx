@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import apiService from '../../services/apiService';
@@ -29,11 +31,24 @@ const severityBadgeClass = (severity: string) =>
 const ALERTS_PER_PAGE = 5;
 
 const GovernanceAlertsPanel: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [explanations, setExplanations] = useState<Record<string, AiExplanation>>({});
-  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(() => searchParams.get('alert'));
   const [page, setPage] = useState(0);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+
+  // Deep-linkable via ?alert=<id> (NotificationFeed.tsx, per the user's
+  // follow-up "the notification that is leading to the respective tab is
+  // also selected there") - a deep link should win even if it arrives after
+  // the initial render (e.g. clicking a second notification while already
+  // on this page).
+  useEffect(() => {
+    const alertParam = searchParams.get('alert');
+    if (alertParam) setSelectedAlertId(alertParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const { data: alerts = [], isLoading, error } = useQuery<GovernanceAlert[]>(
     ['governance-alerts', 'OPEN'],
@@ -41,6 +56,20 @@ const GovernanceAlertsPanel: React.FC = () => {
       const response = await apiService.get('/governance-alerts', { params: { status: 'OPEN' } });
       return response.data;
     },
+  );
+
+  const selectedAlertInList = alerts.find((a) => a.id === selectedAlertId) ?? null;
+  // A GOVERNANCE_ALERT_REVIEWED/DISMISSED notification deep-links to an
+  // alert that is, by definition, no longer OPEN - this list only ever
+  // holds OPEN alerts, so that alert would otherwise be unreachable. Fetch
+  // it directly (by id, any status) only once the OPEN list has actually
+  // settled and still doesn't contain it - waiting on `isLoading` avoids
+  // firing this redundantly during the list's own first load, when `alerts`
+  // is still its [] default and every deep-linked id would look "missing".
+  const { data: fallbackAlert } = useQuery<GovernanceAlert>(
+    ['governance-alert', selectedAlertId],
+    async () => (await apiService.get(`/governance-alerts/${selectedAlertId}`)).data,
+    { enabled: !!selectedAlertId && !isLoading && !selectedAlertInList },
   );
 
   const pageCount = Math.max(1, Math.ceil(alerts.length / ALERTS_PER_PAGE));
@@ -79,15 +108,21 @@ const GovernanceAlertsPanel: React.FC = () => {
     },
   );
 
-  if (isLoading) return <div className="text-ink/60 text-sm">Loading governance alerts...</div>;
-  if (error) return <div className="text-ink/60 text-sm">Error loading governance alerts</div>;
+  if (isLoading) return <div className="text-ink/60 text-sm">{t('officerPortal.loadingAlerts')}</div>;
+  if (error) return <div className="text-ink/60 text-sm">{t('officerPortal.errorLoadingAlerts')}</div>;
 
-  if (alerts.length === 0) {
-    return <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">No open governance alerts requiring attention.</div>;
+  const selectedAlert = selectedAlertInList ?? fallbackAlert ?? null;
+
+  // The "no open alerts" empty state only applies when there's also nothing
+  // deep-linked in from a notification to show - a resolved alert someone
+  // was just told about is still worth seeing even with an empty queue.
+  if (alerts.length === 0 && !selectedAlert) {
+    return <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">{t('officerPortal.noOpenAlerts')}</div>;
   }
 
-  const selectedAlert = alerts.find((a) => a.id === selectedAlertId) ?? null;
-  const pendingAlert = pendingAction ? alerts.find((a) => a.id === pendingAction.alertId) ?? null : null;
+  const pendingAlert = pendingAction
+    ? alerts.find((a) => a.id === pendingAction.alertId) ?? (selectedAlert?.id === pendingAction.alertId ? selectedAlert : null)
+    : null;
 
   return (
     <div className="space-y-3">
@@ -99,7 +134,7 @@ const GovernanceAlertsPanel: React.FC = () => {
                 {alert.severity}
               </span>
               <span className="font-bold text-sm uppercase tracking-wide text-ink">{alert.alertType.replace(/_/g, ' ')}</span>
-              <p className="text-xs text-ink/60 mt-0.5">Parcel: {alert.parcelId}</p>
+              <p className="text-xs text-ink/60 mt-0.5">{t('officerPortal.parcelLabel', { id: alert.parcelId })}</p>
               <p className="text-sm text-ink/70 mt-1">{alert.explanation}</p>
             </div>
           </div>
@@ -109,7 +144,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-surface text-ink border-2 border-ink shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
             >
               <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-              View Details
+              {t('officerPortal.viewDetailsCta')}
             </button>
             <button
               onClick={() => setPendingAction({ alertId: alert.id, status: 'REVIEWED' })}
@@ -117,7 +152,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-primary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
               <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-              Mark Reviewed
+              {t('officerPortal.markReviewedCta')}
             </button>
             <button
               onClick={() => setPendingAction({ alertId: alert.id, status: 'DISMISSED' })}
@@ -125,7 +160,7 @@ const GovernanceAlertsPanel: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-widest bg-secondary text-white border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
               <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-              Dismiss
+              {t('officerPortal.dismissCta')}
             </button>
           </div>
         </div>
@@ -140,10 +175,10 @@ const GovernanceAlertsPanel: React.FC = () => {
             className="inline-flex items-center gap-1 px-3 py-1.5 border-2 border-ink bg-surface shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:pointer-events-none"
           >
             <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            Prev
+            {t('officerPortal.prevCta')}
           </button>
           <span>
-            Page {page + 1} of {pageCount} ({alerts.length} alerts)
+            {t('officerPortal.alertsPageOf', { page: page + 1, pageCount, count: alerts.length })}
           </span>
           <button
             type="button"
@@ -151,7 +186,7 @@ const GovernanceAlertsPanel: React.FC = () => {
             disabled={page >= pageCount - 1}
             className="inline-flex items-center gap-1 px-3 py-1.5 border-2 border-ink bg-surface shadow-hard-sm transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:pointer-events-none"
           >
-            Next
+            {t('officerPortal.nextCta')}
             <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>

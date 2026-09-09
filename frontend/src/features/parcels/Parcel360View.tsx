@@ -16,6 +16,7 @@ import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
 import { useHistoricalClusters } from '../officer/historicalImagery';
 import HistoricalMapView from '../officer/HistoricalMapView';
+import HistoricalYearCompare from '../officer/HistoricalYearCompare';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
 
@@ -73,6 +74,13 @@ const Parcel360View: React.FC = () => {
   const isCitizen = authUser?.role === 'CITIZEN';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+  // The two-year comparison used to navigate to /officer/historical-imagery
+  // (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit "the
+  // compare years data in the parcel 360 should also not redirect to
+  // historical analysis, this analysis should be done there only in the
+  // parcel 360") - now toggled inline instead, reusing HistoricalYearCompare
+  // (extracted out of HistoricalImageryPanel.tsx for exactly this).
+  const [showHistoricalCompare, setShowHistoricalCompare] = useState(false);
 
   // Closing the form (whether cancelled or after a successful submission)
   // refreshes the notification feed below - cheapest way to make a brand new
@@ -150,6 +158,7 @@ const Parcel360View: React.FC = () => {
   useEffect(() => {
     setServiceRequest(null);
     setActiveTab('overview');
+    setShowHistoricalCompare(false);
     explainMutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -495,15 +504,23 @@ const Parcel360View: React.FC = () => {
             onClick={() => window.history.back()}
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            Back to Search
+            {/* "to Search" implies a citizen's Find Parcels flow (docs/ADMIN_PANEL_ISSUES.md
+                Admin #2's last remaining piece) - an Officer/Admin viewer more often
+                arrives here from a workflow, alert, or audit log entry instead, so
+                the label stays neutral for them. Left visible either way (unlike
+                Request Documents/Report Issue/File a Dispute/Verify Documents above,
+                gated on isOwnParcel) since browser-back navigation itself isn't a
+                citizen-only action. */}
+            {isCitizen ? 'Back to Search' : 'Back'}
           </button>
-          {isOfficer && parcel360.clusterId && (
+          {isOfficer && historicalCluster && (
             <button
-              onClick={() => navigate(`/officer/historical-imagery?cluster=${encodeURIComponent(parcel360.clusterId as string)}`)}
+              onClick={() => setShowHistoricalCompare((v) => !v)}
+              aria-expanded={showHistoricalCompare}
               className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
             >
               <History className="w-3.5 h-3.5" aria-hidden="true" />
-              Compare Years &amp; Generate Alerts
+              {showHistoricalCompare ? 'Hide Compare Years' : 'Compare Years & Generate Alerts'}
             </button>
           )}
           <button
@@ -515,6 +532,13 @@ const Parcel360View: React.FC = () => {
             {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
           </button>
         </div>
+
+        {showHistoricalCompare && historicalCluster && (
+          <div className="mt-4 pt-4 border-t-2 border-ink/10">
+            <h3 className="text-sm font-black uppercase tracking-widest text-ink/70 mb-3">Compare Years & Generate Alerts</h3>
+            <HistoricalYearCompare key={historicalCluster.clusterId} clusterId={historicalCluster.clusterId} years={historicalCluster.years} />
+          </div>
+        )}
 
         {explainMutation.isError && (
           <p className="text-sm font-medium text-secondary-strong mt-4">

@@ -5,9 +5,11 @@ import { ZoningOverlay } from './zoning-overlay.entity';
 import { RestrictionZone } from './restriction-zone.entity';
 import { InfrastructureFeature } from './infrastructure-feature.entity';
 import { ChangeDetectionEvent } from './change-detection-event.entity';
+import { AdminMapNote } from './admin-map-note.entity';
 import { CreateZoningOverlayDto, UpdateZoningOverlayDto } from './dto/zoning-overlay.dto';
 import { CreateRestrictionZoneDto, UpdateRestrictionZoneDto } from './dto/restriction-zone.dto';
 import { CreateInfrastructureFeatureDto, UpdateInfrastructureFeatureDto } from './dto/infrastructure-feature.dto';
+import { CreateAdminMapNoteDto, UpdateAdminMapNoteDto } from './dto/admin-map-note.dto';
 
 interface AreaFilter {
   state?: string;
@@ -44,11 +46,20 @@ export class SpatialService {
     @InjectRepository(RestrictionZone) private readonly restrictionRepository: Repository<RestrictionZone>,
     @InjectRepository(InfrastructureFeature) private readonly infrastructureRepository: Repository<InfrastructureFeature>,
     @InjectRepository(ChangeDetectionEvent) private readonly changeDetectionRepository: Repository<ChangeDetectionEvent>,
+    @InjectRepository(AdminMapNote) private readonly adminMapNoteRepository: Repository<AdminMapNote>,
   ) {}
 
   async findZoningOverlays(filter: AreaFilter) {
     const rows = await this.zoningRepository.find({ where: whereFrom(filter) });
-    return toFeatureCollection(rows, (r) => ({ id: r.id, name: r.name, zoneType: r.zoneType, parcelCount: r.parcelIds?.length ?? 0 }));
+    return toFeatureCollection(rows, (r) => ({
+      id: r.id,
+      name: r.name,
+      zoneType: r.zoneType,
+      stateCode: r.stateCode,
+      district: r.district,
+      parcelIds: r.parcelIds ?? [],
+      parcelCount: r.parcelIds?.length ?? 0,
+    }));
   }
 
   async findRestrictionZones(filter: AreaFilter) {
@@ -57,13 +68,21 @@ export class SpatialService {
       id: r.id,
       name: r.name,
       restrictionType: r.restrictionType,
+      stateCode: r.stateCode,
+      district: r.district,
       affectedParcelIds: r.affectedParcelIds ?? [],
     }));
   }
 
   async findInfrastructure(filter: AreaFilter) {
     const rows = await this.infrastructureRepository.find({ where: whereFrom(filter) });
-    return toFeatureCollection(rows, (r) => ({ id: r.id, name: r.name, featureType: r.featureType }));
+    return toFeatureCollection(rows, (r) => ({
+      id: r.id,
+      name: r.name,
+      featureType: r.featureType,
+      stateCode: r.stateCode,
+      district: r.district,
+    }));
   }
 
   async findChangeDetectionEvents(filter: AreaFilter) {
@@ -133,6 +152,40 @@ export class SpatialService {
 
   async removeInfrastructureFeature(id: string): Promise<boolean> {
     const result = await this.infrastructureRepository.delete({ id });
+    return (result.affected ?? 0) > 0;
+  }
+
+  // Admin-only layer (docs/ADMIN_PANEL_ISSUES.md Coming Soon #3 follow-up) -
+  // every caller into these four methods is already ADMIN-gated at the
+  // controller (SpatialController's admin-notes routes, unlike the public
+  // reads above), so no extra role check is needed here.
+  async findAdminMapNotes(filter: AreaFilter) {
+    const rows = await this.adminMapNoteRepository.find({ where: whereFrom(filter) });
+    return toFeatureCollection(rows, (r) => ({
+      id: r.id,
+      name: r.name,
+      notes: r.notes,
+      stateCode: r.stateCode,
+      district: r.district,
+      createdByUserId: r.createdByUserId,
+    }));
+  }
+
+  async createAdminMapNote(dto: CreateAdminMapNoteDto, createdByUserId: string): Promise<AdminMapNote> {
+    this.assertGeometryType(dto.geometry, ['Point', 'LineString', 'Polygon']);
+    return this.adminMapNoteRepository.save({ ...dto, geometry: JSON.stringify(dto.geometry), createdByUserId });
+  }
+
+  async updateAdminMapNote(id: string, dto: UpdateAdminMapNoteDto): Promise<AdminMapNote | null> {
+    const row = await this.adminMapNoteRepository.findOneBy({ id });
+    if (!row) return null;
+    if (dto.geometry) this.assertGeometryType(dto.geometry, ['Point', 'LineString', 'Polygon']);
+    Object.assign(row, { ...dto, geometry: dto.geometry ? JSON.stringify(dto.geometry) : row.geometry });
+    return this.adminMapNoteRepository.save(row);
+  }
+
+  async removeAdminMapNote(id: string): Promise<boolean> {
+    const result = await this.adminMapNoteRepository.delete({ id });
     return (result.affected ?? 0) > 0;
   }
 }

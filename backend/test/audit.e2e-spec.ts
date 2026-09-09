@@ -130,7 +130,7 @@ describe('Audit logging (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'REJECT' })
+        .send({ action: 'REJECT', remarks: 'Rejected' })
         .expect(200);
 
       const res = await request(app.getHttpServer())
@@ -153,7 +153,7 @@ describe('Audit logging (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/api/v1/workflows/${created.body.id}/steps/${registrationStep.id}`)
         .set('Authorization', landRecordsAuth)
-        .send({ action: 'APPROVE' })
+        .send({ action: 'APPROVE', remarks: 'Approved' })
         .expect(403);
 
       const res = await request(app.getHttpServer())
