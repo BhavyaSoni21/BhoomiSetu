@@ -22,3 +22,18 @@ export interface AnalyticsSummary {
   alertSeverityDistribution: Distribution[];
   alertStatusDistribution: Distribution[];
 }
+
+// Shape of GET /api/v1/analytics/officer-monitoring - one entry per officer.
+export interface OfficerMonitoringEntry {
+  userId: string;
+  name: string;
+  role: string;
+  department: string;
+  // Role-level, not personal - WorkflowStep has no per-user assignee column,
+  // only assignedRole, which every officer holding that role shares.
+  pendingInRoleQueue: number;
+  approvedCount: number;
+  rejectedCount: number;
+  avgDecisionHours: number | null;
+  lastActivityAt: string | null;
+}

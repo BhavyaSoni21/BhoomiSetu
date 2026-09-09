@@ -13,7 +13,9 @@ import { RegistrationRecord } from '../src/departments/registration-record.entit
 import { PlanningRecord } from '../src/departments/planning-record.entity';
 import { DisputeRecord } from '../src/departments/dispute-record.entity';
 import { Workflow } from '../src/workflows/workflow.entity';
+import { WorkflowStep } from '../src/workflows/workflow-step.entity';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
+import { AuditLog } from '../src/audit/audit-log.entity';
 import { User } from '../src/users/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { createAuthenticatedUser } from './helpers/auth';
@@ -28,20 +30,23 @@ const square = (minLng: number, minLat: number, size = 0.001) =>
 
 describe('Analytics (e2e)', () => {
   let app: INestApplication;
+  let moduleFixture: TestingModule;
   let parcelRepository: Repository<Parcel>;
   let taxRepository: Repository<TaxRecord>;
   let registrationRepository: Repository<RegistrationRecord>;
   let planningRepository: Repository<PlanningRecord>;
   let disputeRepository: Repository<DisputeRecord>;
   let workflowRepository: Repository<Workflow>;
+  let workflowStepRepository: Repository<WorkflowStep>;
   let alertRepository: Repository<GovernanceAlert>;
+  let auditLogRepository: Repository<AuditLog>;
   let userRepository: Repository<User>;
   // Admin-only (docs/FEATURE_AUDIT.md §8 item 5).
   let adminAuth: string;
   let officerAuth: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
@@ -56,7 +61,9 @@ describe('Analytics (e2e)', () => {
     planningRepository = moduleFixture.get(getRepositoryToken(PlanningRecord));
     disputeRepository = moduleFixture.get(getRepositoryToken(DisputeRecord));
     workflowRepository = moduleFixture.get(getRepositoryToken(Workflow));
+    workflowStepRepository = moduleFixture.get(getRepositoryToken(WorkflowStep));
     alertRepository = moduleFixture.get(getRepositoryToken(GovernanceAlert));
+    auditLogRepository = moduleFixture.get(getRepositoryToken(AuditLog));
     userRepository = moduleFixture.get(getRepositoryToken(User));
 
     const parcels = await Promise.all([
@@ -195,6 +202,90 @@ describe('Analytics (e2e)', () => {
 
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer()).get('/api/v1/analytics/summary').expect(401);
+    });
+  });
+
+  describe('GET /api/v1/analytics/officer-monitoring', () => {
+    it('lists every officer, including ones with zero activity (all zeros/null, not omitted)', async () => {
+      const idleOfficer = await createAuthenticatedUser(moduleFixture, 'ENCUMBRANCE_OFFICER');
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/analytics/officer-monitoring')
+        .set('Authorization', adminAuth)
+        .expect(200);
+
+      const entry = res.body.find((e: any) => e.userId === idleOfficer.user.id);
+      expect(entry).toMatchObject({
+        name: idleOfficer.user.name,
+        role: 'ENCUMBRANCE_OFFICER',
+        department: 'ENCUMBRANCE',
+        pendingInRoleQueue: 0,
+        approvedCount: 0,
+        rejectedCount: 0,
+        avgDecisionHours: null,
+        lastActivityAt: null,
+      });
+    });
+
+    it('reflects real pending WorkflowStep counts, grouped by role', async () => {
+      const parcel = await parcelRepository.save({
+        canonicalParcelId: 'AN-PENDING', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 100, geometry: square(73.9, 18.6),
+      });
+      const workflow = await workflowRepository.save({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST', currentStatus: 'SUBMITTED' });
+      await workflowStepRepository.save([
+        { workflow, stepOrder: 1, department: 'RESTRICTION', assignedRole: 'RESTRICTION_OFFICER', status: 'PENDING' },
+        { workflow, stepOrder: 2, department: 'RESTRICTION', assignedRole: 'RESTRICTION_OFFICER', status: 'PENDING' },
+      ]);
+      const restrictionOfficer = await createAuthenticatedUser(moduleFixture, 'RESTRICTION_OFFICER');
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/analytics/officer-monitoring')
+        .set('Authorization', adminAuth)
+        .expect(200);
+
+      const entry = res.body.find((e: any) => e.userId === restrictionOfficer.user.id);
+      expect(entry.pendingInRoleQueue).toBeGreaterThanOrEqual(2);
+    });
+
+    it('attributes decisions to the specific officer who made them (not their role generically), via AuditLog', async () => {
+      const deciderOfficer = await createAuthenticatedUser(moduleFixture, 'PLANNING_OFFICER');
+      const parcel = await parcelRepository.save({
+        canonicalParcelId: 'AN-DECIDED', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 100, geometry: square(73.91, 18.61),
+      });
+      const workflow = await workflowRepository.save({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST', currentStatus: 'APPROVED' });
+
+      await auditLogRepository.save([
+        {
+          userId: deciderOfficer.user.id, userRole: 'PLANNING_OFFICER', action: 'WORKFLOW_STEP_APPROVED',
+          entityType: 'WORKFLOW_STEP', entityId: 'step-1', parcelId: parcel.id,
+          metadata: JSON.stringify({ workflowId: workflow.id, department: 'PLANNING' }),
+        },
+        {
+          userId: deciderOfficer.user.id, userRole: 'PLANNING_OFFICER', action: 'WORKFLOW_STEP_REJECTED',
+          entityType: 'WORKFLOW_STEP', entityId: 'step-2', parcelId: parcel.id,
+          metadata: JSON.stringify({ workflowId: workflow.id, department: 'PLANNING' }),
+        },
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/analytics/officer-monitoring')
+        .set('Authorization', adminAuth)
+        .expect(200);
+
+      const entry = res.body.find((e: any) => e.userId === deciderOfficer.user.id);
+      expect(entry.approvedCount).toBe(1);
+      expect(entry.rejectedCount).toBe(1);
+      expect(entry.avgDecisionHours).not.toBeNull();
+      expect(typeof entry.avgDecisionHours).toBe('number');
+      expect(entry.lastActivityAt).toBeTruthy();
+    });
+
+    it('rejects a non-admin officer with 403', async () => {
+      await request(app.getHttpServer()).get('/api/v1/analytics/officer-monitoring').set('Authorization', officerAuth).expect(403);
+    });
+
+    it('rejects an unauthenticated request with 401', async () => {
+      await request(app.getHttpServer()).get('/api/v1/analytics/officer-monitoring').expect(401);
     });
   });
 });

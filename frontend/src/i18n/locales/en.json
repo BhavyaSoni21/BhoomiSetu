@@ -400,7 +400,8 @@
     "departments": "Departments",
     "systemMonitoring": "System Monitoring",
     "workflows": "Workflows",
-    "mapLayerAuthoring": "Map Layer Authoring"
+    "mapLayerAuthoring": "Map Layer Authoring",
+    "officerMonitoring": "Officer Monitoring"
   },
   "adminPortal": {
     "dashboardWelcome": "Welcome, {{name}}",
@@ -528,6 +529,19 @@
     "createLayerCta": "Create Layer",
     "noLayersYet": "No layers yet.",
     "deleteLayerConfirm": "Delete the \"{{name}}\" layer?",
-    "drawMapHelperText": "Draw a {{types}} on the map (use the trash tool to clear it), or edit the GeoJSON directly below."
+    "drawMapHelperText": "Draw a {{types}} on the map (use the trash tool to clear it), or edit the GeoJSON directly below.",
+    "officerMonitoringSubtitle": "How officers are handling their assigned workload - pending queue size, decisions made, and average time to decide, built from real workflow and audit data.",
+    "officerWorkloadHeading": "Officer Workload",
+    "loadingOfficerMonitoring": "Loading officer monitoring...",
+    "errorLoadingOfficerMonitoring": "Error loading officer monitoring data",
+    "noOfficersFound": "No officer accounts found.",
+    "officerColumn": "Officer",
+    "departmentColumn": "Department",
+    "pendingInQueueColumn": "Pending in Queue",
+    "approvedColumn": "Approved",
+    "rejectedColumn": "Rejected",
+    "avgDecisionTimeColumn": "Avg. Time to Decide",
+    "lastActivityColumn": "Last Activity",
+    "pendingInQueueNote": "\"Pending in Queue\" is per role, not per officer - officers sharing a role share the same queue."
   }
 }

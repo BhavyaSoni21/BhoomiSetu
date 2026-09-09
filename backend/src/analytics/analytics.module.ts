@@ -6,6 +6,7 @@ import { RegistrationRecord } from '../departments/registration-record.entity';
 import { PlanningRecord } from '../departments/planning-record.entity';
 import { DisputeRecord } from '../departments/dispute-record.entity';
 import { Workflow } from '../workflows/workflow.entity';
+import { WorkflowStep } from '../workflows/workflow-step.entity';
 import { GovernanceAlert } from '../governance/governance-alert.entity';
 import { User } from '../users/user.entity';
 import { AuditLog } from '../audit/audit-log.entity';
@@ -17,7 +18,9 @@ import { AnalyticsService } from './analytics.service';
 // AiModule/ChangeDetectionModule: this module only ever reads across these
 // tables, nothing needs to import it back.
 @Module({
-  imports: [TypeOrmModule.forFeature([Parcel, TaxRecord, RegistrationRecord, PlanningRecord, DisputeRecord, Workflow, GovernanceAlert, User, AuditLog])],
+  imports: [
+    TypeOrmModule.forFeature([Parcel, TaxRecord, RegistrationRecord, PlanningRecord, DisputeRecord, Workflow, WorkflowStep, GovernanceAlert, User, AuditLog]),
+  ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
 })

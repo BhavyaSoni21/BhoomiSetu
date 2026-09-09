@@ -16,4 +16,9 @@ export class AnalyticsController {
   async getSummary() {
     return this.analyticsService.getSummary();
   }
+
+  @Get('officer-monitoring')
+  async getOfficerMonitoring() {
+    return this.analyticsService.getOfficerMonitoring();
+  }
 }

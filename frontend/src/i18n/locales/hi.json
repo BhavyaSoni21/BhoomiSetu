@@ -400,7 +400,8 @@
     "departments": "विभाग",
     "systemMonitoring": "सिस्टम निगरानी",
     "workflows": "वर्कफ़्लो",
-    "mapLayerAuthoring": "मानचित्र परत निर्माण"
+    "mapLayerAuthoring": "मानचित्र परत निर्माण",
+    "officerMonitoring": "अधिकारी निगरानी"
   },
   "adminPortal": {
     "dashboardWelcome": "स्वागत है, {{name}}",
@@ -528,6 +529,19 @@
     "createLayerCta": "परत बनाएं",
     "noLayersYet": "अभी तक कोई परत नहीं है।",
     "deleteLayerConfirm": "\"{{name}}\" परत हटाएं?",
-    "drawMapHelperText": "मानचित्र पर {{types}} बनाएं (इसे हटाने के लिए ट्रैश टूल का उपयोग करें), या नीचे GeoJSON सीधे संपादित करें।"
+    "drawMapHelperText": "मानचित्र पर {{types}} बनाएं (इसे हटाने के लिए ट्रैश टूल का उपयोग करें), या नीचे GeoJSON सीधे संपादित करें।",
+    "officerMonitoringSubtitle": "अधिकारी अपने सौंपे गए कार्यभार को कैसे संभाल रहे हैं - लंबित कतार का आकार, लिए गए निर्णय, और निर्णय लेने का औसत समय, वास्तविक वर्कफ़्लो और ऑडिट डेटा से तैयार किया गया।",
+    "officerWorkloadHeading": "अधिकारी कार्यभार",
+    "loadingOfficerMonitoring": "अधिकारी निगरानी लोड हो रही है...",
+    "errorLoadingOfficerMonitoring": "अधिकारी निगरानी डेटा लोड करने में त्रुटि",
+    "noOfficersFound": "कोई अधिकारी खाता नहीं मिला।",
+    "officerColumn": "अधिकारी",
+    "departmentColumn": "विभाग",
+    "pendingInQueueColumn": "कतार में लंबित",
+    "approvedColumn": "स्वीकृत",
+    "rejectedColumn": "अस्वीकृत",
+    "avgDecisionTimeColumn": "औसत निर्णय समय",
+    "lastActivityColumn": "अंतिम गतिविधि",
+    "pendingInQueueNote": "\"कतार में लंबित\" प्रति भूमिका है, प्रति अधिकारी नहीं - एक ही भूमिका साझा करने वाले अधिकारी एक ही कतार साझा करते हैं।"
   }
 }

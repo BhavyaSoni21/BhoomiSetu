@@ -39,15 +39,16 @@ export const OFFICER_NAV_ITEMS: NavItem[] = [
 ];
 
 // Admin Portal split into multiple pages (docs/FRONTEND_UPGRADE_SPEC.md §7,
-// Phase 3) - Users/Officers/Governance Rules are still planning-only (real
-// engine rewrites, scoped as their own separate effort per the spec's own
+// Phase 3) - Users/Governance Rules are still planning-only (real engine
+// rewrites, scoped as their own separate effort per the spec's own
 // recommended sequencing), so only the pieces actually built (Departments,
-// System Monitoring, Workflow Oversight, Map Layer Authoring) plus the
-// existing Dashboard are listed here.
+// System Monitoring, Workflow Oversight, Map Layer Authoring, Officer
+// Monitoring) plus the existing Dashboard are listed here.
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin', end: true, labelKey: 'adminNav.dashboard' },
   { to: '/admin/departments', labelKey: 'adminNav.departments' },
   { to: '/admin/system-monitoring', labelKey: 'adminNav.systemMonitoring' },
   { to: '/admin/workflows', labelKey: 'adminNav.workflows' },
   { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
+  { to: '/admin/officer-monitoring', labelKey: 'adminNav.officerMonitoring' },
 ];

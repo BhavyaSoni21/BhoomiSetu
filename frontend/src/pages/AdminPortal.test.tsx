@@ -59,6 +59,7 @@ function mockApi() {
     if (url === '/users') return { data: [managedAdmin] };
     if (url === '/audit') return { data: [] };
     if (url === '/admin/departments') return { data: [] };
+    if (url === '/analytics/officer-monitoring') return { data: [] };
     throw new Error(`unexpected url: ${url}`);
   });
 }
@@ -110,5 +111,14 @@ describe('AdminPortal', () => {
     const loginsValue = await screen.findByText('2');
     expect(within(loginsValue.closest('div')!).getByText('Logins (24h)')).toBeInTheDocument();
     expect(await screen.findByText('No activity recorded yet.')).toBeInTheDocument();
+  });
+
+  it('the Officer Monitoring page fetches and shows officer workload/decision data', async () => {
+    mockApi();
+    renderPortal(admin, ['/officer-monitoring']);
+
+    expect(await screen.findByRole('heading', { name: 'Officer Monitoring' })).toBeInTheDocument();
+    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/analytics/officer-monitoring'));
+    expect(screen.getByText('No officer accounts found.')).toBeInTheDocument();
   });
 });
