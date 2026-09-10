@@ -9,7 +9,7 @@ import * as fs from 'fs/promises';
 // environment with an ephemeral or per-instance filesystem.
 //
 // Same "unset config degrades gracefully, doesn't crash the surrounding
-// request" shape as GroqService/Fast2SMS/SMTP, but inverted: those features
+// request" shape as GroqService/SmsService/EmailService, but inverted: those features
 // are optional and 503 without a key. Image storage isn't optional - every
 // environment needs *somewhere* to put these files - so the fallback is
 // local disk (exactly the old, zero-config behavior) rather than a 503. This

@@ -124,10 +124,10 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 
 | | |
 |---|---|
-| **Library (backend)** | `@nestjs/jwt` + `passport` + `passport-jwt` (JWT auth), `bcryptjs` (password + OTP hashing), `nodemailer` (SMTP email OTP); mobile OTP has no library at all - `SmsService` is a plain unconfigured stub (Fast2SMS was evaluated, then removed entirely, see feature 11's note in FEATURES.md) |
+| **Library (backend)** | `@nestjs/jwt` + `passport` + `passport-jwt` (JWT auth), `bcryptjs` (password + OTP hashing), `nodemailer` (SMTP email OTP, Zoho Mail relay by default); mobile OTP via `SmsService`'s own `fetch` call to TextBee's HTTP API (`textbee.dev`) - no SDK needed |
 | **Library (frontend)** | `axios` (`services/apiService.ts`), `@tanstack/react-query` (session cache) |
 | **Endpoints** | `POST /auth/login`, `POST /auth/register`, `POST /auth/verify-otp`, `POST /auth/resend-otp`, `POST /auth/profile/contact`, `POST /auth/profile/details`, `GET /auth/me` |
-| **Backend** | `auth/auth.controller.ts`, `auth/auth.service.ts`, `auth/jwt.strategy.ts`, `auth/jwt-auth.guard.ts`, `notifications/sms.service.ts` (no active provider), `notifications/email.service.ts` (nodemailer/SMTP) |
+| **Backend** | `auth/auth.controller.ts`, `auth/auth.service.ts`, `auth/jwt.strategy.ts`, `auth/jwt-auth.guard.ts`, `auth/optional-jwt-auth.guard.ts`, `notifications/sms.service.ts` (TextBee), `notifications/email.service.ts` (nodemailer/SMTP, Zoho Mail) |
 | **Frontend** | `pages/LoginPage.tsx`, `pages/RegisterPage.tsx`, `features/auth/OtpEntryForm.tsx`, `features/auth/RequireAuth.tsx`, `features/auth/auth.ts` |
 
 ## 12. Citizen Sign-In / My Parcels

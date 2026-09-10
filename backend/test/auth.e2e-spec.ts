@@ -18,13 +18,33 @@ describe('Auth (e2e)', () => {
   let officerUser: User;
 
   // SmsService/EmailService are real external-API wrappers with nothing
-  // configured in the test env (no FAST2SMS_API_KEY/SMTP_HOST) - overridden
+  // configured in the test env (no TEXTBEE_API_KEY/MAIL_HOST) - overridden
   // here with mocks so registration/OTP flows are testable without a live
-  // Fast2SMS account or SMTP server, same purpose as ai.e2e-spec.ts's
+  // TextBee device or SMTP server, same purpose as ai.e2e-spec.ts's
   // `jest.mock('openai')` for GroqService, just via Nest's own
   // overrideProvider since these are plain injectable classes.
-  const mockSendOtp = jest.fn().mockResolvedValue(undefined);
-  const mockVerifyOtp = jest.fn().mockResolvedValue(true);
+  //
+  // TextBee is send-only, so the real SmsService generates+hashes the code
+  // itself and hands AuthService {codeHash, expiresAt, sentAt} to persist,
+  // then verifies later via a pure local bcrypt compare (no network call) -
+  // mockSendOtp/mockVerifyOtp mirror that exact contract (real bcrypt
+  // against a fixed known code) rather than the old "provider verifies its
+  // own code" shape, so this exercises the same hash-then-compare path a
+  // real SmsService would.
+  const MOCK_SMS_OTP_CODE = '654321';
+  const mockSendOtp = jest.fn().mockImplementation(async () => ({
+    codeHash: bcrypt.hashSync(MOCK_SMS_OTP_CODE, 10),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    sentAt: new Date(),
+  }));
+  const mockVerifyOtp = jest
+    .fn()
+    .mockImplementation((storedHash: string | null, storedExpiresAt: Date | null, attempts: number, code: string) => {
+      if (attempts >= 5) return { valid: false, reason: 'TOO_MANY_ATTEMPTS' };
+      if (!storedHash || !storedExpiresAt || storedExpiresAt.getTime() < Date.now()) return { valid: false, reason: 'EXPIRED' };
+      if (!bcrypt.compareSync(code, storedHash)) return { valid: false, reason: 'WRONG_CODE' };
+      return { valid: true };
+    });
   const mockSendOtpEmail = jest.fn().mockResolvedValue(undefined);
 
   beforeAll(async () => {
@@ -32,7 +52,7 @@ describe('Auth (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(SmsService)
-      .useValue({ sendOtp: mockSendOtp, verifyOtp: mockVerifyOtp, isConfigured: true })
+      .useValue({ sendOtp: mockSendOtp, verifyOtp: mockVerifyOtp, isConfigured: true, resendCooldownSeconds: 30 })
       .overrideProvider(EmailService)
       .useValue({ sendOtpEmail: mockSendOtpEmail, isConfigured: true })
       .compile();
@@ -54,8 +74,10 @@ describe('Auth (e2e)', () => {
   });
 
   afterEach(() => {
+    // mockClear() only resets call history, not the mockImplementation set
+    // above - both keep their real bcrypt-based behavior across tests.
     mockSendOtp.mockClear();
-    mockVerifyOtp.mockClear().mockResolvedValue(true);
+    mockVerifyOtp.mockClear();
     mockSendOtpEmail.mockClear();
   });
 
@@ -378,15 +400,14 @@ describe('Auth (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/verify-otp')
         .set('Authorization', `Bearer ${token}`)
-        .send({ method: 'MOBILE', code: '654321' })
+        .send({ method: 'MOBILE', code: MOCK_SMS_OTP_CODE })
         .expect(201);
 
-      expect(mockVerifyOtp).toHaveBeenCalledWith('9333333333', '654321');
+      expect(mockVerifyOtp).toHaveBeenCalled();
       expect(res.body.mobileVerified).toBe(true);
     });
 
     it('rejects when SmsService reports the mobile code as invalid, with 400', async () => {
-      mockVerifyOtp.mockResolvedValueOnce(false);
       const { token } = await registerCitizen({ method: 'MOBILE', mobileNumber: '9444444444', email: undefined });
 
       await request(app.getHttpServer())
