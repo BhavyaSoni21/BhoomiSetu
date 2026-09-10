@@ -22,6 +22,8 @@ interface MapComponentProps {
   fitToParcels?: boolean;
   /** Which legend checkboxes to render (defaults to every LayerKey, i.e. today's behavior) - lets a caller offer a simpler subset, e.g. Parcel 360 showing citizens only a "View Zoning" toggle instead of the full staff-oriented legend. Layer visibility state itself is unaffected; layers not offered here just keep their default visibility. */
   visibleLayerKeys?: LayerKey[];
+  /** Bump this (e.g. ++) to re-fit the map to the selected parcel's cluster/context on demand - the contextual zoom below otherwise only runs once, when `context` itself first loads (React Query caches it), so a "Locate" button needs an explicit way to ask for it again even when nothing about the selection has actually changed. */
+  recenterSignal?: number;
 }
 
 type LayerKey =
@@ -143,6 +145,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   parcelLabels,
   fitToParcels,
   visibleLayerKeys,
+  recenterSignal,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -509,7 +512,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     if (bounds) {
       map.fitBounds(bounds, { padding: 60, maxZoom: 18 });
     }
-  }, [context, mapReady]);
+  }, [context, mapReady, recenterSignal]);
 
   // Zoning / restriction / infrastructure / change-detection layer data.
   useEffect(() => {

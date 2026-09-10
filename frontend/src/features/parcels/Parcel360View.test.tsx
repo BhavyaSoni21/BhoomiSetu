@@ -22,8 +22,12 @@ const officer: AuthUser = { id: 'o1', email: 'officer1@example.gov.in', name: 'A
 // and service-request flow. Exposes onParcelClick so tests can simulate
 // clicking a different parcel on the map.
 vi.mock('../map/MapComponent', () => ({
-  default: (props: { onParcelClick?: (id: string) => void; visibleLayerKeys?: string[] }) => (
-    <div data-testid="mock-map" data-visible-layer-keys={props.visibleLayerKeys ? props.visibleLayerKeys.join(',') : 'all'}>
+  default: (props: { onParcelClick?: (id: string) => void; visibleLayerKeys?: string[]; recenterSignal?: number }) => (
+    <div
+      data-testid="mock-map"
+      data-visible-layer-keys={props.visibleLayerKeys ? props.visibleLayerKeys.join(',') : 'all'}
+      data-recenter-signal={props.recenterSignal ?? 0}
+    >
       <button onClick={() => props.onParcelClick?.('p2')}>Simulate map click on p2</button>
     </div>
   ),
@@ -146,6 +150,28 @@ describe('Parcel360View', () => {
 
     expect(await screen.findByText('STATE_A')).toBeInTheDocument();
     expect(screen.getByText('Interop Owner')).toBeInTheDocument();
+  });
+
+  // "Locate" sits next to the map (beside its year toggle when the parcel
+  // belongs to a historical cluster, or on its own otherwise) rather than in
+  // the Actions row. MapComponent only fits its view to the selected
+  // parcel's context once, when that context first loads (React Query
+  // caches it) - clicking Locate must bump recenterSignal to actually
+  // re-trigger that fly-to on demand, not just scroll the already-visible
+  // map into view (which alone did nothing observable).
+  it('clicking "Locate" on the Overview tab bumps recenterSignal and scrolls the map into view', async () => {
+    const scrollIntoViewMock = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoViewMock;
+    mockGet();
+    renderWithProviders();
+
+    const map = await screen.findByTestId('mock-map');
+    expect(map).toHaveAttribute('data-recenter-signal', '0');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Locate' }));
+
+    await waitFor(() => expect(map).toHaveAttribute('data-recenter-signal', '1'));
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
   it('shows a "not available" message on the Restriction tab when departments.restriction is null', async () => {

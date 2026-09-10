@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, FileText, Flag, History, MessageSquareWarning, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
@@ -64,6 +64,30 @@ const Parcel360View: React.FC = () => {
   const isCitizen = authUser?.role === 'CITIZEN';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+  // "Locate" action, next to the map's own year toggle (per the user's
+  // explicit placement). MapComponent only fits its view to the selected
+  // parcel's context once, when that context first loads (React Query
+  // caches it) - clicking Locate needs to re-trigger that fly-to/fit-bounds
+  // on demand even though nothing about the selection has changed, hence
+  // recenterSignal (bumped on every click, threaded through to MapComponent
+  // either directly or via HistoricalMapView). Also scrolls the map section
+  // into view in case the Overview tab's other content pushed it off-screen.
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
+  const handleLocate = () => {
+    setRecenterSignal((n) => n + 1);
+    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const locateButton = (
+    <button
+      type="button"
+      onClick={handleLocate}
+      className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0"
+    >
+      <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+      Locate
+    </button>
+  );
   // The two-year comparison used to navigate to /officer/historical-imagery
   // (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit "the
   // compare years data in the parcel 360 should also not redirect to
@@ -318,7 +342,7 @@ const Parcel360View: React.FC = () => {
               </div>
             </div>
 
-            <div className="md:col-span-2 overflow-hidden">
+            <div ref={mapSectionRef} className="md:col-span-2 overflow-hidden">
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Parcel Map</h2>
               <p className="text-sm text-ink/60 mb-3 leading-relaxed">
                 Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
@@ -334,20 +358,26 @@ const Parcel360View: React.FC = () => {
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
+                  actionSlot={locateButton}
+                  recenterSignal={recenterSignal}
                 />
               ) : (
-                <MapComponent
-                  parcels={[]}
-                  selectedParcelId={parcel360.parcel_id}
-                  onParcelClick={(clickedId) => {
-                    if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
-                  }}
-                  // A citizen sees just a "View Zoning" toggle instead of the
-                  // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
-                  // follow-up, per the user's explicit "zoning layer addition
-                  // just the view option for citizens").
-                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
-                />
+                <>
+                  <div className="flex justify-end mb-3">{locateButton}</div>
+                  <MapComponent
+                    parcels={[]}
+                    selectedParcelId={parcel360.parcel_id}
+                    onParcelClick={(clickedId) => {
+                      if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                    }}
+                    // A citizen sees just a "View Zoning" toggle instead of the
+                    // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
+                    // follow-up, per the user's explicit "zoning layer addition
+                    // just the view option for citizens").
+                    visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
+                    recenterSignal={recenterSignal}
+                  />
+                </>
               )}
             </div>
           </div>

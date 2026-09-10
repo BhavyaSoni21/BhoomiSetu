@@ -49,6 +49,10 @@ interface HistoricalMapViewProps {
   selectedParcelId?: string | null;
   /** Called when any parcel on the map is clicked, in addition to the highlight above - Parcel 360 uses this to navigate to the clicked parcel. */
   onParcelClick?: (parcelId: string) => void;
+  /** Extra action rendered inline to the right of the year select (e.g. Parcel 360's "Locate" button) - optional, so the Officer Portal's standalone Historical Imagery page (which passes nothing here) is unaffected. */
+  actionSlot?: React.ReactNode;
+  /** Passed straight through to MapComponent - bump to re-fit the map to selectedParcelId's context on demand (Parcel 360's "Locate" button). */
+  recenterSignal?: number;
 }
 
 // The real, interactive map for one chosen year - a cluster's actual parcel
@@ -62,7 +66,7 @@ interface HistoricalMapViewProps {
 // exactly this reason. `fitToParcels` on MapComponent zooms to the cluster's
 // own bounds up front; if selectedParcelId is also given, MapComponent's own
 // contextual zoom takes over once that parcel's context loads.
-const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years, selectedParcelId, onParcelClick }) => {
+const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years, selectedParcelId, onParcelClick, actionSlot, recenterSignal }) => {
   const [year, setYear] = useState<number>(years[years.length - 1]);
   useEffect(() => {
     if (!years.includes(year)) setYear(years[years.length - 1]);
@@ -96,21 +100,26 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
         <span className="normal-case font-normal text-ink/40">(disputes only ever appear on the current year)</span>
       </div>
 
-      <label htmlFor={`historical-map-year-select-${clusterId}`} className="block text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1.5">
-        Map year
-      </label>
-      <select
-        id={`historical-map-year-select-${clusterId}`}
-        value={year}
-        onChange={(event) => setYear(Number(event.target.value))}
-        className="w-full sm:w-auto border-2 border-ink bg-surface px-3 py-2 text-sm font-bold text-ink mb-3"
-      >
-        {years.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div>
+          <label htmlFor={`historical-map-year-select-${clusterId}`} className="block text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1.5">
+            Map year
+          </label>
+          <select
+            id={`historical-map-year-select-${clusterId}`}
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+            className="w-full sm:w-auto border-2 border-ink bg-surface px-3 py-2 text-sm font-bold text-ink"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        {actionSlot}
+      </div>
 
       {Boolean(error) && <p className="text-xs font-medium text-secondary-strong mb-2">Could not load this year's parcel data.</p>}
       {!error &&
@@ -126,6 +135,7 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
             fitToParcels
             selectedParcelId={selectedParcelId}
             onParcelClick={onParcelClick}
+            recenterSignal={recenterSignal}
           />
         ))}
     </div>
