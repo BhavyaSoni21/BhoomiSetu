@@ -88,24 +88,6 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
               Jurisdictional adjudication dashboard. Review citizen mutation requests, conduct survey cross-verification, and act on cross-department alerts.
             </p>
           </div>
-
-          <div className="flex flex-wrap gap-3 shrink-0">
-            <Link
-              to="/officer/requests"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-heading font-bold text-sm tracking-wide text-white transition-all shadow-md hover:shadow-lg active:scale-95"
-              style={{ background: 'var(--action-600)' }}
-            >
-              <Inbox className="w-4 h-4" />
-              Assigned Queue ({pendingWorkflows.length})
-            </Link>
-            <Link
-              to="/officer/alerts"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-heading font-semibold text-sm tracking-wide text-white transition-all border border-white/20 bg-white/10 hover:bg-white/15"
-            >
-              <ShieldAlert className="w-4 h-4" />
-              Alerts ({alerts.length})
-            </Link>
-          </div>
         </div>
       </div>
 

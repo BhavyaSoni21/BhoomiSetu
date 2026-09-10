@@ -12,6 +12,8 @@ frontend/.vite/
 
 # Env files
 .env
+.env.*
+*.env
 .env.local
 
 # Logs

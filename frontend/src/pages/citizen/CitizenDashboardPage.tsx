@@ -5,14 +5,9 @@ import { useTranslation } from 'react-i18next';
 import {
   MapPin,
   Inbox,
-  Search,
   ShieldCheck,
-  Send,
-  ListChecks,
   FileCheck2,
   Clock,
-  ArrowRight,
-  PlusCircle,
   Flag,
   AlertTriangle,
   ChevronRight,
@@ -44,37 +39,6 @@ const CitizenDashboardPage: React.FC = () => {
   ).length;
 
   const approvedCount = workflows.filter((w) => w.currentStatus === 'APPROVED').length;
-
-  const quickLinks = [
-    {
-      to: '/citizen/find',
-      Icon: Search,
-      title: 'Find & Search Parcels',
-      desc: 'Look up survey numbers, village cadastre maps and verify owner records',
-      badge: 'GIS Map',
-    },
-    {
-      to: '/citizen/raise-request',
-      Icon: Send,
-      title: 'Raise New Request',
-      desc: 'Submit mutation, demarcation, dispute or NOC verification application',
-      badge: 'Instant Filing',
-    },
-    {
-      to: '/citizen/requests',
-      Icon: ListChecks,
-      title: 'Track Applications',
-      desc: 'Live workflow monitoring with step-by-step SLA officer tracking',
-      badge: `${workflows.length} Total`,
-    },
-    {
-      to: '/citizen/parcels',
-      Icon: MapPin,
-      title: 'My Land Parcels',
-      desc: 'Access your digitized 7/12 extracts, property cards and GIS boundaries',
-      badge: `${parcelsData?.total ?? 0} Mapped`,
-    },
-  ];
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -108,24 +72,6 @@ const CitizenDashboardPage: React.FC = () => {
             <p className="text-white/80 text-sm sm:text-base max-w-2xl leading-relaxed">
               Welcome to your unified BhoomiSetu dashboard. Manage your agricultural and urban property records, track revenue department applications, and verify geospatial boundaries.
             </p>
-          </div>
-
-          <div className="flex flex-wrap sm:flex-nowrap gap-3 shrink-0">
-            <Link
-              to="/citizen/raise-request"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-heading font-bold text-sm tracking-wide text-white transition-all shadow-md hover:shadow-lg active:scale-95"
-              style={{ background: 'var(--action-600)' }}
-            >
-              <PlusCircle className="w-4 h-4" aria-hidden="true" />
-              New Application
-            </Link>
-            <Link
-              to="/citizen/find"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-heading font-semibold text-sm tracking-wide text-white transition-all border border-white/20 bg-white/10 hover:bg-white/15"
-            >
-              <Search className="w-4 h-4" aria-hidden="true" />
-              Search Registry
-            </Link>
           </div>
         </div>
       </div>
@@ -217,46 +163,6 @@ const CitizenDashboardPage: React.FC = () => {
           <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
             Revenue, Forest, Survey, Tax
           </span>
-        </div>
-      </div>
-
-      {/* ── Quick Action Cards ── */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-heading font-bold text-text-heading">
-            Citizen Governance Services
-          </h2>
-          <span className="text-xs font-mono text-text-muted uppercase">GIGW 3.0 Aligned</span>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {quickLinks.map(({ to, Icon, title, desc, badge }) => (
-            <Link
-              key={to + title}
-              to={to}
-              className="gov-card p-5 group flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:border-brand-600 hover:shadow-lg"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface-2 group-hover:bg-brand-900 group-hover:text-white transition-colors duration-200 text-brand-900">
-                    <Icon className="w-5 h-5" aria-hidden="true" />
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-surface-2 text-text-secondary">
-                    {badge}
-                  </span>
-                </div>
-                <h3 className="font-heading font-bold text-base text-text-heading group-hover:text-brand-900 transition-colors">
-                  {title}
-                </h3>
-                <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-                  {desc}
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-gov-border flex items-center justify-between text-xs font-semibold text-brand-700 group-hover:text-action-600 transition-colors">
-                <span>Access Portal</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </div>
-            </Link>
-          ))}
         </div>
       </div>
 
