@@ -208,6 +208,10 @@ describe('Parcels endpoints (e2e)', () => {
     it('rejects a non-UUID id with 400', async () => {
       await request(app.getHttpServer()).get('/api/v1/parcels/not-a-uuid').expect(400);
     });
+
+    it('returns 404 for a well-formed but unknown UUID', async () => {
+      await request(app.getHttpServer()).get('/api/v1/parcels/00000000-0000-0000-0000-000000000000').expect(404);
+    });
   });
 
   describe('GET /api/v1/parcels/:id/geometry', () => {

@@ -114,7 +114,7 @@ const RegisterPage: React.FC = () => {
   const submitErrorMessage =
     registerMutation.isError
       ? (axios.isAxiosError(registerMutation.error) && registerMutation.error.response?.status === 409
-          ? t('authPage.accountExistsError')
+          ? t(method === 'EMAIL' ? 'authPage.accountExistsEmailError' : 'authPage.accountExistsMobileError')
           : t('authPage.registrationFailedError'))
       : null;
 

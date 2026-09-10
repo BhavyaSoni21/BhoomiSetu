@@ -83,7 +83,11 @@ export class ParcelsController {
 
   @Get(':id')
   async getParcel(@Param('id', ParseUUIDPipe) id: string) {
-    return this.parcelsService.findOne(id);
+    const parcel = await this.parcelsService.findOne(id);
+    if (!parcel) {
+      throw new NotFoundException(`Parcel not found with id: ${id}`);
+    }
+    return parcel;
   }
 
   @Get(':id/geometry')

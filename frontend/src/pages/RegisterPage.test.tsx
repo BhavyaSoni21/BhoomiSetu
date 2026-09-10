@@ -98,10 +98,15 @@ describe('RegisterPage', () => {
     expect(await screen.findByText(/We've sent a 6-digit code to 9000000001/)).toBeInTheDocument();
   });
 
-  it('shows the server error message on a duplicate-account 400', async () => {
+  // A duplicate account is a 409 Conflict (auth.service.ts's register()),
+  // not a 400 - distinct from a malformed request so the frontend can show
+  // a specific, professional message ("An account is already registered
+  // with this email address...") instead of the generic fallback, and so
+  // it never surfaces the raw backend error string directly.
+  it('shows a professional, method-specific message on a duplicate-account 409 (email)', async () => {
     vi.mocked(apiService.post).mockRejectedValue({
       isAxiosError: true,
-      response: { status: 400, data: { message: 'An account with this email already exists' } },
+      response: { status: 409, data: { message: 'An account with this email already exists' } },
     });
     renderPage();
 
@@ -111,7 +116,24 @@ describe('RegisterPage', () => {
     fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'Password1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
-    expect(await screen.findByText('An account with this email already exists')).toBeInTheDocument();
+    expect(await screen.findByText('An account is already registered with this email address. Please sign in instead.')).toBeInTheDocument();
+  });
+
+  it('shows a professional, method-specific message on a duplicate-account 409 (mobile)', async () => {
+    vi.mocked(apiService.post).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { message: 'An account with this mobile number already exists' } },
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Register with Mobile' }));
+    fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'New Citizen' } });
+    fireEvent.change(screen.getByLabelText('Mobile Number'), { target: { value: '9000000001' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password1' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'Password1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(await screen.findByText('An account is already registered with this mobile number. Please sign in instead.')).toBeInTheDocument();
   });
 
   it('navigates to /citizen when "Skip for now" is clicked on the OTP step', async () => {

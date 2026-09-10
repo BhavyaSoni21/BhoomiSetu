@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
@@ -87,10 +87,10 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
     if (dto.method === 'EMAIL' && (await this.usersService.findByEmail(dto.email!))) {
-      throw new BadRequestException('An account with this email already exists');
+      throw new ConflictException('An account with this email already exists');
     }
     if (dto.method === 'MOBILE' && (await this.usersService.findByMobileNumber(dto.mobileNumber!))) {
-      throw new BadRequestException('An account with this mobile number already exists');
+      throw new ConflictException('An account with this mobile number already exists');
     }
 
     const user = await this.usersService.create({
@@ -238,7 +238,7 @@ export class AuthService {
     if (dto.method === 'EMAIL') {
       const value = dto.email!;
       if (await this.emailTakenByAnotherUser(value, user.id)) {
-        throw new BadRequestException('This email is already linked to another account');
+        throw new ConflictException('This email is already linked to another account');
       }
       if (user.email && user.emailVerified) {
         user.pendingEmail = value;
@@ -249,7 +249,7 @@ export class AuthService {
     } else {
       const value = dto.mobileNumber!;
       if (await this.mobileTakenByAnotherUser(value, user.id)) {
-        throw new BadRequestException('This mobile number is already linked to another account');
+        throw new ConflictException('This mobile number is already linked to another account');
       }
       if (user.mobileNumber && user.mobileVerified) {
         user.pendingMobileNumber = value;

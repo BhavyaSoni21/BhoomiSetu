@@ -272,14 +272,14 @@ describe('Auth (e2e)', () => {
         .expect(400);
     });
 
-    it('rejects a duplicate email with 400', async () => {
+    it('rejects a duplicate email with 409 (a real conflict, not a malformed request)', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ name: 'X', method: 'EMAIL', email: 'officer@test.gov.in', password: 'Password1', confirmPassword: 'Password1' })
-        .expect(400);
+        .expect(409);
     });
 
-    it('rejects a duplicate mobile number with 400', async () => {
+    it('rejects a duplicate mobile number with 409 (a real conflict, not a malformed request)', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ name: 'X1', method: 'MOBILE', mobileNumber: '9222222222', password: 'Password1', confirmPassword: 'Password1' })
@@ -287,7 +287,7 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ name: 'X2', method: 'MOBILE', mobileNumber: '9222222222', password: 'Password1', confirmPassword: 'Password1' })
-        .expect(400);
+        .expect(409);
     });
 
     it('rejects method=EMAIL with no email field, with 400 (DTO validation)', async () => {
@@ -521,14 +521,14 @@ describe('Auth (e2e)', () => {
       expect(verifyRes.body.emailVerified).toBe(true);
     });
 
-    it('rejects claiming an email already linked to another account, with 400', async () => {
+    it('rejects claiming an email already linked to another account, with 409 (a real conflict, not a malformed request)', async () => {
       const { token } = await registerCitizen();
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/profile/contact')
         .set('Authorization', `Bearer ${token}`)
         .send({ method: 'EMAIL', email: 'officer@test.gov.in' })
-        .expect(400);
+        .expect(409);
     });
 
     it('allows a staff account to add their own missing mobile number too (widened 2026-09-10, docs/ADMIN_PANEL_ISSUES.md Officer #2)', async () => {

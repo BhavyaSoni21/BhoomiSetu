@@ -719,21 +719,24 @@ export const BhoomiSetuLanding: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             {/* Left: Stylized Land Parcel Visual Card */}
             <div className="lg:col-span-5">
-              <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#92400E] via-[#B45309] to-[#78350F] p-8 sm:p-10 text-white shadow-xl min-h-[340px] flex flex-col justify-between">
-                {/* Subtle organic topographic curves in background */}
-                <div className="absolute inset-0 opacity-15 pointer-events-none" aria-hidden="true">
-                  <svg className="w-full h-full" viewBox="0 0 400 300" fill="none">
-                    <path
-                      d="M0 80 Q100 40, 200 100 T400 60 L400 300 L0 300 Z"
-                      fill="#FFFFFF"
-                    />
-                    <path
-                      d="M0 160 Q120 120, 240 180 T400 140 L400 300 L0 300 Z"
-                      fill="#FFFFFF"
-                      fillOpacity="0.5"
-                    />
-                  </svg>
-                </div>
+              <div className="relative rounded-3xl overflow-hidden p-8 sm:p-10 text-white shadow-xl min-h-[340px] flex flex-col justify-between">
+                {/* Aerial parcel photo background */}
+                <div
+                  className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                  style={{ backgroundImage: "url('/parcel-snapshot.png')" }}
+                  role="img"
+                  aria-label="Aerial photograph of a highlighted agricultural land parcel"
+                />
+
+                {/* Scrim for text legibility */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(180deg, rgba(15,26,17,0.55) 0%, rgba(15,26,17,0.05) 35%, rgba(15,26,17,0.05) 55%, rgba(15,26,17,0.75) 100%)',
+                  }}
+                  aria-hidden="true"
+                />
 
                 <div className="relative z-10 space-y-2">
                   <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-white/80 font-bold">

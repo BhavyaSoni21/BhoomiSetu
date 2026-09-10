@@ -11,7 +11,8 @@
     "predeploy": "npm run build",
     "deploy": "firebase deploy --only functions",
     "test": "jest",
-    "seed": "ts-node -P tsconfig.json seed.ts"
+    "seed": "ts-node -P tsconfig.json seed.ts",
+    "seed:demo-activity": "ts-node -P tsconfig.json seed-demo-activity.ts"
   },
   "jest": {
     "moduleFileExtensions": [
