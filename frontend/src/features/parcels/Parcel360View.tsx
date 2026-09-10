@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
@@ -10,6 +10,7 @@ import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
 import { ParcelSummary } from '../../types/parcel';
 import { AiExplanation } from '../../types/aiExplanation';
+import { RiskScore } from '../../types/riskScore';
 import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
 import { useHistoricalClusters } from '../officer/historicalImagery';
@@ -37,6 +38,16 @@ const TABS: { key: TabKey; label: string }[] = [
 // to see the details" - hidden entirely for a non-owner, not just shown
 // with a "restricted" message.
 const OWNER_ONLY_TAB_KEYS: TabKey[] = ['planning', 'tax', 'restriction', 'dispute', 'encumbrance', 'ownershipHistory'];
+
+// Same Bauhaus status-badge treatment as TopRiskParcels.tsx (docs/design.md
+// §7) - kept in sync there rather than shared, matching this codebase's
+// usual per-component convention for small lookup tables like this.
+const RISK_BAND_CLASS: Record<string, string> = {
+  LOW: 'bg-muted text-ink border-ink',
+  MEDIUM: 'bg-accent text-ink border-ink',
+  HIGH: 'bg-secondary text-white border-ink',
+  CRITICAL: 'bg-secondary-strong text-white border-ink',
+};
 
 function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -135,6 +146,18 @@ const Parcel360View: React.FC = () => {
     { enabled: isCitizen },
   );
   const isOwnParcel = isCitizen && !!myParcelsData?.parcels.some((p) => p.id === parcel360?.parcel_id);
+
+  // Risk score for a citizen's own parcel only (docs/ADMIN_PANEL_ISSUES.md
+  // follow-up) - the same real weighted score AdminDashboard's Top Risk
+  // Parcels list already surfaces to staff, now also shown to the owner on
+  // their own Parcel 360 Overview. Public endpoint, but only fetched/shown
+  // here for isOwnParcel so a citizen browsing a parcel that isn't theirs
+  // doesn't see someone else's risk detail on this page.
+  const { data: riskScore } = useQuery<RiskScore>(
+    ['risk-score', id],
+    async () => (await apiService.get(`/parcels/${id}/risk-score`)).data,
+    { enabled: !!id && isOwnParcel },
+  );
 
   // Public (2026-09-08) - when the parcel belongs to a cluster, upgrades the
   // "Parcel Map" below into the year-dropdown/dispute-colored historical
@@ -333,6 +356,26 @@ const Parcel360View: React.FC = () => {
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Area</h2>
               <Field label="Area" value={`${spatial.area_sq_m.toLocaleString()} m²`} />
             </div>
+            {isOwnParcel && riskScore && (
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Risk Score</h2>
+                <span
+                  className={`inline-flex items-center gap-1.5 border-2 px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${
+                    RISK_BAND_CLASS[riskScore.riskBand] ?? 'bg-muted text-ink border-ink'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
+                  {riskScore.riskBand} ({riskScore.overallScore})
+                </span>
+                <div className="mt-2 space-y-1">
+                  {riskScore.factors.filter((f) => f.available).map((factor) => (
+                    <p key={factor.key} className="text-xs text-ink/60">
+                      <strong className="font-bold text-ink/80">{factor.label}:</strong> {factor.rationale}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Data Sources</h2>
               <div className="space-y-1.5">
@@ -527,10 +570,18 @@ const Parcel360View: React.FC = () => {
             )}
             {ownershipHistory && ownershipHistory.length > 0 && (
               <div className="space-y-1 divide-y-2 divide-ink/10">
-                {ownershipHistory.map((entry) => (
+                {/* Backend orders oldest-first (transactionDate ASC), so the
+                    last entry is the most recent transaction - the current
+                    owner. */}
+                {ownershipHistory.map((entry, index) => (
                   <div key={entry.id} className="flex items-start justify-between gap-3 text-sm py-2 first:pt-0 last:pb-0">
                     <div>
                       <span className="font-bold text-ink">{entry.ownerName}</span>
+                      {index === ownershipHistory.length - 1 && (
+                        <span className="ml-2 inline-block border-2 border-ink bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white align-middle">
+                          Current Owner
+                        </span>
+                      )}
                       <p className="text-xs text-ink/50 mt-0.5">
                         {entry.transactionType.replace(/_/g, ' ')} · {formatDate(entry.transactionDate)}
                         {entry.documentReference ? ` · ${entry.documentReference}` : ''}
