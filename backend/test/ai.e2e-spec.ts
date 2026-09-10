@@ -10,6 +10,7 @@ import request = require('supertest');
 import OpenAI from 'openai';
 import { AppModule } from '../src/app.module';
 import { Parcel } from '../src/parcels/parcel.entity';
+import { CitizenParcel } from '../src/parcels/citizen-parcel.entity';
 import { TaxRecord } from '../src/departments/tax-record.entity';
 import { GovernanceAlert } from '../src/governance/governance-alert.entity';
 import { GroqService } from '../src/ai/groq.service';
@@ -67,8 +68,12 @@ describe('AI (e2e)', () => {
   let alert: GovernanceAlert;
   // Only POST /ai/alerts/:alertId/explain is officer/admin-only
   // (docs/FEATURE_AUDIT.md §8 item 5) - /query and /parcels/:id/explain stay
-  // public (citizen-facing touchpoints).
+  // public (citizen-facing touchpoints); "explain" additionally withholds
+  // owner-only department data from a non-owner viewer, same as GET
+  // /parcels/:id/360 - see the citizen-association fixtures below.
   let officerAuth: string;
+  let ownerCitizenAuth: string;
+  let otherCitizenAuth: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -99,6 +104,12 @@ describe('AI (e2e)', () => {
     });
 
     officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+
+    const citizenParcelRepository: Repository<CitizenParcel> = moduleFixture.get(getRepositoryToken(CitizenParcel));
+    const ownerCitizen = await createAuthenticatedUser(moduleFixture, 'CITIZEN');
+    ownerCitizenAuth = ownerCitizen.authHeader;
+    await citizenParcelRepository.save({ citizen: ownerCitizen.user, parcel });
+    otherCitizenAuth = (await createAuthenticatedUser(moduleFixture, 'CITIZEN')).authHeader;
   });
 
   afterAll(async () => {
@@ -219,6 +230,54 @@ describe('AI (e2e)', () => {
       mockGroqResponds({ summary: 'Missing risk level and the rest' });
 
       await request(app.getHttpServer()).post(`/api/v1/ai/parcels/${parcel.id}/explain`).expect(502);
+    });
+
+    // Same withholding rule as GET /parcels/:id/360 (parcels.controller.ts) -
+    // "Explain with AI" must never be a side channel for data the 360 view
+    // itself hides from a non-owner viewer.
+    function stubExplanation() {
+      mockGroqResponds({ summary: 'x', risk_level: 'LOW', findings: [], recommended_action: 'None.' });
+    }
+
+    function sentParcel360(): any {
+      return JSON.parse(mockCreate.mock.calls[0][0].messages[1].content);
+    }
+
+    it('withholds Tax (and the other owner-only departments) from the data sent to the AI for an anonymous caller', async () => {
+      stubExplanation();
+      await request(app.getHttpServer()).post(`/api/v1/ai/parcels/${parcel.id}/explain`).expect(201);
+
+      expect(sentParcel360().departments.tax).toBeNull();
+    });
+
+    it('withholds Tax from the data sent to the AI for a citizen who does not own this parcel', async () => {
+      stubExplanation();
+      await request(app.getHttpServer())
+        .post(`/api/v1/ai/parcels/${parcel.id}/explain`)
+        .set('Authorization', otherCitizenAuth)
+        .expect(201);
+
+      expect(sentParcel360().departments.tax).toBeNull();
+    });
+
+    it('includes the real Tax data for the citizen this parcel is associated with', async () => {
+      stubExplanation();
+      await request(app.getHttpServer())
+        .post(`/api/v1/ai/parcels/${parcel.id}/explain`)
+        .set('Authorization', ownerCitizenAuth)
+        .expect(201);
+
+      expect(sentParcel360().departments.tax.taxStatus).toBe('PAID');
+    });
+
+    it('includes the real Tax data for staff, regardless of association', async () => {
+      stubExplanation();
+      await request(app.getHttpServer())
+        .post(`/api/v1/ai/parcels/${parcel.id}/explain`)
+        .set('Authorization', officerAuth)
+        .expect(201);
+
+      expect(sentParcel360().departments.tax.taxStatus).toBe('PAID');
     });
   });
 

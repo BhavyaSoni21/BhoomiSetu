@@ -2,6 +2,7 @@ import { BadGatewayException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parcel } from '../parcels/parcel.entity';
+import { CitizenParcel } from '../parcels/citizen-parcel.entity';
 import { TaxRecord } from '../departments/tax-record.entity';
 import { RestrictionRecord } from '../departments/restriction-record.entity';
 import { PlanningRecord } from '../departments/planning-record.entity';
@@ -11,6 +12,8 @@ import { GovernanceAlertsService } from '../governance/governance-alerts.service
 import { GroqService } from './groq.service';
 import { assistantResponseSchema, AssistantFilters } from './schemas/assistant-response.schema';
 import { aiExplanationSchema, AiExplanation } from './schemas/ai-explanation.schema';
+import { User } from '../users/user.entity';
+import { ALL_STAFF_ROLES, CITIZEN_ROLE } from '../auth/roles.constants';
 
 // The floating "Ask AI" widget (docs/Plan.md's citizen-assistant addendum)
 // handles two kinds of question in a single Groq call, rather than a
@@ -88,6 +91,7 @@ export class AiService {
     @InjectRepository(RestrictionRecord) private readonly restrictionRepository: Repository<RestrictionRecord>,
     @InjectRepository(PlanningRecord) private readonly planningRepository: Repository<PlanningRecord>,
     @InjectRepository(RegistrationRecord) private readonly registrationRepository: Repository<RegistrationRecord>,
+    @InjectRepository(CitizenParcel) private readonly citizenParcelRepository: Repository<CitizenParcel>,
     private readonly groqService: GroqService,
     private readonly responseAggregatorService: ResponseAggregatorService,
     private readonly governanceAlertsService: GovernanceAlertsService,
@@ -148,13 +152,36 @@ export class AiService {
     return { intent: 'DATA_QUERY', reply, filters, totalMatches: parcels.length, results: parcels.slice(0, RESULT_LIMIT) };
   }
 
-  async explainParcel(parcelId: string): Promise<ExplainResult> {
+  // Same rule as GET /parcels/:id/360 (ParcelsController.getParcel360) - a
+  // viewer who isn't staff and isn't the citizen this parcel is associated
+  // with never sees Planning/Tax/Restriction/Dispute/Encumbrance, so an AI
+  // summary can't leak them either. A small duplicate of
+  // ParcelsService.isCitizenAssociatedWithParcel rather than a cross-module
+  // call - see ai.module.ts's comment on CitizenParcel.
+  private async canViewRestrictedDepartments(user: User | undefined, parcelId: string): Promise<boolean> {
+    if (user && (ALL_STAFF_ROLES as readonly string[]).includes(user.role)) return true;
+    if (user?.role === CITIZEN_ROLE) {
+      const link = await this.citizenParcelRepository.findOne({ where: { citizen: { id: user.id }, parcel: { id: parcelId } } });
+      return link !== null;
+    }
+    return false;
+  }
+
+  async explainParcel(parcelId: string, user: User | undefined): Promise<ExplainResult> {
     const parcel360 = await this.responseAggregatorService.buildParcel360(parcelId);
     if (!parcel360) return 'NOT_FOUND';
 
+    if (!(await this.canViewRestrictedDepartments(user, parcelId))) {
+      parcel360.departments.planning = null;
+      parcel360.departments.tax = null;
+      parcel360.departments.restriction = null;
+      parcel360.departments.dispute = null;
+      parcel360.departments.encumbrance = null;
+    }
+
     const systemPrompt = `You explain a land parcel's aggregated records to a citizen in plain, simple language. Respond with ONLY a JSON object of this exact shape:
 {"summary": string, "risk_level": "LOW"|"MEDIUM"|"HIGH", "findings": [{"type": string, "description": string}], "recommended_action": string}
-Base findings strictly on the data given - do not invent facts, ownership changes, or legal conclusions.`;
+Base findings strictly on the data given - do not invent facts, ownership changes, or legal conclusions. Some department fields may be null because they're withheld from this viewer, not because nothing was found - never claim or imply "no restrictions/disputes/encumbrances" for a null field.`;
     const raw = await this.groqService.completeJson(systemPrompt, JSON.stringify(parcel360));
 
     const parsed = aiExplanationSchema.safeParse(raw);
