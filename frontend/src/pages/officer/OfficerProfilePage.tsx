@@ -5,6 +5,7 @@ import { useAuthUser } from '../../features/auth/auth';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
 import { OfficerRole, ROLE_DEPARTMENT, ROLE_LABELS } from '../../features/officer/officerAuth';
+import BackButton from '../../components/BackButton';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -28,6 +29,7 @@ const OfficerProfilePage: React.FC = () => {
 
   return (
     <div className="max-w-xl space-y-6">
+      <BackButton variant="ink" />
       <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
         <span className="absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center bg-secondary border-2 border-ink" aria-hidden="true">
           <UserCircle2 className="w-3.5 h-3.5 text-white" />

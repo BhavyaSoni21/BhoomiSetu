@@ -1,11 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import GovernanceAlertsPanel from '../../features/officer/GovernanceAlertsPanel';
+import BackButton from '../../components/BackButton';
 
 const GovernanceAlertsPage: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
+      <BackButton />
       <div className="pb-4 border-b border-gov-border">
         <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-heading">
           {t('officerNav.governanceAlerts', 'Cross-Department Governance Alerts')}

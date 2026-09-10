@@ -16,6 +16,7 @@ import {
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import ServiceRequestForm from '../../features/parcels/ServiceRequestForm';
+import BackButton from '../../components/BackButton';
 
 const RaiseRequestPage: React.FC = () => {
   const { t } = useTranslation();
@@ -75,6 +76,7 @@ const RaiseRequestPage: React.FC = () => {
         />
       )}
 
+      <BackButton />
       {/* Header */}
       <div className="pb-4 border-b border-gov-border">
         <div className="flex items-center gap-2 text-action-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">

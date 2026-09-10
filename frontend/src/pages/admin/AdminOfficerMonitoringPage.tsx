@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Users } from 'lucide-react';
 import OfficerMonitoring from '../../features/admin/OfficerMonitoring';
+import BackButton from '../../components/BackButton';
 
 // "Officer monitoring - how officers handle citizen issues"
 // (docs/ADMIN_PANEL_ISSUES.md Admin #4) - built from data that already
@@ -12,6 +13,7 @@ const AdminOfficerMonitoringPage: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="space-y-6">
+      <BackButton variant="ink" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.officerMonitoring')}</h1>
         <p className="text-ink/60 mt-1">{t('adminPortal.officerMonitoringSubtitle')}</p>

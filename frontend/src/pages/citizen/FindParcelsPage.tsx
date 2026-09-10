@@ -4,6 +4,7 @@ import { Search, Map as MapIcon, Layers, Info, Filter, Compass } from 'lucide-re
 import ParcelSearch from '../../features/parcels/ParcelSearch';
 import MapComponent from '../../features/map/MapComponent';
 import { ParcelSummary } from '../../types/parcel';
+import BackButton from '../../components/BackButton';
 
 const FindParcelsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ const FindParcelsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-up">
+      <BackButton />
       {/* ── Top Header & Guidance ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gov-border">
         <div>

@@ -4,6 +4,7 @@ import { MapPinned, Shield, Zap, Lock, Layers } from 'lucide-react';
 import CornerMarker from '../../features/admin/CornerMarker';
 import MapLayerManagement, { LayerTypeConfig } from '../../features/admin/MapLayerManagement';
 import AdminCombinedLayerMap from '../../features/admin/AdminCombinedLayerMap';
+import BackButton from '../../components/BackButton';
 
 const COMBINED_KEY = 'combined' as const;
 
@@ -79,6 +80,7 @@ const AdminMapLayerAuthoringPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <BackButton variant="ink" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.mapLayerAuthoring')}</h1>
         <p className="text-ink/60 mt-1">

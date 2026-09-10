@@ -11,6 +11,7 @@ import AuthenticatedDocumentImage from '../../features/parcels/AuthenticatedDocu
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
+import BackButton from '../../components/BackButton';
 
 type ProfileTab = 'account' | 'documents';
 
@@ -110,6 +111,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="max-w-xl space-y-6">
+      <BackButton variant="ink" />
       <div className="border-b-2 border-ink/20">
         <nav className="-mb-px flex flex-wrap gap-1" aria-label="Profile sections">
           {TABS.map((tab) => (

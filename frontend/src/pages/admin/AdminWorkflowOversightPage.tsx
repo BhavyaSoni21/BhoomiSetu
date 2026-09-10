@@ -5,6 +5,7 @@ import { Workflow as WorkflowIcon, Eye } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 import WorkflowReviewPanel from '../../features/officer/WorkflowReviewPanel';
+import BackButton from '../../components/BackButton';
 
 const sectionHeadingClass = 'text-xl sm:text-2xl font-black uppercase tracking-tight font-display text-ink mb-4 flex items-center gap-2';
 
@@ -50,6 +51,7 @@ const AdminWorkflowOversightPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <BackButton variant="ink" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.workflows')}</h1>
         <p className="text-ink/60 mt-1">
