@@ -6,6 +6,7 @@ import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned } from 'lucide
 import apiService from '../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
+import { Parcel360Response } from '../../types/parcel360';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
 
 interface WorkflowReviewPanelProps {
@@ -44,6 +45,137 @@ function formatDate(value: string | null): string {
   if (!value) return 'N/A';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-IN');
+}
+
+function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+// A department only ever gets to decide its own step (WorkflowsController.
+// reviewStep's FORBIDDEN_WRONG_DEPARTMENT check), so the case review panel
+// should only surface that same department's own parcel record here -
+// mirrors Parcel360View.tsx's per-tab field lists, not imported from there
+// since that component isn't built for reuse (this codebase's usual
+// duplicate-small-things-rather-than-share convention).
+const DEPARTMENT_360_KEY: Record<string, keyof Parcel360Response['departments']> = {
+  LAND_RECORDS: 'landRecords',
+  REGISTRATION: 'registration',
+  PLANNING: 'planning',
+  TAX: 'tax',
+  RESTRICTION: 'restriction',
+  DISPUTE: 'dispute',
+  ENCUMBRANCE: 'encumbrance',
+};
+
+function DepartmentRecordField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs py-1">
+      <span className="text-ink/50 uppercase tracking-wide">{label}</span>
+      <span className="text-ink font-semibold text-right">{value}</span>
+    </div>
+  );
+}
+
+function DepartmentRecordFields({ department, departments }: { department: string; departments: Parcel360Response['departments'] }) {
+  switch (department) {
+    case 'LAND_RECORDS': {
+      const record = departments.landRecords;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Source Schema" value={record.sourceSchema} />
+          <DepartmentRecordField label="Source Identifier" value={record.sourceIdentifier} />
+          <DepartmentRecordField label="Owner Name" value={record.ownerName} />
+          <DepartmentRecordField label="Area" value={`${record.areaSqM.toLocaleString()} m²`} />
+          <DepartmentRecordField label="Locality" value={record.locality} />
+        </>
+      );
+    }
+    case 'REGISTRATION': {
+      const record = departments.registration;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Status" value={record.registrationStatus} />
+          <DepartmentRecordField label="Registration Number" value={record.registrationNumber || 'N/A'} />
+          <DepartmentRecordField label="Registration Date" value={formatDate(record.registrationDate)} />
+          <DepartmentRecordField label="Last Transaction" value={record.lastTransactionType || 'N/A'} />
+          <DepartmentRecordField label="Last Transaction Date" value={formatDate(record.lastTransactionDate)} />
+        </>
+      );
+    }
+    case 'PLANNING': {
+      const record = departments.planning;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Land Use" value={record.landUse} />
+          <DepartmentRecordField label="Zoning Classification" value={record.zoningClassification} />
+          <DepartmentRecordField label="Master Plan Reference" value={record.masterPlanReference} />
+          <DepartmentRecordField label="Building Permission" value={record.buildingPermissionStatus} />
+        </>
+      );
+    }
+    case 'TAX': {
+      const record = departments.tax;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Assessed Value" value={formatCurrency(record.assessedValue)} />
+          <DepartmentRecordField label="Annual Tax" value={formatCurrency(record.annualTaxAmount)} />
+          <DepartmentRecordField label="Tax Status" value={record.taxStatus} />
+          <DepartmentRecordField label="Outstanding Amount" value={formatCurrency(record.outstandingAmount)} />
+          <DepartmentRecordField label="Last Payment Date" value={formatDate(record.lastPaymentDate)} />
+        </>
+      );
+    }
+    case 'RESTRICTION': {
+      const record = departments.restriction;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Restriction" value={record.hasRestriction ? 'Yes' : 'No'} />
+          {record.hasRestriction && (
+            <>
+              <DepartmentRecordField label="Restriction Type" value={record.restrictionType || 'N/A'} />
+              <DepartmentRecordField label="Details" value={record.restrictionDetails || 'N/A'} />
+              <DepartmentRecordField label="Imposing Authority" value={record.imposingAuthority || 'N/A'} />
+            </>
+          )}
+        </>
+      );
+    }
+    case 'DISPUTE': {
+      const record = departments.dispute;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Active Dispute" value={record.hasActiveDispute ? 'Yes' : 'No'} />
+          <DepartmentRecordField label="Dispute Type" value={record.disputeType || 'N/A'} />
+          <DepartmentRecordField label="Case Status" value={record.caseStatus || 'N/A'} />
+          <DepartmentRecordField label="Filing Date" value={formatDate(record.filingDate)} />
+        </>
+      );
+    }
+    case 'ENCUMBRANCE': {
+      const record = departments.encumbrance;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Encumbrance" value={record.hasEncumbrance ? 'Yes' : 'No'} />
+          {record.hasEncumbrance && (
+            <>
+              <DepartmentRecordField label="Encumbrance Type" value={record.encumbranceType || 'N/A'} />
+              <DepartmentRecordField label="Lender Name" value={record.lenderName || 'N/A'} />
+              <DepartmentRecordField label="Instrument Reference" value={record.instrumentReference || 'N/A'} />
+            </>
+          )}
+        </>
+      );
+    }
+    default:
+      return null;
+  }
 }
 
 // Status semantics win over the portal's role color here (docs/design.md):
@@ -295,6 +427,16 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
     { enabled: isVerificationType },
   );
 
+  // Case review is scoped to the reviewing officer's own department - fetched
+  // only in officer mode (Admin oversight has no single department to scope
+  // to, and already has the full "View Parcel" link below for a complete
+  // picture).
+  const { data: parcel360 } = useQuery<Parcel360Response>(
+    ['parcel-360-for-review', workflow?.parcelId],
+    async () => (await apiService.get(`/parcels/${workflow!.parcelId}/360`)).data,
+    { enabled: !!workflow && !!officerDepartment },
+  );
+
   if (isLoading) return <div className="text-ink/60 text-sm">{t('officerPortal.loadingWorkflow')}</div>;
   if (error || !workflow) return <div className="text-ink/60 text-sm">{t('officerPortal.errorLoadingWorkflow')}</div>;
 
@@ -303,6 +445,8 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
   const canReview = !isAdminMode && myStep?.status === 'PENDING';
   const pendingStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'PENDING') : [];
   const precheck = parsePrecheck(workflow.verificationPrecheck);
+  const departmentRecordKey = officerDepartment ? DEPARTMENT_360_KEY[officerDepartment] : undefined;
+  const hasDepartmentRecord = !!departmentRecordKey && !!parcel360?.departments?.[departmentRecordKey];
 
   return (
     <div className="space-y-4">
@@ -397,6 +541,25 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         </span>
         {workflow.requestDetails && <p className="text-sm text-ink/70 mt-2 italic">&quot;{workflow.requestDetails}&quot;</p>}
       </div>
+
+      {/* Scoped to the reviewing officer's own department only (never the
+          other 6 departments' records) - the case review panel's job is
+          "does this department's own data support the decision", not a full
+          Parcel 360 browse. */}
+      {officerDepartment && (
+        <div className="border-t-4 border-ink pt-4">
+          <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">
+            {officerDepartment.replace(/_/g, ' ')} {t('officerPortal.departmentRecordLabel')}
+          </h4>
+          {hasDepartmentRecord ? (
+            <div className="border-2 border-ink divide-y divide-ink/10 px-3">
+              <DepartmentRecordFields department={officerDepartment} departments={parcel360!.departments} />
+            </div>
+          ) : (
+            <p className="text-sm text-ink/50">{t('officerPortal.noDepartmentRecordOnFile')}</p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{t('officerPortal.reviewStepsLabel')}</h4>

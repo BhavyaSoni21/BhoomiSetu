@@ -57,7 +57,7 @@ const RaiseRequestPage: React.FC = () => {
     {
       type: 'DOCUMENT_VERIFICATION_REQUEST',
       title: 'Encumbrance & Document Verification',
-      desc: 'Automated verification against bank mortgages, court stays, and registration department feeds.',
+      desc: 'Verification of the ownership documents currently on file for this parcel.',
       sla: 'Instant / 24 Hours',
       Icon: ShieldCheck,
       accent: 'brand',
