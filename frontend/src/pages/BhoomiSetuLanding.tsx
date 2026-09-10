@@ -31,11 +31,19 @@ import { setStoredLanguage } from '../i18n/config';
 import apiService from '../services/apiService';
 import MapComponent from '../features/map/MapComponent';
 import { ParcelSummary } from '../types/parcel';
+import { useAuthUser } from '../features/auth/auth';
 
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();
   const [theme, toggleTheme] = useTheme();
   const { i18n } = useTranslation();
+  // Reuses the same cached /auth/me result App.tsx's AppShell already
+  // fetched (same React Query key) - no extra request. This page's own
+  // floating navbar is a guest-only presentation; a signed-in citizen gets
+  // AppShell's real nav instead (App.tsx's hideChromeForLanding), so
+  // showing both here would stack two navbars on top of each other.
+  const { data: authUser } = useAuthUser();
+  const isGuest = !authUser;
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Kept in sync with the app-wide i18next language (not a separate,
@@ -310,6 +318,7 @@ export const BhoomiSetuLanding: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. FLOATING GLASSMORPHISM NAVBAR                                          */}
       {/* ========================================================================= */}
+      {isGuest && (
       <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 sm:px-6 pt-4 pointer-events-none transition-all duration-300">
         <div
           className={`w-full max-w-7xl h-14 sm:h-[56px] px-4 sm:px-6 rounded-2xl flex items-center justify-between pointer-events-auto transition-all duration-300 ${
@@ -439,6 +448,7 @@ export const BhoomiSetuLanding: React.FC = () => {
           </div>
         )}
       </header>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. HERO SECTION (~92vh)                                                   */}

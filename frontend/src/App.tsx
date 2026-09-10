@@ -81,6 +81,14 @@ function AppShell() {
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isLandingPage = location.pathname === '/';
+  // The clean, chrome-free landing page is a guest-only presentation - a
+  // signed-in citizen landing on "/" (it's not a redirect target for them,
+  // see the route below) should see the exact same nav/footer/AI widget
+  // they'd see anywhere else in their portal, per the user's explicit "the
+  // navbar remains the same" and "there is no coming back" - hiding the
+  // whole chrome on Home left a signed-in citizen with no way back to their
+  // portal and no AI widget, not just a different-looking navbar.
+  const hideChromeForLanding = isLandingPage && isGuest;
 
   return (
     <div className="min-h-screen bg-page-bg text-text-primary flex flex-col font-sans" style={{ background: 'var(--page-bg)' }}>
@@ -106,7 +114,7 @@ function AppShell() {
       )}
 
       {/* ── Official Government Utility Bar (Internal Pages) ── */}
-      {!isAuthPage && !isLandingPage && (
+      {!isAuthPage && !hideChromeForLanding && (
         <>
           <div
             className="text-white/85 text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-white/10"
@@ -360,7 +368,7 @@ function AppShell() {
       </main>
 
       {/* ── Global Government Footer for Internal Pages ── */}
-      {!isLandingPage && !isAuthPage && (
+      {!hideChromeForLanding && !isAuthPage && (
         <footer className="mt-auto border-t border-gov-border py-6 px-4 sm:px-6 lg:px-8 text-xs text-text-secondary" style={{ background: 'var(--surface-2)' }}>
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -379,7 +387,7 @@ function AppShell() {
       {!location.pathname.startsWith('/officer') &&
         !location.pathname.startsWith('/admin') &&
         !isAuthPage &&
-        !isLandingPage && (
+        !hideChromeForLanding && (
           <AskAiWidget />
         )}
     </div>
