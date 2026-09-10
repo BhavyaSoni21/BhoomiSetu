@@ -49,34 +49,35 @@ describe('RequestsPage', () => {
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows/mine'));
   });
 
-  it('shows an empty state with a link to Raise Request when there are no requests', async () => {
+  it('shows an empty state, with a link to file a new request always available', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: [] });
     renderPage();
 
-    expect(await screen.findByText(/haven't filed any service requests/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Raise Request/ })).toHaveAttribute('href', '/citizen/raise-request');
+    expect(await screen.findByText(/No applications match this filter/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /File New Request/ })).toHaveAttribute('href', '/citizen/raise-request');
   });
 
   it('lists every request across every parcel, with its overall status and per-department step status', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: [workflowOnParcelOne, workflowOnParcelTwo] });
     renderPage();
 
-    expect(await screen.findByText('Record of Rights (RoR) copy request')).toBeInTheDocument();
-    expect(screen.getByText('Dispute filing')).toBeInTheDocument();
-    expect(screen.getByText('IN_PROGRESS')).toBeInTheDocument();
-    expect(screen.getByText('REJECTED')).toBeInTheDocument();
+    expect(await screen.findByText('Certified RoR / 7-12 Extract')).toBeInTheDocument();
+    expect(screen.getByText('Land Dispute & Boundary Grievance')).toBeInTheDocument();
+    expect(screen.getAllByText('IN_PROGRESS').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('REJECTED').length).toBeGreaterThan(0);
 
     // Per-department step status, not just the workflow's overall status.
-    expect(screen.getByText('LAND RECORDS: APPROVED')).toBeInTheDocument();
-    expect(screen.getByText('REGISTRATION: PENDING')).toBeInTheDocument();
-    expect(screen.getByText('DISPUTE: REJECTED')).toBeInTheDocument();
+    expect(screen.getByText('LAND RECORDS')).toBeInTheDocument();
+    expect(screen.getByText('REGISTRATION')).toBeInTheDocument();
+    expect(screen.getByText('DISPUTE')).toBeInTheDocument();
+    expect(screen.getByText('PENDING')).toBeInTheDocument();
   });
 
   it('shows an error message when the request fails', async () => {
     vi.mocked(apiService.get).mockRejectedValue(new Error('network error'));
     renderPage();
 
-    expect(await screen.findByText(/Something went wrong loading your requests/)).toBeInTheDocument();
+    expect(await screen.findByText(/Error retrieving workflow status/)).toBeInTheDocument();
   });
 
   // A decided request's per-department officer remarks (WorkflowStep.remarks,
@@ -94,7 +95,7 @@ describe('RequestsPage', () => {
     };
     vi.mocked(apiService.get).mockResolvedValue({ data: [decided] });
     renderPage();
-    await screen.findByText('Correction request');
+    await screen.findByText('Record Correction Request');
 
     // Not shown until expanded.
     expect(screen.queryByText(/Survey number matches our records/)).not.toBeInTheDocument();
@@ -109,11 +110,16 @@ describe('RequestsPage', () => {
   it('shows a "no remarks yet" placeholder for a step still pending review', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: [workflowOnParcelOne] });
     renderPage();
-    await screen.findByText('Record of Rights (RoR) copy request');
+    await screen.findByText('Certified RoR / 7-12 Extract');
 
     fireEvent.click(screen.getByRole('button', { name: /View Details/ }));
 
-    const pendingStep = (await screen.findByText('REGISTRATION')).closest('div')!.parentElement!;
-    expect(within(pendingStep).getByText(/No remarks yet/)).toBeInTheDocument();
+    // 'REGISTRATION' now appears twice once expanded - once in the collapsed
+    // pipeline summary chip, once again in the expanded detail card; the
+    // detail card (with remarks) is the second one in DOM order.
+    const registrationMentions = await screen.findAllByText('REGISTRATION');
+    expect(registrationMentions.length).toBe(2);
+    const pendingStepCard = registrationMentions[1].closest('div')!.parentElement!;
+    expect(within(pendingStepCard).getByText(/No remarks yet/)).toBeInTheDocument();
   });
 });

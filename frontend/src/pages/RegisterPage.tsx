@@ -1,45 +1,101 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { Eye, EyeOff, Mail, Phone, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useRegister, ContactMethod } from '../features/auth/auth';
 import OtpEntryForm from '../features/auth/OtpEntryForm';
+import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
 
-const toggleClass = (active: boolean) =>
-  `flex-1 px-3 py-2.5 text-xs font-bold uppercase tracking-wide border-2 border-ink transition ${
-    active ? 'bg-primary text-white' : 'bg-surface text-ink/60 hover:text-ink'
-  }`;
+const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <rect x="3" y="7" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="currentColor" fillOpacity="0.22" />
+    <rect x="8.5" y="3" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="none" />
+  </svg>
+);
 
-// Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3) - a real form
-// now (POST /auth/register exists), replacing the earlier disabled-submit
-// placeholder. A method-selector, not both fields at once, and registration
-// itself returns a session immediately (see AuthService.register on the
-// backend) - the OTP step right after is verification of the chosen
-// contact method, not a login gate, and can be deferred ("Skip for now").
+const InputField: React.FC<{
+  id: string;
+  label: string;
+  type: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  autoComplete?: string;
+  rightSlot?: React.ReactNode;
+  inputMode?: 'text' | 'numeric' | 'email' | 'tel';
+}> = ({ id, label, type, value, onChange, placeholder, required, autoComplete, rightSlot, inputMode }) => (
+  <div className="space-y-1.5">
+    <label htmlFor={id} className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+      {label}{required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
+    </label>
+    <div className="relative">
+      <input
+        id={id}
+        type={type}
+        autoComplete={autoComplete}
+        required={required}
+        value={value}
+        inputMode={inputMode}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-150 pr-11"
+        style={{
+          background: 'var(--surface-1)',
+          border: '1.5px solid var(--border)',
+          color: 'var(--text-primary)',
+        }}
+      />
+      {rightSlot && (
+        <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{rightSlot}</div>
+      )}
+    </div>
+  </div>
+);
+
 const RegisterPage: React.FC = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const registerMutation = useRegister();
+  const { t, i18n } = useTranslation();
 
-  const [step, setStep] = useState<'form' | 'otp'>('form');
-  const [method, setMethod] = useState<ContactMethod>('EMAIL');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [password, setPassword] = useState('');
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    i18n.changeLanguage(lang);
+    setStoredLanguage(lang);
+  };
+
+  const [step, setStep]                   = useState<'form' | 'otp'>('form');
+  const [method, setMethod]               = useState<ContactMethod>('EMAIL');
+  const [name, setName]                   = useState('');
+  const [email, setEmail]                 = useState('');
+  const [mobileNumber, setMobileNumber]   = useState('');
+  const [password, setPassword]           = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPwd, setShowPwd]             = useState(false);
+  const [showConfirm, setShowConfirm]     = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const target = method === 'EMAIL' ? email : mobileNumber;
+
+  const pwdStrength = (() => {
+    if (password.length < 6) return 0;
+    let s = 1;
+    if (password.length >= 8) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[^A-Za-z0-9]/.test(password)) s++;
+    return s;
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
     if (password !== confirmPassword) {
-      setValidationError(t('auth.passwordMismatch'));
+      setValidationError(t('authPage.passwordsNoMatchError'));
+      return;
+    }
+    if (password.length < 8) {
+      setValidationError(t('authPage.passwordTooShortError'));
       return;
     }
     try {
@@ -52,182 +108,330 @@ const RegisterPage: React.FC = () => {
         confirmPassword,
       });
       setStep('otp');
-    } catch {
-      // Surfaced below via registerMutation.isError.
-    }
+    } catch { /* surfaced via registerMutation.isError */ }
   };
 
   const submitErrorMessage =
-    registerMutation.isError &&
-    (axios.isAxiosError(registerMutation.error) && registerMutation.error.response?.data?.message
-      ? String(registerMutation.error.response.data.message)
-      : t('auth.registerGenericError'));
+    registerMutation.isError
+      ? (axios.isAxiosError(registerMutation.error) && registerMutation.error.response?.status === 409
+          ? t('authPage.accountExistsError')
+          : t('authPage.registrationFailedError'))
+      : null;
 
   if (step === 'otp') {
     return (
-      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center bg-background px-4 py-12">
+      <div className="h-[calc(100vh-3.5rem)] overflow-y-auto flex items-center justify-center px-4" style={{ background: 'var(--page-bg)' }}>
         <div className="w-full max-w-md space-y-6">
-          <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6 sm:p-8">
-            <span className="absolute -top-3 -right-3 w-6 h-6 bg-accent border-2 border-ink" aria-hidden="true" />
-            <h2 className="text-3xl font-black uppercase tracking-tight font-display text-ink mb-1">
-              {t('auth.otpHeading', { method: method === 'EMAIL' ? t('auth.methodEmail') : t('auth.methodMobile') })}
+          <div className="text-center space-y-1">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#D1FAE5' }}>
+                <CheckCircle2 className="w-7 h-7" style={{ color: '#065F46' }} />
+              </div>
+            </div>
+            <h2 className="font-heading font-bold text-2xl" style={{ color: 'var(--text-heading)' }}>
+              {method === 'EMAIL' ? t('authPage.otpVerifyEmailHeading') : t('authPage.otpVerifyMobileHeading')}
             </h2>
-            <p className="text-sm text-ink/70 mb-5">{t('auth.otpVerifiedSuccessDesc', { method: method === 'EMAIL' ? t('auth.methodEmail') : t('auth.methodMobile') })}</p>
-            <OtpEntryForm method={method} target={target} onVerified={() => navigate('/citizen')} onCancel={() => navigate('/citizen')} />
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {t('authPage.otpSentPrefix')}{' '}
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{target}</span>
+            </p>
           </div>
+          <OtpEntryForm method={method} target={target} onVerified={() => navigate('/citizen')} />
+          <button
+            type="button"
+            onClick={() => navigate('/citizen')}
+            className="w-full py-2.5 text-sm font-medium underline underline-offset-2 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {t('authPage.skipForNow')}
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
-        <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6 sm:p-8">
-          <span className="absolute -top-3 -right-3 w-6 h-6 bg-accent border-2 border-ink" aria-hidden="true" />
+    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+      {/* ── Left decorative column ─────────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex flex-col w-[440px] shrink-0 p-12 relative overflow-hidden"
+        style={{ background: 'var(--brand-900)' }}
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 opacity-[0.07] pointer-events-none">
+          <svg className="w-full h-full" viewBox="0 0 440 800">
+            {Array.from({ length: 5 }).map((_, row) =>
+              Array.from({ length: 4 }).map((_, col) => (
+                <rect key={`${row}-${col}`}
+                  x={col * 110 + 8} y={row * 160 + 8}
+                  width={96} height={146} rx="10"
+                  fill="white" fillOpacity="0.07"
+                  stroke="white" strokeOpacity="0.14" strokeWidth="1"
+                />
+              ))
+            )}
+          </svg>
+        </div>
+        <Link to="/" className="relative z-10 flex items-center gap-3.5">
+          <span className="text-white/90"><BsIcon className="w-11 h-11" /></span>
+          <span className="text-white font-heading font-bold text-5xl tracking-tight">BhoomiSetu</span>
+        </Link>
+        {/* Centre copy - a fixed gap below the logo (not stretched to fill
+            the panel) so this whole block, bullets, and the govt strip all
+            sit close together near the top with no leftover gap before the
+            strip - keeps total column height compact enough to fit a real
+            viewport without scrolling/clipping. */}
+        <div className="relative z-10 mt-8 space-y-5">
+          <h1 className="text-white font-heading font-bold text-3xl leading-snug">
+            {t('authPage.registerHeroHeadline')}
+          </h1>
+          <p className="text-white/70 text-sm leading-relaxed max-w-xs">
+            {t('authPage.registerHeroBody')}
+          </p>
+          <div className="space-y-2.5 pt-1">
+            {[t('authPage.registerBulletFree'), t('authPage.registerBulletVerify'), t('authPage.registerBulletTrack')].map((bullet) => (
+              <div key={bullet} className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#86EFAC' }} />
+                <span className="text-white/80 text-sm">{bullet}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-white/35 text-xs font-mono uppercase tracking-widest border-t border-white/15 pt-4">
+            {t('authPage.govtStripRegister')}
+          </p>
+        </div>
+      </div>
 
-          <h2 className="text-3xl font-black uppercase tracking-tight font-display text-ink">
-            {t('auth.registerHeading')}
-          </h2>
+      {/* ── Right: Register form ───────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto">
+        {/* Top bar: mobile logo + language toggle */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="lg:hidden flex items-center gap-2.5">
+            <span style={{ color: 'var(--brand-900)' }}><BsIcon className="w-9 h-9" /></span>
+            <span className="font-heading font-bold text-4xl" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
+          </div>
+          <div className="lg:block hidden" />{/* spacer on desktop */}
+          {/* Language toggle */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Globe className="w-4 h-4" style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
+            <select
+              aria-label={t('nav.languageSelectLabel')}
+              value={i18n.language}
+              onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
+              className="text-xs font-semibold rounded-lg px-2.5 py-1.5 border cursor-pointer focus:outline-none focus:ring-2 transition"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang === 'Hindi' ? 'हिंदी (Hindi)' : lang}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          {/* Method selector (docs/FRONTEND_UPGRADE_SPEC.md §3) */}
-          <div className="flex gap-2 mt-6" role="tablist" aria-label={t('auth.methodSelectorLabel')}>
-            <button type="button" role="tab" aria-selected={method === 'EMAIL'} onClick={() => setMethod('EMAIL')} className={toggleClass(method === 'EMAIL')}>
-              <span className="inline-flex items-center justify-center gap-1.5">
-                <Mail className="w-3.5 h-3.5" aria-hidden="true" />
-                {t('auth.registerWithEmail')}
-              </span>
-            </button>
-            <button type="button" role="tab" aria-selected={method === 'MOBILE'} onClick={() => setMethod('MOBILE')} className={toggleClass(method === 'MOBILE')}>
-              <span className="inline-flex items-center justify-center gap-1.5">
-                <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-                {t('auth.registerWithMobile')}
-              </span>
-            </button>
+        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="w-full max-w-[420px] space-y-5">
+          <div className="space-y-1">
+            <h2 className="font-heading font-bold text-3xl tracking-tight" style={{ color: 'var(--text-heading)' }}>
+              {t('authPage.createAccountHeading')}
+            </h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {t('authPage.alreadyRegisteredPrompt')}{' '}
+              <Link to="/login" className="font-semibold underline underline-offset-2" style={{ color: 'var(--brand-700)' }}>
+                {t('authPage.signInLink')}
+              </Link>
+            </p>
           </div>
 
-          <form className="space-y-4 mt-5" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="name" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                {t('auth.nameLabel')}
-              </label>
-              <input
-                id="name"
-                type="text"
-                autoComplete="name"
-                required
-                className="block w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
+          {/* Method toggle */}
+          <div
+            className="flex p-1 rounded-xl gap-1"
+            role="tablist"
+            aria-label={t('authPage.registerTabsAriaLabel')}
+            style={{ background: 'var(--surface-2)' }}
+          >
+            {(['EMAIL', 'MOBILE'] as ContactMethod[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={method === m}
+                onClick={() => setMethod(m)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
+                style={method === m ? {
+                  background: 'var(--surface-1)',
+                  color: 'var(--text-heading)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                } : { color: 'var(--text-muted)' }}
+              >
+                {m === 'EMAIL'
+                  ? <><Mail className="w-3.5 h-3.5" aria-hidden="true" /> {t('authPage.emailTab')}</>
+                  : <><Phone className="w-3.5 h-3.5" aria-hidden="true" /> {t('authPage.mobileTab')}</>
+                }
+              </button>
+            ))}
+          </div>
 
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Full name */}
+            <InputField
+              id="reg-name"
+              label={t('authPage.fullNameLabel')}
+              type="text"
+              value={name}
+              onChange={setName}
+              placeholder="Anand Deshmukh"
+              required
+              autoComplete="name"
+            />
+
+            {/* Contact */}
             {method === 'EMAIL' ? (
-              <div>
-                <label htmlFor="registerEmail" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                  {t('auth.emailLabel')}
-                </label>
-                <input
-                  id="registerEmail"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="block w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+              <InputField
+                id="reg-email"
+                label={t('authPage.emailAddressLabel')}
+                type="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
             ) : (
-              <div>
-                <label htmlFor="registerMobileNumber" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                  {t('auth.mobileLabel')}
+              <div className="space-y-1.5">
+                <label htmlFor="reg-mobile" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {t('authPage.mobileNumberLabel')} <span className="text-red-500" aria-hidden="true">*</span>
                 </label>
-                <input
-                  id="registerMobileNumber"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  required
-                  pattern="[0-9]{10}"
-                  className="block w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-                  placeholder={t('auth.mobilePlaceholder')}
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                />
+                <div className="flex">
+                  <span
+                    className="flex items-center px-3.5 rounded-l-xl text-sm font-mono font-semibold"
+                    style={{ background: 'var(--surface-2)', border: '1.5px solid var(--border)', color: 'var(--text-secondary)' }}
+                  >
+                    +91
+                  </span>
+                  <input
+                    id="reg-mobile"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    required
+                    pattern="[0-9]{10}"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="9876543210"
+                    className="flex-1 px-4 py-3 rounded-r-xl text-sm font-mono"
+                    style={{ background: 'var(--surface-1)', border: '1.5px solid var(--border)', borderLeft: 'none', color: 'var(--text-primary)' }}
+                  />
+                </div>
               </div>
             )}
 
-            <div>
-              <label htmlFor="registerPassword" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                {t('auth.passwordLabel')}
+            {/* Password */}
+            <div className="space-y-1.5">
+              <label htmlFor="reg-password" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {t('authPage.passwordLabel')} <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <div className="relative">
                 <input
-                  id="registerPassword"
-                  type={showPassword ? 'text' : 'password'}
+                  id="reg-password"
+                  type={showPwd ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
-                  minLength={8}
-                  className="block w-full border-2 border-ink bg-surface px-3.5 py-2.5 pr-11 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('authPage.minCharsPlaceholder')}
+                  className="w-full px-4 py-3 pr-12 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-1)', border: '1.5px solid var(--border)', color: 'var(--text-primary)' }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/50 hover:text-ink"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
+                <button type="button" onClick={() => setShowPwd((s) => !s)}
+                  aria-label={showPwd ? t('authPage.hidePassword') : t('authPage.showPassword')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {/* Strength bar */}
+              {password.length > 0 && (
+                <div className="flex gap-1 mt-1.5">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300"
+                      style={{ background: i <= pwdStrength
+                        ? pwdStrength <= 2 ? '#EF4444' : pwdStrength <= 3 ? '#F59E0B' : '#16A34A'
+                        : 'var(--border)' }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                {t('auth.confirmPasswordLabel')}
+            {/* Confirm password */}
+            <div className="space-y-1.5">
+              <label htmlFor="reg-confirm" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {t('authPage.confirmPasswordLabel')} <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <div className="relative">
                 <input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  id="reg-confirm"
+                  type={showConfirm ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
-                  className="block w-full border-2 border-ink bg-surface px-3.5 py-2.5 pr-11 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 pr-12 rounded-xl text-sm"
+                  style={{ background: 'var(--surface-1)', border: '1.5px solid var(--border)', color: 'var(--text-primary)' }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((s) => !s)}
-                  aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/50 hover:text-ink"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
+                <button type="button" onClick={() => setShowConfirm((s) => !s)}
+                  aria-label={showConfirm ? t('authPage.hidePassword') : t('authPage.showPassword')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
+            {/* Errors */}
             {(validationError || submitErrorMessage) && (
-              <p className="text-sm font-medium text-secondary-strong">{validationError || submitErrorMessage}</p>
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-sm"
+                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B' }}
+              >
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                {validationError || submitErrorMessage}
+              </div>
             )}
 
             <button
               type="submit"
               disabled={registerMutation.isLoading}
-              className="w-full flex items-center justify-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-heading font-bold text-sm tracking-wide transition-all duration-150 disabled:opacity-50"
+              style={{ background: 'var(--brand-900)', color: '#FFFFFF' }}
             >
-              <UserPlus className="w-4 h-4" aria-hidden="true" />
-              {registerMutation.isLoading ? t('auth.registering') : t('auth.registerButton')}
+              {registerMutation.isLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  {t('authPage.creatingAccount')}
+                </>
+              ) : (
+                <><UserPlus className="w-4 h-4" aria-hidden="true" /> {t('authPage.createAccountCta')}</>
+              )}
             </button>
           </form>
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="text-ink/70">{t('auth.backToLogin')}</span>
-            <Link to="/login" className="font-bold text-primary hover:text-primary-strong underline underline-offset-2">
-              {t('auth.backToLoginLink')}
-            </Link>
-          </div>
+          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+            {t('authPage.termsAgreementPrefix')}{' '}
+            <Link to="/terms" className="underline underline-offset-2">{t('authPage.termsOfUse')}</Link>{' '}
+            {t('authPage.andConnector')}{' '}
+            <Link to="/privacy" className="underline underline-offset-2">{t('authPage.privacyPolicy')}</Link>.
+          </p>
+        </div>
         </div>
       </div>
     </div>

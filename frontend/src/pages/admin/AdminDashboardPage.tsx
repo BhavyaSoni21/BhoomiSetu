@@ -1,76 +1,124 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Users, History, BarChart3, ShieldAlert } from 'lucide-react';
+import { Users, BarChart3, ShieldAlert, ShieldCheck, Activity, Database, Server } from 'lucide-react';
 import AnalyticsDashboard from '../../features/analytics/AnalyticsDashboard';
 import TopRiskParcels from '../../features/analytics/TopRiskParcels';
 import UserManagement from '../../features/admin/UserManagement';
-import CornerMarker from '../../features/admin/CornerMarker';
 import { useAuthUser } from '../../features/auth/auth';
 
-// Multi-page Admin Portal (docs/FRONTEND_UPGRADE_SPEC.md §7, Phase 3),
-// mounted at /admin/* by AdminPortal.tsx - same pattern as
-// OfficerPortal.tsx/CitizenPortal.tsx. No page-level "Admin Portal"
-// heading or Logout button any more - the global navbar (App.tsx) already
-// names the portal and provides Sign Out, matching the convention the
-// Officer/Citizen Dashboard pages already follow. System Overview
-// (Total Users/Logins/System Status/Last Backup) and Recent Activity moved
-// to their own System Monitoring page - this Dashboard keeps only the
-// day-to-day admin actions (user management, analytics, risk).
-//
-// Route-level RequireAuth (see App.tsx) already guarantees a signed-in
-// admin before this ever mounts; `user` still starts undefined for one
-// render while the shared /auth/me query resolves from cache.
 const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { data: user } = useAuthUser();
   if (!user) return null;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.dashboardWelcome', { name: user.name })}</h1>
-        <p className="text-ink/60 mt-1">{t('adminPortal.dashboardSubtitle')}</p>
+    <div className="space-y-8 animate-fade-up max-w-7xl">
+      {/* ── Admin Command Header ── */}
+      <div
+        className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, var(--brand-900) 0%, #154D3B 100%)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 8px 30px rgba(15, 61, 46, 0.12)',
+        }}
+      >
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold"
+                style={{
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  color: '#FBBF24',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                }}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                SYSTEM ADMINISTRATOR · ROOT CONSOLE
+              </span>
+              <span className="text-white/40 text-xs hidden sm:inline">|</span>
+              <span className="text-white/80 text-xs font-mono">
+                PostgreSQL + PostGIS Live
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">
+              State Land Governance Administration
+            </h1>
+            <p className="text-white/80 text-sm sm:text-base max-w-2xl leading-relaxed">
+              Global system control plane. Monitor inter-departmental workflows, manage user authorizations, analyze revenue risk, and oversee cadastral map layers.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 self-start md:self-center">
+            <span className="px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-white/10 text-white border border-white/20">
+              Uptime: 99.98%
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
-        <CornerMarker />
-        <div className="flex items-center gap-2 mb-1">
-          <Users className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h2 className="text-xl font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.userManagementHeading')}</h2>
+      {/* ── User & Officer Management Section ── */}
+      <div className="gov-card p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-gov-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-brand-900/10 text-brand-900 flex items-center justify-center">
+              <Users className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-lg font-heading font-bold text-text-heading">
+                {t('adminPortal.userManagementHeading', 'User & Department Officer Management')}
+              </h2>
+              <p className="text-xs text-text-secondary">
+                {t('adminPortal.userManagementDesc', 'Provision officer roles, manage citizen access, and configure departmental jurisdictions.')}
+              </p>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-ink/60 mb-4">{t('adminPortal.userManagementDesc')}</p>
         <UserManagement />
       </div>
 
-      <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
-        <CornerMarker />
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h2 className="text-xl font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.governanceAnalyticsHeading')}</h2>
+      {/* ── Governance Analytics Dashboard ── */}
+      <div className="gov-card p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-gov-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-brand-900/10 text-brand-900 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-lg font-heading font-bold text-text-heading">
+                {t('adminPortal.governanceAnalyticsHeading', 'State Land Analytics & Interoperability')}
+              </h2>
+              <p className="text-xs text-text-secondary">
+                Real-time metrics across 7 participating departments and SVAMITVA clusters.
+              </p>
+            </div>
+          </div>
         </div>
         <AnalyticsDashboard />
       </div>
 
-      <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
-        <CornerMarker />
-        <div className="flex items-center gap-2 mb-1">
-          <ShieldAlert className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h2 className="text-xl font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.topRiskParcelsHeading')}</h2>
+      {/* ── High Risk Parcels & Enforcement ── */}
+      <div className="gov-card p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-gov-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-red-100 text-gov-error flex items-center justify-center">
+              <ShieldAlert className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-lg font-heading font-bold text-text-heading">
+                {t('adminPortal.topRiskParcelsHeading', 'High-Risk Cadastral Parcels')}
+              </h2>
+              <p className="text-xs text-text-secondary">
+                {t('adminPortal.topRiskParcelsDesc', 'Parcels flagged with active litigation stays, multi-party dispute filings, or environmental restrictions.')}
+              </p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-red-100 text-red-800">
+            Automated Audit
+          </span>
         </div>
-        <p className="text-sm text-ink/60 mb-4">
-          {t('adminPortal.topRiskParcelsDesc')}
-        </p>
         <TopRiskParcels />
-      </div>
-
-      {/* Both Coming Soon placeholders that used to live here (Workflow
-          Oversight, Map Layer Authoring) are real pages now, reachable from
-          the nav ("Workflows", "Map Layer Authoring") - matching how
-          Departments/System Monitoring are nav-only with no dashboard card,
-          this section was removed entirely rather than left empty. */}
-      <div className="flex items-center gap-2 text-ink/40 text-xs pt-6">
-        <History className="w-3.5 h-3.5" aria-hidden="true" />
-        <span>{t('adminPortal.movedToSystemMonitoring')}</span>
       </div>
     </div>
   );

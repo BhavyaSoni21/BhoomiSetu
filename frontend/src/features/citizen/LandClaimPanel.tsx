@@ -22,7 +22,15 @@ interface IdentifyResult {
 // the same uploaded file travels forward either way. The actual parcel<->
 // citizen link only happens after officer approval (WorkflowsService.reviewStep,
 // unchanged) - this panel only ever gets as far as filing the request.
-const LandClaimPanel: React.FC = () => {
+interface LandClaimPanelProps {
+  // Fires whenever this panel's flow closes (cancelled or actually
+  // submitted, same as reset() below) - lets an embedding page (e.g. an
+  // expanded "New Claim" section on the dashboard) collapse itself back
+  // down without this panel needing to know anything about its container.
+  onSubmitted?: () => void;
+}
+
+const LandClaimPanel: React.FC<LandClaimPanelProps> = ({ onSubmitted }) => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [showManualSearch, setShowManualSearch] = useState(false);
@@ -52,6 +60,7 @@ const LandClaimPanel: React.FC = () => {
     setConfirmedParcel(null);
     setDisputeMode(false);
     identifyMutation.reset();
+    onSubmitted?.();
   };
 
   const handleFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {

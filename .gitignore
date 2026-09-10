@@ -6,6 +6,10 @@ dist/
 build/
 *.tsbuildinfo
 
+# Vite's local dependency pre-bundling cache - regenerates automatically,
+# not something to commit.
+frontend/.vite/
+
 # Env files
 .env
 .env.local
