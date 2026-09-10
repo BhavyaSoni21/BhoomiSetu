@@ -28,17 +28,17 @@
               ┌────────────────┼────────────────┬───────────────┐
               ▼                ▼                ▼               ▼
        ┌───────────┐    ┌───────────┐    ┌─────────────┐  ┌───────────┐
-       │  SQLite    │    │ Groq API  │    │ Postgres +  │  │ Fast2SMS /│
-       │ (dev, file)│    │(AI query/ │    │ PostGIS     │  │ SMTP      │
-       │            │    │explain/   │    │(prod path,  │  │(OTP/email │
-       │            │    │routing)   │    │e.g. Supabase)│  │delivery)  │
+       │  SQLite    │    │ Groq API  │    │ Postgres +  │  │  SMTP     │
+       │ (dev, file)│    │(AI query/ │    │ PostGIS     │  │(email OTP │
+       │            │    │explain/   │    │(prod path,  │  │delivery -│
+       │            │    │routing)   │    │e.g. Supabase)│  │no SMS provider yet)│
        └───────────┘    └───────────┘    └─────────────┘  └───────────┘
                                +
                         OpenRouter (Historical
                         Imagery narrative LLM)
 ```
 
-There is **one backend process**, not a microservices mesh. Every "department" (Land Records, Registration, Planning, Tax, Restriction, Dispute, Encumbrance), the AI layer, change detection, historical imagery, and the interoperability/aggregation layer are all NestJS modules inside the same application, communicating via in-process dependency injection — not network calls between separate services. This is a deliberate simplification over a literal per-department microservice split: at this data volume and team size, module boundaries inside one process give the same separation of concerns without the operational cost of a service mesh, while §9.2 covers what would need to change to actually split it. The only external network dependencies are: the Groq API (AI query/explain/routing), OpenRouter (historical-imagery narrative generation), Fast2SMS (mobile OTP), and SMTP (email OTP/verification) — all called only from the backend, never from the browser.
+There is **one backend process**, not a microservices mesh. Every "department" (Land Records, Registration, Planning, Tax, Restriction, Dispute, Encumbrance), the AI layer, change detection, historical imagery, and the interoperability/aggregation layer are all NestJS modules inside the same application, communicating via in-process dependency injection — not network calls between separate services. This is a deliberate simplification over a literal per-department microservice split: at this data volume and team size, module boundaries inside one process give the same separation of concerns without the operational cost of a service mesh, while §9.2 covers what would need to change to actually split it. The only external network dependencies are: the Groq API (AI query/explain/routing), OpenRouter (historical-imagery narrative generation), and SMTP (email OTP/verification) — all called only from the backend, never from the browser. Mobile SMS OTP has no active provider as of 2026-09-10 (Fast2SMS was evaluated but ruled out; see §6.1).
 
 ### 1.2 Backend module inventory
 
@@ -228,7 +228,7 @@ A separate `roles` table with per-role descriptions — a plain `varchar` column
 
 - JWT-based (`@nestjs/jwt` + `passport-jwt`), 24h expiry, signed with `JWT_SECRET`. `POST /auth/login` accepts `{email|mobileNumber, password}`, returns uniform `401` for wrong credentials/unknown identifier/malformed input (no user-enumeration signal). Passwords are bcrypt-hashed (`bcryptjs`); every response passes through a `toPublicUser()` transform that strips `passwordHash`.
 - `GET /auth/me` looks the user up **fresh from the database on every call** rather than trusting the token payload alone, so a deleted account stops working immediately.
-- Citizen self-registration + OTP: mobile OTP is delegated entirely to Fast2SMS's Smart OTP API (generate/store/verify all happen on Fast2SMS's side — this backend never stores an OTP code); email OTP is generated/bcrypt-hashed/checked locally (10-minute expiry, 5-attempt lockout), delivered via SMTP/`nodemailer`. Both notification services follow a consistent "unset config → 503 at call time" pattern — a failed send never fails the surrounding request, since the account/contact value is already saved regardless.
+- Citizen self-registration + OTP: mobile OTP has no active provider as of 2026-09-10 — `SmsService` is built against Fast2SMS's Smart OTP API shape (`/otp/send` + `/otp/verify`, generate/store/verify all happening provider-side so this backend never stores an OTP code itself), but Fast2SMS is not the chosen provider going forward, so it stays unconfigured; email OTP is unaffected — generated/bcrypt-hashed/checked locally (10-minute expiry, 5-attempt lockout), delivered via SMTP/`nodemailer`. Both notification services follow a consistent "unset config → 503 at call time" pattern — a failed send never fails the surrounding request, since the account/contact value is already saved regardless.
 - `main.ts` **refuses to start** under `NODE_ENV=production` if `JWT_SECRET` is unset or still the public placeholder default — a real deployment can't accidentally ship the well-known dev secret.
 
 ### 6.2 Authorization (RBAC)
@@ -252,7 +252,7 @@ A real `audit_logs` table records every state-mutating officer/admin action: log
 
 - File-upload limits: every multipart endpoint (change detection, document-identify, workflow evidence) caps images at 5MB and rejects non-image MIME types.
 - Rate limiting: see §2.
-- Secrets: `GROQ_API_KEY`, `JWT_SECRET`, SMTP/Fast2SMS credentials are read from environment only, never touch frontend code. No secrets are committed (`.env` is gitignored).
+- Secrets: `GROQ_API_KEY`, `JWT_SECRET`, SMTP credentials are read from environment only, never touch frontend code. No secrets are committed (`.env` is gitignored).
 - Self-lockout prevention: an admin cannot change their own role or delete their own account.
 - **What's still open**: a separate `roles` table with per-role descriptions (not needed at current scale); WCAG/screen-reader accessibility review (not done); HTTPS is a deployment-environment concern, not application code (§9).
 
@@ -306,7 +306,7 @@ The full literal earth-tone scale (`bhoomi.dark/spruce/forest/card/border/leaf/s
 - **`frontend/Dockerfile`** — multi-stage: builds the Vite SPA, then serves the static output with `nginx`, with an SPA fallback (`try_files ... /index.html`) so client-side routes like `/parcels/:id` don't 404 on a hard refresh.
 - **`docker-compose.yml`** — 3 services: `frontend` (nginx, published `5173:80`), `backend` (published `3000:3000`, `NODE_ENV=production`, reads `JWT_SECRET`/`GROQ_API_KEY`/`CORS_ORIGIN` from the host shell), `postgis` (image `postgis/postgis:15-3.3`, **no published port** — reached only over the internal Docker network by service name, so a default-credentialed database is never exposed to the internet). `VITE_API_URL` is baked in at build time as a host-reachable URL (`http://localhost:3000/api/v1`), not the internal Docker service hostname — the *browser*, not a container, is what actually calls it.
 - **Database**: SQLite file-based storage in dev (`./data/dev.sqlite`), zero external setup required. The Postgres/PostGIS path (`USE_SQLITE=false` + `DB_*` env vars) has been exercised end-to-end against both a live Supabase Postgres+PostGIS instance and `docker-compose.yml`'s local PostGIS container. `synchronize: true` builds the entire schema from the TypeORM entities on backend startup — no hand-written SQL migration/setup script is needed on either path, the target database only needs the `postgis` extension available (both Supabase and the `postgis/postgis` image ship with it enabled).
-- **Environment configuration**: `backend/.env.example` documents every variable the app reads (`USE_SQLITE`, `SQLITE_PATH`, `DB_HOST`/`PORT`/`USERNAME`/`PASSWORD`/`NAME`, `DB_SSL`, `PORT`, `JWT_SECRET`, `CORS_ORIGIN`, `NODE_ENV`, `GROQ_API_KEY`, `GROQ_MODEL`, plus Fast2SMS/SMTP credentials for OTP delivery). No secrets are committed.
+- **Environment configuration**: `backend/.env.example` documents every variable the app reads (`USE_SQLITE`, `SQLITE_PATH`, `DB_HOST`/`PORT`/`USERNAME`/`PASSWORD`/`NAME`, `DB_SSL`, `PORT`, `JWT_SECRET`, `CORS_ORIGIN`, `NODE_ENV`, `GROQ_API_KEY`, `GROQ_MODEL`, plus SMTP credentials for email OTP delivery; the Fast2SMS variables are still documented but unset - no SMS OTP provider is currently chosen). No secrets are committed.
 
 ### 9.2 Scalability considerations (as designed, not yet exercised at production scale)
 

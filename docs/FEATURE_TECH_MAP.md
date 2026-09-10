@@ -124,10 +124,10 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 
 | | |
 |---|---|
-| **Library (backend)** | `@nestjs/jwt` + `passport` + `passport-jwt` (JWT auth), `bcryptjs` (password + OTP hashing), `nodemailer` (SMTP email OTP), native `fetch` (Fast2SMS REST API for mobile OTP — no SDK) |
+| **Library (backend)** | `@nestjs/jwt` + `passport` + `passport-jwt` (JWT auth), `bcryptjs` (password + OTP hashing), `nodemailer` (SMTP email OTP), native `fetch` (mobile OTP - built against Fast2SMS's REST shape, no SDK, but not the chosen provider going forward - unconfigured, see feature 11's note in FEATURES.md) |
 | **Library (frontend)** | `axios` (`services/apiService.ts`), `@tanstack/react-query` (session cache) |
 | **Endpoints** | `POST /auth/login`, `POST /auth/register`, `POST /auth/verify-otp`, `POST /auth/resend-otp`, `POST /auth/profile/contact`, `POST /auth/profile/details`, `GET /auth/me` |
-| **Backend** | `auth/auth.controller.ts`, `auth/auth.service.ts`, `auth/jwt.strategy.ts`, `auth/jwt-auth.guard.ts`, `notifications/sms.service.ts` (Fast2SMS), `notifications/email.service.ts` (nodemailer/SMTP) |
+| **Backend** | `auth/auth.controller.ts`, `auth/auth.service.ts`, `auth/jwt.strategy.ts`, `auth/jwt-auth.guard.ts`, `notifications/sms.service.ts` (no active provider), `notifications/email.service.ts` (nodemailer/SMTP) |
 | **Frontend** | `pages/LoginPage.tsx`, `pages/RegisterPage.tsx`, `features/auth/OtpEntryForm.tsx`, `features/auth/RequireAuth.tsx`, `features/auth/auth.ts` |
 
 ## 12. Citizen Sign-In / My Parcels
