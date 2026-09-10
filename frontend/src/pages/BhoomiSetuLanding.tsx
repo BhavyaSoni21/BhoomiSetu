@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Scale,
   Lock,
+  ArrowLeft,
   ArrowRight,
   Sun,
   Moon,
@@ -413,6 +414,19 @@ export const BhoomiSetuLanding: React.FC = () => {
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="absolute top-18 left-4 right-4 bg-[#0F3D2E]/95 dark:bg-[#0a1a13]/95 backdrop-blur-2xl border border-white/20 rounded-2xl p-5 shadow-2xl space-y-3 pointer-events-auto md:hidden animate-fadeIn">
+            {/* Browser-history back - phone view, inside the mobile menu
+                itself rather than the cramped header bar. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                navigate(-1);
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/85 hover:text-white hover:bg-white/10 font-medium text-sm w-full text-left"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              Back
+            </button>
             <a
               href="#about"
               onClick={() => setMobileMenuOpen(false)}

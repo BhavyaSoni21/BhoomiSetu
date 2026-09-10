@@ -911,6 +911,137 @@ describe('Workflows (service requests) (e2e)', () => {
     });
   });
 
+  describe('POST /api/v1/workflows/:workflowId/steps/:stepId/reopen (Admin "send back for re-review" oversight action)', () => {
+    it('ADMIN can reopen an already-decided step, resetting it to PENDING and notifying the officer', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Looks fine' })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}/reopen`)
+        .set('Authorization', adminAuth)
+        .send({ message: 'Please re-check the owner name, it looks off.' })
+        .expect(201);
+
+      const reopenedStep = res.body.steps.find((s: any) => s.id === landRecordsStep.id);
+      expect(reopenedStep.status).toBe('PENDING');
+      expect(reopenedStep.action).toBeNull();
+      expect(reopenedStep.remarks).toBeNull();
+      expect(reopenedStep.completedAt).toBeNull();
+      expect(res.body.currentStatus).toBe('IN_PROGRESS');
+
+      const notifications = await notificationRepository.find({ where: { userId: landRecordsOfficerId, type: 'ADMIN_REOPENED_STEP' } });
+      const forThisWorkflow = notifications.find((n) => n.workflowId === created.body.id);
+      expect(forThisWorkflow).toBeTruthy();
+      expect(forThisWorkflow!.parcelId).toBe(parcel.id);
+      expect(forThisWorkflow!.message).toBe('Please re-check the owner name, it looks off.');
+    });
+
+    it('lets the officer decide the reopened step again after it is sent back', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const landRecordsStep = created.body.steps.find((s: any) => s.department === 'LAND_RECORDS');
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'REJECT', remarks: 'Missing document' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}/reopen`)
+        .set('Authorization', adminAuth)
+        .send({ message: 'Please look again, the document was actually attached' })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${landRecordsStep.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Confirmed, document is present' })
+        .expect(200);
+
+      const decidedStep = res.body.steps.find((s: any) => s.id === landRecordsStep.id);
+      expect(decidedStep.status).toBe('APPROVED');
+    });
+
+    it('rejects reopening a still-pending step with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/reopen`)
+        .set('Authorization', adminAuth)
+        .send({ message: 'Nothing to reopen yet' })
+        .expect(400);
+    });
+
+    it('rejects a missing message with 400', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Approved' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/reopen`)
+        .set('Authorization', adminAuth)
+        .send({})
+        .expect(400);
+    });
+
+    it('returns 404 for an unknown workflow', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/workflows/00000000-0000-0000-0000-000000000000/steps/00000000-0000-0000-0000-000000000000/reopen')
+        .set('Authorization', adminAuth)
+        .send({ message: 'Please check' })
+        .expect(404);
+    });
+
+    it('rejects reopening from a non-ADMIN officer with 403', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+      const step = created.body.steps[0];
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/workflows/${created.body.id}/steps/${step.id}`)
+        .set('Authorization', landRecordsAuth)
+        .send({ action: 'APPROVE', remarks: 'Approved' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/workflows/${created.body.id}/steps/${step.id}/reopen`)
+        .set('Authorization', landRecordsAuth)
+        .send({ message: 'Please check' })
+        .expect(403);
+    });
+  });
+
   describe('DISPUTE_FILING association exemption + conflict->dispute flow (docs/FRONTEND_UPGRADE_SPEC.md follow-up)', () => {
     it('is exempt from the association check - a citizen can file a dispute against a parcel that is not theirs', async () => {
       // `parcel` is linked to `citizenAuth`'s account, not `unassociatedCitizenAuth`'s.

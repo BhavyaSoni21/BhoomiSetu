@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Bell, ClipboardCheck, ShieldAlert, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Bell, ClipboardCheck, ShieldAlert, AlertTriangle, CheckCircle2, RotateCcw } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { AppNotification } from '../../types/notification';
 import { useAuthUser } from '../auth/auth';
@@ -14,6 +14,7 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   GOVERNANCE_ALERT_RESOLVED: ShieldAlert,
   GOVERNANCE_ALERT_DISMISSED: ShieldAlert,
   ADMIN_ESCALATION: AlertTriangle,
+  ADMIN_REOPENED_STEP: RotateCcw,
 };
 
 function formatDateTime(value: string): string {

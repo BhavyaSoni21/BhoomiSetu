@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { randomUUID } from 'crypto';
 import { WorkflowsService, WorkflowEvidenceInput } from './workflows.service';
-import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto } from './dto/workflow.dto';
+import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto, ReopenWorkflowStepDto } from './dto/workflow.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -263,6 +263,42 @@ export class WorkflowsController {
       entityId: stepId,
       parcelId: result.parcelId,
       metadata: { workflowId, department: escalatedStep.department, message: dto.message },
+    });
+    return result;
+  }
+
+  // Admin oversight "send back for re-review" action - ADMIN-only, same
+  // reasoning as escalateStep above. Unlike escalateStep, this DOES change
+  // the step (APPROVED/REJECTED -> PENDING again), so the officer has to
+  // actually re-decide it - see WorkflowsService.reopenStep.
+  @Post(':workflowId/steps/:stepId/reopen')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async reopenStep(
+    @CurrentUser() user: User,
+    @Param('workflowId', ParseUUIDPipe) workflowId: string,
+    @Param('stepId', ParseUUIDPipe) stepId: string,
+    @Body() dto: ReopenWorkflowStepDto,
+  ) {
+    const result = await this.workflowsService.reopenStep(workflowId, stepId, dto);
+    if (result === 'WORKFLOW_NOT_FOUND') {
+      throw new NotFoundException(`Workflow not found: ${workflowId}`);
+    }
+    if (result === 'STEP_NOT_FOUND') {
+      throw new NotFoundException(`Workflow step not found: ${stepId}`);
+    }
+    if (result === 'STEP_NOT_DECIDED') {
+      throw new BadRequestException('This workflow step has not been decided yet - nothing to send back for re-review');
+    }
+    const reopenedStep = result.steps.find((s) => s.id === stepId)!;
+    await this.auditService.log({
+      userId: user.id,
+      userRole: user.role,
+      action: 'WORKFLOW_STEP_REOPENED',
+      entityType: 'WORKFLOW_STEP',
+      entityId: stepId,
+      parcelId: result.parcelId,
+      metadata: { workflowId, department: reopenedStep.department, message: dto.message },
     });
     return result;
   }

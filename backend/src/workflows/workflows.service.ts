@@ -8,7 +8,7 @@ import { ParcelDocument } from '../parcels/parcel-document.entity';
 import { User } from '../users/user.entity';
 import { Workflow } from './workflow.entity';
 import { WorkflowStep } from './workflow-step.entity';
-import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto } from './dto/workflow.dto';
+import { CreateWorkflowDto, ReviewWorkflowStepDto, UpdateWorkflowStatusDto, EscalateWorkflowStepDto, ReopenWorkflowStepDto } from './dto/workflow.dto';
 import { RequestRoutingService } from './request-routing.service';
 import { NotificationFeedService } from '../notification-feed/notification-feed.service';
 import { textContainsApproxNumber, textContainsIdentifier, textContainsName } from '../document-verification/field-matcher';
@@ -523,6 +523,66 @@ export class WorkflowsService {
       {
         type: 'ADMIN_ESCALATION',
         title: `Admin flagged this ${workflow.workflowType.replace(/_REQUEST$/, '').replace(/_/g, ' ').toLowerCase()} request for urgent review`,
+        message: dto.message,
+        parcelId: workflow.parcelId,
+        workflowId: workflow.id,
+      },
+    );
+
+    return (await this.findOne(workflowId))!;
+  }
+
+  // Admin oversight "send back for re-review" action - the inverse of
+  // reviewStep above: resets an already-decided step (APPROVED/REJECTED)
+  // back to PENDING (clearing status/action/remarks/completedAt) so the
+  // responsible officer has to look at it again and decide fresh, instead of
+  // a past decision standing unquestioned (docs/ADMIN_PANEL_ISSUES.md
+  // follow-up, per the user's "alert the officers to review again... so the
+  // officer has to re-calibrate it"). workflow.currentStatus is recomputed
+  // the same way reviewStep computes it, since reopening one step can turn
+  // an already APPROVED/REJECTED workflow back into IN_PROGRESS.
+  async reopenStep(
+    workflowId: string,
+    stepId: string,
+    dto: ReopenWorkflowStepDto,
+  ): Promise<WorkflowWithSteps | 'WORKFLOW_NOT_FOUND' | 'STEP_NOT_FOUND' | 'STEP_NOT_DECIDED'> {
+    const workflow = await this.workflowRepository.findOneBy({ id: workflowId });
+    if (!workflow) return 'WORKFLOW_NOT_FOUND';
+
+    const step = await this.stepRepository
+      .createQueryBuilder('step')
+      .where('step.id = :stepId', { stepId })
+      .andWhere('step.workflow_id = :workflowId', { workflowId })
+      .getOne();
+    if (!step) return 'STEP_NOT_FOUND';
+    if (step.status === 'PENDING') return 'STEP_NOT_DECIDED';
+
+    step.status = 'PENDING';
+    step.action = null;
+    step.remarks = null;
+    step.completedAt = null;
+    await this.stepRepository.save(step);
+
+    const allSteps = await this.stepRepository
+      .createQueryBuilder('step')
+      .where('step.workflow_id = :workflowId', { workflowId })
+      .getMany();
+
+    if (allSteps.some((s) => s.status === 'REJECTED')) {
+      workflow.currentStatus = 'REJECTED';
+    } else if (allSteps.every((s) => s.status === 'APPROVED')) {
+      workflow.currentStatus = 'APPROVED';
+    } else {
+      workflow.currentStatus = 'IN_PROGRESS';
+    }
+    await this.workflowRepository.save(workflow);
+
+    const officers = await this.userRepository.find({ where: { role: step.assignedRole } });
+    await this.notificationFeedService.notifyUsers(
+      officers.map((officer) => officer.id),
+      {
+        type: 'ADMIN_REOPENED_STEP',
+        title: `Admin sent this ${workflow.workflowType.replace(/_REQUEST$/, '').replace(/_/g, ' ').toLowerCase()} request back for re-review`,
         message: dto.message,
         parcelId: workflow.parcelId,
         workflowId: workflow.id,

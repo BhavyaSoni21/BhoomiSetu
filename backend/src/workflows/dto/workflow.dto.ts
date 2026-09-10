@@ -56,3 +56,16 @@ export class EscalateWorkflowStepDto {
   @IsNotEmpty()
   message: string;
 }
+
+// Admin oversight "send back for re-review" action - reopens an already-
+// decided step (APPROVED/REJECTED -> PENDING) so the responsible officer has
+// to re-examine and re-decide it, instead of the past decision standing
+// unquestioned. Kept as its own DTO (same shape as EscalateWorkflowStepDto)
+// for the same reason ReviewWorkflowStepDto/EscalateWorkflowStepDto are kept
+// separate - each action has its own audit trail and error semantics
+// (WorkflowsService.reopenStep).
+export class ReopenWorkflowStepDto {
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+}

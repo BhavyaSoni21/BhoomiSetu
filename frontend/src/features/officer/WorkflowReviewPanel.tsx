@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
@@ -409,6 +409,119 @@ const AdminStepRow: React.FC<AdminStepRowProps> = ({ workflowId, step }) => {
   );
 };
 
+interface ReopenStepFormProps {
+  workflowId: string;
+  step: WorkflowStep;
+  onCancel: () => void;
+}
+
+// Admin oversight "send back for re-review" action - the counterpart to
+// EscalateStepForm above, but for a step that's ALREADY been decided
+// (APPROVED/REJECTED). Unlike escalate, this actually resets the step back
+// to PENDING (WorkflowsService.reopenStep) so the responsible officer has to
+// re-examine and re-decide it, rather than just being nudged about it.
+const ReopenStepForm: React.FC<ReopenStepFormProps> = ({ workflowId, step, onCancel }) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState('');
+
+  const reopenMutation = useMutation(
+    async () => {
+      const response = await apiService.post(`/workflows/${workflowId}/steps/${step.id}/reopen`, {
+        message: message.trim(),
+      });
+      return response.data as Workflow;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['workflow', workflowId]);
+        queryClient.invalidateQueries(['officer-workflows']);
+        queryClient.invalidateQueries(['admin-workflows']);
+      },
+    },
+  );
+
+  const fieldId = `reopen-message-${step.id}`;
+  const roleLabel = step.assignedRole.replace(/_/g, ' ');
+
+  return (
+    <div className="mt-2 border-2 border-secondary/60 bg-secondary/10 p-3">
+      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+        {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
+      </label>
+      <textarea
+        id={fieldId}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
+        rows={2}
+        placeholder={t('officerPortal.reopenMessagePlaceholder')}
+      />
+      {reopenMutation.isError && (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {t('officerPortal.reopenSubmitError')}
+        </p>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="button"
+          onClick={() => reopenMutation.mutate()}
+          disabled={reopenMutation.isLoading || !message.trim()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+        >
+          <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+          {t('officerPortal.sendBackCta')}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 border-2 border-ink text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+        >
+          {t('officerPortal.cancelCta')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+interface AdminDecidedStepRowProps {
+  workflowId: string;
+  step: WorkflowStep;
+}
+
+type AdminDecidedStepMode = 'idle' | 'reopen';
+
+// One row per already-decided step in Admin oversight mode - lets an Admin
+// flag a decision that needs a second look back to the officer who made it,
+// so they have to re-calibrate it rather than it standing unquestioned.
+const AdminDecidedStepRow: React.FC<AdminDecidedStepRowProps> = ({ workflowId, step }) => {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<AdminDecidedStepMode>('idle');
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{step.department.replace(/_/g, ' ')}</h4>
+          <span className={statusBadgeClass(step.status)}>{step.status}</span>
+        </div>
+        {mode === 'idle' && (
+          <button
+            type="button"
+            onClick={() => setMode('reopen')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 border-2 border-ink bg-secondary/15 text-secondary-strong font-bold text-[10px] uppercase tracking-widest hover:bg-secondary/25 transition"
+          >
+            <RotateCcw className="w-3 h-3" aria-hidden="true" />
+            {t('officerPortal.sendBackForReviewCta')}
+          </button>
+        )}
+      </div>
+      {mode === 'reopen' && <ReopenStepForm workflowId={workflowId} step={step} onCancel={() => setMode('idle')} />}
+    </div>
+  );
+};
+
 const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
   const { t } = useTranslation();
   const { data: workflow, isLoading, error } = useQuery<Workflow>(
@@ -444,6 +557,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
   const myStep = officerDepartment ? workflow.steps.find((s) => s.department === officerDepartment) : undefined;
   const canReview = !isAdminMode && myStep?.status === 'PENDING';
   const pendingStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'PENDING') : [];
+  const decidedStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'APPROVED' || s.status === 'REJECTED') : [];
   const precheck = parsePrecheck(workflow.verificationPrecheck);
   const departmentRecordKey = officerDepartment ? DEPARTMENT_360_KEY[officerDepartment] : undefined;
   const hasDepartmentRecord = !!departmentRecordKey && !!parcel360?.departments?.[departmentRecordKey];
@@ -584,16 +698,32 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         <div className="border-t-4 border-ink pt-4">
           <StepReviewForm workflowId={workflowId} step={myStep!} />
         </div>
-      ) : isAdminMode && pendingStepsForAdmin.length > 0 ? (
-        <div className="border-t-4 border-ink pt-4 space-y-4 divide-y-2 divide-ink/10">
-          <p className="text-xs text-ink/50">
-            {t('officerPortal.adminMonitoringHint')}
-          </p>
-          {pendingStepsForAdmin.map((step, index) => (
-            <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
-              <AdminStepRow workflowId={workflowId} step={step} />
+      ) : isAdminMode && (pendingStepsForAdmin.length > 0 || decidedStepsForAdmin.length > 0) ? (
+        <div className="border-t-4 border-ink pt-4 space-y-4">
+          {pendingStepsForAdmin.length > 0 && (
+            <div className="space-y-4 divide-y-2 divide-ink/10">
+              <p className="text-xs text-ink/50">
+                {t('officerPortal.adminMonitoringHint')}
+              </p>
+              {pendingStepsForAdmin.map((step, index) => (
+                <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
+                  <AdminStepRow workflowId={workflowId} step={step} />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {decidedStepsForAdmin.length > 0 && (
+            <div className={`space-y-4 divide-y-2 divide-ink/10 ${pendingStepsForAdmin.length > 0 ? 'border-t-4 border-ink/10 pt-4' : ''}`}>
+              <p className="text-xs text-ink/50">
+                {t('officerPortal.adminReopenHint')}
+              </p>
+              {decidedStepsForAdmin.map((step, index) => (
+                <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
+                  <AdminDecidedStepRow workflowId={workflowId} step={step} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-sm text-ink/60 border-t-4 border-ink pt-4">
