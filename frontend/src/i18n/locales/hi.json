@@ -164,7 +164,7 @@
     "otpVerifyEmailHeading": "अपना ईमेल सत्यापित करें",
     "otpVerifyMobileHeading": "अपना मोबाइल सत्यापित करें",
     "otpSentPrefix": "हमने 6-अंकीय कोड भेजा है",
-    "skipForNow": "अभी के लिए छोड़ें — बाद में सत्यापित करें",
+    "wrongContactGoBack": "ईमेल या मोबाइल नंबर गलत है? वापस जाकर ठीक करें",
     "minCharsPlaceholder": "न्यूनतम 8 अक्षर"
   },
   "hero": {

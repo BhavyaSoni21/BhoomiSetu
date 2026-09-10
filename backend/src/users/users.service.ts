@@ -38,11 +38,13 @@ export class UsersService {
     name: string;
     role: string;
     emailVerified?: boolean;
+    mobileVerified?: boolean;
   }): Promise<User> {
     return this.repository.save({
       email: params.email ?? null,
       mobileNumber: params.mobileNumber ?? null,
       emailVerified: params.emailVerified ?? false,
+      mobileVerified: params.mobileVerified ?? false,
       passwordHash: params.passwordHash,
       name: params.name,
       role: params.role,

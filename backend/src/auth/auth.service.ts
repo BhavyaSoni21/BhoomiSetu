@@ -1,8 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/user.entity';
+import { PendingRegistration } from './pending-registration.entity';
 import { SmsService } from '../notifications/sms.service';
 import { EmailService } from '../notifications/email.service';
 import { ContactMethod } from './contact-method';
@@ -41,6 +44,15 @@ export interface LoginResult {
   user: PublicUser;
 }
 
+// What POST /auth/register now returns - no account exists yet, so there's
+// no accessToken/user to hand back, only enough for the frontend to drive
+// the OTP step (verifyRegistrationOtp is what actually creates the account).
+export interface PendingRegistrationResult {
+  registrationId: string;
+  method: ContactMethod;
+  target: string;
+}
+
 const EMAIL_OTP_EXPIRY_MINUTES = 10;
 const EMAIL_OTP_RESEND_COOLDOWN_SECONDS = 30;
 const EMAIL_OTP_MAX_ATTEMPTS = 5;
@@ -56,6 +68,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly smsService: SmsService,
     private readonly emailService: EmailService,
+    @InjectRepository(PendingRegistration)
+    private readonly pendingRegistrationRepository: Repository<PendingRegistration>,
   ) {}
 
   async validateUser(identifier: { email?: string; mobileNumber?: string }, password: string): Promise<User | null> {
@@ -75,14 +89,13 @@ export class AuthService {
     };
   }
 
-  // Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3) - creates
-  // the account and returns a session immediately (matching how every demo
-  // account already works), rather than gating login behind verification.
-  // OTP is "a one-time verification step only" per the spec, a trust signal
-  // on the contact method itself, not a login gate - so the citizen lands
-  // signed in and can complete (or defer, exactly like Profile's add/change
-  // flow) verification right after.
-  async register(dto: RegisterDto): Promise<LoginResult> {
+  // Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3, revised per
+  // the user's explicit "the account should not be created until the number
+  // or the email is verified") - no User row is created here. This only
+  // stages a PendingRegistration and sends its first OTP; the real account
+  // (and the first session for it) is only ever created by
+  // verifyRegistrationOtp() below, on a correct code.
+  async register(dto: RegisterDto): Promise<PendingRegistrationResult> {
     if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
@@ -93,23 +106,131 @@ export class AuthService {
       throw new ConflictException('An account with this mobile number already exists');
     }
 
-    const user = await this.usersService.create({
+    // Re-registering with the same contact before finishing verification
+    // (typo'd the first attempt, never received the code, changed their
+    // mind) isn't a conflict - no account exists yet, so this replaces
+    // whatever unfinished attempt is on file rather than blocking a retry.
+    const existingPending = dto.method === 'EMAIL'
+      ? await this.pendingRegistrationRepository.findOneBy({ email: dto.email! })
+      : await this.pendingRegistrationRepository.findOneBy({ mobileNumber: dto.mobileNumber! });
+    if (existingPending) {
+      await this.pendingRegistrationRepository.delete({ id: existingPending.id });
+    }
+
+    const pending = await this.pendingRegistrationRepository.save({
       name: dto.name,
+      method: dto.method,
       email: dto.method === 'EMAIL' ? dto.email! : null,
       mobileNumber: dto.method === 'MOBILE' ? dto.mobileNumber! : null,
       passwordHash: bcrypt.hashSync(dto.password, 10),
-      role: 'CITIZEN',
     });
 
+    const target = dto.method === 'EMAIL' ? dto.email! : dto.mobileNumber!;
+
     // A failed OTP send (e.g. the SMS/email gateway isn't configured yet)
-    // shouldn't fail registration itself - the account still exists and can
-    // log in; the citizen just sees an error on this specific step and can
-    // retry via resend-otp once the delivery mechanism is actually working.
+    // still leaves a real PendingRegistration on file - the citizen lands on
+    // the OTP step and can Resend once delivery is actually working, same
+    // resilience this codebase already gives a down gateway elsewhere.
     try {
-      await this.sendOtpFor(user, dto.method, dto.method === 'EMAIL' ? dto.email! : dto.mobileNumber!);
+      await this.sendOtpForPendingRegistration(pending, target);
     } catch {
       // Swallowed deliberately - see comment above.
     }
+
+    return { registrationId: pending.id, method: dto.method, target };
+  }
+
+  private async sendOtpForPendingRegistration(pending: PendingRegistration, target: string): Promise<void> {
+    const now = new Date();
+
+    if (pending.method === 'MOBILE') {
+      if (
+        pending.otpSentAt &&
+        now.getTime() - pending.otpSentAt.getTime() < this.smsService.resendCooldownSeconds * 1000
+      ) {
+        throw new BadRequestException('Please wait before requesting another code');
+      }
+      const result = await this.smsService.sendOtp(target);
+      pending.otpCodeHash = result.codeHash;
+      pending.otpExpiresAt = result.expiresAt;
+      pending.otpSentAt = result.sentAt;
+      pending.otpAttempts = 0;
+      await this.pendingRegistrationRepository.save(pending);
+      return;
+    }
+
+    if (pending.otpSentAt && now.getTime() - pending.otpSentAt.getTime() < EMAIL_OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+      throw new BadRequestException('Please wait before requesting another code');
+    }
+
+    const code = generateOtpCode();
+    pending.otpCodeHash = bcrypt.hashSync(code, 10);
+    pending.otpExpiresAt = new Date(now.getTime() + EMAIL_OTP_EXPIRY_MINUTES * 60 * 1000);
+    pending.otpSentAt = now;
+    pending.otpAttempts = 0;
+    await this.pendingRegistrationRepository.save(pending);
+
+    await this.emailService.sendOtpEmail(target, code);
+  }
+
+  async resendRegistrationOtp(registrationId: string): Promise<void> {
+    const pending = await this.pendingRegistrationRepository.findOneBy({ id: registrationId });
+    if (!pending) {
+      throw new BadRequestException('This registration has expired or was not found - please register again');
+    }
+    const target = pending.method === 'EMAIL' ? pending.email! : pending.mobileNumber!;
+    await this.sendOtpForPendingRegistration(pending, target);
+  }
+
+  // The only place a self-registered citizen's User row is actually created -
+  // a correct code here is what proves ownership of the contact method
+  // before any account exists at all. Reuses SmsService.verifyOtp (already a
+  // pure function of hash/expiry/attempts/code, not tied to a User row) for
+  // MOBILE, and mirrors the email-OTP compare AuthService.verifyOtp uses for
+  // an existing account, since PendingRegistration's single otp* column set
+  // is the same shape either way.
+  async verifyRegistrationOtp(registrationId: string, code: string): Promise<LoginResult> {
+    const pending = await this.pendingRegistrationRepository.findOneBy({ id: registrationId });
+    if (!pending) {
+      throw new BadRequestException('This registration has expired or was not found - please register again');
+    }
+
+    if (pending.method === 'MOBILE') {
+      const result = this.smsService.verifyOtp(pending.otpCodeHash, pending.otpExpiresAt, pending.otpAttempts, code);
+      if (!result.valid) {
+        if (result.reason === 'TOO_MANY_ATTEMPTS') {
+          throw new ForbiddenException('Too many incorrect attempts - request a new code');
+        }
+        if (result.reason === 'WRONG_CODE') {
+          pending.otpAttempts += 1;
+          await this.pendingRegistrationRepository.save(pending);
+        }
+        throw new BadRequestException('Invalid or expired code');
+      }
+    } else {
+      if (pending.otpAttempts >= EMAIL_OTP_MAX_ATTEMPTS) {
+        throw new ForbiddenException('Too many incorrect attempts - request a new code');
+      }
+      if (!pending.otpCodeHash || !pending.otpExpiresAt || pending.otpExpiresAt.getTime() < Date.now()) {
+        throw new BadRequestException('Invalid or expired code');
+      }
+      if (!bcrypt.compareSync(code, pending.otpCodeHash)) {
+        pending.otpAttempts += 1;
+        await this.pendingRegistrationRepository.save(pending);
+        throw new BadRequestException('Invalid or expired code');
+      }
+    }
+
+    const user = await this.usersService.create({
+      name: pending.name,
+      email: pending.method === 'EMAIL' ? pending.email : null,
+      mobileNumber: pending.method === 'MOBILE' ? pending.mobileNumber : null,
+      passwordHash: pending.passwordHash,
+      role: 'CITIZEN',
+      emailVerified: pending.method === 'EMAIL',
+      mobileVerified: pending.method === 'MOBILE',
+    });
+    await this.pendingRegistrationRepository.delete({ id: pending.id });
 
     return this.login(user);
   }

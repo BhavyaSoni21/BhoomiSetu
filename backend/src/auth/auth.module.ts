@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
@@ -8,9 +9,11 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JWT_SECRET } from './jwt.constants';
+import { PendingRegistration } from './pending-registration.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([PendingRegistration]),
     UsersModule,
     AuditModule,
     NotificationsModule,

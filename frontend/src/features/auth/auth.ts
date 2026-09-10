@@ -111,15 +111,33 @@ export interface RegisterParams {
   confirmPassword: string;
 }
 
-// Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3) - returns a
-// session immediately, same as login, so the citizen lands signed in with
-// the chosen contact method still unverified (see AuthService.register on
-// the backend for why verification isn't a login gate).
+export interface PendingRegistration {
+  registrationId: string;
+  method: ContactMethod;
+  target: string;
+}
+
+// Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3, revised per
+// the user's explicit "the account should not be created until the number
+// or the email is verified") - no account/token exists yet after this call.
+// Returns just enough to drive the OTP step; useVerifyRegistrationOtp below
+// is what actually creates the account and signs the citizen in.
 export function useRegister() {
+  return useMutation<PendingRegistration, Error, RegisterParams>(async (params) => {
+    const response = await apiService.post('/auth/register', params);
+    return response.data;
+  });
+}
+
+// The registration flow's own verify/resend, keyed by registrationId (a
+// PendingRegistration on the backend) rather than a signed-in user + method -
+// there's no account or token yet at this point. This is the one call in the
+// whole registration flow that actually creates the account.
+export function useVerifyRegistrationOtp() {
   const queryClient = useQueryClient();
-  return useMutation<AuthUser, Error, RegisterParams>(
+  return useMutation<AuthUser, Error, { registrationId: string; code: string }>(
     async (params) => {
-      const response = await apiService.post('/auth/register', params);
+      const response = await apiService.post('/auth/register/verify-otp', params);
       setToken(response.data.accessToken);
       return response.data.user;
     },
@@ -129,9 +147,15 @@ export function useRegister() {
   );
 }
 
-// Shared by the post-registration OTP step and Profile's add/change-contact
-// flow - both just need "verify this code for this method" and an updated
-// user back.
+export function useResendRegistrationOtp() {
+  return useMutation<void, Error, { registrationId: string }>(async (params) => {
+    await apiService.post('/auth/register/resend-otp', params);
+  });
+}
+
+// Profile's add/change-contact flow only from here on - operates on the
+// signed-in user's own account (unlike the registration pair above, which
+// has no account yet).
 export function useVerifyOtp() {
   const queryClient = useQueryClient();
   return useMutation<AuthUser, Error, { method: ContactMethod; code: string }>(

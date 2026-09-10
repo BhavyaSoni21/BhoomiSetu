@@ -164,7 +164,7 @@
     "otpVerifyEmailHeading": "Verify your email",
     "otpVerifyMobileHeading": "Verify your mobile",
     "otpSentPrefix": "We sent a 6-digit code to",
-    "skipForNow": "Skip for now — verify later",
+    "wrongContactGoBack": "Wrong email or mobile number? Go back and fix it",
     "minCharsPlaceholder": "Min 8 characters"
   },
   "hero": {

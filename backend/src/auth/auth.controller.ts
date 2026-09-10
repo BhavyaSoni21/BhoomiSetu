@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyOtpDto, ResendOtpDto } from './dto/verify-otp.dto';
+import { VerifyRegistrationOtpDto, ResendRegistrationOtpDto } from './dto/registration-otp.dto';
 import { ContactDto } from './dto/contact.dto';
 import { ProfileDetailsDto } from './dto/profile-details.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -38,21 +39,38 @@ export class AuthController {
   }
 
   // Citizen self-registration only (docs/FRONTEND_UPGRADE_SPEC.md §3) -
-  // Officer/Admin accounts stay admin-created via POST /users. Returns a
-  // session immediately; the chosen contact method starts unverified (see
-  // AuthService.register for why login isn't gated on that).
+  // Officer/Admin accounts stay admin-created via POST /users. No account
+  // exists yet after this call (per the user's explicit "the account should
+  // not be created until the number or the email is verified") - it only
+  // stages a PendingRegistration and returns enough for the frontend to
+  // drive the OTP step. See verifyRegistrationOtp below for where the real
+  // account (and its first audit log entry) actually gets created.
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    const result = await this.authService.register(dto);
+    return this.authService.register(dto);
+  }
+
+  // Public (no account/JWT exists yet) - the only step that actually
+  // creates the User row. Mirrors verifyOtp below in shape, but keyed by
+  // registrationId (a PendingRegistration) rather than the signed-in user.
+  @Post('register/verify-otp')
+  async verifyRegistrationOtp(@Body() dto: VerifyRegistrationOtpDto) {
+    const result = await this.authService.verifyRegistrationOtp(dto.registrationId, dto.code);
     await this.auditService.log({
       userId: result.user.id,
       userRole: result.user.role,
       action: 'AUTH_REGISTERED',
       entityType: 'USER',
       entityId: result.user.id,
-      metadata: { method: dto.method },
+      metadata: { method: result.user.emailVerified ? 'EMAIL' : 'MOBILE' },
     });
     return result;
+  }
+
+  @Post('register/resend-otp')
+  async resendRegistrationOtp(@Body() dto: ResendRegistrationOtpDto) {
+    await this.authService.resendRegistrationOtp(dto.registrationId);
+    return { message: 'OTP sent' };
   }
 
   // Also serves Profile's "verify the contact method I just added/changed"
