@@ -1,5 +1,202 @@
-# BhoomiSetu — Exact UI Colour Mapping
-## Light + Dark Mode
+# BhoomiSetu — Design System
+
+*Merged 2026-09-11 from `docs/design.md` (Part 1, the portal Bauhaus system) and `docs/bhoomisetu_exact_ui_colour_mapping.md` (Part 2, the public landing page's own literal-hex color system) — content otherwise unchanged from each source, only heading levels demoted by one to nest under this file's single top-level title.*
+
+*These are genuinely two different, deliberately separate color systems in this codebase, not one superseding the other: every Citizen/Officer/Admin portal page (Part 1) uses semantic `primary`/`secondary`/`accent`/`ink` CSS-variable tokens (`bhoomi.*` in `frontend/tailwind.config.js`); the public landing page (`frontend/src/pages/BhoomiSetuLanding.tsx`, Part 2) instead writes literal hex values directly in its own Tailwind classes. Don't assume Part 2 restates Part 1 in different words — they're applied to different, non-overlapping surfaces.*
+
+---
+
+## Part 1: Portal Design System (Bauhaus)
+
+
+**Status: implemented.** This document captured the settled visual language before the site-wide Bauhaus redesign; that redesign is now built across every portal (Citizen/Officer/Admin) and the public site — see `docs/architecture/FEATURES.md` for what's built where. Kept as the living reference for the visual language itself (color tokens, typography, dark mode, component conventions) — still accurate for that purpose, just no longer "not yet implemented."
+
+---
+
+### 1. Design Philosophy
+
+The brief is **Bauhaus / constructivist modernism** — "form follows function," pure geometric composition, hard offset shadows, thick borders, bold color blocking. Adopted wholesale, that style is tuned for marketing/product sites (SaaS landing pages, portfolios). BhoomiSetu is a **government land-records platform** — three role-gated portals (Citizen/Officer/Admin), bilingual (English/Hindi, more languages planned), data-dense (tables, workflow steps, audit logs, maps). So this is Bauhaus **applied to a trust-critical civic system**, not a poster site:
+
+- Geometry is used for **structure and wayfinding** (status badges, section markers, role identity), not decoration for its own sake.
+- The existing tricolor government trust bar, helpline, and official tone stay — they get redrawn in the geometric language, not removed.
+- Hard shadows and thick borders replace the current soft-shadow/rounded-2xl card language, but data tables and forms stay legible first, graphic second.
+- One genuinely nice fit: **land parcels are already geometry.** Squares, triangles, and diamonds subdividing a plot is literally what the map and the logo (a patchwork of green/brown field shapes) show. Bauhaus shape language isn't a costume here — it echoes the product's actual subject matter.
+
+**Vibe**: Constructivist, geometric, earthy, official-but-bold, architectural.
+
+---
+
+### 2. Color System — derived from the BhoomiSetu logo
+
+The provided spec uses pure primaries (red/blue/yellow). Per your instruction, those three "slots" are **re-grounded in the logo's actual palette** — deep forest green, soil brown/terracotta, and gold — instead of generic RGB primaries. The logo's stray red/yellow/green background wash is a rendering artifact of the source image, not brand color, and is excluded.
+
+Good news: the frontend already has a hand-picked earth-tone palette in [tailwind.config.js](frontend/tailwind.config.js) (`bhoomi.*`) that matches the logo closely. The plan is to **keep those literal values** and layer semantic Bauhaus "slot" names on top via CSS variables, so light/dark mode is a variable swap, not a rewrite.
+
+#### Literal palette (unchanged, from `bhoomi.*`)
+
+| Token | Hex | Role |
+|---|---|---|
+| `bhoomi-dark` | `#0a1a13` | Near-black ink / dark-mode background |
+| `bhoomi-spruce` | `#0e241b` | Dark-mode header/nav surface |
+| `bhoomi-forest` | `#1b4332` | Deep green — primary (Bauhaus "blue" slot) |
+| `bhoomi-card` | `#142f24` | Dark-mode card surface |
+| `bhoomi-border` | `#234e3b` | Dark-mode hairline/divider |
+| `bhoomi-leaf` | `#2d6a4f` | Mid green |
+| `bhoomi-sprout` | `#40916c` | Bright green accent |
+| `bhoomi-mint` | `#52b788` | Brightest green — links/active states |
+| `bhoomi-soil` | `#7c3f1d` | Dark terracotta — secondary (Bauhaus "red" slot) |
+| `bhoomi-clay` | `#935116` | Mid terracotta |
+| `bhoomi-sand` | `#c68b59` | Light terracotta/tan |
+| `bhoomi-gold` | `#e8963c` | Amber — accent (Bauhaus "yellow" slot) |
+| `bhoomi-paper` | `#f5f6f2` | Off-white background / dark-mode ink |
+
+#### Semantic slots (what components actually reference)
+
+Bauhaus components are always written in terms of `primary` / `secondary` / `accent` / `ink` / `background`, never raw hex. Each slot is a CSS variable so the same class (e.g. `bg-primary`) repaints for dark mode automatically.
+
+| Slot | Light mode | Dark mode | Bauhaus spec equivalent |
+|---|---|---|---|
+| `background` | `bhoomi-paper` `#f5f6f2` | `bhoomi-dark` `#0a1a13` | `background` |
+| `surface` (cards/panels) | `#ffffff` | `bhoomi-card` `#142f24` | (card white) |
+| `ink` (text + borders) | `bhoomi-dark` `#0a1a13` | `bhoomi-paper` `#f5f6f2` | `foreground` / `border` |
+| `primary` | `bhoomi-forest` `#1b4332` | `bhoomi-mint` `#52b788` | Bauhaus blue |
+| `primary-strong` (hover/press) | `bhoomi-leaf` `#2d6a4f` | `bhoomi-sprout` `#40916c` | — |
+| `secondary` | `bhoomi-clay` `#935116` | `bhoomi-sand` `#c68b59` | Bauhaus red |
+| `secondary-strong` | `bhoomi-soil` `#7c3f1d` | `bhoomi-clay` `#935116` | — |
+| `accent` | `bhoomi-gold` `#e8963c` | `bhoomi-gold` `#e8963c` | Bauhaus yellow |
+| `muted` | `#e7e2d3` (warm parchment) | `bhoomi-border` `#234e3b` | `muted` |
+
+**Why terracotta replaces red and gold replaces yellow, specifically:** in the current app, soil/clay already marks officer-facing and transactional actions (CTA button, admin badge) and gold already marks highlights — this is just formalizing an existing instinct into the 3-slot Bauhaus system rather than inventing new meaning.
+
+#### Role color mapping (new, for wayfinding)
+
+Bauhaus asks for a geometric logo mark built from a circle/square/triangle in the three primaries. BhoomiSetu has three portals, which maps onto that directly instead of being arbitrary decoration:
+
+- **Circle + Primary (green)** → Citizen Portal
+- **Square + Secondary (terracotta)** → Officer Portal
+- **Triangle + Accent (gold)** → Admin Portal
+
+Use this consistently: portal switcher icons, role badges, dashboard section markers, the "app launcher" grid in the nav.
+
+#### Dark-mode shadow rule (non-obvious, easy to get wrong)
+
+Bauhaus hard shadows are specified as solid black (`shadow-[8px_8px_0px_0px_black]`). A literal black offset shadow is **invisible on a near-black dark background**. Rule: shadow color is always the *opposite* end of the `ink` variable — light mode shadows are `ink` (near-black), dark mode shadows are `bhoomi-paper` (cream) at full opacity, or a saturated `primary`/`accent` for emphasis elements (e.g. a gold shadow behind a highlighted stat card). Implement as a `--shadow-color` CSS variable, not a hardcoded `black` in every class.
+
+---
+
+### 3. Typography
+
+Spec calls for **Outfit** (geometric sans). Constraint the spec doesn't know about: **Outfit has no Devanagari glyphs**, and this app ships real Hindi UI text today ([frontend/src/i18n/config.ts](frontend/src/i18n/config.ts)), with Marathi/Kannada planned. Solution: a layered font stack, not a font swap — `font-family: 'Outfit', 'Noto Sans', sans-serif`. CSS font fallback is resolved **per-glyph**, so Latin characters render in Outfit and Devanagari characters automatically fall through to Noto Sans in the same sentence, with no JS/locale branching required.
+
+| Use | Stack |
+|---|---|
+| Display/headline (`font-display`) | `'Outfit', 'Noto Sans', sans-serif` — weight 900 |
+| Body/UI (`font-sans`) | `'Outfit', 'Noto Sans', sans-serif` — weight 500 |
+| Data/mono (ULPIN codes, IDs) | keep existing `'IBM Plex Mono'` |
+
+Scale (mobile → tablet → desktop), matching the spec's extreme contrast:
+
+- Display: `text-4xl` → `text-6xl` → `text-8xl`, `font-black`, `uppercase`, `tracking-tighter`, `leading-[0.9]` — reserve for the landing hero only; a full civic dashboard at `text-8xl` everywhere reads as noise, not confidence.
+- Section headings: `text-2xl` → `text-3xl` → `text-4xl`, `font-bold`, `uppercase`
+- Body: `text-base` → `text-lg`, `font-medium`, `leading-relaxed`
+- Labels/badges/status pills: `text-xs`/`text-sm`, `font-bold`, `uppercase`, `tracking-widest`
+
+Hindi/Devanagari renders taller and denser than Latin at the same pixel size — headline components should use `leading-[0.9]` only for the Latin-script brand wordmark ("BhoomiSetu"), and a slightly looser `leading-tight` for translated headline copy so Devanagari glyphs don't clip.
+
+---
+
+### 4. Radius, Borders, Shadows
+
+Straight from spec, kept binary:
+
+- **Radius**: `rounded-none` (cards, buttons, inputs, tables) or `rounded-full` (avatars, status dots, pill badges, icon roundels). No `rounded-xl`/`rounded-2xl` — this is the biggest visual break from the current UI, and it's deliberate.
+- **Border width**: `border-2` mobile → `border-4` desktop, always the `ink` token, never gray.
+- **Shadows**: `shadow-[3px_3px_0px_0px_var(--shadow-color)]` (small) / `6px` (medium) / `8px` (large), offset shadows only, never blurred.
+- **Interaction physics**: buttons press (`active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`), cards lift (`hover:-translate-y-1`).
+
+---
+
+### 5. Dark Mode
+
+- Tailwind `darkMode: 'class'` (currently unset — defaults to `media`, which doesn't allow a manual toggle). Needs adding to [tailwind.config.js](frontend/tailwind.config.js).
+- A `<html data-theme="dark">` / class toggle, persisted to `localStorage` (same pattern already used for language in `i18n/config.ts`), defaulting to `prefers-color-scheme` on first visit.
+- All semantic slot colors (§2) are CSS variables on `:root` and re-declared under `.dark`/`[data-theme="dark"]` — components reference `bg-background`, `text-ink`, `border-ink`, `bg-primary` etc., never literal `bhoomi-*` hex classes directly, so no component needs a `dark:` variant of its own.
+- Toggle control: a sun/moon icon button in the utility bar next to the language selector — same visual weight as the existing language `<select>`.
+
+---
+
+### 6. Iconography & Imagery
+
+- **Library**: `lucide-react` — not currently a dependency, needs adding.
+- Icons live inside bordered geometric containers (square or circle per §2's role mapping), stroke-width 2 default / 3 for emphasis.
+- Logo/brand mark: the existing raster logo stays as-is in the nav (it's the real brand asset), but decorative geometric echoes of it (circle/square/triangle in primary/secondary/accent) are used as section markers and background texture — same idea as the spec's "geometric logo," expressed through the product's own parcel-shape motif instead of an abstract face/composition.
+- Photography/imagery (if any is added later): grayscale by default, full color on hover, matching spec.
+
+---
+
+### 7. Components (styling direction, not final markup)
+
+- **Buttons**: Primary = `bg-primary text-white`, Secondary = `bg-secondary text-white`, Accent = `bg-accent text-ink`, Outline = `bg-surface text-ink`, all `border-2/4 border-ink shadow-[…_var(--shadow-color)]`, uppercase/bold/tracking-wider, square by default, pill (`rounded-full`) reserved for primary CTAs.
+- **Cards**: `bg-surface border-4 border-ink shadow-[8px_8px_0px_0px_var(--shadow-color)]`, small role-colored geometric shape in the top-right corner, `hover:-translate-y-1`.
+- **Status badges / workflow steps** (this app has many: request status, dispute status, verification verdicts): uppercase pill or square tag, background = semantic status color (approved→primary, pending→accent, rejected→secondary), not the current soft `/10`-opacity chip style.
+- **Tables** (Officer/Admin data views, audit log): thick `border-ink` outer border, `divide-y-2 divide-ink` rows — no soft gray zebra striping; use a light `muted` background band instead if row separation is needed.
+- **Accordion** (FAQ, expandable workflow steps): closed = white/`surface` + `border-4` + small shadow; open header = `bg-secondary text-white`; expanded body = light accent tint (`bhoomi-gold` at low opacity) with `border-t-4`.
+- **Forms/inputs**: square, `border-2 border-ink`, focus = `border-primary` + small persistent offset shadow instead of a soft focus ring — reads as "the field lifts," consistent with the button press metaphor.
+- **Government trust bar**: keep content (tricolor mark, helpline, language switcher, sign-in), redraw the tricolor swatch as three stacked `border` blocks instead of rounded stripes — a very natural fit for the "geometric blocking" mandate, no invention needed.
+- **AskAiWidget** (floating): circular `rounded-full` FAB in primary, with a squared-off `border-4` expanded panel — circle-to-square is itself a small piece of Bauhaus choreography.
+
+---
+
+### 8. Layout & Spacing
+
+Unchanged in spirit from spec, matches what's already in place:
+
+- Container: `max-w-7xl` (already used throughout `App.tsx`/`CitizenPortal.tsx`)
+- Section padding: `py-12 px-4` → `py-16 px-6` → `py-24 px-8`
+- Section dividers: `border-b-4 border-ink` between major page sections (Bauhaus rhythm, also solves "where does one civic-data section end and the next begin" more clearly than the current shadow-only separation)
+- Grids: Citizen dashboard sections (My Parcels / Search / Map / Verify) become a bordered, divided grid (`divide-x-4 divide-y-4 border-4 border-ink` container) rather than independently-floating soft cards — turns the existing 2-column layout into one constructed composition instead of four separate boxes.
+
+---
+
+### 9. Responsive Strategy
+
+- Breakpoints unchanged: mobile `<640px`, tablet `640–1024px`, desktop `>1024px` (matches existing Tailwind defaults already used in `App.tsx`).
+- Border/shadow scale down on mobile (`border-2`/`shadow-[3px…]`) and up on desktop (`border-4`/`shadow-[8px…]`), per spec.
+- Existing hamburger nav behavior (`lg:hidden`) stays; it just gets re-skinned square instead of rounded.
+- Data-heavy views (tables in Officer/Admin) get a horizontal-scroll container on mobile rather than column-collapsing — geometry holds up better than reflowed tables at small widths.
+
+---
+
+### 10. Animation
+
+- `duration-200`/`duration-300`, `ease-out` — mechanical, not soft.
+- Button press / card lift / accordion rotate exactly as spec'd in §8 there.
+- No animated background patterns (spec says static; also better for a government-facing site's motion-reduction expectations).
+
+---
+
+### 11. Implementation notes for later (not doing this yet)
+
+- Add `lucide-react` to `frontend/package.json`.
+- Add `darkMode: 'class'` to `tailwind.config.js`; introduce the CSS-variable layer for the semantic slots in `index.css`, keep the literal `bhoomi.*` scale as-is underneath.
+- Add `Outfit` to the Google Fonts import alongside the existing `Noto Sans`/`IBM Plex Mono` (need to check how fonts are currently loaded — likely `index.html` — before wiring this in).
+- This is a real visual break from the current soft-shadow/rounded-2xl UI across every page (Landing, Citizen/Officer/Admin portals, Login, Parcel 360, Map, all panels/forms). Given the number of pages, the upcoming flow should sequence this rather than reskin everything at once.
+
+---
+
+### Open questions for the upcoming flow
+
+- Sequencing: which surface first — landing/hero, the shared nav+trust bar (used everywhere), or one full portal end-to-end?
+- Does the geometric role-mapping (circle/square/triangle = Citizen/Officer/Admin) extend into each portal's internal accent color, or stay limited to the switcher/nav?
+- Any pages explicitly staying as-is (e.g., is the map itself, being MapLibre-rendered, out of scope for the border/shadow treatment)?
+
+*Waiting on the implementation flow before touching any component.*
+
+---
+
+## Part 2: Public Landing Page Color System
+
+### Light + Dark Mode
 
 **Deployed website:** https://bhoomi-setu-nine.vercel.app/  
 **Design direction:** Land + GIS + Agriculture + Trust + Governance + Technology
@@ -20,9 +217,9 @@
 
 ---
 
-# 1. Master Design Tokens
+## 1. Master Design Tokens
 
-## Light Mode
+### Light Mode
 
 ```text
 Page background       #F7FAF5
@@ -53,7 +250,7 @@ Focus                 #22C55E
 Link                  #15803D
 ```
 
-## Dark Mode
+### Dark Mode
 
 ```text
 Page background       #071A14
@@ -86,9 +283,9 @@ Link                  #86EFAC
 
 ---
 
-# 2. Global Body
+## 2. Global Body
 
-## Light
+### Light
 
 ```text
 <body>
@@ -96,7 +293,7 @@ background: #F7FAF5
 color: #34413A
 ```
 
-## Dark
+### Dark
 
 ```text
 <body>
@@ -104,7 +301,7 @@ background: #071A14
 color: #DCEBE2
 ```
 
-### Rule
+#### Rule
 
 Never use `#FFFFFF` as the entire dark-mode page.
 
@@ -112,9 +309,9 @@ Never use `#0F3D2E` as the background of every light-mode section.
 
 ---
 
-# 3. Top Navigation / Navbar
+## 3. Top Navigation / Navbar
 
-## Light Navbar
+### Light Navbar
 
 ```text
 Background        #0F3D2E
@@ -128,7 +325,7 @@ Active indicator  #22C55E
 Border            rgba(255,255,255,0.10)
 ```
 
-## Dark Navbar
+### Dark Navbar
 
 ```text
 Background        #06150F
@@ -142,7 +339,7 @@ Active indicator  #4ADE80
 Border            #1E382E
 ```
 
-### Navbar rule
+#### Navbar rule
 
 The navbar should remain dark in both modes.
 
@@ -150,7 +347,7 @@ Do **not** change the navbar to bright green.
 
 ---
 
-# 4. Logo / Brand Name
+## 4. Logo / Brand Name
 
 ```text
 Logo icon light mode: #22C55E
@@ -167,9 +364,9 @@ Use brown only for a tiny secondary logo detail, not the complete logo.
 
 ---
 
-# 5. Sidebar
+## 5. Sidebar
 
-## Light
+### Light
 
 ```text
 Background       #FFFFFF
@@ -187,7 +384,7 @@ Active icon       #15803D
 Active indicator  #22C55E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background       #0D261D
@@ -207,15 +404,15 @@ Active indicator  #4ADE80
 
 ---
 
-# 6. Main Content Area
+## 6. Main Content Area
 
-## Light
+### Light
 
 ```text
 background: #F7FAF5
 ```
 
-## Dark
+### Dark
 
 ```text
 background: #071A14
@@ -225,9 +422,9 @@ The main content must always provide visible separation from cards.
 
 ---
 
-# 7. Section Backgrounds
+## 7. Section Backgrounds
 
-## Light
+### Light
 
 ```text
 Default section     #F7FAF5
@@ -237,7 +434,7 @@ Warm land section   #FBF4EA
 Neutral section     #F8FAF9
 ```
 
-## Dark
+### Dark
 
 ```text
 Default section     #071A14
@@ -249,15 +446,15 @@ Neutral section     #0A211A
 
 ---
 
-# 8. H1
+## 8. H1
 
-## Light
+### Light
 
 ```text
 #0F3D2E
 ```
 
-## Dark
+### Dark
 
 ```text
 #F0FDF4
@@ -269,15 +466,15 @@ Do not use brown for H1.
 
 ---
 
-# 9. H2
+## 9. H2
 
-## Light
+### Light
 
 ```text
 #14532D
 ```
 
-## Dark
+### Dark
 
 ```text
 #DCFCE7
@@ -285,15 +482,15 @@ Do not use brown for H1.
 
 ---
 
-# 10. H3
+## 10. H3
 
-## Light
+### Light
 
 ```text
 #166534
 ```
 
-## Dark
+### Dark
 
 ```text
 #BBF7D0
@@ -301,15 +498,15 @@ Do not use brown for H1.
 
 ---
 
-# 11. H4 / H5 / H6
+## 11. H4 / H5 / H6
 
-## Light
+### Light
 
 ```text
 #34413A
 ```
 
-## Dark
+### Dark
 
 ```text
 #DCEBE2
@@ -317,30 +514,30 @@ Do not use brown for H1.
 
 ---
 
-# 12. Body Text
+## 12. Body Text
 
-## Primary
+### Primary
 
 ```text
 Light #34413A
 Dark  #DCEBE2
 ```
 
-## Secondary
+### Secondary
 
 ```text
 Light #53635A
 Dark  #B9CCC1
 ```
 
-## Muted
+### Muted
 
 ```text
 Light #718078
 Dark  #91A39A
 ```
 
-## Disabled
+### Disabled
 
 ```text
 Light #A0AAA4
@@ -349,23 +546,23 @@ Dark  #65756D
 
 ---
 
-# 13. Links
+## 13. Links
 
-## Normal
+### Normal
 
 ```text
 Light #15803D
 Dark  #86EFAC
 ```
 
-## Hover
+### Hover
 
 ```text
 Light #0F5F2E
 Dark  #BBF7D0
 ```
 
-## Visited
+### Visited
 
 Do not introduce purple.
 
@@ -376,7 +573,7 @@ Dark  #A7F3D0
 
 ---
 
-# 14. Primary Button
+## 14. Primary Button
 
 Use for important product actions.
 
@@ -390,7 +587,7 @@ Examples:
 - Continue
 - Generate
 
-## Light
+### Light
 
 ```text
 Background #15803D
@@ -401,7 +598,7 @@ Hover      #166534
 Pressed    #14532D
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #34D399
@@ -414,11 +611,11 @@ Pressed    #22C55E
 
 ---
 
-# 15. Bright CTA Button
+## 15. Bright CTA Button
 
 Use only for the strongest CTA on a page.
 
-## Light
+### Light
 
 ```text
 Background #22C55E
@@ -427,7 +624,7 @@ Hover      #16A34A
 Pressed    #15803D
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #86EFAC
@@ -440,9 +637,9 @@ Do not use bright CTA green on every button.
 
 ---
 
-# 16. Secondary Button
+## 16. Secondary Button
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -453,7 +650,7 @@ Hover bg   #ECFDF5
 Hover text #0F3D2E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -466,7 +663,7 @@ Hover text #F0FDF4
 
 ---
 
-# 17. Earth / Land Button
+## 17. Earth / Land Button
 
 Use for property or land-specific secondary actions.
 
@@ -478,7 +675,7 @@ Examples:
 - Land Documents
 - Boundary
 
-## Light
+### Light
 
 ```text
 Background #92400E
@@ -487,7 +684,7 @@ Hover      #78350F
 Pressed    #5C2F16
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #B9824E
@@ -500,9 +697,9 @@ Brown must remain secondary to green.
 
 ---
 
-# 18. Ghost Button
+## 18. Ghost Button
 
-## Light
+### Light
 
 ```text
 Background transparent
@@ -511,7 +708,7 @@ Hover bg   #ECFDF5
 Active bg  #DCFCE7
 ```
 
-## Dark
+### Dark
 
 ```text
 Background transparent
@@ -522,9 +719,9 @@ Active bg  #153D2C
 
 ---
 
-# 19. Danger Button
+## 19. Danger Button
 
-## Light
+### Light
 
 ```text
 Background #DC2626
@@ -533,7 +730,7 @@ Hover      #B91C1C
 Pressed    #991B1B
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #EF4444
@@ -546,9 +743,9 @@ Only for destructive operations.
 
 ---
 
-# 20. Input Fields
+## 20. Input Fields
 
-## Light
+### Light
 
 ```text
 Background      #FFFFFF
@@ -561,7 +758,7 @@ Focus border    #22C55E
 Focus ring      rgba(34,197,94,0.18)
 ```
 
-## Dark
+### Dark
 
 ```text
 Background      #0D261D
@@ -576,9 +773,9 @@ Focus ring      rgba(74,222,128,0.18)
 
 ---
 
-# 21. Select / Dropdown
+## 21. Select / Dropdown
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -590,7 +787,7 @@ Selected   #E5F5EA
 Selected text #0F3D2E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -604,9 +801,9 @@ Selected text #F0FDF4
 
 ---
 
-# 22. Search Box
+## 22. Search Box
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -617,7 +814,7 @@ Border     #D6E0D9
 Focus      #22C55E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -630,9 +827,9 @@ Focus      #4ADE80
 
 ---
 
-# 23. Cards
+## 23. Cards
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -642,7 +839,7 @@ Body       #53635A
 Muted      #718078
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -654,9 +851,9 @@ Muted      #91A39A
 
 ---
 
-# 24. Green Card
+## 24. Green Card
 
-## Light
+### Light
 
 ```text
 Background #ECFDF5
@@ -665,7 +862,7 @@ Heading    #0F3D2E
 Icon       #15803D
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #123A2A
@@ -676,9 +873,9 @@ Icon       #4ADE80
 
 ---
 
-# 25. Earth Card
+## 25. Earth Card
 
-## Light
+### Light
 
 ```text
 Background #FBF4EA
@@ -687,7 +884,7 @@ Heading    #78350F
 Icon       #92400E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #332418
@@ -698,11 +895,11 @@ Icon       #D6A46F
 
 ---
 
-# 26. KPI Cards
+## 26. KPI Cards
 
-## Success KPI
+### Success KPI
 
-### Light
+#### Light
 
 ```text
 Background #ECFDF5
@@ -713,7 +910,7 @@ Icon bg    #D9FBE4
 Icon       #15803D
 ```
 
-### Dark
+#### Dark
 
 ```text
 Background #123A2A
@@ -726,9 +923,9 @@ Icon       #4ADE80
 
 ---
 
-# 27. Warning KPI
+## 27. Warning KPI
 
-## Light
+### Light
 
 ```text
 Background #FFFBEB
@@ -738,7 +935,7 @@ Label      #6B6255
 Icon       #D97706
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #332B17
@@ -750,9 +947,9 @@ Icon       #FBBF24
 
 ---
 
-# 28. Critical KPI
+## 28. Critical KPI
 
-## Light
+### Light
 
 ```text
 Background #FEF2F2
@@ -762,7 +959,7 @@ Label      #705A5A
 Icon       #DC2626
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #351819
@@ -774,9 +971,9 @@ Icon       #F87171
 
 ---
 
-# 29. Information KPI
+## 29. Information KPI
 
-## Light
+### Light
 
 ```text
 Background #ECFEFF
@@ -786,7 +983,7 @@ Label      #526D6D
 Icon       #0F766E
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #103333
@@ -798,9 +995,9 @@ Icon       #2DD4BF
 
 ---
 
-# 30. Tables
+## 30. Tables
 
-## Light
+### Light
 
 ```text
 Table background #FFFFFF
@@ -812,7 +1009,7 @@ Row hover         #F3FAF5
 Selected row      #E8F6EC
 ```
 
-## Dark
+### Dark
 
 ```text
 Table background #0D261D
@@ -828,9 +1025,9 @@ Avoid heavy zebra striping in both modes.
 
 ---
 
-# 31. Tabs
+## 31. Tabs
 
-## Light
+### Light
 
 ```text
 Inactive text       #718078
@@ -839,7 +1036,7 @@ Active text         #0F3D2E
 Active underline    #22C55E
 ```
 
-## Dark
+### Dark
 
 ```text
 Inactive text       #91A39A
@@ -850,9 +1047,9 @@ Active underline    #4ADE80
 
 ---
 
-# 32. Breadcrumbs
+## 32. Breadcrumbs
 
-## Light
+### Light
 
 ```text
 Inactive #718078
@@ -860,7 +1057,7 @@ Separator #A5B0AA
 Current #0F3D2E
 ```
 
-## Dark
+### Dark
 
 ```text
 Inactive #91A39A
@@ -870,9 +1067,9 @@ Current #F0FDF4
 
 ---
 
-# 33. Pagination
+## 33. Pagination
 
-## Light
+### Light
 
 ```text
 Normal background #FFFFFF
@@ -886,7 +1083,7 @@ Active bg         #166534
 Active text       #FFFFFF
 ```
 
-## Dark
+### Dark
 
 ```text
 Normal background #0D261D
@@ -902,9 +1099,9 @@ Active text       #06251A
 
 ---
 
-# 34. Badges / Status
+## 34. Badges / Status
 
-## Verified
+### Verified
 
 Light:
 
@@ -922,7 +1119,7 @@ text #BBF7D0
 border #2D6149
 ```
 
-## Active
+### Active
 
 Light:
 
@@ -940,7 +1137,7 @@ text #86EFAC
 border #2D6149
 ```
 
-## Pending
+### Pending
 
 Light:
 
@@ -958,7 +1155,7 @@ text #FDE68A
 border #6B5724
 ```
 
-## Under Review
+### Under Review
 
 Light:
 
@@ -976,7 +1173,7 @@ text #93C5FD
 border #29476D
 ```
 
-## Draft
+### Draft
 
 Light:
 
@@ -994,7 +1191,7 @@ text #91A39A
 border #33463D
 ```
 
-## Disputed
+### Disputed
 
 Light:
 
@@ -1014,9 +1211,9 @@ border #6A2E30
 
 ---
 
-# 35. Alerts
+## 35. Alerts
 
-## Success
+### Success
 
 Light:
 
@@ -1038,7 +1235,7 @@ title #BBF7D0
 body #B9CCC1
 ```
 
-## Warning
+### Warning
 
 Light:
 
@@ -1060,7 +1257,7 @@ title #FDE68A
 body #D6C9A1
 ```
 
-## Error
+### Error
 
 Light:
 
@@ -1084,9 +1281,9 @@ body #D4AAAA
 
 ---
 
-# 36. Toast Notifications
+## 36. Toast Notifications
 
-## Success
+### Success
 
 ```text
 Light bg #166534
@@ -1096,7 +1293,7 @@ Dark bg #34D399
 Dark text #06251A
 ```
 
-## Warning
+### Warning
 
 ```text
 Light bg #92400E
@@ -1106,7 +1303,7 @@ Dark bg #D6A46F
 Dark text #21140B
 ```
 
-## Error
+### Error
 
 ```text
 Light bg #B91C1C
@@ -1118,9 +1315,9 @@ Dark text #250707
 
 ---
 
-# 37. Modals
+## 37. Modals
 
-## Light
+### Light
 
 ```text
 Overlay:
@@ -1142,7 +1339,7 @@ Footer background:
 #F7FAF5
 ```
 
-## Dark
+### Dark
 
 ```text
 Overlay:
@@ -1166,9 +1363,9 @@ Footer background:
 
 ---
 
-# 38. Dropdown Menus
+## 38. Dropdown Menus
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -1178,7 +1375,7 @@ Hover #F1F8F3
 Selected #E5F5EA
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -1190,9 +1387,9 @@ Selected #153D2C
 
 ---
 
-# 39. Tooltips
+## 39. Tooltips
 
-## Both modes
+### Both modes
 
 Keep tooltip dark for maximum consistency.
 
@@ -1204,9 +1401,9 @@ Border     #2D5142
 
 ---
 
-# 40. Empty States
+## 40. Empty States
 
-## Light
+### Light
 
 ```text
 Container background #F7FAF5
@@ -1217,7 +1414,7 @@ Body                 #718078
 CTA                  #15803D
 ```
 
-## Dark
+### Dark
 
 ```text
 Container background #071A14
@@ -1230,9 +1427,9 @@ CTA                  #34D399
 
 ---
 
-# 41. Loading States / Skeleton
+## 41. Loading States / Skeleton
 
-## Light
+### Light
 
 ```text
 Skeleton base:
@@ -1242,7 +1439,7 @@ Skeleton highlight:
 #F7FAF5
 ```
 
-## Dark
+### Dark
 
 ```text
 Skeleton base:
@@ -1256,9 +1453,9 @@ Do not use bright green for skeleton loaders.
 
 ---
 
-# 42. Checkboxes
+## 42. Checkboxes
 
-## Light
+### Light
 
 ```text
 Unchecked border #A9B9AF
@@ -1267,7 +1464,7 @@ Checked icon     #FFFFFF
 Hover border     #22C55E
 ```
 
-## Dark
+### Dark
 
 ```text
 Unchecked border #527163
@@ -1278,11 +1475,11 @@ Hover border     #4ADE80
 
 ---
 
-# 43. Radio Buttons
+## 43. Radio Buttons
 
 Use the same visual logic as checkboxes.
 
-## Light
+### Light
 
 ```text
 Outer #A9B9AF
@@ -1290,7 +1487,7 @@ Selected #15803D
 Focus #22C55E
 ```
 
-## Dark
+### Dark
 
 ```text
 Outer #527163
@@ -1300,9 +1497,9 @@ Focus #4ADE80
 
 ---
 
-# 44. Toggle / Switch
+## 44. Toggle / Switch
 
-## Off
+### Off
 
 Light:
 
@@ -1318,7 +1515,7 @@ Track #33463D
 Knob #DCEBE2
 ```
 
-## On
+### On
 
 Light:
 
@@ -1336,9 +1533,9 @@ Knob #06251A
 
 ---
 
-# 45. Progress Bars
+## 45. Progress Bars
 
-## Standard
+### Standard
 
 Light:
 
@@ -1354,7 +1551,7 @@ Track #244438
 Fill #34D399
 ```
 
-## Excellent / Complete
+### Excellent / Complete
 
 Light:
 
@@ -1370,13 +1567,13 @@ Fill #86EFAC
 
 ---
 
-# 46. GIS / Land Map
+## 46. GIS / Land Map
 
 Do not make the map a rainbow.
 
 Use a controlled five-state system.
 
-## Verified Land
+### Verified Land
 
 Light:
 
@@ -1394,7 +1591,7 @@ Fill opacity 22%
 Border #34D399
 ```
 
-## Selected Parcel
+### Selected Parcel
 
 Light:
 
@@ -1412,7 +1609,7 @@ Fill opacity 28%
 Border #BBF7D0
 ```
 
-## Pending Verification
+### Pending Verification
 
 Light:
 
@@ -1430,7 +1627,7 @@ Fill opacity 24%
 Border #D97706
 ```
 
-## Disputed
+### Disputed
 
 Light:
 
@@ -1448,7 +1645,7 @@ Fill opacity 20%
 Border #EF4444
 ```
 
-## High Risk
+### High Risk
 
 Light:
 
@@ -1466,7 +1663,7 @@ Fill opacity 20%
 Border #EA580C
 ```
 
-## Project Boundary
+### Project Boundary
 
 Both:
 
@@ -1481,7 +1678,7 @@ Dark-mode alternative:
 #D6A46F
 ```
 
-## Field Survey Track
+### Field Survey Track
 
 Light:
 
@@ -1497,13 +1694,13 @@ Dark:
 
 ---
 
-# 47. GIS Map Background
+## 47. GIS Map Background
 
 Do not colour the actual map with the UI brand greens.
 
 For UI around the map:
 
-## Light
+### Light
 
 ```text
 Map panel #FFFFFF
@@ -1512,7 +1709,7 @@ Map control border #DDE5DF
 Map labels #34413A
 ```
 
-## Dark
+### Dark
 
 ```text
 Map panel #0D261D
@@ -1525,9 +1722,9 @@ The underlying geographic basemap should remain visually neutral.
 
 ---
 
-# 48. GIS Legend
+## 48. GIS Legend
 
-## Light
+### Light
 
 ```text
 Background #FFFFFF
@@ -1536,7 +1733,7 @@ Heading #0F3D2E
 Text #53635A
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #0D261D
@@ -1558,7 +1755,7 @@ Boundary       #78350F
 
 ---
 
-# 49. Charts
+## 49. Charts
 
 Recommended chart palette:
 
@@ -1595,9 +1792,9 @@ unless a specific status requires them.
 
 ---
 
-# 50. Chart Grid / Axes
+## 50. Chart Grid / Axes
 
-## Light
+### Light
 
 ```text
 Grid #E5ECE7
@@ -1606,7 +1803,7 @@ Labels #66736B
 Title #0F3D2E
 ```
 
-## Dark
+### Dark
 
 ```text
 Grid #1E382E
@@ -1617,9 +1814,9 @@ Title #F0FDF4
 
 ---
 
-# 51. Footer
+## 51. Footer
 
-## Light
+### Light
 
 ```text
 Background #0F3D2E
@@ -1629,7 +1826,7 @@ Links #86EFAC
 Border rgba(255,255,255,0.10)
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #06150F
@@ -1641,9 +1838,9 @@ Border #1E382E
 
 ---
 
-# 52. Login / Authentication
+## 52. Login / Authentication
 
-## Light
+### Light
 
 ```text
 Page bg      #F7FAF5
@@ -1659,7 +1856,7 @@ Secondary    #F3E8D3
 Secondary text #78350F
 ```
 
-## Dark
+### Dark
 
 ```text
 Page bg      #071A14
@@ -1677,9 +1874,9 @@ Secondary text #D6A46F
 
 ---
 
-# 53. Landing Page Hero
+## 53. Landing Page Hero
 
-## Light hero
+### Light hero
 
 ```text
 Background:
@@ -1710,7 +1907,7 @@ Secondary text:
 #FFFFFF
 ```
 
-## Dark hero
+### Dark hero
 
 ```text
 Background:
@@ -1740,7 +1937,7 @@ Secondary text:
 
 ---
 
-# 54. Earth / Agriculture Sections
+## 54. Earth / Agriculture Sections
 
 Use brown in sections that specifically discuss:
 
@@ -1752,7 +1949,7 @@ Use brown in sections that specifically discuss:
 - Heritage
 - Rural context
 
-## Light
+### Light
 
 ```text
 Background #FBF4EA
@@ -1762,7 +1959,7 @@ Icon #92400E
 Accent #D6A46F
 ```
 
-## Dark
+### Dark
 
 ```text
 Background #332418
@@ -1774,9 +1971,9 @@ Accent #B9824E
 
 ---
 
-# 55. Feature Cards
+## 55. Feature Cards
 
-## GIS Feature
+### GIS Feature
 
 ```text
 Card bg     #ECFDF5
@@ -1785,7 +1982,7 @@ Title       #0F3D2E
 Accent      #22C55E
 ```
 
-## Land Feature
+### Land Feature
 
 ```text
 Card bg     #FBF4EA
@@ -1794,7 +1991,7 @@ Title       #78350F
 Accent      #D6A46F
 ```
 
-## AI Feature
+### AI Feature
 
 ```text
 Card bg     #EFF8F2
@@ -1803,7 +2000,7 @@ Title       #0F3D2E
 Accent      #2DD4BF
 ```
 
-## Security Feature
+### Security Feature
 
 ```text
 Card bg     #F1F5F9
@@ -1814,7 +2011,7 @@ Accent      #64748B
 
 ---
 
-# 56. Recommended Icon Colours
+## 56. Recommended Icon Colours
 
 Use icons according to their function.
 
@@ -1850,17 +2047,17 @@ Muted                    #91A39A
 
 ---
 
-# 57. Focus Ring
+## 57. Focus Ring
 
 The focus ring must be visible in both themes.
 
-## Light
+### Light
 
 ```css
 box-shadow: 0 0 0 3px rgba(34,197,94,0.18);
 ```
 
-## Dark
+### Dark
 
 ```css
 box-shadow: 0 0 0 3px rgba(74,222,128,0.20);
@@ -1870,7 +2067,7 @@ Never use a dark green focus ring on a dark surface.
 
 ---
 
-# 58. Hover Rules
+## 58. Hover Rules
 
 Do not change every element to bright green on hover.
 
@@ -1890,7 +2087,7 @@ Icon hover:
 one step brighter
 ```
 
-### Example
+#### Example
 
 Light:
 
@@ -1908,9 +2105,9 @@ Hover         #4ADE80
 
 ---
 
-# 59. Border Rules
+## 59. Border Rules
 
-## Light
+### Light
 
 ```text
 Default border   #DDE5DF
@@ -1919,7 +2116,7 @@ Green border     #BFE7CA
 Earth border     #E7CBA9
 ```
 
-## Dark
+### Dark
 
 ```text
 Default border   #244438
@@ -1932,9 +2129,9 @@ Avoid pure black borders.
 
 ---
 
-# 60. Shadows
+## 60. Shadows
 
-## Light
+### Light
 
 ```css
 Small:
@@ -1947,7 +2144,7 @@ Large:
 0 20px 50px rgba(15,61,46,0.14);
 ```
 
-## Dark
+### Dark
 
 Use softer, darker shadows:
 
@@ -1964,7 +2161,7 @@ Large:
 
 ---
 
-# 61. Gradient Rules
+## 61. Gradient Rules
 
 Only use gradients on:
 
@@ -1973,7 +2170,7 @@ Only use gradients on:
 - Selected promotional cards
 - Important visual summaries
 
-## Green gradient
+### Green gradient
 
 ```css
 linear-gradient(
@@ -1984,7 +2181,7 @@ linear-gradient(
 );
 ```
 
-## Green-to-earth
+### Green-to-earth
 
 ```css
 linear-gradient(
@@ -1995,7 +2192,7 @@ linear-gradient(
 );
 ```
 
-## Soft light background
+### Soft light background
 
 ```css
 linear-gradient(
@@ -2006,7 +2203,7 @@ linear-gradient(
 );
 ```
 
-## Dark hero
+### Dark hero
 
 ```css
 linear-gradient(
@@ -2021,7 +2218,7 @@ Do not use gradients on every card and button.
 
 ---
 
-# 62. Dark Mode Separation Rules
+## 62. Dark Mode Separation Rules
 
 This is critical.
 
@@ -2045,7 +2242,7 @@ Dark earth       → sand/cream text
 
 ---
 
-# 63. Light Mode Separation Rules
+## 63. Light Mode Separation Rules
 
 Never use:
 
@@ -2068,7 +2265,7 @@ Use dark colours for readable text.
 
 ---
 
-# 64. Contrast Rules
+## 64. Contrast Rules
 
 Minimum practical rules for the UI:
 
@@ -2094,7 +2291,7 @@ Target approximately WCAG AA contrast for normal text whenever possible.
 
 ---
 
-# 65. Full CSS Variables
+## 65. Full CSS Variables
 
 ```css
 :root {
@@ -2188,7 +2385,7 @@ Target approximately WCAG AA contrast for normal text whenever possible.
 
 ---
 
-# 66. Recommended Tailwind Mapping
+## 66. Recommended Tailwind Mapping
 
 ```text
 brand-950 #052E22
@@ -2228,7 +2425,7 @@ error #DC2626
 
 ---
 
-# 67. Exact Component Priority
+## 67. Exact Component Priority
 
 When implementing the deployed site, apply the colours in this order:
 
@@ -2254,9 +2451,9 @@ This prevents isolated components from developing unrelated colours.
 
 ---
 
-# 68. Final BhoomiSetu Colour Formula
+## 68. Final BhoomiSetu Colour Formula
 
-## Light Mode
+### Light Mode
 
 ```text
 PAGE
@@ -2296,7 +2493,7 @@ BORDER
 #DDE5DF
 ```
 
-## Dark Mode
+### Dark Mode
 
 ```text
 PAGE
@@ -2338,7 +2535,7 @@ BORDER
 
 ---
 
-# 69. One-Page Colour Cheat Sheet
+## 69. One-Page Colour Cheat Sheet
 
 ```text
 ================ LIGHT MODE ================
@@ -2401,7 +2598,7 @@ Critical           #FCA5A5
 
 ---
 
-# 70. Final Implementation Rule
+## 70. Final Implementation Rule
 
 **Green owns the product.**
 
@@ -2437,4 +2634,4 @@ Earth-related visuals
 
 This keeps BhoomiSetu recognisable while preventing the UI from becoming visually overloaded by green or brown.
 
-# END
+## END

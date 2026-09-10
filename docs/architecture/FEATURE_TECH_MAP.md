@@ -1,6 +1,6 @@
 # BhoomiSetu — Feature → Library / Endpoint / File Map
 
-A single lookup table: for every feature, which third-party library actually implements it, which real API endpoints back it, and exactly which backend and frontend files it lives in. Verified directly against the source (controllers, `package.json`, imports) on 2026-09-10 — not copied from `docs/FEATURES.md`'s prose, though the feature numbering matches it 1:1 so the two can be cross-referenced. For narrative "what it does" descriptions see `docs/FEATURES.md`; for gap analysis see `docs/FEATURE_AUDIT.md`.
+A single lookup table: for every feature, which third-party library actually implements it, which real API endpoints back it, and exactly which backend and frontend files it lives in. Verified directly against the source (controllers, `package.json`, imports) on 2026-09-10 — not copied from `docs/architecture/FEATURES.md`'s prose, though the feature numbering matches it 1:1 so the two can be cross-referenced. For narrative "what it does" descriptions see `docs/architecture/FEATURES.md`; for historical gap analysis see `docs/archive/FEATURE_AUDIT.md`.
 
 All backend paths are relative to `backend/src/`, frontend paths to `frontend/src/`, API paths to `/api/v1`.
 
@@ -94,7 +94,7 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 |---|---|
 | **Library (backend)** | `typeorm`; Groq via `ai/groq.service.ts` for request routing (feature 28, same client as feature 17) |
 | **Library (frontend)** | `@tanstack/react-query` (mutations + cache invalidation), `axios` |
-| **Endpoints** | `POST /workflows`, `GET /workflows`, `GET /workflows/mine`, `GET /workflows/:id`, `GET /workflows/:id/evidence`, `PATCH /workflows/:id/status`, `PATCH /workflows/:workflowId/steps/:stepId`, `POST /workflows/:workflowId/steps/:stepId/escalate` |
+| **Endpoints** | `POST /workflows`, `GET /workflows`, `GET /workflows/mine`, `GET /workflows/:id`, `GET /workflows/:id/evidence`, `PATCH /workflows/:id/status`, `PATCH /workflows/:workflowId/steps/:stepId`, `POST /workflows/:workflowId/steps/:stepId/escalate`, `POST /workflows/:workflowId/steps/:stepId/reopen` |
 | **Backend** | `workflows/workflows.controller.ts`, `workflows/workflows.service.ts`, `workflows/workflow.entity.ts`, `workflows/workflow-step.entity.ts` |
 | **Frontend** | `features/parcels/ServiceRequestForm.tsx`, `pages/citizen/RaiseRequestPage.tsx`, `pages/citizen/RequestsPage.tsx`, `features/officer/WorkflowReviewPanel.tsx` (shared by `pages/officer/AssignedRequestsPage.tsx` and `pages/admin/AdminWorkflowOversightPage.tsx`) |
 

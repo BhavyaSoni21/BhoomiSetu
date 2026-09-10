@@ -40,7 +40,7 @@ SIH_2026_BhoomiSetu/
 - **Build Tool**: Vite
 - **Server State**: TanStack Query
 - **GIS Map**: MapLibre GL JS
-- **Styling**: Tailwind CSS - a Bauhaus-inspired design system (`docs/design.md`): an earth-tone palette derived from the BhoomiSetu logo, exposed as semantic CSS-variable-backed tokens (`primary`/`secondary`/`accent`/`ink`/`surface`) so light/dark mode is a variable swap, not per-component `dark:` classes. A theme toggle persists the choice in `localStorage`
+- **Styling**: Tailwind CSS - a Bauhaus-inspired design system (`docs/architecture/DESIGN_SYSTEM.md`): an earth-tone palette derived from the BhoomiSetu logo, exposed as semantic CSS-variable-backed tokens (`primary`/`secondary`/`accent`/`ink`/`surface`) so light/dark mode is a variable swap, not per-component `dark:` classes. A theme toggle persists the choice in `localStorage`
 - **Icons**: `lucide-react`
 - **Localization**: `i18next`/`react-i18next` - English/Hindi, persisted language choice, covering the nav, landing hero, parcel search, Citizen Portal panels, and the map's layer labels/popup
 - **HTTP Client**: Axios
@@ -51,7 +51,7 @@ SIH_2026_BhoomiSetu/
 
 ### Database
 - **Dev**: SQLite (file-based, zero setup) - what `npm run start:dev`/`npm test` use out of the box
-- **Production**: PostgreSQL 16+ with PostGIS 3+ - live-verified end-to-end against a hosted [Supabase](https://supabase.com) Postgres+PostGIS instance (`docs/FEATURE_AUDIT.md` §8 item 14). Supabase's *direct* connection host is IPv6-only and won't resolve from an IPv4-only environment - use its connection *pooler* host instead (see `backend/.env.example`)
+- **Production**: PostgreSQL 16+ with PostGIS 3+ - live-verified end-to-end against a hosted [Supabase](https://supabase.com) Postgres+PostGIS instance (`docs/archive/FEATURE_AUDIT.md` §8 item 14). Supabase's *direct* connection host is IPv6-only and won't resolve from an IPv4-only environment - use its connection *pooler* host instead (see `backend/.env.example`)
 - **Spatial queries**: real `ST_Intersects`/`ST_Contains`/`ST_Distance`/`ST_DWithin`/`ST_Centroid` when connected to Postgres; the same operations (bbox filtering, point-in-polygon, polygon distance, spatial intersection) fall back to hand-rolled JS equivalents (`backend/src/common/geo-utils.ts`) on SQLite, since SQLite has no spatial extension. Which path runs is decided automatically from the actual connected TypeORM driver, not an env flag (`backend/src/common/postgis.ts`)
 - **Spatial data**: GeoJSON, stored as `text` in both modes (a native PostGIS `geometry` column was deliberately not adopted - every consumer already does `JSON.parse(row.geometry)`, and migrating the storage type would mean rewriting all of them for no behavioral gain)
 
@@ -90,7 +90,7 @@ SIH_2026_BhoomiSetu/
    - Backend API: http://localhost:3000/api/v1
    - Swagger docs: http://localhost:3000/api
 
-5. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
+5. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/archive/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
    - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other 4 officer accounts are listed on the sign-in page itself)
    - Citizen: `citizen1@example.com` through `citizen20@example.com`, password `Demo@123` for all - each is linked to a random 0-5 parcels (see Citizen Sign-In / My Parcels below)
 
@@ -108,9 +108,9 @@ npm test
 
 ### Production / PostgreSQL
 
-To run against PostgreSQL + PostGIS instead of SQLite, set `USE_SQLITE=false` and the `DB_*` variables in `backend/.env` (see `backend/.env.example` for both a local/docker-compose shape and a Supabase-pooler shape). No manual schema setup is needed beyond having the `postgis` extension available in your target database (`docker-compose.yml`'s `postgis/postgis` image, and Supabase, both already ship with it) - TypeORM's `synchronize: true` creates every table from the entity definitions automatically on backend startup. This path has been live-verified end-to-end (`docs/FEATURE_AUDIT.md` §8 item 14) - real `ST_*` spatial queries, not a placeholder.
+To run against PostgreSQL + PostGIS instead of SQLite, set `USE_SQLITE=false` and the `DB_*` variables in `backend/.env` (see `backend/.env.example` for both a local/docker-compose shape and a Supabase-pooler shape). No manual schema setup is needed beyond having the `postgis` extension available in your target database (`docker-compose.yml`'s `postgis/postgis` image, and Supabase, both already ship with it) - TypeORM's `synchronize: true` creates every table from the entity definitions automatically on backend startup. This path has been live-verified end-to-end (`docs/archive/FEATURE_AUDIT.md` §8 item 14) - real `ST_*` spatial queries, not a placeholder.
 
-`docker-compose.yml` runs the real three-service architecture (frontend behind nginx, the single backend, PostGIS) - `docker compose up --build` builds and runs all three, live-verified end-to-end on 2026-09-06 (`docs/FEATURE_AUDIT.md` §8 item 6): the backend starts, connects to PostGIS, and serves the API; `docker compose exec backend npm run seed` populates the same 200-parcel demo dataset as every other environment. The compose file reads `GROQ_API_KEY`/`JWT_SECRET` from your shell environment. Set `GROQ_API_KEY` if you want AI working (it has no usable default - unset, those endpoints just 503). `JWT_SECRET` **must** be set in your shell before running `docker compose up` - the compose file sets `NODE_ENV=production` for the backend, and the backend refuses to start under `NODE_ENV=production` without a real `JWT_SECRET` (see `backend/.env.example` for details); `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` is a quick way to generate one.
+`docker-compose.yml` runs the real three-service architecture (frontend behind nginx, the single backend, PostGIS) - `docker compose up --build` builds and runs all three, live-verified end-to-end on 2026-09-06 (`docs/archive/FEATURE_AUDIT.md` §8 item 6): the backend starts, connects to PostGIS, and serves the API; `docker compose exec backend npm run seed` populates the same 200-parcel demo dataset as every other environment. The compose file reads `GROQ_API_KEY`/`JWT_SECRET` from your shell environment. Set `GROQ_API_KEY` if you want AI working (it has no usable default - unset, those endpoints just 503). `JWT_SECRET` **must** be set in your shell before running `docker compose up` - the compose file sets `NODE_ENV=production` for the backend, and the backend refuses to start under `NODE_ENV=production` without a real `JWT_SECRET` (see `backend/.env.example` for details); `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` is a quick way to generate one.
 
 ## API Endpoints
 
@@ -152,10 +152,10 @@ Seven independent department mocks (five from Tech.md #16, plus Dispute and Encu
 - `GET /api/v1/land-records/:parcelId` - resolves the parcel to its Phase 3 state schema record (MH via SURVEY_NUMBER, DL via PLOT_NUMBER); 404 for states with no schema configured (TN/KA/CH) or no matching identifier
 - `GET /api/v1/registration/:parcelId` - registration status, registration number/date, last transaction
 - `GET /api/v1/planning/:parcelId` - land use, zoning classification, master plan reference, building permission status
-- `GET /api/v1/tax/:parcelId` - assessed value, annual tax, tax status, outstanding amount, plus an independent `marketValueReference`/`valuationDate`/`valuationSource` valuation reference (added 2026-09-09, per `docs/FEATURE_AUDIT.md` §8 item 18 - a circle-rate/comparable-sale figure, deliberately separate from the tax authority's own assessed value)
+- `GET /api/v1/tax/:parcelId` - assessed value, annual tax, tax status, outstanding amount, plus an independent `marketValueReference`/`valuationDate`/`valuationSource` valuation reference (added 2026-09-09, per `docs/archive/FEATURE_AUDIT.md` §8 item 18 - a circle-rate/comparable-sale figure, deliberately separate from the tax authority's own assessed value)
 - `GET /api/v1/restriction/:parcelId` - environmental/protected-area/flood-prone restriction flag (a per-parcel business record - distinct from the GIS `restriction-zones` polygon layer above)
 - `GET /api/v1/dispute/:parcelId` - active-dispute flag, dispute type (ownership/boundary/inheritance/encroachment), case status, filing/resolution dates - seeded on ~12% of parcels, the rest return a real "no dispute" record (not a 404)
-- `GET /api/v1/encumbrance/:parcelId` - active mortgage/lien/charge flag, lender name, instrument reference, registered/discharge dates (added 2026-09-09, per `docs/FEATURE_AUDIT.md` §8 item 17) - seeded on ~17% of parcels, the rest return a real "no encumbrance" record (not a 404)
+- `GET /api/v1/encumbrance/:parcelId` - active mortgage/lien/charge flag, lender name, instrument reference, registered/discharge dates (added 2026-09-09, per `docs/archive/FEATURE_AUDIT.md` §8 item 17) - seeded on ~17% of parcels, the rest return a real "no encumbrance" record (not a 404)
 
 ### Ownership History
 `backend/src/parcels/ownership-history-record.entity.ts` (added 2026-09-09) - a parcel's chain of past owners, not just the current one; sits behind the current-owner fields the State A/B schemas above already expose, not a replacement for them:
@@ -198,7 +198,7 @@ Frontend: a "Verify Documents" page in the Citizen Portal (`frontend/src/pages/c
 Frontend: each alert in the Officer Portal has a "View Details" button opening a popout with the full record, a 4-step progress stepper (current stage highlighted; Dismissed shown as a distinct note), plus an "Explain with AI" button and its resulting summary - both moved out of the cramped inline row and into the popout (`GovernanceAlertDetailModal.tsx`). Only the action button(s) actually reachable from the alert's current stage are shown. The list itself is paginated client-side (5/page, added 2026-09-09) rather than rendering every open alert as one unbounded scroll.
 
 ### Authentication
-`backend/src/auth/` + `backend/src/users/` + `backend/src/notifications/` - real accounts, one `users` table shared by officers/admin and citizens, plus citizen self-registration and mobile/email OTP verification (`docs/FRONTEND_UPGRADE_SPEC.md` §3, added 2026-09-08):
+`backend/src/auth/` + `backend/src/users/` + `backend/src/notifications/` - real accounts, one `users` table shared by officers/admin and citizens, plus citizen self-registration and mobile/email OTP verification (`docs/archive/FRONTEND_UPGRADE_SPEC.md` §3, added 2026-09-08):
 - `users` table: `email`/`mobileNumber` (both nullable+unique - a citizen needs at least one, staff always have email), `emailVerified`/`mobileVerified` booleans, `pendingEmail`/`pendingMobileNumber` (a change-in-progress, staged until its own OTP is verified), bcrypt password hash, name, role. Seeded by `seed.ts` with 5 officer/admin demo accounts and 20 citizen demo accounts, all sharing password `Demo@123`, all `emailVerified: true`
 - `POST /api/v1/auth/login` - `{email|mobileNumber, password}` → a JWT (no expiry, per the user's explicit "the session should not log out until the user presses logout" - Logout is the only thing that ends a session) plus the public user shape; wrong credentials, an unknown identifier, and a malformed one are all rejected uniformly (401/400, no user enumeration)
 - `POST /api/v1/auth/register` - citizen-only, a method-selector (`method: 'EMAIL'|'MOBILE'` + the matching field) rather than both fields at once; creates the account and returns a session immediately (verification isn't a login gate - see below), and fires off that method's OTP
@@ -254,10 +254,10 @@ Frontend: a floating "Ask AI" chat widget (`frontend/src/features/ai/AskAiWidget
 - Every seeded parcel is tested against that region - a real `ST_Contains`/`ST_Centroid` query on Postgres, a JS point-in-polygon test against each parcel's centroid on SQLite - genuine spatial intersection, not hand-picked
 - A real `ChangeDetectionEvent` row and one `GovernanceAlert` per affected parcel are created, immediately visible in the Officer Portal and explainable via the AI endpoints above
 
-Frontend: `ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, and a result view linking affected parcels into Parcel 360) is not currently mounted anywhere in the app - it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per docs/FRONTEND_UPGRADE_SPEC.md §8 (the feature's name overpromised real satellite-imagery analysis). Its on-demand replacement is Historical Imagery Comparison, below. The backend endpoint and `image-diff.ts` are untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts`.
+Frontend: `ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, and a result view linking affected parcels into Parcel 360) is not currently mounted anywhere in the app - it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per docs/archive/FRONTEND_UPGRADE_SPEC.md §8 (the feature's name overpromised real satellite-imagery analysis). Its on-demand replacement is Historical Imagery Comparison, below. The backend endpoint and `image-diff.ts` are untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts`.
 
 ### Historical Imagery Comparison
-`backend/src/historical-imagery/` (docs/FRONTEND_UPGRADE_SPEC.md §8) - the on-demand, staff-only replacement for Change Detection's always-on upload panel: instead of requiring a fresh upload every time, it compares two years of a cluster's own synthetic snapshot archive. Redesigned 2026-09-08 to drop pixel-diffing for a real per-parcel data comparison, after the pixel-diff version's aggregate-percentage output and single-paragraph AI description tested poorly ("looks like fetched from the dataset").
+`backend/src/historical-imagery/` (docs/archive/FRONTEND_UPGRADE_SPEC.md §8) - the on-demand, staff-only replacement for Change Detection's always-on upload panel: instead of requiring a fresh upload every time, it compares two years of a cluster's own synthetic snapshot archive. Redesigned 2026-09-08 to drop pixel-diffing for a real per-parcel data comparison, after the pixel-diff version's aggregate-percentage output and single-paragraph AI description tested poorly ("looks like fetched from the dataset").
 - `GET /api/v1/historical-imagery/clusters` - which clusters have snapshots and for which years
 - `GET /api/v1/historical-imagery/clusters/:clusterId/years/:year/image` - serves the stored PNG for that cluster/year
 - `POST /api/v1/historical-imagery/clusters/:clusterId/compare` - `{fromYear, toYear}`, rate-limited to 30 requests/minute. **As of 2026-09-10, only accepts exactly `CURRENT_YEAR-1 → CURRENT_YEAR`** (any other pair, even two purely historical years, gets 400) - since this is the only place a historical comparison creates alerts, and alerts should reflect the most recent year-over-year difference only, not any pair an officer happens to pick. The GET endpoints below are unaffected - browsing any individual year's data stays unrestricted. `common/parcel-generation/parcel-category.ts` computes a real `ParcelCategory` (`NONE`/`RESTRICTED`/`DISPUTE_OWNERSHIP`/`DISPUTE_BOUNDARY`/`DISPUTE_INHERITANCE`/`DISPUTE_ENCROACHMENT`) per parcel per year from real data - that year's `ParcelHistoricalState.restrictionStatus`, plus (current year only, since `DisputeRecord` has no per-year history) the parcel's real active dispute type - and a parcel is "affected" simply if its category differs between the two years compared. No pixel math, no bounding box, no spatial intersection - the category is the localization. A newly-appearing or worsened category creates a `GovernanceAlert` (`DISPUTE_DETECTED`/`RESTRICTION_DETECTED`, severity `CRITICAL`/`HIGH`/`MEDIUM` by category and whether the parcel also has an active restriction); an improved category (e.g. a cleared dispute) is still reported but never re-alerted
@@ -279,15 +279,15 @@ Frontend: an 8-chart dashboard (`recharts`) plus a "Top At-Risk Parcels" list (a
 
 ## Development Phases
 
-The implementation follows a phased MVP plan (full detail, including every live-verification pass, in `docs/Plan.md`):
+The implementation follows a phased MVP plan (full detail, including every live-verification pass, in `docs/archive/Plan.md`):
 
 1. **GIS Foundation** ✅ - PostGIS/SQLite setup, parcel table, map visualization
 2. **Parcel Core** ✅ - search (by any identifier), get-by-id, geometry, neighbours/context, Parcel 360 skeleton
 3. **Mock State Schemas** ✅ - two structurally different state land-record schemas with full CRUD
 4. **Mock Department APIs** ✅ - 6 independent per-parcel department APIs
 5. **Interoperability** ✅ - identifier resolver, State A/B adapters, canonical transformer, response aggregator
-6. **Citizen Portal** ✅ - multi-page, gated by citizen sign-in (docs/FRONTEND_UPGRADE_SPEC.md §4): search, map, tabbed Parcel 360 view, and service requests restricted to the citizen's own parcels
-7. **Officer Portal** ✅ - multi-page (docs/FRONTEND_UPGRADE_SPEC.md §5): real login, assigned-workflow review, governance alerts panel (+ detail popout)
+6. **Citizen Portal** ✅ - multi-page, gated by citizen sign-in (docs/archive/FRONTEND_UPGRADE_SPEC.md §4): search, map, tabbed Parcel 360 view, and service requests restricted to the citizen's own parcels
+7. **Officer Portal** ✅ - multi-page (docs/archive/FRONTEND_UPGRADE_SPEC.md §5): real login, assigned-workflow review, governance alerts panel (+ detail popout)
 8. **AI Integration** ✅ - Groq-backed natural-language data queries *and* navigation help in one call, parcel/alert explanation, all Zod-validated, surfaced via a draggable floating "Ask AI" widget
 9. **Change Detection** ✅ - real pixel-diff imagery comparison, spatial intersection, and governance alert generation
 10. **Security and Audit** ✅ - authentication (officer/admin/citizen), RBAC, and audit logging
@@ -296,7 +296,7 @@ The implementation follows a phased MVP plan (full detail, including every live-
 
 Also completed outside the phase numbering: **PostGIS run end-to-end** against a live Supabase instance (real `ST_*` queries, not the SQLite fallback), a from-scratch **irregular parcel geometry generator** replacing the original uniform grid (see Mock Data below), full **citizen registration + email/mobile OTP verification** (see Authentication above), and **Historical Imagery Comparison** (see above) - Change Detection's on-demand, AI-assisted successor.
 
-A later, dedicated **Admin/Officer Portal follow-up round** (2026-09-10, full detail in `docs/ADMIN_PANEL_ISSUES.md`) turned three of that portal's remaining placeholder cards into real features - Workflow Oversight, Map Layer Authoring (with a drawing tool, an admin-only Admin Notes layer, and real spatial-overlap computation), and Officer Monitoring - plus a real 4-stage Governance Alert verification flow, mandatory review remarks, full Officer/Admin English/Hindi coverage, a richer Officer Profile, and role-aware notification deep-linking. See the Governance Alerts, Spatial Demo Layers, Admin Portal, and Officer Portal sections above for the as-built detail.
+A later, dedicated **Admin/Officer Portal follow-up round** (2026-09-10, full detail in `docs/archive/ADMIN_PANEL_ISSUES.md`) turned three of that portal's remaining placeholder cards into real features - Workflow Oversight, Map Layer Authoring (with a drawing tool, an admin-only Admin Notes layer, and real spatial-overlap computation), and Officer Monitoring - plus a real 4-stage Governance Alert verification flow, mandatory review remarks, full Officer/Admin English/Hindi coverage, a richer Officer Profile, and role-aware notification deep-linking. See the Governance Alerts, Spatial Demo Layers, Admin Portal, and Officer Portal sections above for the as-built detail.
 
 ## Mock Data
 
@@ -321,21 +321,19 @@ A later, dedicated **Admin/Officer Portal follow-up round** (2026-09-10, full de
 
 ## Documentation
 
-**What's actually built:**
-- [`docs/FEATURES.md`](docs/FEATURES.md) - feature-by-feature index of everything currently built, with backend/frontend locations.
-- [`docs/design.md`](docs/design.md) - the Bauhaus visual design system: color tokens, typography, dark mode.
-- [`docs/flow.md`](docs/flow.md) - login/registration/role-dashboard IA and feature distribution across Citizen/Officer/Admin (partially superseded, see below).
-- [`docs/STANDARD_TECHNICAL_DOCUMENT.md`](docs/STANDARD_TECHNICAL_DOCUMENT.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards, verified against the real codebase.
-- [`docs/FEATURE_AUDIT.md`](docs/FEATURE_AUDIT.md) - cross-reference of what's required (the official SIH problem statement), what the team's own spec additionally proposed, and what's actually built, with a scored backlog.
-- [`docs/Plan.md`](docs/Plan.md) - the phase-by-phase build log, with a dated verification note after every phase.
-- [`docs/FRONTEND_UPGRADE_SPEC.md`](docs/FRONTEND_UPGRADE_SPEC.md) - the master frontend-IA spec; partially built and marked as such section-by-section - the Home/Citizen-Portal split, both portals' multi-page restructure, email/mobile OTP auth, and historical parcel-imagery comparison are done; admin-configurable governance rules is still planning-only.
-- [`docs/AUTH_VERIFICATION_UPGRADE.md`](docs/AUTH_VERIFICATION_UPGRADE.md) - backend-schema-level detail for the email/mobile OTP verification piece above (implemented; kept for the original design rationale - see Authentication above for the current TextBee/Zoho providers).
-- [`docs/ADMIN_PANEL_ISSUES.md`](docs/ADMIN_PANEL_ISSUES.md) - the punch list behind the 2026-09-10 Admin/Officer Portal follow-up round (Workflow Oversight, Map Layer Authoring, Officer Monitoring, 4-stage Governance Alerts, and more) - every item checked against the actual code before being logged, with a dated status on each.
+`docs/` is split into two directories (reorganized 2026-09-11): current-state reference vs. historical record. Each has its own index README with a one-line description of every document in it - start there rather than this list, which only covers the highlights.
 
-**Planning only, not yet built:**
-- [`docs/CITIZEN_FEATURES_UPGRADE_PLAN.md`](docs/CITIZEN_FEATURES_UPGRADE_PLAN.md) - citizen-dashboard upgrades (Land Claim, document persistence, officer routing) plus the three PS-compliance gaps `FEATURE_AUDIT.md` found (encumbrance/mortgage records, valuation references, a Chandigarh pilot cluster). Its §3.4 (historical spatial state) backend half is now built - see Historical Imagery Comparison above - though the citizen-facing Parcel 360 timeline tab it originally proposed is not.
+**[`docs/architecture/`](docs/architecture/README.md) - what's actually built, right now:**
+- [`docs/architecture/FEATURES.md`](docs/architecture/FEATURES.md) - feature-by-feature index of everything currently built, with backend/frontend locations.
+- [`docs/architecture/FEATURE_TECH_MAP.md`](docs/architecture/FEATURE_TECH_MAP.md) - the same feature numbering, as a library/endpoint/file lookup table.
+- [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards, verified against the real codebase.
+- [`docs/architecture/DESIGN_SYSTEM.md`](docs/architecture/DESIGN_SYSTEM.md) - the portal Bauhaus visual system (color tokens, typography, dark mode) plus the public landing page's own separate literal-hex color system.
+- [`docs/architecture/KNOWN_RISKS.md`](docs/architecture/KNOWN_RISKS.md) - the most recent full-stack security/performance/reliability audit.
+- [`docs/architecture/BACKLOG.md`](docs/architecture/BACKLOG.md) - everything genuinely still open (Admin session/timeout, OAuth login, admin-editable Workflow Configuration/Governance Rules, and a handful of smaller deferred items), each sourced back to where it was originally scoped.
 
-**Project origin:**
+**[`docs/archive/`](docs/archive/README.md) - historical planning documents and completed punch lists**, kept for their reasoning and dated history, not as a description of the system today: `ADMIN_PANEL_ISSUES.md`, `AUTH_VERIFICATION_UPGRADE.md`, `CITIZEN_FEATURES_UPGRADE_PLAN.md`, `FRONTEND_UPGRADE_SPEC.md`, `FEATURE_AUDIT.md`, `Plan.md`, `flow.md`.
+
+**Project origin (repo root, not moved):**
 - [`BHOOMISETU.md`](BHOOMISETU.md) - project vision and overview.
 - [`Tech.md`](Tech.md) - the team's original technical architecture and specification.
 

@@ -1,8 +1,10 @@
 # BhoomiSetu — Standard Technical Document
 
 **System**: BhoomiSetu — a GIS-based, parcel-centric land governance and interoperability platform, built for SIH 2026's Land Stack problem statement.
-**Document date**: 2026-09-10.
-**Scope**: this document covers exactly the nine areas the problem statement asks a Standard Technical Document to contain — API standards, interoperability standards, data schemas, system architecture, GIS standards, security frameworks, UI/UX guidelines, color schemas, and deployment/scalability considerations. It is an as-built reference: every claim below was checked directly against the source (`backend/src/**`, `frontend/src/**`) on the document date, not transcribed from earlier design notes. For a feature-by-feature narrative see `docs/FEATURES.md`; for a per-feature library/endpoint/file lookup table see `docs/FEATURE_TECH_MAP.md`; for the original team vision documents see `Tech.md`/`BHOOMISETU.md`.
+**Document date**: 2026-09-10, re-verified 2026-09-11.
+**Scope**: this document covers exactly the nine areas the problem statement asks a Standard Technical Document to contain — API standards, interoperability standards, data schemas, system architecture, GIS standards, security frameworks, UI/UX guidelines, color schemas, and deployment/scalability considerations. It is an as-built reference: every claim below was checked directly against the source (`backend/src/**`, `frontend/src/**`) on the document date, not transcribed from earlier design notes. For a feature-by-feature narrative see `docs/architecture/FEATURES.md`; for a per-feature library/endpoint/file lookup table see `docs/architecture/FEATURE_TECH_MAP.md`; for the design system see `docs/architecture/DESIGN_SYSTEM.md`; for what's still open see `docs/architecture/BACKLOG.md`; for the original team vision documents see `Tech.md`/`BHOOMISETU.md` at the repo root.
+
+**Reorganized 2026-09-11** into `docs/architecture/` alongside the project's other current-state reference docs. Superseded planning/audit documents this was cross-checked against now live in `docs/archive/`. **Re-verified against the running source the same day** (not just moved) - the controller/entity counts, the Workflows and Auth endpoint tables, and the JWT session claim in §6.1 had all drifted from actual current code; each is corrected below with what was actually found.
 
 ---
 
@@ -21,8 +23,8 @@
                                ▼
                     ┌────────────────────┐
                     │   NestJS Backend    │   (:3000, prefix /api/v1)
-                    │  23 controllers,    │
-                    │  28 TypeORM entities│
+                    │  24 controllers,    │
+                    │  29 TypeORM entities│
                     └──────────┬──────────┘
                                │
               ┌────────────────┼────────────────┬───────────────┐
@@ -61,7 +63,7 @@ There is **one backend process**, not a microservices mesh. Every "department" (
 | `PredictiveAnalyticsModule` | (reads `parcels`, tax/dispute/restriction/alert tables) | — |
 | `AdminModule` | `departments` (display/admin metadata, distinct from role constants) | — |
 | `UsersModule` | `users` | `AuditModule` |
-| `AuthModule` | (reads/writes `users`) | `UsersModule`, `AuditModule`, `notifications/` (OTP) |
+| `AuthModule` | (reads/writes `users`); `pending_registrations` | `UsersModule`, `AuditModule`, `notifications/` (OTP) |
 | `AuditModule` | `audit_logs` | — |
 | `NotificationFeedModule` | `notifications` (in-app feed — distinct from `notifications/`, OTP delivery infra) | — |
 
@@ -86,7 +88,7 @@ frontend/src/
 └── test/setup.ts
 ```
 
-*`features/document-verification/` no longer exists as a standalone UI — see `docs/FEATURE_TECH_MAP.md` feature 9's note; OCR verification is now folded into the request-filing flow.
+*`features/document-verification/` no longer exists as a standalone UI — see `docs/architecture/FEATURE_TECH_MAP.md` feature 9's note; OCR verification is now folded into the request-filing flow.
 
 **Routes** (`App.tsx`): `/` → `HomePage` for a guest, or a redirect to the signed-in user's own portal; `/citizen/*`, `/officer/*`, `/admin/*` → each wrapped in `RequireAuth` (real JWT session check + role check, redirects to `/login` otherwise) and each a self-contained multi-page portal with its own relative `<Routes>`; `/login`, `/register` → sign-in/registration; `/about`, `/features` → public informational pages, no login; `/parcels/:id` → Parcel 360, a public unguarded route shared by citizen/officer/admin. As of the account-centric redesign, **signing in is required for the entire Citizen Portal** (search, map, document verification, My Parcels) — there is no anonymous/guest path anywhere in the citizen flow; only `/`, `/about`, `/features` need no account.
 
@@ -114,7 +116,7 @@ All paths relative to `/api/v1`. **Auth** column: Public = no guard; Citizen = `
 
 | Area | Base path | Representative routes | Auth |
 |---|---|---|---|
-| Auth | `/auth` | `POST /login`, `POST /register`, `POST /verify-otp`, `POST /resend-otp`, `POST /profile/contact`, `POST /profile/details`, `GET /me` | Mixed |
+| Auth | `/auth` | `POST /login`, `POST /register` (stages a `PendingRegistration`, no `User` row yet), `POST /register/verify-otp`, `POST /register/resend-otp` (the pair that actually creates the `User` row, on success), `POST /verify-otp`, `POST /resend-otp` (profile-level - adding/changing a contact method on an existing account), `POST /profile/contact`, `POST /profile/details`, `GET /me` | Mixed |
 | Users | `/users` | `GET`, `POST`, `PATCH /:id/role`, `DELETE /:id` | Admin |
 | Audit | `/audit` | `GET` (filterable) | Admin |
 | Parcels | `/parcels` | `GET` (search), `GET /:id`, `/:id/geometry`, `/:id/neighbours`, `/:id/context`, `/:id/workflows`, `/:id/360`, `/:id/history`, `/:id/risk-score`, `/:id/documents`, `POST /identify-from-document`, `GET /mine` | Mixed |
@@ -123,7 +125,7 @@ All paths relative to `/api/v1`. **Auth** column: Public = no guard; Citizen = `
 | Spatial layers | `/spatial` | `GET/POST/PATCH/DELETE` on `zoning-overlays`, `restriction-zones`, `infrastructure` (public read, admin write); `admin-notes` (admin-only including reads) | Mixed |
 | State land record schemas | `/state-a/land-records`, `/state-b/land-records` | Full CRUD on each | Public (mock external-state APIs) |
 | Mock departments | `/land-records`, `/registration`, `/planning`, `/tax`, `/restriction`, `/dispute`, `/encumbrance` | `GET /:parcelId` on each | Public |
-| Workflows | `/workflows` | `POST` (citizen), `GET`, `GET /mine` (citizen), `GET /:id`, `GET /:id/evidence`, `PATCH /:id/status`, `PATCH /:workflowId/steps/:stepId`, `POST /:workflowId/steps/:stepId/escalate` (admin) | Mixed |
+| Workflows | `/workflows` | `POST` (citizen), `GET`, `GET /mine` (citizen), `GET /:id`, `GET /:id/evidence`, `PATCH /:id/status`, `PATCH /:workflowId/steps/:stepId`, `POST /:workflowId/steps/:stepId/escalate` (admin - notify the officer, no decision made), `POST /:workflowId/steps/:stepId/reopen` (admin - resets an already-decided step back to `PENDING` for re-review) | Mixed |
 | Governance alerts | `/governance-alerts` | `GET`, `GET /:id`, `PATCH /:id/status` | Staff |
 | AI (Groq) | `/ai` | `POST /query`, `POST /parcels/:parcelId/explain`, `POST /alerts/:alertId/explain` (staff) | Mixed |
 | Change detection | `/change-detection` | `POST /analyze` (multipart) | Staff |
@@ -133,7 +135,7 @@ All paths relative to `/api/v1`. **Auth** column: Public = no guard; Citizen = `
 | Predictive analytics | `/predictive-analytics` | `GET /top-risk-parcels` | Admin |
 | Admin departments | `/admin/departments` | Full CRUD | Admin |
 
-23 controllers total. `GisController` and `SpatialController` are two separate modules that both mount sub-paths — they don't collide, but "the GIS module" is two files, not one.
+24 controllers total. `GisController` and `SpatialController` are two separate modules that both mount sub-paths — they don't collide, but "the GIS module" is two files, not one.
 
 ---
 
@@ -162,7 +164,7 @@ The interoperability layer (`backend/src/interoperability/`) exists specifically
 
 ## 4. Data Schemas
 
-The authoritative schema is the TypeORM entity source under `backend/src/**/*.entity.ts` — **28 entities**. Field names are `camelCase` (TypeORM/JS convention, mapped by TypeORM to the DB columns), and IDs are UUID primary keys unless noted.
+The authoritative schema is the TypeORM entity source under `backend/src/**/*.entity.ts` — **29 entities**. Field names are `camelCase` (TypeORM/JS convention, mapped by TypeORM to the DB columns), and IDs are UUID primary keys unless noted.
 
 ### Core parcel model
 - **`Parcel`** (`parcels`) — `id` (uuid PK), `canonicalParcelId`, `clusterId`, `ulpin`, `stateCode`, `districtCode`, `localBodyCode`, `geometry` (text, GeoJSON), `areaSqM` (decimal 15,2), `createdAt`/`updatedAt`. Indexed on `[stateCode, districtCode]`, `[canonicalParcelId]`, `[ulpin]`, `[clusterId]`.
@@ -198,6 +200,7 @@ The authoritative schema is the TypeORM entity source under `backend/src/**/*.en
 - **`GovernanceAlert`** (`governance_alerts`) — `parcelId`, `alertType` (`RESTRICTION_ZONE_OVERLAP`|`UNAUTHORIZED_CHANGE_DETECTED`|`RESTRICTION_DETECTED`|`DISPUTE_DETECTED`), `severity` (`LOW`|`MEDIUM`|`HIGH`|`CRITICAL`), `source`, `status` — a real 4-stage linear progression: `OPEN → ACKNOWLEDGED → FIELD_VERIFIED → RESOLVED`, with `DISMISSED` reachable as an early exit from any of the first three (enforced server-side, see §6), `reason` (mandatory on every transition), `explanation`. No alert is ever hand-seeded — every row is created by something that actually happened at runtime (a real spatial overlap, a real change-detection analysis, or a real year-over-year historical comparison).
 
 ### Auth, audit & notification schemas
+- **`PendingRegistration`** (`pending_registrations`) — `name`, `method` (`EMAIL`|`MOBILE`), `email`/`mobileNumber` (whichever `method` picked, unique-indexed so two concurrent registrations can't race for the same contact), `passwordHash`, `otpCodeHash`. A citizen who submits the registration form gets a row *here*, not in `users` — no `User` row is created, and no login is possible, until `POST /auth/register/verify-otp` succeeds. Abandoning the flow (never entering the code) leaves no account behind at all.
 - **`User`** (`users`) — `id`, `email`/`mobileNumber` (both nullable+unique), `emailVerified`/`mobileVerified`, `pendingEmail`/`pendingMobileNumber` (staged, unconfirmed change), `passwordHash` (bcrypt), `name`, `role` (varchar — `ADMIN` | one of 7 `*_OFFICER` roles | `CITIZEN`, a plain column, not a separate `roles` table/FK).
 - **`AuditLog`** (`audit_logs`) — `userId`, `userRole`, `action` (e.g. `AUTH_LOGIN`, `WORKFLOW_STEP_APPROVED`/`REJECTED`, `WORKFLOW_STATUS_CHANGED`, `GOVERNANCE_ALERT_STATUS_CHANGED`, `USER_CREATED`/`USER_ROLE_CHANGED`/`USER_DELETED`, `DEPARTMENT_CREATED`/`UPDATED`/`DELETED`), `entityType`, `entityId`, `parcelId` (indexed, lets `GET /parcels/:id/audit` skip parsing every row's metadata), `metadata` (text, JSON-serialized — correlated in application code, not SQL, since it isn't portably query-able as JSON across SQLite/Postgres), `createdAt`. Indexed on `[entityType, entityId]` and `[parcelId]`.
 - **`Notification`** (`notifications`, `notification-feed/`) — `userId`, `type`, `title`, `message`, `parcelId`/`workflowId`/`alertId` (nullable, deep-link targets), `read` (boolean).
@@ -226,9 +229,10 @@ A separate `roles` table with per-role descriptions — a plain `varchar` column
 
 ### 6.1 Authentication & session
 
-- JWT-based (`@nestjs/jwt` + `passport-jwt`), 24h expiry, signed with `JWT_SECRET`. `POST /auth/login` accepts `{email|mobileNumber, password}`, returns uniform `401` for wrong credentials/unknown identifier/malformed input (no user-enumeration signal). Passwords are bcrypt-hashed (`bcryptjs`); every response passes through a `toPublicUser()` transform that strips `passwordHash`.
+- JWT-based (`@nestjs/jwt` + `passport-jwt`), signed with `JWT_SECRET`. **No `expiresIn` is set — the token never expires; a session ends only when the frontend's own Logout button is clicked**, a deliberate product decision ("the session should not log [out]...", `auth.module.ts`), not an oversight - though it does mean a leaked/stolen token stays valid indefinitely with no server-side revocation mechanism (no session table exists yet - tracked as open work, `docs/architecture/BACKLOG.md` #1, and flagged as a real risk in `docs/architecture/KNOWN_RISKS.md`). `POST /auth/login` accepts `{email|mobileNumber, password}`, returns uniform `401` for wrong credentials/unknown identifier/malformed input (no user-enumeration signal). Passwords are bcrypt-hashed (`bcryptjs`); every response passes through a `toPublicUser()` transform that strips `passwordHash`.
 - `GET /auth/me` looks the user up **fresh from the database on every call** rather than trusting the token payload alone, so a deleted account stops working immediately.
-- Citizen self-registration + OTP: mobile OTP is delivered via **TextBee** (`SmsService`, an Android phone as the SMS gateway) - since TextBee is send-only, the code is generated/bcrypt-hashed/checked locally exactly like email OTP (10-minute expiry, 5-attempt lockout), just verified via `SmsService.verifyOtp`'s pure local compare instead of inline in `AuthService`. Email OTP is delivered via **Zoho Mail SMTP**/`nodemailer`. Both notification services follow a consistent "unset config → 503 at call time" pattern — a failed send never fails the surrounding request, since the account/contact value is already saved regardless.
+- **No account exists until a contact method is verified.** `POST /auth/register` creates a `PendingRegistration` row, not a `User` - login is impossible until `POST /auth/register/verify-otp` succeeds, at which point the real `User` row is created and the `PendingRegistration` row is consumed. This is distinct from `POST /auth/verify-otp`/`resend-otp`, the *same* OTP mechanism reused at the profile level for an already-existing account adding or changing a contact method.
+- Citizen self-registration + OTP: mobile OTP is delivered via **TextBee** (`SmsService`, an Android phone as the SMS gateway) - since TextBee is send-only, the code is generated/bcrypt-hashed/checked locally exactly like email OTP (10-minute expiry, 5-attempt lockout), just verified via `SmsService.verifyOtp`'s pure local compare instead of inline in `AuthService`. Email OTP is delivered via **Zoho Mail SMTP**/`nodemailer`. Both notification services follow a consistent "unset config → 503 at call time" pattern — a failed send never fails the surrounding request, since the account/contact value (or, for a first-time registration, the pending row) is already saved regardless.
 - `main.ts` **refuses to start** under `NODE_ENV=production` if `JWT_SECRET` is unset or still the public placeholder default — a real deployment can't accidentally ship the well-known dev secret.
 
 ### 6.2 Authorization (RBAC)
@@ -254,7 +258,7 @@ A real `audit_logs` table records every state-mutating officer/admin action: log
 - Rate limiting: see §2.
 - Secrets: `GROQ_API_KEY`, `JWT_SECRET`, SMTP credentials are read from environment only, never touch frontend code. No secrets are committed (`.env` is gitignored).
 - Self-lockout prevention: an admin cannot change their own role or delete their own account.
-- **What's still open**: a separate `roles` table with per-role descriptions (not needed at current scale); WCAG/screen-reader accessibility review (not done); HTTPS is a deployment-environment concern, not application code (§9).
+- **What's still open**: session/token revocation and a login-attempt lockout (§6.1, `docs/architecture/BACKLOG.md` #1); a separate `roles` table with per-role descriptions (not needed at current scale); WCAG/screen-reader accessibility review (not done); HTTPS is a deployment-environment concern, not application code (§9).
 
 ---
 
@@ -322,4 +326,4 @@ The full literal earth-tone scale (`bhoomi.dark/spruce/forest/card/border/leaf/s
 1. Spatial indexing (above) if parcel volume grows past prototype scale.
 2. A background job queue for OCR/image-diff/narrative-generation endpoints, to keep request latency bounded under real load.
 3. HTTPS termination (a hosting/reverse-proxy concern, not application code) and setting `CORS_ORIGIN` to the real deployed frontend origin(s).
-4. Real OAuth-based authentication as an additional/alternative login method — the one item still open against the team's own original spec (`docs/FEATURE_AUDIT.md`); it needs a real OAuth app registered with an external provider, which only the deploying party can provision.
+4. Real OAuth-based authentication as an additional/alternative login method — the one item still open against the team's own original spec (`docs/archive/FEATURE_AUDIT.md`; see `docs/architecture/BACKLOG.md` for the current open-items list); it needs a real OAuth app registered with an external provider, which only the deploying party can provision.

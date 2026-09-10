@@ -1,4 +1,6 @@
-# BhoomiSetu Platform Audit
+# BhoomiSetu Platform Audit (Known Risks)
+
+*Filed under `docs/architecture/` as `KNOWN_RISKS.md` (moved 2026-09-11 from `docs/QA_SECURITY_PERFORMANCE_AUDIT.md`, content unchanged) — this is a point-in-time audit, not a living document; re-run rather than hand-edit it as fixes land.*
 
 A full-stack functional, security, performance, and reliability review of the BhoomiSetu land-governance prototype — NestJS/TypeORM backend, React/Vite frontend, PostGIS-backed spatial data — conducted against the running application, its source, and its automated test suites. Published as an interactive report at the artifact link below; this file is the same content in Markdown for the repo.
 
