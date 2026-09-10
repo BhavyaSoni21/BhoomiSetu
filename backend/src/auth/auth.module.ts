@@ -7,7 +7,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
-import { JWT_SECRET, JWT_EXPIRES_IN } from './jwt.constants';
+import { JWT_SECRET } from './jwt.constants';
 
 @Module({
   imports: [
@@ -17,7 +17,14 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from './jwt.constants';
     PassportModule,
     JwtModule.register({
       secret: JWT_SECRET,
-      signOptions: { expiresIn: JWT_EXPIRES_IN },
+      // No expiresIn - per the user's explicit "the session should not log
+      // out until the user presses logout", a signed-in session must stay
+      // valid indefinitely; the frontend's own 401 handler (apiService.ts)
+      // already force-redirects to /login on ANY expired/invalid token, so
+      // a fixed expiry (this used to be 24h) was silently ending sessions
+      // out from under an actively-working user. Signing out is now purely
+      // client-side (useLogout clears the token), the only thing that ends
+      // a session.
     }),
   ],
   controllers: [AuthController],
