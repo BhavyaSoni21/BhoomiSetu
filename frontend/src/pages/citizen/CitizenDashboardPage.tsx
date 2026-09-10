@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ChevronRight,
   ExternalLink,
+  PlusCircle,
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser } from '../../features/auth/auth';
