@@ -18,12 +18,12 @@ function renderWithClient() {
 }
 
 const summary = {
-  totals: { parcels: 200, workflows: 12, openAlerts: 36, activeDisputes: 24 },
+  totals: { parcels: 200, workflows: 12, openAlerts: 36, activeDisputes: 24, totalUsers: 10, recentLogins24h: 3 },
   taxStatusDistribution: [{ key: 'PAID', count: 120 }, { key: 'OVERDUE', count: 20 }],
   registrationStatusDistribution: [{ key: 'REGISTERED', count: 150 }],
   landUseDistribution: [{ key: 'RESIDENTIAL', count: 50 }],
   disputeCaseStatusDistribution: [{ key: 'UNDER_REVIEW', count: 12 }],
-  workflowStatusDistribution: [{ key: 'SUBMITTED', count: 8 }],
+  workflowStatusDistribution: [{ key: 'SUBMITTED', count: 8 }, { key: 'APPROVED', count: 3 }, { key: 'REJECTED', count: 1 }],
   workflowTypeDistribution: [{ key: 'ROR_COPY_REQUEST', count: 6 }],
   alertSeverityDistribution: [{ key: 'HIGH', count: 2 }],
   alertStatusDistribution: [{ key: 'OPEN', count: 36 }],
@@ -42,7 +42,7 @@ describe('AnalyticsDashboard', () => {
     expect(apiService.get).toHaveBeenCalledWith('/analytics/summary');
   });
 
-  it('renders the totals stat cards', async () => {
+  it('renders the totals KPI cards', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: summary });
     renderWithClient();
 
@@ -52,19 +52,43 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText('24')).toBeInTheDocument();
   });
 
-  it('renders a chart title for every distribution', async () => {
+  it('renders a card title for every section, using meaningful titles rather than raw field names', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: summary });
     renderWithClient();
 
     await screen.findByText('200');
-    expect(screen.getByText('Tax Status')).toBeInTheDocument();
-    expect(screen.getByText('Registration Status')).toBeInTheDocument();
-    expect(screen.getByText('Land Use')).toBeInTheDocument();
-    expect(screen.getByText('Dispute Case Status')).toBeInTheDocument();
-    expect(screen.getByText('Workflow Status')).toBeInTheDocument();
-    expect(screen.getByText('Workflow Type')).toBeInTheDocument();
-    expect(screen.getByText('Alert Severity')).toBeInTheDocument();
-    expect(screen.getByText('Alert Status')).toBeInTheDocument();
+    expect(screen.getByText('Workflow Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Tax Compliance')).toBeInTheDocument();
+    expect(screen.getByText('Registration Compliance')).toBeInTheDocument();
+    expect(screen.getByText('Dispute Resolution Progress')).toBeInTheDocument();
+    expect(screen.getByText('Governance Alerts by Stage')).toBeInTheDocument();
+    expect(screen.getByText('Land Use Breakdown')).toBeInTheDocument();
+    expect(screen.getByText('Most Common Request Types')).toBeInTheDocument();
+    expect(screen.getByText('Alerts by Severity')).toBeInTheDocument();
+  });
+
+  // The workflow pipeline chart pairs with a derived "approval rate" -
+  // computed client-side from the same distribution data (no new endpoint
+  // or business logic), only shown when at least one workflow has actually
+  // been decided.
+  it('shows the approval rate derived from decided workflows (approved / (approved + rejected))', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: summary });
+    renderWithClient();
+
+    await screen.findByText('200');
+    // 3 approved / (3 approved + 1 rejected) = 75%
+    expect(await screen.findByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('of decided requests approved')).toBeInTheDocument();
+  });
+
+  it('omits the approval rate when no workflow has been decided yet', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({
+      data: { ...summary, workflowStatusDistribution: [{ key: 'SUBMITTED', count: 8 }] },
+    });
+    renderWithClient();
+
+    await screen.findByText('200');
+    expect(screen.queryByText('of decided requests approved')).not.toBeInTheDocument();
   });
 
   it('shows a "no data" message for an empty distribution', async () => {
