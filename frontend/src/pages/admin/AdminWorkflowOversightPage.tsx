@@ -33,7 +33,11 @@ const STATUS_BADGE_STYLES: Record<string, string> = {
 const AdminWorkflowOversightPage: React.FC = () => {
   const { t } = useTranslation();
   const [department, setDepartment] = useState('');
-  const [pendingOnly, setPendingOnly] = useState(true);
+  // Defaults to showing every status, not just PENDING - per the user's
+  // explicit "the admin should be able to see whether the request is
+  // accepted rejected or still pending", the accepted/rejected ones
+  // shouldn't be hidden behind an extra toggle before that's visible.
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
 
   const { data: workflows = [], isLoading, error } = useQuery<Workflow[]>(
@@ -49,6 +53,10 @@ const AdminWorkflowOversightPage: React.FC = () => {
       ).data,
   );
 
+  const pendingCount = workflows.filter((w) => w.currentStatus === 'SUBMITTED' || w.currentStatus === 'IN_PROGRESS').length;
+  const approvedCount = workflows.filter((w) => w.currentStatus === 'APPROVED').length;
+  const rejectedCount = workflows.filter((w) => w.currentStatus === 'REJECTED').length;
+
   return (
     <div className="space-y-6">
       <BackButton variant="ink" />
@@ -57,6 +65,25 @@ const AdminWorkflowOversightPage: React.FC = () => {
         <p className="text-ink/60 mt-1">
           {t('adminPortal.workflowOversightSubtitle')}
         </p>
+      </div>
+
+      {/* At-a-glance status breakdown (per the user's explicit "the admin
+          should be able to see whether the request is accepted rejected or
+          still pending") - counts reflect whatever the filters below are
+          currently narrowed to. */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="border-2 border-ink bg-accent/15 px-4 py-3">
+          <p className="text-2xl font-black text-ink">{pendingCount}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-ink/60">{t('adminPortal.statusPendingLabel')}</p>
+        </div>
+        <div className="border-2 border-ink bg-primary/15 px-4 py-3">
+          <p className="text-2xl font-black text-primary">{approvedCount}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-ink/60">{t('adminPortal.statusApprovedLabel')}</p>
+        </div>
+        <div className="border-2 border-ink bg-secondary/15 px-4 py-3">
+          <p className="text-2xl font-black text-secondary-strong">{rejectedCount}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-ink/60">{t('adminPortal.statusRejectedLabel')}</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

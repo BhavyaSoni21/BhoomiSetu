@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import apiService from '../../services/apiService';
 import { OfficerRole } from '../officer/officerAuth';
 
@@ -74,14 +75,25 @@ export function useAuthUser() {
       try {
         const response = await apiService.get('/auth/me');
         return response.data;
-      } catch {
-        // An expired/invalid token: clear it so the app doesn't keep
-        // retrying with credentials the server has already rejected.
-        clearToken();
-        return null;
+      } catch (err) {
+        // Only a genuine 401 (the server itself rejected this token -
+        // JwtStrategy.validate() found no matching user, or the token is
+        // malformed) means the session is really over; clear it so the app
+        // doesn't keep retrying with credentials the server has already
+        // rejected. Per the user's explicit "the account must not sign out
+        // until the signout button is pressed, even if the site is
+        // refreshed" - a network blip, a 5xx, or the backend being briefly
+        // unreachable on page load must NOT be treated the same way; those
+        // get a couple of retries (below) and otherwise just leave the
+        // query in an error state rather than silently signing the user out.
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          clearToken();
+          return null;
+        }
+        throw err;
       }
     },
-    { retry: false, staleTime: Infinity },
+    { retry: 2, retryDelay: 1000, staleTime: Infinity },
   );
 }
 

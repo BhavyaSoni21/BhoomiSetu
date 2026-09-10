@@ -4,6 +4,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import { Plus } from 'lucide-react';
 
 interface LayerGeometryDrawMapProps {
   // Which draw tools to offer - a subset of ['Point', 'LineString', 'Polygon'],
@@ -44,6 +45,30 @@ function boundsOfGeometry(geometry: GeoJSON.Geometry): maplibregl.LngLatBounds |
   return bounds.isEmpty() ? null : bounds;
 }
 
+// A starter rectangle sized relative to whatever's currently in view (~12%
+// of the visible span on each side of center), not a fixed degree offset -
+// so it reads as a sensibly-sized zone whether the admin is zoomed to a
+// single district or the whole country, rather than a speck or an
+// off-screen sliver.
+function centeredRectangle(map: maplibregl.Map): GeoJSON.Polygon {
+  const { lng, lat } = map.getCenter();
+  const bounds = map.getBounds();
+  const halfLng = (bounds.getEast() - bounds.getWest()) * 0.12;
+  const halfLat = (bounds.getNorth() - bounds.getSouth()) * 0.12;
+  return {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [lng - halfLng, lat - halfLat],
+        [lng + halfLng, lat - halfLat],
+        [lng + halfLng, lat + halfLat],
+        [lng - halfLng, lat + halfLat],
+        [lng - halfLng, lat - halfLat],
+      ],
+    ],
+  };
+}
+
 // Single-shape draw surface for MapLayerManagement's geometry field
 // (docs/ADMIN_PANEL_ISSUES.md Coming Soon #3 follow-up, per the user's
 // explicit "add a map drawing tool only for this admin authoring") -
@@ -53,11 +78,24 @@ function boundsOfGeometry(geometry: GeoJSON.Geometry): maplibregl.LngLatBounds |
 // Deliberately its own small component, separate from the shared
 // features/map/MapComponent.tsx (citizen/officer map) - this drawing
 // capability must never leak outside Admin Map Layer Authoring.
+//
+// The draw toolbar's own polygon/point/line icons (top-left) still work,
+// but they assume the admin already knows mapbox-gl-draw's click-each-
+// vertex-then-close interaction. The "Add Zone" button below (per the
+// user's explicit "there should be a button for adding zone that will add
+// a zone in the middle of the map and that should be editable") is a
+// one-click alternative for Polygon-capable layers: it drops a ready-made
+// rectangle at the current map center and immediately selects it in
+// direct_select mode, so an admin can just drag its corners into place
+// instead of drawing from scratch.
 const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeometryTypes, initialGeometry, onChange }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const drawRef = useRef<MapboxDraw | null>(null);
+  const canAddZone = allowedGeometryTypes.includes('Polygon');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -69,6 +107,7 @@ const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeom
       zoom: 4,
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    mapRef.current = map;
 
     const draw = new MapboxDraw({
       displayControlsDefault: false,
@@ -79,6 +118,7 @@ const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeom
         trash: true,
       },
     });
+    drawRef.current = draw;
     // MapboxDraw implements the same IControl shape maplibre-gl expects
     // (onAdd/onRemove) but is typed against mapbox-gl's own IControl -
     // this cast is the standard way these two libraries are combined.
@@ -112,16 +152,44 @@ const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeom
     if (map.isStyleLoaded()) setup();
     else map.once('load', setup);
 
-    return () => map.remove();
+    return () => {
+      mapRef.current = null;
+      drawRef.current = null;
+      map.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleAddZone = () => {
+    const map = mapRef.current;
+    const draw = drawRef.current;
+    if (!map || !draw) return;
+    draw.deleteAll();
+    const rectangle = centeredRectangle(map);
+    const [createdId] = draw.add({ type: 'Feature', properties: {}, geometry: rectangle });
+    draw.changeMode('direct_select', { featureId: createdId });
+    onChangeRef.current(rectangle);
+  };
+
   return (
     <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-[11px] text-ink/50">
+          {t('adminPortal.drawMapHelperText', { types: allowedGeometryTypes.join(' or ').toLowerCase() })}
+        </p>
+        {canAddZone && (
+          <button
+            type="button"
+            onClick={handleAddZone}
+            className="inline-flex items-center gap-1.5 shrink-0 border-2 border-ink bg-primary hover:bg-primary-strong text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition active:translate-x-[1px] active:translate-y-[1px]"
+          >
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('adminPortal.addZoneCta')}
+          </button>
+        )}
+      </div>
       <div ref={containerRef} className="h-[320px] w-full border-2 border-ink" />
-      <p className="text-[11px] text-ink/50 mt-1">
-        {t('adminPortal.drawMapHelperText', { types: allowedGeometryTypes.join(' or ').toLowerCase() })}
-      </p>
+      {canAddZone && <p className="text-[11px] text-ink/50 mt-1">{t('adminPortal.addZoneHelperText')}</p>}
     </div>
   );
 };
