@@ -47,23 +47,35 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   pendingMobileNumber: string | null;
 
-  // Email OTP challenge state - mobile OTP needs none of this equivalent,
-  // Fast2SMS generates, stores, and checks the code on its own servers (see
-  // SmsService); this codebase's own database never holds a mobile OTP code.
+  // Email OTP challenge state. TextBee (SMS gateway) is send-only so SMS OTP
+  // needs the same columns - both methods store the hashed code + expiry here
+  // and verify locally (bcrypt compare) rather than delegating to a provider.
   @Column({ type: 'varchar', nullable: true })
   emailOtpCodeHash: string | null;
 
   @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   emailOtpExpiresAt: Date | null;
 
-  // Resend rate-limiting (Fast2SMS enforces its own resend window for
-  // mobile; nothing does that for us on the email side, so this does).
+  // Resend rate-limiting and lockout for email OTP (reset on every new send).
   @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   emailOtpSentAt: Date | null;
 
-  // Lockout after repeated wrong codes, reset on every new send.
   @Column({ type: 'int', default: 0 })
   emailOtpAttempts: number;
+
+  // SMS OTP challenge state - mirrors the email OTP columns above.
+  // TextBee sends the SMS but doesn't store/verify the code; we do.
+  @Column({ type: 'varchar', nullable: true })
+  smsOtpCodeHash: string | null;
+
+  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  smsOtpExpiresAt: Date | null;
+
+  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  smsOtpSentAt: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  smsOtpAttempts: number;
 
   @Column({ type: 'varchar' })
   passwordHash: string;

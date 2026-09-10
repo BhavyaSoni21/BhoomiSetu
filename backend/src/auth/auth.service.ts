@@ -119,7 +119,23 @@ export class AuthService {
   // value at registration/add time, or a pending one mid-change).
   async sendOtpFor(user: User, method: ContactMethod, target: string): Promise<void> {
     if (method === 'MOBILE') {
-      await this.smsService.sendOtp(target);
+      // Enforce resend cooldown for SMS (SmsService itself is stateless).
+      const now = new Date();
+      if (
+        user.smsOtpSentAt &&
+        now.getTime() - user.smsOtpSentAt.getTime() < this.smsService.resendCooldownSeconds * 1000
+      ) {
+        throw new BadRequestException(`Please wait before requesting another code`);
+      }
+
+      // TextBee is send-only: SmsService returns the hashed code + expiry
+      // so we persist it on the User row (same pattern as email OTP).
+      const result = await this.smsService.sendOtp(target);
+      user.smsOtpCodeHash = result.codeHash;
+      user.smsOtpExpiresAt = result.expiresAt;
+      user.smsOtpSentAt = result.sentAt;
+      user.smsOtpAttempts = 0;
+      await this.usersService.save(user);
       return;
     }
 
@@ -156,8 +172,30 @@ export class AuthService {
     }
 
     if (method === 'MOBILE') {
-      const verified = await this.smsService.verifyOtp(target, code);
-      if (!verified) throw new BadRequestException('Invalid or expired code');
+      // Local bcrypt check against the hash stored by sendOtpFor() -
+      // same as email OTP; TextBee has no server-side verify API.
+      const result = this.smsService.verifyOtp(
+        user.smsOtpCodeHash,
+        user.smsOtpExpiresAt,
+        user.smsOtpAttempts,
+        code,
+      );
+
+      if (!result.valid) {
+        if (result.reason === 'TOO_MANY_ATTEMPTS') {
+          throw new ForbiddenException('Too many incorrect attempts - request a new code');
+        }
+        if (result.reason === 'WRONG_CODE') {
+          user.smsOtpAttempts += 1;
+          await this.usersService.save(user);
+        }
+        throw new BadRequestException('Invalid or expired code');
+      }
+
+      // Clear SMS OTP state and promote any pending mobile number.
+      user.smsOtpCodeHash = null;
+      user.smsOtpExpiresAt = null;
+      user.smsOtpAttempts = 0;
       if (user.pendingMobileNumber) {
         user.mobileNumber = user.pendingMobileNumber;
         user.pendingMobileNumber = null;

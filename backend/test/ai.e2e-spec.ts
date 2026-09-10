@@ -39,13 +39,20 @@ const square = (minLng: number, minLat: number, size = 0.001) =>
 describe('GroqService configuration', () => {
   it('rejects when GROQ_API_KEY is not set, without making any network call', async () => {
     const previous = process.env.GROQ_API_KEY;
+    const previousGemini = process.env.GEMINI_API_KEY;
     delete process.env.GROQ_API_KEY;
+    delete process.env.GEMINI_API_KEY;
     try {
-      const svc = new GroqService();
+      // GeminiService also needs no key for this test - both providers absent
+      // means completeJson() throws ServiceUnavailableException as expected.
+      const { GeminiService } = await import('../src/ai/gemini.service');
+      const geminiStub = new GeminiService();
+      const svc = new GroqService(geminiStub);
       await expect(svc.completeJson('system', 'user')).rejects.toThrow(ServiceUnavailableException);
       expect(mockCreate).not.toHaveBeenCalled();
     } finally {
       process.env.GROQ_API_KEY = previous;
+      if (previousGemini !== undefined) process.env.GEMINI_API_KEY = previousGemini;
     }
   });
 });
