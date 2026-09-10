@@ -24,9 +24,13 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import ParcelSearchModal from '../components/landing/ParcelSearchModal';
 import { useTheme } from '../theme/theme';
 import { setStoredLanguage } from '../i18n/config';
+import apiService from '../services/apiService';
+import MapComponent from '../features/map/MapComponent';
+import { ParcelSummary } from '../types/parcel';
 
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();
@@ -49,7 +53,17 @@ export const BhoomiSetuLanding: React.FC = () => {
     setStoredLanguage(i18nLang);
   };
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [selectedGridParcel, setSelectedGridParcel] = useState<string>('MH-PUN-0042-2018');
+
+  // Real Pune cluster data for the "Live GIS Preview" section below -
+  // replaces a hand-drawn SVG mockup grid of fake parcel statuses. Locked to
+  // Pune specifically (state=MH, district=PUN - the one cluster with the
+  // richest demo data: zoning/restriction/infrastructure/change-detection
+  // overlays), not affected by anything a visitor does elsewhere on the page.
+  const { data: puneParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
+    ['landing-pune-cluster'],
+    async () => (await apiService.get('/parcels', { params: { state: 'MH', district: 'PUN', limit: 500 } })).data,
+  );
+  const puneParcels = puneParcelsData?.parcels ?? [];
 
   // Handle scroll detection for floating navbar state
   useEffect(() => {
@@ -502,16 +516,6 @@ export const BhoomiSetuLanding: React.FC = () => {
 
         {/* Hero Bottom Area */}
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 space-y-4">
-          {/* Floating badge, bottom-left: parchment-tan rounded card */}
-          <div className="flex items-center">
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#E9DDC2] border border-[#D9CAA5] shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
-              <img src="/apple-touch-icon.png" alt="BhoomiSetu" className="w-5 h-5 rounded-md" />
-              <span className="font-heading font-bold text-xs sm:text-sm text-[#0F3D2E] tracking-tight">
-                {t.hero.badge}
-              </span>
-            </div>
-          </div>
-
           {/* Bottom hairline + row of tracked government labels */}
           <div className="pt-3 border-t border-white/25">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
@@ -619,21 +623,6 @@ export const BhoomiSetuLanding: React.FC = () => {
                 {t.gisPreview.body}
               </p>
 
-              {/* Color legend */}
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                {t.gisPreview.legend.map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 text-xs font-medium text-[#34413A] dark:text-white/80">
-                    <span
-                      className={`w-3 h-3 rounded-full shrink-0 ${
-                        item.isDashed ? 'border-2 border-dashed border-[#F59E0B] bg-[#F59E0B]/30' : ''
-                      }`}
-                      style={{ backgroundColor: item.isDashed ? undefined : item.color }}
-                    />
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-
               {/* Quick Action to open search */}
               <div className="pt-2">
                 <button
@@ -663,84 +652,24 @@ export const BhoomiSetuLanding: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Stylized SVG Parcel Grid */}
-                <div className="p-6 sm:p-8 flex justify-center bg-[#F7FAF5]/50 dark:bg-black/20">
-                  <svg
-                    viewBox="0 0 520 280"
-                    className="w-full max-w-[480px] h-auto drop-shadow-xs"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    {/* Row 1 */}
-                    <rect x="10" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="105" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="200" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="390" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-
-                    {/* Row 2 */}
-                    <rect x="10" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Selected Parcel in Row 2 Column 2 (Amber with pulsing outline + pin) */}
-                    <g
-                      className="cursor-pointer group"
-                      onClick={() => setSelectedGridParcel('MH-PUN-0042-2018')}
-                    >
-                      <rect
-                        x="105"
-                        y="75"
-                        width="85"
-                        height="55"
-                        rx="6"
-                        fill="#D97706"
-                        stroke="#F59E0B"
-                        strokeWidth="2.5"
-                        className="animate-parcel-pulse"
-                      />
-                      {/* Location Pin inside selected parcel */}
-                      <circle cx="147.5" cy="98" r="6" fill="#78350F" />
-                      <path d="M147.5 108 L144 102 L151 102 Z" fill="#78350F" />
-                    </g>
-                    <rect x="200" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Pending Parcel (Amber dashed) */}
-                    <rect
-                      x="390"
-                      y="75"
-                      width="85"
-                      height="55"
-                      rx="6"
-                      fill="#F59E0B"
-                      fillOpacity="0.85"
-                      stroke="#B45309"
-                      strokeWidth="2"
-                      strokeDasharray="4 3"
-                    />
-
-                    {/* Row 3 */}
-                    <rect x="10" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Disputed Parcel (Red #DC2626) */}
-                    <rect x="105" y="140" width="85" height="55" rx="6" fill="#DC2626" opacity="0.9" />
-                    <rect x="200" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="390" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-
-                    {/* Row 4 */}
-                    <rect x="10" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="105" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="200" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* High Risk Parcel (Dark Amber #92400E) */}
-                    <rect x="295" y="205" width="85" height="55" rx="6" fill="#92400E" opacity="0.95" />
-                    <rect x="390" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                  </svg>
+                {/* The real Pune cluster, not a mockup - MapComponent fetches
+                    live parcel geometry via /gis/parcels + real spatial
+                    context, so this is the same map the Citizen/Officer
+                    Portals use, just handed only Pune's own parcels and
+                    locked to them (no search box, no layer switching to a
+                    different cluster) for this preview. */}
+                <div className="bg-[#F7FAF5]/50 dark:bg-black/20">
+                  <MapComponent parcels={puneParcels} fitToParcels showLayerPanel={false} />
                 </div>
 
                 {/* Footer of the card */}
                 <div className="px-6 py-3.5 bg-gray-50/70 dark:bg-black/20 border-t border-black/10 dark:border-white/10 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 font-mono text-[#53635A] dark:text-white/70">
                     <MapPin className="w-3.5 h-3.5 text-[#D97706]" />
-                    <span>ULPIN: {selectedGridParcel}</span>
+                    <span>{puneParcels.length} parcels · PostGIS-backed</span>
                   </div>
                   <span className="px-2.5 py-0.5 rounded-md bg-[#166534]/15 text-[#166534] dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold text-[11px] border border-[#166534]/20">
-                    Verified
+                    Live Data
                   </span>
                 </div>
               </div>
