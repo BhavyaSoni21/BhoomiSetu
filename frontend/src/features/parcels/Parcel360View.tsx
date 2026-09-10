@@ -81,6 +81,7 @@ const Parcel360View: React.FC = () => {
   const { data: authUser } = useAuthUser();
   const isOfficer = !!authUser && (OFFICER_ROLES as readonly string[]).includes(authUser.role);
   const isCitizen = authUser?.role === 'CITIZEN';
+  const isStaffViewer = isOfficer || authUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
   // "Locate" action, next to the map's own year toggle (per the user's
@@ -147,16 +148,17 @@ const Parcel360View: React.FC = () => {
   );
   const isOwnParcel = isCitizen && !!myParcelsData?.parcels.some((p) => p.id === parcel360?.parcel_id);
 
-  // Risk score for a citizen's own parcel only (docs/ADMIN_PANEL_ISSUES.md
-  // follow-up) - the same real weighted score AdminDashboard's Top Risk
-  // Parcels list already surfaces to staff, now also shown to the owner on
-  // their own Parcel 360 Overview. Public endpoint, but only fetched/shown
-  // here for isOwnParcel so a citizen browsing a parcel that isn't theirs
-  // doesn't see someone else's risk detail on this page.
+  // Risk score for a citizen's own parcel, or any parcel for staff
+  // (docs/ADMIN_PANEL_ISSUES.md follow-up) - the same real weighted score
+  // AdminDashboard's Top Risk Parcels list already surfaces to staff, now
+  // also shown inline on Parcel 360 itself. Public endpoint, but only
+  // fetched/shown here for an owner/staff viewer so a citizen browsing a
+  // parcel that isn't theirs doesn't see someone else's risk detail.
+  const canViewRiskScore = isOwnParcel || isStaffViewer;
   const { data: riskScore } = useQuery<RiskScore>(
     ['risk-score', id],
     async () => (await apiService.get(`/parcels/${id}/risk-score`)).data,
-    { enabled: !!id && isOwnParcel },
+    { enabled: !!id && canViewRiskScore },
   );
 
   // Public (2026-09-08) - when the parcel belongs to a cluster, upgrades the
@@ -356,7 +358,7 @@ const Parcel360View: React.FC = () => {
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Area</h2>
               <Field label="Area" value={`${spatial.area_sq_m.toLocaleString()} m²`} />
             </div>
-            {isOwnParcel && riskScore && (
+            {canViewRiskScore && riskScore && (
               <div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Risk Score</h2>
                 <span
