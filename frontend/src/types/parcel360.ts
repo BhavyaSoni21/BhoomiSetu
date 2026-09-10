@@ -114,4 +114,9 @@ export interface Parcel360Response {
     dispute: DisputeRecord | null;
     encumbrance: EncumbranceRecord | null;
   };
+  // True when Planning/Tax/Restriction/Dispute/Encumbrance were withheld
+  // because the viewer is neither staff nor the citizen this parcel is
+  // associated with - lets the UI tell "restricted" apart from "genuinely
+  // no data on file" (the null cases above cover both).
+  restrictedForViewer: boolean;
 }

@@ -275,6 +275,49 @@ describe('Parcels endpoints (e2e)', () => {
     it('returns 404 for a well-formed but unknown UUID', async () => {
       await request(app.getHttpServer()).get('/api/v1/parcels/00000000-0000-0000-0000-000000000000/360').expect(404);
     });
+
+    // Ownership-only department detail (Planning/Tax/Restriction/Dispute/
+    // Encumbrance) is withheld from anyone but staff or the parcel's own
+    // linked citizen - mirrors the ownership-history endpoint's existing
+    // access rule, just enforced here as a field-level mask (200 + nulled
+    // fields + restrictedForViewer: true) instead of a 401/403, since the
+    // rest of the 360 envelope (Land Records, Registration, spatial/
+    // identifiers) stays public either way.
+    it('withholds owner-only departments and sets restrictedForViewer for an anonymous caller', async () => {
+      const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${citizenLinkedParcel.id}/360`).expect(200);
+      expect(res.body.restrictedForViewer).toBe(true);
+      expect(res.body.departments.planning).toBeNull();
+      expect(res.body.departments.tax).toBeNull();
+      expect(res.body.departments.restriction).toBeNull();
+      expect(res.body.departments.dispute).toBeNull();
+      expect(res.body.departments.encumbrance).toBeNull();
+    });
+
+    it('withholds owner-only departments for a signed-in citizen who is not associated with the parcel', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/360`)
+        .set('Authorization', otherCitizenAuth)
+        .expect(200);
+      expect(res.body.restrictedForViewer).toBe(true);
+      expect(res.body.departments.tax).toBeNull();
+    });
+
+    it('does not restrict for the citizen this parcel is actually associated with', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/360`)
+        .set('Authorization', citizenAuth)
+        .expect(200);
+      expect(res.body.restrictedForViewer).toBe(false);
+    });
+
+    it('does not restrict for a staff account, regardless of association', async () => {
+      const officerAuth = (await createAuthenticatedUser(moduleFixture, 'LAND_RECORD_OFFICER')).authHeader;
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/parcels/${citizenLinkedParcel.id}/360`)
+        .set('Authorization', officerAuth)
+        .expect(200);
+      expect(res.body.restrictedForViewer).toBe(false);
+    });
   });
 
   describe('GET /api/v1/parcels/:id/neighbours', () => {

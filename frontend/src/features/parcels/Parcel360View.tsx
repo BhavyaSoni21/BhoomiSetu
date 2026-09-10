@@ -30,6 +30,14 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'ownershipHistory', label: 'Ownership History' },
 ];
 
+// Owner-only tabs (parcels.controller.ts's getParcel360 withholds these same
+// five departments server-side when restrictedForViewer is true; Ownership
+// History is separately 401/403-gated by GET :id/ownership-history). Per
+// the user's explicit "remove the options itself... it should not be able
+// to see the details" - hidden entirely for a non-owner, not just shown
+// with a "restricted" message.
+const OWNER_ONLY_TAB_KEYS: TabKey[] = ['planning', 'tax', 'restriction', 'dispute', 'encumbrance', 'ownershipHistory'];
+
 function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
@@ -178,6 +186,7 @@ const Parcel360View: React.FC = () => {
 
   const { identifiers, location, spatial, sources, departments } = parcel360;
   const statusByDepartment = Object.fromEntries(sources.map((s) => [s.department, s.status]));
+  const visibleTabs = parcel360.restrictedForViewer ? TABS.filter((tab) => !OWNER_ONLY_TAB_KEYS.includes(tab.key)) : TABS;
 
   return (
     <div className="space-y-6">
@@ -289,7 +298,7 @@ const Parcel360View: React.FC = () => {
 
         <div className="border-b-2 border-ink/20 mb-4 overflow-x-auto">
           <nav className="-mb-px flex flex-wrap gap-1" aria-label="Parcel 360 sections">
-            {TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}

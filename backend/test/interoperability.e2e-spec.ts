@@ -210,11 +210,22 @@ describe('Interoperability (e2e)', () => {
   });
 
   describe('GET /api/v1/parcels/:id/360 end-to-end', () => {
-    it('serves the same aggregated result through the HTTP endpoint', async () => {
+    // Anonymous (no bearer token) is the same footing an unrelated citizen
+    // gets - only Land Records/Registration/the canonical envelope come
+    // through; Planning/Tax/Restriction/Dispute/Encumbrance are withheld
+    // (parcels.controller.ts's getParcel360), same restriction as
+    // ownership-history, just applied to the 360 view's own fields instead
+    // of a separate endpoint.
+    it('serves the canonical envelope and Land Records, but withholds owner-only departments, for an anonymous caller', async () => {
       const res = await request(app.getHttpServer()).get(`/api/v1/parcels/${fullMhParcel.id}/360`).expect(200);
       expect(res.body.parcel_id).toBe(fullMhParcel.id);
       expect(res.body.departments.landRecords.ownerName).toBe('Interop Owner');
-      expect(res.body.departments.tax.taxStatus).toBe('PAID');
+      expect(res.body.departments.tax).toBeNull();
+      expect(res.body.departments.planning).toBeNull();
+      expect(res.body.departments.restriction).toBeNull();
+      expect(res.body.departments.dispute).toBeNull();
+      expect(res.body.departments.encumbrance).toBeNull();
+      expect(res.body.restrictedForViewer).toBe(true);
     });
   });
 });

@@ -8,6 +8,7 @@ import { WorkflowsService } from '../workflows/workflows.service';
 import { PredictiveAnalyticsService } from '../predictive-analytics/predictive-analytics.service';
 import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ALL_STAFF_ROLES, CITIZEN_ROLE } from '../auth/roles.constants';
@@ -121,13 +122,32 @@ export class ParcelsController {
     return this.workflowsService.findByParcel(id);
   }
 
+  // Public by default (a search result should still be inspectable before
+  // signing in), but the ownership-sensitive department fields - Planning,
+  // Tax, Restriction, Dispute, Encumbrance - are only included for staff or
+  // the citizen actually associated with this parcel, same reasoning as
+  // ownership-history below: anyone else browsing a parcel that isn't theirs
+  // shouldn't see its financial/legal detail, only the general-purpose
+  // Land Records/Registration facts.
   @Get(':id/360')
-  async getParcel360(@Param('id', ParseUUIDPipe) id: string) {
+  @UseGuards(OptionalJwtAuthGuard)
+  async getParcel360(@CurrentUser() user: User | undefined, @Param('id', ParseUUIDPipe) id: string) {
     const result = await this.responseAggregatorService.buildParcel360(id);
     if (!result) {
       throw new NotFoundException(`Parcel not found with id: ${id}`);
     }
-    return result;
+    let canViewRestrictedDepartments = !!user && (ALL_STAFF_ROLES as readonly string[]).includes(user.role);
+    if (!canViewRestrictedDepartments && user?.role === CITIZEN_ROLE) {
+      canViewRestrictedDepartments = await this.parcelsService.isCitizenAssociatedWithParcel(user.id, id);
+    }
+    if (!canViewRestrictedDepartments) {
+      result.departments.planning = null;
+      result.departments.tax = null;
+      result.departments.restriction = null;
+      result.departments.dispute = null;
+      result.departments.encumbrance = null;
+    }
+    return { ...result, restrictedForViewer: !canViewRestrictedDepartments };
   }
 
   // Citizen-restricted (docs/FEATURE_AUDIT.md §8a): staff always see it;

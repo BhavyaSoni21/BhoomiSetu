@@ -125,9 +125,9 @@ describe('Historical Imagery (e2e)', () => {
       expect(entry.years).toEqual([OLD_YEAR, PREVIOUS_YEAR, CURRENT_YEAR]);
     });
 
-    // Public (2026-09-08) - Parcel 360's own citizen-facing embed needs this,
-    // and it exposes nothing GET /parcels/:id/360's Dispute/Restriction tabs
-    // don't already show publicly.
+    // Public (2026-09-08) - Parcel 360's own citizen-facing embed needs this;
+    // a cluster listing (id/year list) carries none of the owner-only detail
+    // that GET /parcels/:id/360 itself withholds from a non-owner viewer.
     it('is public - a citizen and an unauthenticated request can both list clusters', async () => {
       await request(app.getHttpServer()).get('/api/v1/historical-imagery/clusters').set('Authorization', citizenAuth).expect(200);
       await request(app.getHttpServer()).get('/api/v1/historical-imagery/clusters').expect(200);

@@ -297,6 +297,52 @@ describe('Parcel360View', () => {
     expect(screen.queryByRole('button', { name: 'Verify Documents' })).not.toBeInTheDocument();
   });
 
+  // Backend withholds Planning/Tax/Restriction/Dispute/Encumbrance and sets
+  // restrictedForViewer: true for anyone but staff or the parcel's own
+  // citizen (parcels.controller.ts's getParcel360). Per the user's explicit
+  // "remove the options itself... it should not be able to see the details",
+  // those tab buttons - and Ownership History, which is separately gated -
+  // are hidden entirely for a restricted viewer, not just shown with a
+  // "not available"/"restricted" message.
+  it('hides the Planning/Tax/Restriction/Dispute/Encumbrance/Ownership History tabs for a citizen who does not own this parcel', async () => {
+    mockGet({
+      parcel360: { ...fullResponse, restrictedForViewer: true },
+      myParcels: { parcels: [{ id: 'some-other-parcel' }], total: 1 },
+    });
+    renderWithProviders();
+
+    await screen.findByText('Parcel 360');
+    expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Land Records' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Registration' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Planning' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tax' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Restriction' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dispute' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Encumbrance' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ownership History' })).not.toBeInTheDocument();
+  });
+
+  it('hides the same owner-only tabs for an anonymous (signed-out) viewer', async () => {
+    mockGet({ parcel360: { ...fullResponse, restrictedForViewer: true } });
+    renderWithProviders('p1', null);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.queryByRole('button', { name: 'Planning' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tax' })).not.toBeInTheDocument();
+  });
+
+  it('still shows every tab for staff, and for the citizen who actually owns the parcel', async () => {
+    mockGet({ parcel360: { ...fullResponse, restrictedForViewer: false } });
+    renderWithProviders('p1', officer);
+
+    await screen.findByText('Parcel 360');
+    expect(screen.getByRole('button', { name: 'Planning' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tax' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Encumbrance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ownership History' })).toBeInTheDocument();
+  });
+
   it('shows "Parcel not found" and an error state appropriately', async () => {
     vi.mocked(apiService.get).mockRejectedValue(new Error('404'));
     renderWithProviders();
