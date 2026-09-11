@@ -67,11 +67,25 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const fillDemo = (demoEmail: string) => {
+  const fillDemo = async (demoEmail: string) => {
     setMethod('EMAIL');
     setEmail(demoEmail);
     setPassword(DEMO_PASSWORD);
     setDemoOpen(false);
+    setError(null);
+    try {
+      const user = await loginMutation.mutateAsync({ email: demoEmail, password: DEMO_PASSWORD });
+      const dest =
+        user.role === 'ADMIN'   ? '/admin'   :
+        user.role === 'CITIZEN' ? '/citizen' : '/officer';
+      navigate(dest);
+    } catch (err) {
+      setError(
+        axios.isAxiosError(err) && err.response?.status === 401
+          ? t('authPage.invalidCredentialsError')
+          : t('authPage.genericError'),
+      );
+    }
   };
 
   return (
@@ -126,7 +140,7 @@ const LoginPage: React.FC = () => {
         <div className="relative z-10 mt-10 space-y-6">
           <div
             className="inline-block px-3 py-1 rounded-full text-xs font-mono font-semibold uppercase tracking-widest"
-            style={{ background: 'rgba(245,158,11,0.18)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}
+            style={{ background: 'rgba(var(--action-500), 0.18)', color: 'var(--action-700)', border: '1px solid rgba(var(--action-500), 0.3)' }}
           >
             {t('authPage.gisLandGovernanceBadge')}
           </div>
@@ -143,13 +157,13 @@ const LoginPage: React.FC = () => {
           {/* Trust indicators */}
           <div className="flex flex-col gap-3 pt-2">
             {[
-              { label: t('authPage.trustParcelsMapped'), color: '#86EFAC' },
-              { label: t('authPage.trustDeptFeeds'), color: '#86EFAC' },
-              { label: t('authPage.trustSvamitva'), color: '#86EFAC' },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2.5">
-                <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: item.color }} />
-                <span className="text-white/80 text-sm">{item.label}</span>
+              t('authPage.trustParcelsMapped'),
+              t('authPage.trustDeptFeeds'),
+              t('authPage.trustSvamitva'),
+            ].map((label) => (
+              <div key={label} className="flex items-center gap-2.5">
+                <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'var(--brand-300)' }} />
+                <span className="text-white/80 text-sm">{label}</span>
               </div>
             ))}
           </div>
@@ -366,9 +380,9 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loginMutation.isLoading}
-              className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-heading font-bold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-[4px] font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
               style={{
-                background: 'var(--brand-900)',
+                background: '#208A43',
                 color: '#FFFFFF',
               }}
             >

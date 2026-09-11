@@ -204,7 +204,7 @@ const RegisterPage: React.FC = () => {
           <div className="space-y-2.5 pt-1">
             {[t('authPage.registerBulletFree'), t('authPage.registerBulletVerify'), t('authPage.registerBulletTrack')].map((bullet) => (
               <div key={bullet} className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#86EFAC' }} />
+                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--brand-300)' }} />
                 <span className="text-white/80 text-sm">{bullet}</span>
               </div>
             ))}
@@ -421,8 +421,8 @@ const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={registerMutation.isLoading}
-              className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-heading font-bold text-sm tracking-wide transition-all duration-150 disabled:opacity-50"
-              style={{ background: 'var(--brand-900)', color: '#FFFFFF' }}
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-[4px] font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 cursor-pointer shadow-xs"
+              style={{ background: '#208A43', color: '#FFFFFF' }}
             >
               {registerMutation.isLoading ? (
                 <>

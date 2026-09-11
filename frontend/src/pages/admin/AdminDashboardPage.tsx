@@ -17,9 +17,9 @@ const AdminDashboardPage: React.FC = () => {
       <div
         className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, var(--brand-900) 0%, #154D3B 100%)',
+          background: 'linear-gradient(135deg, var(--brand-900) 0%, var(--brand-700) 100%)',
           border: '1px solid rgba(255,255,255,0.12)',
-          boxShadow: '0 8px 30px rgba(15, 61, 46, 0.12)',
+          boxShadow: '0 8px 30px rgba(var(--color-ink), 0.12)',
         }}
       >
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -27,11 +27,7 @@ const AdminDashboardPage: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold"
-                style={{
-                  background: 'rgba(245, 158, 11, 0.2)',
-                  color: '#FBBF24',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
-                }}
+                style={{ background: 'rgba(var(--action-500), 0.2)', color: 'var(--action-500)', border: '1px solid rgba(var(--action-500), 0.4)' }}
               >
                 <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
                 SYSTEM ADMINISTRATOR · ROOT CONSOLE

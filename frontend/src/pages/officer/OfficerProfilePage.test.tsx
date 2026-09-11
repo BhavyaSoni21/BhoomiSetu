@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OfficerProfilePage from './OfficerProfilePage';
 import apiService from '../../services/apiService';
@@ -23,7 +24,9 @@ function renderPage(user: AuthUser) {
   client.setQueryData(['auth-me'], user);
   return render(
     <QueryClientProvider client={client}>
-      <OfficerProfilePage />
+      <MemoryRouter>
+        <OfficerProfilePage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
