@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { CheckCircle2, Mail, Phone } from 'lucide-react';
-import { useUpdateContact, AuthUser, ContactMethod } from './auth';
+import { useUpdateContact, useVerifyOtp, useResendOtp, AuthUser, ContactMethod } from './auth';
 import OtpEntryForm from './OtpEntryForm';
 
 type Mode = 'view' | 'edit' | 'otp';
@@ -26,6 +26,8 @@ export interface ContactMethodCardProps {
 const ContactMethodCard: React.FC<ContactMethodCardProps> = ({ method, user }) => {
   const { t } = useTranslation();
   const updateContactMutation = useUpdateContact();
+  const verifyOtpMutation = useVerifyOtp();
+  const resendOtpMutation = useResendOtp();
   const [mode, setMode] = useState<Mode>('view');
   const [inputValue, setInputValue] = useState('');
   const [otpTarget, setOtpTarget] = useState('');
@@ -62,7 +64,17 @@ const ContactMethodCard: React.FC<ContactMethodCardProps> = ({ method, user }) =
           <Icon className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
           {label}
         </h3>
-        <OtpEntryForm method={method} target={otpTarget} onVerified={() => setMode('view')} onCancel={() => setMode('view')} />
+        <OtpEntryForm
+          method={method}
+          target={otpTarget}
+          onVerifyCode={(code) => verifyOtpMutation.mutateAsync({ method, code })}
+          onResend={() => resendOtpMutation.mutateAsync({ method })}
+          verifying={verifyOtpMutation.isLoading}
+          resending={resendOtpMutation.isLoading}
+          verifyError={verifyOtpMutation.error}
+          onVerified={() => setMode('view')}
+          onCancel={() => setMode('view')}
+        />
       </div>
     );
   }

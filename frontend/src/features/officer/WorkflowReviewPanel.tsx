@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
+import { Parcel360Response } from '../../types/parcel360';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
 
 interface WorkflowReviewPanelProps {
@@ -44,6 +45,137 @@ function formatDate(value: string | null): string {
   if (!value) return 'N/A';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-IN');
+}
+
+function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+// A department only ever gets to decide its own step (WorkflowsController.
+// reviewStep's FORBIDDEN_WRONG_DEPARTMENT check), so the case review panel
+// should only surface that same department's own parcel record here -
+// mirrors Parcel360View.tsx's per-tab field lists, not imported from there
+// since that component isn't built for reuse (this codebase's usual
+// duplicate-small-things-rather-than-share convention).
+const DEPARTMENT_360_KEY: Record<string, keyof Parcel360Response['departments']> = {
+  LAND_RECORDS: 'landRecords',
+  REGISTRATION: 'registration',
+  PLANNING: 'planning',
+  TAX: 'tax',
+  RESTRICTION: 'restriction',
+  DISPUTE: 'dispute',
+  ENCUMBRANCE: 'encumbrance',
+};
+
+function DepartmentRecordField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs py-1">
+      <span className="text-ink/50 uppercase tracking-wide">{label}</span>
+      <span className="text-ink font-semibold text-right">{value}</span>
+    </div>
+  );
+}
+
+function DepartmentRecordFields({ department, departments }: { department: string; departments: Parcel360Response['departments'] }) {
+  switch (department) {
+    case 'LAND_RECORDS': {
+      const record = departments.landRecords;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Source Schema" value={record.sourceSchema} />
+          <DepartmentRecordField label="Source Identifier" value={record.sourceIdentifier} />
+          <DepartmentRecordField label="Owner Name" value={record.ownerName} />
+          <DepartmentRecordField label="Area" value={`${record.areaSqM.toLocaleString()} m²`} />
+          <DepartmentRecordField label="Locality" value={record.locality} />
+        </>
+      );
+    }
+    case 'REGISTRATION': {
+      const record = departments.registration;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Status" value={record.registrationStatus} />
+          <DepartmentRecordField label="Registration Number" value={record.registrationNumber || 'N/A'} />
+          <DepartmentRecordField label="Registration Date" value={formatDate(record.registrationDate)} />
+          <DepartmentRecordField label="Last Transaction" value={record.lastTransactionType || 'N/A'} />
+          <DepartmentRecordField label="Last Transaction Date" value={formatDate(record.lastTransactionDate)} />
+        </>
+      );
+    }
+    case 'PLANNING': {
+      const record = departments.planning;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Land Use" value={record.landUse} />
+          <DepartmentRecordField label="Zoning Classification" value={record.zoningClassification} />
+          <DepartmentRecordField label="Master Plan Reference" value={record.masterPlanReference} />
+          <DepartmentRecordField label="Building Permission" value={record.buildingPermissionStatus} />
+        </>
+      );
+    }
+    case 'TAX': {
+      const record = departments.tax;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Assessed Value" value={formatCurrency(record.assessedValue)} />
+          <DepartmentRecordField label="Annual Tax" value={formatCurrency(record.annualTaxAmount)} />
+          <DepartmentRecordField label="Tax Status" value={record.taxStatus} />
+          <DepartmentRecordField label="Outstanding Amount" value={formatCurrency(record.outstandingAmount)} />
+          <DepartmentRecordField label="Last Payment Date" value={formatDate(record.lastPaymentDate)} />
+        </>
+      );
+    }
+    case 'RESTRICTION': {
+      const record = departments.restriction;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Restriction" value={record.hasRestriction ? 'Yes' : 'No'} />
+          {record.hasRestriction && (
+            <>
+              <DepartmentRecordField label="Restriction Type" value={record.restrictionType || 'N/A'} />
+              <DepartmentRecordField label="Details" value={record.restrictionDetails || 'N/A'} />
+              <DepartmentRecordField label="Imposing Authority" value={record.imposingAuthority || 'N/A'} />
+            </>
+          )}
+        </>
+      );
+    }
+    case 'DISPUTE': {
+      const record = departments.dispute;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Active Dispute" value={record.hasActiveDispute ? 'Yes' : 'No'} />
+          <DepartmentRecordField label="Dispute Type" value={record.disputeType || 'N/A'} />
+          <DepartmentRecordField label="Case Status" value={record.caseStatus || 'N/A'} />
+          <DepartmentRecordField label="Filing Date" value={formatDate(record.filingDate)} />
+        </>
+      );
+    }
+    case 'ENCUMBRANCE': {
+      const record = departments.encumbrance;
+      if (!record) return null;
+      return (
+        <>
+          <DepartmentRecordField label="Has Encumbrance" value={record.hasEncumbrance ? 'Yes' : 'No'} />
+          {record.hasEncumbrance && (
+            <>
+              <DepartmentRecordField label="Encumbrance Type" value={record.encumbranceType || 'N/A'} />
+              <DepartmentRecordField label="Lender Name" value={record.lenderName || 'N/A'} />
+              <DepartmentRecordField label="Instrument Reference" value={record.instrumentReference || 'N/A'} />
+            </>
+          )}
+        </>
+      );
+    }
+    default:
+      return null;
+  }
 }
 
 // Status semantics win over the portal's role color here (docs/design.md):
@@ -277,6 +409,119 @@ const AdminStepRow: React.FC<AdminStepRowProps> = ({ workflowId, step }) => {
   );
 };
 
+interface ReopenStepFormProps {
+  workflowId: string;
+  step: WorkflowStep;
+  onCancel: () => void;
+}
+
+// Admin oversight "send back for re-review" action - the counterpart to
+// EscalateStepForm above, but for a step that's ALREADY been decided
+// (APPROVED/REJECTED). Unlike escalate, this actually resets the step back
+// to PENDING (WorkflowsService.reopenStep) so the responsible officer has to
+// re-examine and re-decide it, rather than just being nudged about it.
+const ReopenStepForm: React.FC<ReopenStepFormProps> = ({ workflowId, step, onCancel }) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState('');
+
+  const reopenMutation = useMutation(
+    async () => {
+      const response = await apiService.post(`/workflows/${workflowId}/steps/${step.id}/reopen`, {
+        message: message.trim(),
+      });
+      return response.data as Workflow;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['workflow', workflowId]);
+        queryClient.invalidateQueries(['officer-workflows']);
+        queryClient.invalidateQueries(['admin-workflows']);
+      },
+    },
+  );
+
+  const fieldId = `reopen-message-${step.id}`;
+  const roleLabel = step.assignedRole.replace(/_/g, ' ');
+
+  return (
+    <div className="mt-2 border-2 border-secondary/60 bg-secondary/10 p-3">
+      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+        {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
+      </label>
+      <textarea
+        id={fieldId}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink focus:outline-none focus:border-primary"
+        rows={2}
+        placeholder={t('officerPortal.reopenMessagePlaceholder')}
+      />
+      {reopenMutation.isError && (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong mt-1">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {t('officerPortal.reopenSubmitError')}
+        </p>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="button"
+          onClick={() => reopenMutation.mutate()}
+          disabled={reopenMutation.isLoading || !message.trim()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+        >
+          <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+          {t('officerPortal.sendBackCta')}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 border-2 border-ink text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+        >
+          {t('officerPortal.cancelCta')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+interface AdminDecidedStepRowProps {
+  workflowId: string;
+  step: WorkflowStep;
+}
+
+type AdminDecidedStepMode = 'idle' | 'reopen';
+
+// One row per already-decided step in Admin oversight mode - lets an Admin
+// flag a decision that needs a second look back to the officer who made it,
+// so they have to re-calibrate it rather than it standing unquestioned.
+const AdminDecidedStepRow: React.FC<AdminDecidedStepRowProps> = ({ workflowId, step }) => {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<AdminDecidedStepMode>('idle');
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{step.department.replace(/_/g, ' ')}</h4>
+          <span className={statusBadgeClass(step.status)}>{step.status}</span>
+        </div>
+        {mode === 'idle' && (
+          <button
+            type="button"
+            onClick={() => setMode('reopen')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 border-2 border-ink bg-secondary/15 text-secondary-strong font-bold text-[10px] uppercase tracking-widest hover:bg-secondary/25 transition"
+          >
+            <RotateCcw className="w-3 h-3" aria-hidden="true" />
+            {t('officerPortal.sendBackForReviewCta')}
+          </button>
+        )}
+      </div>
+      {mode === 'reopen' && <ReopenStepForm workflowId={workflowId} step={step} onCancel={() => setMode('idle')} />}
+    </div>
+  );
+};
+
 const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
   const { t } = useTranslation();
   const { data: workflow, isLoading, error } = useQuery<Workflow>(
@@ -295,6 +540,16 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
     { enabled: isVerificationType },
   );
 
+  // Case review is scoped to the reviewing officer's own department - fetched
+  // only in officer mode (Admin oversight has no single department to scope
+  // to, and already has the full "View Parcel" link below for a complete
+  // picture).
+  const { data: parcel360 } = useQuery<Parcel360Response>(
+    ['parcel-360-for-review', workflow?.parcelId],
+    async () => (await apiService.get(`/parcels/${workflow!.parcelId}/360`)).data,
+    { enabled: !!workflow && !!officerDepartment },
+  );
+
   if (isLoading) return <div className="text-ink/60 text-sm">{t('officerPortal.loadingWorkflow')}</div>;
   if (error || !workflow) return <div className="text-ink/60 text-sm">{t('officerPortal.errorLoadingWorkflow')}</div>;
 
@@ -302,7 +557,10 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
   const myStep = officerDepartment ? workflow.steps.find((s) => s.department === officerDepartment) : undefined;
   const canReview = !isAdminMode && myStep?.status === 'PENDING';
   const pendingStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'PENDING') : [];
+  const decidedStepsForAdmin = isAdminMode ? workflow.steps.filter((s) => s.status === 'APPROVED' || s.status === 'REJECTED') : [];
   const precheck = parsePrecheck(workflow.verificationPrecheck);
+  const departmentRecordKey = officerDepartment ? DEPARTMENT_360_KEY[officerDepartment] : undefined;
+  const hasDepartmentRecord = !!departmentRecordKey && !!parcel360?.departments?.[departmentRecordKey];
 
   return (
     <div className="space-y-4">
@@ -398,6 +656,25 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         {workflow.requestDetails && <p className="text-sm text-ink/70 mt-2 italic">&quot;{workflow.requestDetails}&quot;</p>}
       </div>
 
+      {/* Scoped to the reviewing officer's own department only (never the
+          other 6 departments' records) - the case review panel's job is
+          "does this department's own data support the decision", not a full
+          Parcel 360 browse. */}
+      {officerDepartment && (
+        <div className="border-t-4 border-ink pt-4">
+          <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">
+            {officerDepartment.replace(/_/g, ' ')} {t('officerPortal.departmentRecordLabel')}
+          </h4>
+          {hasDepartmentRecord ? (
+            <div className="border-2 border-ink divide-y divide-ink/10 px-3">
+              <DepartmentRecordFields department={officerDepartment} departments={parcel360!.departments} />
+            </div>
+          ) : (
+            <p className="text-sm text-ink/50">{t('officerPortal.noDepartmentRecordOnFile')}</p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-2">
         <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">{t('officerPortal.reviewStepsLabel')}</h4>
         <div className="border-2 border-ink divide-y-2 divide-ink">
@@ -421,16 +698,32 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         <div className="border-t-4 border-ink pt-4">
           <StepReviewForm workflowId={workflowId} step={myStep!} />
         </div>
-      ) : isAdminMode && pendingStepsForAdmin.length > 0 ? (
-        <div className="border-t-4 border-ink pt-4 space-y-4 divide-y-2 divide-ink/10">
-          <p className="text-xs text-ink/50">
-            {t('officerPortal.adminMonitoringHint')}
-          </p>
-          {pendingStepsForAdmin.map((step, index) => (
-            <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
-              <AdminStepRow workflowId={workflowId} step={step} />
+      ) : isAdminMode && (pendingStepsForAdmin.length > 0 || decidedStepsForAdmin.length > 0) ? (
+        <div className="border-t-4 border-ink pt-4 space-y-4">
+          {pendingStepsForAdmin.length > 0 && (
+            <div className="space-y-4 divide-y-2 divide-ink/10">
+              <p className="text-xs text-ink/50">
+                {t('officerPortal.adminMonitoringHint')}
+              </p>
+              {pendingStepsForAdmin.map((step, index) => (
+                <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
+                  <AdminStepRow workflowId={workflowId} step={step} />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {decidedStepsForAdmin.length > 0 && (
+            <div className={`space-y-4 divide-y-2 divide-ink/10 ${pendingStepsForAdmin.length > 0 ? 'border-t-4 border-ink/10 pt-4' : ''}`}>
+              <p className="text-xs text-ink/50">
+                {t('officerPortal.adminReopenHint')}
+              </p>
+              {decidedStepsForAdmin.map((step, index) => (
+                <div key={step.id} className={index > 0 ? 'pt-4' : undefined}>
+                  <AdminDecidedStepRow workflowId={workflowId} step={step} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-sm text-ink/60 border-t-4 border-ink pt-4">

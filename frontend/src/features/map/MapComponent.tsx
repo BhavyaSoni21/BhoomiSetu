@@ -22,6 +22,8 @@ interface MapComponentProps {
   fitToParcels?: boolean;
   /** Which legend checkboxes to render (defaults to every LayerKey, i.e. today's behavior) - lets a caller offer a simpler subset, e.g. Parcel 360 showing citizens only a "View Zoning" toggle instead of the full staff-oriented legend. Layer visibility state itself is unaffected; layers not offered here just keep their default visibility. */
   visibleLayerKeys?: LayerKey[];
+  /** Hide the bottom-left layer-toggle legend entirely (defaults to shown). For read-only previews, e.g. the public landing page, where the map is a fixed illustration, not an interactive tool. */
+  showLayerPanel?: boolean;
   /** Bump this (e.g. ++) to re-fit the map to the selected parcel's cluster/context on demand - the contextual zoom below otherwise only runs once, when `context` itself first loads (React Query caches it), so a "Locate" button needs an explicit way to ask for it again even when nothing about the selection has actually changed. */
   recenterSignal?: number;
 }
@@ -145,6 +147,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   parcelLabels,
   fitToParcels,
   visibleLayerKeys,
+  showLayerPanel = true,
   recenterSignal,
 }) => {
   const { t } = useTranslation();
@@ -573,22 +576,24 @@ const MapComponent: React.FC<MapComponentProps> = ({
           {t('map.errorLoading')}
         </div>
       )}
-      <div className="absolute bottom-2 left-2 bg-surface border-2 border-ink shadow-hard-sm p-2.5 text-xs max-w-[190px]">
-        <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
-          {t('map.layersHeading')}
-        </p>
-        {(visibleLayerKeys ?? LAYER_KEYS).map((key) => (
-          <label key={key} className="flex items-center gap-1.5 py-0.5 text-ink/80 font-medium cursor-pointer">
-            <input
-              type="checkbox"
-              checked={layerVisibility[key]}
-              onChange={() => toggleLayer(key)}
-              className="accent-primary w-3.5 h-3.5 border-2 border-ink"
-            />
-            {t(`map.layer.${key}`)}
-          </label>
-        ))}
-      </div>
+      {showLayerPanel && (
+        <div className="absolute bottom-2 left-2 bg-surface border-2 border-ink shadow-hard-sm p-2.5 text-xs max-w-[190px]">
+          <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
+            {t('map.layersHeading')}
+          </p>
+          {(visibleLayerKeys ?? LAYER_KEYS).map((key) => (
+            <label key={key} className="flex items-center gap-1.5 py-0.5 text-ink/80 font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layerVisibility[key]}
+                onChange={() => toggleLayer(key)}
+                className="accent-primary w-3.5 h-3.5 border-2 border-ink"
+              />
+              {t(`map.layer.${key}`)}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

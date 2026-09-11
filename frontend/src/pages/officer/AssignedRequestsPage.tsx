@@ -9,6 +9,7 @@ import { ParcelDocument } from '../../types/parcelDocument';
 import { ParcelSummary } from '../../types/parcel';
 import AuthenticatedDocumentImage from '../../features/parcels/AuthenticatedDocumentImage';
 import WorkflowReviewPanel from '../../features/officer/WorkflowReviewPanel';
+import BackButton from '../../components/BackButton';
 
 interface AssignedRequestsPageProps {
   department: string;
@@ -161,6 +162,7 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
 
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
+      <BackButton />
       {/* Page Header */}
       <div className="pb-4 border-b border-gov-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

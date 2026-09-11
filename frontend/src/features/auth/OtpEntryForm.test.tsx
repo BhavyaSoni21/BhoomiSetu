@@ -1,29 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OtpEntryForm from './OtpEntryForm';
-import apiService from '../../services/apiService';
+import { AuthUser } from './auth';
 
-vi.mock('../../services/apiService', () => ({
-  default: { post: vi.fn() },
-}));
+const updatedUser: AuthUser = { id: 'c1', email: 'citizen@example.com', name: 'A Citizen', role: 'CITIZEN', emailVerified: true };
 
-function renderForm(onVerified = vi.fn(), onCancel = vi.fn()) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return {
-    onVerified,
-    onCancel,
-    ...render(
-      <QueryClientProvider client={client}>
-        <OtpEntryForm method="EMAIL" target="citizen@example.com" onVerified={onVerified} onCancel={onCancel} />
-      </QueryClientProvider>,
-    ),
-  };
+// verify/resend are injected props now (not hardcoded hooks) so this same
+// component can drive both Profile's add/change-contact flow and the
+// pre-account registration flow - render() below stands in for whichever
+// caller wires it up (see ContactMethodCard.tsx / RegisterPage.tsx).
+function renderForm(overrides: Partial<React.ComponentProps<typeof OtpEntryForm>> = {}) {
+  const onVerifyCode = vi.fn().mockResolvedValue(updatedUser);
+  const onResend = vi.fn().mockResolvedValue(undefined);
+  const onVerified = vi.fn();
+  const onCancel = vi.fn();
+  const utils = render(
+    <OtpEntryForm
+      method="EMAIL"
+      target="citizen@example.com"
+      onVerifyCode={onVerifyCode}
+      onResend={onResend}
+      verifying={false}
+      resending={false}
+      verifyError={null}
+      onVerified={onVerified}
+      onCancel={onCancel}
+      {...overrides}
+    />,
+  );
+  return { onVerifyCode, onResend, onVerified, onCancel, ...utils };
 }
 
 describe('OtpEntryForm', () => {
   beforeEach(() => {
-    vi.mocked(apiService.post).mockReset();
+    vi.clearAllMocks();
   });
 
   it('shows who the code was sent to', () => {
@@ -31,15 +41,13 @@ describe('OtpEntryForm', () => {
     expect(screen.getByText(/citizen@example.com/)).toBeInTheDocument();
   });
 
-  it('submits the entered code and calls onVerified with the updated user', async () => {
-    const updatedUser = { id: 'c1', email: 'citizen@example.com', name: 'A Citizen', role: 'CITIZEN', emailVerified: true };
-    vi.mocked(apiService.post).mockResolvedValue({ data: updatedUser });
-    const { onVerified } = renderForm();
+  it('submits the entered code via onVerifyCode and calls onVerified with the result', async () => {
+    const { onVerifyCode, onVerified } = renderForm();
 
     fireEvent.change(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
-    await waitFor(() => expect(apiService.post).toHaveBeenCalledWith('/auth/verify-otp', { method: 'EMAIL', code: '123456' }));
+    await waitFor(() => expect(onVerifyCode).toHaveBeenCalledWith('123456'));
     await waitFor(() => expect(onVerified).toHaveBeenCalledWith(updatedUser));
   });
 
@@ -50,9 +58,9 @@ describe('OtpEntryForm', () => {
     expect(input.value).toBe('123456');
   });
 
-  it('shows an invalid-code error on a 400', async () => {
-    vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 400 } });
-    renderForm();
+  it('shows an invalid-code error when onVerifyCode rejects with a 400', async () => {
+    const onVerifyCode = vi.fn().mockRejectedValue({ isAxiosError: true, response: { status: 400 } });
+    renderForm({ onVerifyCode });
 
     fireEvent.change(screen.getByLabelText('Verification Code'), { target: { value: '000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
@@ -60,9 +68,9 @@ describe('OtpEntryForm', () => {
     expect(await screen.findByText('Invalid or expired code. Please try again.')).toBeInTheDocument();
   });
 
-  it('shows a locked-out message on a 403', async () => {
-    vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 403 } });
-    renderForm();
+  it('shows a locked-out message when onVerifyCode rejects with a 403', async () => {
+    const onVerifyCode = vi.fn().mockRejectedValue({ isAxiosError: true, response: { status: 403 } });
+    renderForm({ onVerifyCode });
 
     fireEvent.change(screen.getByLabelText('Verification Code'), { target: { value: '000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
@@ -75,10 +83,15 @@ describe('OtpEntryForm', () => {
     expect(screen.getByRole('button', { name: /Resend/ })).toBeDisabled();
   });
 
-  it('calls onCancel when "Skip for now" is clicked', () => {
+  it('calls onCancel when "Skip for now" is clicked, when a cancel option is given', () => {
     const { onCancel } = renderForm();
     fireEvent.click(screen.getByText('Skip for now — verify later from Profile'));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('renders no cancel/skip option when onCancel is omitted (the registration flow)', () => {
+    renderForm({ onCancel: undefined });
+    expect(screen.queryByText('Skip for now — verify later from Profile')).not.toBeInTheDocument();
   });
 
   it('disables Verify until at least 4 digits are entered', () => {
@@ -91,5 +104,10 @@ describe('OtpEntryForm', () => {
 
     fireEvent.change(screen.getByLabelText('Verification Code'), { target: { value: '1234' } });
     expect(verifyButton).not.toBeDisabled();
+  });
+
+  it('reflects the verifying prop on the submit button', () => {
+    renderForm({ verifying: true });
+    expect(screen.getByRole('button', { name: 'Verifying...' })).toBeDisabled();
   });
 });

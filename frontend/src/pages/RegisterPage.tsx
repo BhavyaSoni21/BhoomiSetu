@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useRegister, ContactMethod } from '../features/auth/auth';
+import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod } from '../features/auth/auth';
 import OtpEntryForm from '../features/auth/OtpEntryForm';
 import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
 
@@ -57,6 +57,8 @@ const InputField: React.FC<{
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const registerMutation = useRegister();
+  const verifyRegistrationOtpMutation = useVerifyRegistrationOtp();
+  const resendRegistrationOtpMutation = useResendRegistrationOtp();
   const { t, i18n } = useTranslation();
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
@@ -65,6 +67,7 @@ const RegisterPage: React.FC = () => {
   };
 
   const [step, setStep]                   = useState<'form' | 'otp'>('form');
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [method, setMethod]               = useState<ContactMethod>('EMAIL');
   const [name, setName]                   = useState('');
   const [email, setEmail]                 = useState('');
@@ -99,7 +102,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
     try {
-      await registerMutation.mutateAsync({
+      const result = await registerMutation.mutateAsync({
         name,
         method,
         email: method === 'EMAIL' ? email : undefined,
@@ -107,6 +110,7 @@ const RegisterPage: React.FC = () => {
         password,
         confirmPassword,
       });
+      setRegistrationId(result.registrationId);
       setStep('otp');
     } catch { /* surfaced via registerMutation.isError */ }
   };
@@ -114,7 +118,7 @@ const RegisterPage: React.FC = () => {
   const submitErrorMessage =
     registerMutation.isError
       ? (axios.isAxiosError(registerMutation.error) && registerMutation.error.response?.status === 409
-          ? t('authPage.accountExistsError')
+          ? t(method === 'EMAIL' ? 'authPage.accountExistsEmailError' : 'authPage.accountExistsMobileError')
           : t('authPage.registrationFailedError'))
       : null;
 
@@ -136,14 +140,23 @@ const RegisterPage: React.FC = () => {
               <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{target}</span>
             </p>
           </div>
-          <OtpEntryForm method={method} target={target} onVerified={() => navigate('/citizen')} />
+          <OtpEntryForm
+            method={method}
+            target={target}
+            onVerifyCode={(code) => verifyRegistrationOtpMutation.mutateAsync({ registrationId: registrationId!, code })}
+            onResend={() => resendRegistrationOtpMutation.mutateAsync({ registrationId: registrationId! })}
+            verifying={verifyRegistrationOtpMutation.isLoading}
+            resending={resendRegistrationOtpMutation.isLoading}
+            verifyError={verifyRegistrationOtpMutation.error}
+            onVerified={() => navigate('/citizen')}
+          />
           <button
             type="button"
-            onClick={() => navigate('/citizen')}
+            onClick={() => setStep('form')}
             className="w-full py-2.5 text-sm font-medium underline underline-offset-2 transition-colors"
             style={{ color: 'var(--text-muted)' }}
           >
-            {t('authPage.skipForNow')}
+            {t('authPage.wrongContactGoBack')}
           </button>
         </div>
       </div>
@@ -191,7 +204,7 @@ const RegisterPage: React.FC = () => {
           <div className="space-y-2.5 pt-1">
             {[t('authPage.registerBulletFree'), t('authPage.registerBulletVerify'), t('authPage.registerBulletTrack')].map((bullet) => (
               <div key={bullet} className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#86EFAC' }} />
+                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--brand-300)' }} />
                 <span className="text-white/80 text-sm">{bullet}</span>
               </div>
             ))}
@@ -408,8 +421,8 @@ const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={registerMutation.isLoading}
-              className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-heading font-bold text-sm tracking-wide transition-all duration-150 disabled:opacity-50"
-              style={{ background: 'var(--brand-900)', color: '#FFFFFF' }}
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-[4px] font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 cursor-pointer shadow-xs"
+              style={{ background: '#208A43', color: '#FFFFFF' }}
             >
               {registerMutation.isLoading ? (
                 <>

@@ -292,7 +292,7 @@ describe('WorkflowReviewPanel', () => {
       expect(apiService.patch).not.toHaveBeenCalled();
     });
 
-    it('shows "all steps decided" once every step has been reviewed', async () => {
+    it('once every step has been reviewed, shows a Send Back for Re-Review row for each instead of Alert Officer', async () => {
       const allDecided = {
         ...pendingWorkflow,
         steps: pendingWorkflow.steps.map((s) => ({ ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' })),
@@ -300,8 +300,56 @@ describe('WorkflowReviewPanel', () => {
       vi.mocked(apiService.get).mockResolvedValue({ data: allDecided });
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
-      expect(await screen.findByText('All steps in this workflow have been decided.')).toBeInTheDocument();
+      await screen.findByText('ROR COPY REQUEST');
+      expect(screen.getAllByRole('button', { name: 'Send Back for Re-Review' })).toHaveLength(3);
       expect(screen.queryByRole('button', { name: 'Alert Officer' })).not.toBeInTheDocument();
+    });
+
+    it('shows Send Back for Re-Review only for already-decided steps, alongside Alert Officer for the rest still pending', async () => {
+      const partiallyDecided = {
+        ...pendingWorkflow,
+        steps: pendingWorkflow.steps.map((s) =>
+          s.department === 'LAND_RECORDS' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
+        ),
+      };
+      vi.mocked(apiService.get).mockResolvedValue({ data: partiallyDecided });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      await screen.findByText('ROR COPY REQUEST');
+      expect(screen.getAllByRole('button', { name: 'Alert Officer' })).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: 'Send Back for Re-Review' })).toHaveLength(1);
+    });
+
+    it('Send Back for Re-Review sends a reopen request for the correct step, with a required reason', async () => {
+      const decided = {
+        ...pendingWorkflow,
+        steps: pendingWorkflow.steps.map((s) =>
+          s.department === 'REGISTRATION' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
+        ),
+      };
+      vi.mocked(apiService.get).mockResolvedValue({ data: decided });
+      vi.mocked(apiService.post).mockResolvedValue({ data: decided });
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+
+      const reopenButton = await screen.findByRole('button', { name: 'Send Back for Re-Review' });
+      expect(reopenButton).toBeInTheDocument();
+      fireEvent.click(reopenButton);
+
+      const sendBackButton = screen.getByRole('button', { name: 'Send Back' });
+      expect(sendBackButton).toBeDisabled();
+
+      fireEvent.change(screen.getByLabelText('Reason for sending this back to REGISTRATION OFFICER (required)'), {
+        target: { value: 'Please re-check the registration number, it looks off.' },
+      });
+      expect(sendBackButton).not.toBeDisabled();
+      fireEvent.click(sendBackButton);
+
+      await waitFor(() =>
+        expect(apiService.post).toHaveBeenCalledWith('/workflows/wf1/steps/s2/reopen', {
+          message: 'Please re-check the registration number, it looks off.',
+        }),
+      );
+      expect(apiService.patch).not.toHaveBeenCalled();
     });
   });
 });

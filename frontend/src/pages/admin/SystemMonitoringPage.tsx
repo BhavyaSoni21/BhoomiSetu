@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 import SystemMonitoring from '../../features/admin/SystemMonitoring';
 import CornerMarker from '../../features/admin/CornerMarker';
+import BackButton from '../../components/BackButton';
 
 // Admin Portal "System Monitoring" page (docs/FRONTEND_UPGRADE_SPEC.md §7,
 // Phase 3) - "the most tractable of the four [pieces] - this can genuinely
@@ -12,6 +13,7 @@ const SystemMonitoringPage: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="space-y-6">
+      <BackButton variant="ink" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.systemMonitoring')}</h1>
         <p className="text-ink/60 mt-1">{t('adminPortal.systemMonitoringSubtitle')}</p>

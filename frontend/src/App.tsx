@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2 } from 'lucide-react';
+import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock } from 'lucide-react';
 import Parcel360View from './features/parcels/Parcel360View';
 import HomePage from './pages/HomePage';
 import CitizenPortal from './pages/CitizenPortal';
@@ -27,15 +27,15 @@ const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => 
 );
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `shrink-0 px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider transition-all duration-150 rounded-lg whitespace-nowrap ${
+  `shrink-0 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all duration-150 rounded-xl whitespace-nowrap ${
     isActive
-      ? 'bg-white/15 text-white font-bold shadow-xs'
-      : 'text-white/80 hover:text-white hover:bg-white/10'
+      ? 'border-b-2 border-[var(--bhashini-accent)] text-[var(--bhashini-accent)] bg-emerald-50/80 dark:bg-emerald-900/20 font-bold'
+      : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
   }`;
 
 const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `block px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider rounded-lg ${
-    isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:text-white hover:bg-white/10'
+  `block px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-xl ${
+    isActive ? 'bg-emerald-50 dark:bg-emerald-900/20 text-[var(--bhashini-accent)] font-bold' : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
   }`;
 
 function navItemsFor(role: string | undefined): NavItem[] {
@@ -58,6 +58,8 @@ function AppShell() {
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalsDropdownOpen, setPortalsDropdownOpen] = useState(false);
+  const portalsRef = useRef<HTMLDivElement>(null);
   const [theme, toggleTheme] = useTheme();
   const { data: authUser } = useAuthUser();
   const logout = useLogout();
@@ -67,6 +69,7 @@ function AppShell() {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setPortalsDropdownOpen(false);
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -81,9 +84,10 @@ function AppShell() {
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   const isLandingPage = location.pathname === '/';
-
+  // The clean landing page now uses the same unified navbar as the rest of the
+  // application to ensure complete consistency, per the user's explicit request.
   return (
-    <div className="min-h-screen bg-page-bg text-text-primary flex flex-col font-sans" style={{ background: 'var(--page-bg)' }}>
+    <div className="min-h-screen text-text-primary flex flex-col font-sans" style={{ background: 'var(--page-bg-gradient)', backgroundColor: 'var(--page-bg)' }}>
       {/* ── GIGW 3.0 Skip Link ── */}
       <a href="#main-content" className="skip-link">
         Skip to main content
@@ -91,7 +95,7 @@ function AppShell() {
 
       {/* ── Minimal Brand Strip for Auth Pages ── */}
       {isAuthPage && (
-        <header className="border-b border-white/10" style={{ background: 'var(--brand-900)' }}>
+        <header className="utility-bar border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-end gap-4">
             {/* Login/RegisterPage's own top bar already has a real, working
                 language toggle (features/officer/../pages/LoginPage.tsx's
@@ -106,12 +110,9 @@ function AppShell() {
       )}
 
       {/* ── Official Government Utility Bar (Internal Pages) ── */}
-      {!isAuthPage && !isLandingPage && (
+      {!isAuthPage && (
         <>
-          <div
-            className="text-white/85 text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-white/10"
-            style={{ background: '#092119' }}
-          >
+          <div className="utility-bar text-white/85 text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-white/10">
             <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
               {/* Left: Indian National Flag & Government Header */}
               <div className="flex items-center gap-3">
@@ -148,7 +149,7 @@ function AppShell() {
                   className="bg-transparent text-white/90 hover:text-white cursor-pointer focus:outline-none text-[11px] font-semibold"
                 >
                   {SUPPORTED_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang} className="bg-[#0F3D2E] text-white">
+                    <option key={lang} value={lang} className="bg-[var(--brand-900)] text-white">
                       {lang === 'Hindi' ? 'हिंदी (Hindi)' : lang}
                     </option>
                   ))}
@@ -196,41 +197,145 @@ function AppShell() {
             </div>
           </div>
 
-          {/* ── Primary Government Navigation Bar ── */}
-          <header
-            className="border-b border-white/15 sticky top-0 z-40 backdrop-blur-md"
-            style={{ background: 'var(--brand-900)' }}
-          >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-14 sm:h-16">
-                {/* Brand Logo & Title */}
-                <Link to="/" className="flex items-center gap-2.5 mr-6 shrink-0 group">
-                  <div className="text-white">
-                    <BsIcon className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="text-lg font-heading font-bold tracking-tight text-white block leading-none">
-                      BhoomiSetu
+          {/* ── Ministry & Brand Header ── */}
+          <header className="ministry-header">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-4">
+              {/* Left: Ashoka Lion Capital + Ministry */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <svg
+                    viewBox="0 0 60 75"
+                    className="w-8 h-10 sm:w-9 sm:h-12 text-[var(--text-heading)] shrink-0"
+                    fill="currentColor"
+                    aria-label="State Emblem of India"
+                  >
+                    <path d="M30 4C24 4 20 8 18 13C16 11 13 12 12 15C10 20 13 25 15 28C14 30 14 33 16 36C18 40 23 42 27 43L27 49C24 49 20 50 17 53C14 56 14 60 14 62L46 62C46 60 46 56 43 53C40 50 36 49 33 49L33 43C37 42 42 40 44 36C46 33 46 30 45 28C47 25 50 20 48 15C47 12 44 11 42 13C40 8 36 4 30 4ZM26 14C27 12 28 11 30 11C32 11 33 12 34 14C35 16 35 18 34 20C33 22 32 23 30 23C28 23 27 22 26 20C25 18 25 16 26 14ZM30 65C23 65 17 66 12 68L12 71L48 71L48 68C43 66 37 65 30 65Z" />
+                    <circle cx="30" cy="56" r="4" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                    <path d="M22 74L38 74" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                  <div className="border-l border-[var(--border)] pl-2 sm:pl-2.5">
+                    <span className="block text-[10px] font-bold text-[var(--text-heading)] leading-tight">
+                      पंचायती राज मंत्रालय
                     </span>
-                    <span className="text-[10px] font-mono text-white/60 tracking-wider uppercase block mt-0.5">
-                      Land Governance Portal
+                    <span className="block text-[9px] font-semibold text-[var(--text-secondary)] tracking-tight leading-tight uppercase mt-0.5">
+                      MINISTRY OF PANCHAYATI RAJ
                     </span>
                   </div>
-                </Link>
+                </div>
 
-                {/* Desktop Navigation Links — text links left, icon-only buttons pinned right */}
+                <div className="hidden md:block h-7 w-[1px] bg-[var(--border)] mx-1"></div>
+
+                <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-primary)] tracking-wide">
+                  <span>MODERNIZING LAND ADMINISTRATION. EMPOWERING CITIZENS.</span>
+                </div>
+              </div>
+
+              {/* Right: BhoomiSetu Logo */}
+              <Link to="/" className="flex items-center gap-2 group">
+                <img
+                  src="/logo-header.png"
+                  alt="BhoomiSetu"
+                  className="h-9 sm:h-10 object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="flex flex-col">
+                  <span className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-heading)] leading-none">
+                    Bhoomi<span className="text-[var(--bhashini-accent)]">Setu</span>
+                  </span>
+                  <span className="text-[9px] text-[var(--text-muted)] font-medium tracking-tight mt-0.5">
+                    Land Governance Portal
+                  </span>
+                </div>
+              </Link>
+            </div>
+          </header>
+
+          {/* ── Primary Government Navigation Bar ── */}
+          <header className="navbar sticky top-0 z-40 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-12 sm:h-13">
+                {/* Desktop Navigation Links */}
                 <nav className="hidden lg:flex items-center flex-1 min-w-0">
-                  {/* Text nav items */}
                   <div className="flex items-center gap-1 overflow-x-auto py-1">
                     {navItems.filter((item) => !item.iconOnly).map((item) => (
                       <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
                         {item.labelKey ? t(item.labelKey) : item.label}
                       </NavLink>
                     ))}
+
+                    {/* Portals Dropdown - always visible */}
+                    <div
+                      ref={portalsRef}
+                      className="relative"
+                      onMouseEnter={() => setPortalsDropdownOpen(true)}
+                      onMouseLeave={() => setPortalsDropdownOpen(false)}
+                    >
+                      <button
+                        type="button"
+                        className={`shrink-0 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all duration-150 rounded-xl whitespace-nowrap flex items-center gap-1.5 ${
+                          portalsDropdownOpen
+                            ? 'text-[var(--bhashini-accent)] bg-emerald-50/80 dark:bg-emerald-900/20'
+                            : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
+                        }`}
+                        aria-haspopup="true"
+                        aria-expanded={portalsDropdownOpen}
+                      >
+                        Portals
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${
+                          portalsDropdownOpen ? 'rotate-180 text-[var(--bhashini-accent)]' : ''
+                        }`} />
+                      </button>
+{portalsDropdownOpen && (
+                        <div className="dropdown-menu absolute top-full left-0 mt-0.5 w-52 rounded-xl shadow-lg overflow-hidden z-50">
+                          <div className="dropdown-header px-3 py-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Access Portals</span>
+                          </div>
+                          <Link
+                            to="/citizen"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-2)] hover:text-[var(--bhashini-accent)] transition-colors group"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-[var(--bhashini-accent)] group-hover:bg-emerald-200 transition shrink-0">
+                              <Users className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="block font-semibold text-xs">Citizen Portal</span>
+                              <span className="text-[11px] text-[var(--text-muted)]">Land records & services</span>
+                            </div>
+                          </Link>
+                          <Link
+                            to="/officer"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-2)] hover:text-[var(--action-700)] transition-colors group border-t border-[var(--border)]"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-[var(--action-500)]/15 flex items-center justify-center text-[var(--action-700)] group-hover:bg-[var(--action-500)]/25 transition shrink-0">
+                              <Building2 className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="block font-semibold text-xs">Officer Portal</span>
+                              <span className="text-[11px] text-[var(--text-muted)]">Revenue & admin tasks</span>
+                            </div>
+                          </Link>
+                          <Link
+                            to="/login"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-heading)] transition-colors group border-t border-[var(--border)]"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-secondary)] group-hover:bg-[var(--border)] transition shrink-0">
+                              <Lock className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="block font-semibold text-xs">Sign In / Register</span>
+                              <span className="text-[11px] text-[var(--text-muted)]">Secure government login</span>
+                            </div>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
                   {/* Icon-only items pinned to right */}
                   {navItems.some((i) => i.iconOnly) && (
-                    <div className="flex items-center gap-1 ml-auto pl-3 border-l border-white/15 shrink-0">
+                    <div className="flex items-center gap-1 ml-auto pl-3 border-l border-[var(--border)] shrink-0">
                       {navItems.filter((item) => item.iconOnly).map((item) => {
                         const Icon = item.iconName === 'Bell' ? Bell : UserCircle2;
                         const ariaLabel = item.labelKey ? t(item.labelKey) : item.label ?? item.to;
@@ -242,14 +347,14 @@ function AppShell() {
                             title={ariaLabel}
                             aria-label={ariaLabel}
                             className={({ isActive }) =>
-                              `shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-150 ${
+                              `shrink-0 w-8 h-8 flex items-center justify-center rounded-[4px] transition-all duration-150 ${
                                 isActive
-                                  ? 'bg-white/15 text-white shadow-xs'
-                                  : 'text-white/75 hover:text-white hover:bg-white/10'
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/20 text-[var(--bhashini-accent)] shadow-xs'
+                                  : 'text-[var(--text-secondary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
                               }`
                             }
                           >
-                            <Icon className="w-[18px] h-[18px]" aria-hidden="true" />
+                            <Icon className="w-4 h-4" aria-hidden="true" />
                           </NavLink>
                         );
                       })}
@@ -262,8 +367,7 @@ function AppShell() {
                   {isGuest && (
                     <Link
                       to="/register"
-                      className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-heading font-bold text-white transition shadow-sm hover:shadow"
-                      style={{ background: 'var(--action-600)' }}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-xs font-semibold text-white transition bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] shadow-xs"
                     >
                       <span>Get Started</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -273,12 +377,12 @@ function AppShell() {
                   <button
                     type="button"
                     onClick={() => setMobileMenuOpen((open) => !open)}
-                    className="lg:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
+                    className="lg:hidden p-2 rounded text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
                     aria-controls="mobile-menu"
                     aria-expanded={mobileMenuOpen}
                     aria-label="Toggle navigation menu"
                   >
-                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
@@ -286,25 +390,25 @@ function AppShell() {
 
             {/* Mobile Navigation Menu */}
             {mobileMenuOpen && (
-              <div id="mobile-menu" className="lg:hidden border-t border-white/15 px-4 py-3 space-y-1" style={{ background: '#092119' }}>
+              <div id="mobile-menu" className="mobile-menu lg:hidden border-t border-[var(--border)] px-4 py-3 space-y-1 shadow-lg">
                 {navItems.map((item) => {
-                    const label = item.labelKey ? t(item.labelKey) : item.label ?? item.to;
-                    const Icon = item.iconName === 'Bell' ? Bell : item.iconName === 'UserCircle2' ? UserCircle2 : null;
-                    return (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.end}
-                        className={mobileNavLinkClass}
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <span className="flex items-center gap-2">
-                          {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
-                          {label}
-                        </span>
-                      </NavLink>
-                    );
-                  })}
+                  const label = item.labelKey ? t(item.labelKey) : item.label ?? item.to;
+                  const Icon = item.iconName === 'Bell' ? Bell : item.iconName === 'UserCircle2' ? UserCircle2 : null;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={mobileNavLinkClass}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <span className="flex items-center gap-2">
+                        {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
+                        {label}
+                      </span>
+                    </NavLink>
+                  );
+                })}
               </div>
             )}
           </header>
@@ -359,27 +463,12 @@ function AppShell() {
         </Routes>
       </main>
 
-      {/* ── Global Government Footer for Internal Pages ── */}
-      {!isLandingPage && !isAuthPage && (
-        <footer className="mt-auto border-t border-gov-border py-6 px-4 sm:px-6 lg:px-8 text-xs text-text-secondary" style={{ background: 'var(--surface-2)' }}>
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-brand-900"><BsIcon className="w-5 h-5" /></span>
-              <span className="font-heading font-bold text-text-heading">BhoomiSetu</span>
-              <span>— Digital Land Governance Portal</span>
-            </div>
-            <p className="text-[11px] font-mono text-text-muted">
-              GIGW 3.0 Compliant · SVAMITVA Integrated · Hosted by National Informatics Centre (NIC)
-            </p>
-          </div>
-        </footer>
-      )}
+      {/* NO FOOTER ON ANY PAGE ("we dont need footer") */}
 
       {/* Floating Ask AI Widget */}
       {!location.pathname.startsWith('/officer') &&
         !location.pathname.startsWith('/admin') &&
-        !isAuthPage &&
-        !isLandingPage && (
+        !isAuthPage && (
           <AskAiWidget />
         )}
     </div>

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { History, Layers, Calendar, Clock } from 'lucide-react';
 import HistoricalImageryPanel from '../../features/officer/HistoricalImageryPanel';
+import BackButton from '../../components/BackButton';
 
 const HistoricalImageryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -11,6 +12,7 @@ const HistoricalImageryPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
+      <BackButton />
       <div className="pb-4 border-b border-gov-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-brand-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">

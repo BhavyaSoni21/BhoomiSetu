@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
+import BackButton from '../../components/BackButton';
 
 const WORKFLOW_TYPE_LABELS: Record<string, string> = {
   ROR_COPY_REQUEST: 'Certified RoR / 7-12 Extract',
@@ -75,6 +76,7 @@ const RequestsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-up max-w-5xl">
+      <BackButton />
       {/* Header */}
       <div className="pb-4 border-b border-gov-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

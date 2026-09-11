@@ -2,11 +2,13 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapPinned, Layers, Compass, ShieldCheck } from 'lucide-react';
 import MapComponent from '../../features/map/MapComponent';
+import BackButton from '../../components/BackButton';
 
 const OfficerMapPage: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
+      <BackButton />
       <div className="pb-4 border-b border-gov-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-brand-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">

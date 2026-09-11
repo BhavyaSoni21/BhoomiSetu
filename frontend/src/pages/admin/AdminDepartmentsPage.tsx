@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react';
 import DepartmentManagement from '../../features/admin/DepartmentManagement';
 import CornerMarker from '../../features/admin/CornerMarker';
+import BackButton from '../../components/BackButton';
 
 // Admin Portal "Departments" page (docs/FRONTEND_UPGRADE_SPEC.md §7, Phase 3).
 const AdminDepartmentsPage: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="space-y-6">
+      <BackButton variant="ink" />
       <div>
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.departments')}</h1>
         <p className="text-ink/60 mt-1">{t('adminPortal.departmentsSubtitle')}</p>

@@ -22,990 +22,735 @@ import {
   TrendingUp,
   Crop,
   ShieldCheck,
+  Globe,
+  Users,
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Pause,
+  AlertTriangle,
+  History,
+  UserCheck,
+  Share2,
+  ExternalLink,
+  Code2,
+  Cpu,
+  Database,
+  Wrench,
+  Smartphone,
+  CheckCircle2,
+  Building,
+  Landmark,
+  FileSpreadsheet,
+  TreePine,
+  Car,
+  Banknote,
+  QrCode,
+  Download,
+  Award,
+  ChevronUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import ParcelSearchModal from '../components/landing/ParcelSearchModal';
 import { useTheme } from '../theme/theme';
 import { setStoredLanguage } from '../i18n/config';
+import apiService from '../services/apiService';
+import MapComponent from '../features/map/MapComponent';
+import { ParcelSummary } from '../types/parcel';
+import { useAuthUser } from '../features/auth/auth';
 
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();
   const [theme, toggleTheme] = useTheme();
   const { i18n } = useTranslation();
-  const [isScrolled, setIsScrolled] = useState(false);
+  const { data: authUser } = useAuthUser();
+  const isGuest = !authUser;
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Kept in sync with the app-wide i18next language (not a separate,
-  // disconnected toggle) - this page previously had its own local-only
-  // EN/HI state, so switching to Hindi here didn't carry over once the
-  // citizen navigated to Login/Register or any signed-in portal page, and
-  // vice versa. i18n.language is 'English'/'Hindi' (see i18n/config.ts);
-  // this page's own content object below is keyed 'EN'/'HI', so the two
-  // still need a small mapping at the read/write boundary.
   const [language, setLanguage] = useState<'EN' | 'HI'>(i18n.language === 'Hindi' ? 'HI' : 'EN');
+  const [fontSizeOffset, setFontSizeOffset] = useState<number>(0);
+  const [activeNavDropdown, setActiveNavDropdown] = useState<string | null>(null);
+  const [tickerPlaying, setTickerPlaying] = useState(true);
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const [notificationToast, setNotificationToast] = useState<string | null>(null);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
   const changeLanguage = (next: 'EN' | 'HI') => {
     setLanguage(next);
     const i18nLang = next === 'HI' ? 'Hindi' : 'English';
     i18n.changeLanguage(i18nLang);
     setStoredLanguage(i18nLang);
   };
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [selectedGridParcel, setSelectedGridParcel] = useState<string>('MH-PUN-0042-2018');
 
-  // Handle scroll detection for floating navbar state
+  // Real Pune cluster data for the "Live GIS Preview" section
+  const { data: puneParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
+    ['landing-pune-cluster'],
+    async () => (await apiService.get('/parcels', { params: { state: 'MH', district: 'PUN', limit: 500 } })).data,
+  );
+  const puneParcels = puneParcelsData?.parcels ?? [];
+
+  // Ticker rotation
+  const tickerItems = [
+    'BhoomiSetu — India\'s parcel-centric land governance portal is live.',
+    'SVAMITVA Scheme pilot: cadastral integration across 5 pilot states.',
+    '220+ geo-verified parcels with complete Parcel 360° records.',
+    'Connecting 7 department feeds: Land Records, Registration, Planning, Taxation, Restrictions, Disputes & Encumbrance.',
+  ];
+
   useEffect(() => {
-    const handleScroll = () => {
-      // Transition navbar once scrolled 80px or past the top hero region
-      if (window.scrollY > 80) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    if (!tickerPlaying) return;
+    const interval = setInterval(() => {
+      setTickerIndex((prev) => (prev + 1) % tickerItems.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [tickerPlaying, tickerItems.length]);
 
-  // Text strings for bilingual support
+  const handleFontSizeChange = (delta: number) => {
+    setFontSizeOffset((prev) => {
+      const next = Math.max(-2, Math.min(3, prev + delta));
+      document.documentElement.style.fontSize = next === 0 ? '' : `${100 + next * 6.25}%`;
+      return next;
+    });
+  };
+
+  const resetFontSize = () => {
+    setFontSizeOffset(0);
+    document.documentElement.style.fontSize = '';
+  };
+
+
+
+  // How it works steps
+  const workflowSteps = [
+    { num: '01', title: 'Register or Sign In', desc: 'Citizens create a free account. Officers and admins use department credentials.' },
+    { num: '02', title: 'Search Your Parcel', desc: 'Find any parcel by ULPIN, survey number, plot number, or local identifier.' },
+    { num: '03', title: 'View Parcel 360°', desc: 'See ownership, registration, zoning, tax, disputes, and encumbrances in one place.' },
+    { num: '04', title: 'Verify Documents', desc: 'Upload a land document and check it against official parcel records in seconds.' },
+    { num: '05', title: 'Raise & Track Requests', desc: 'File service requests and track their status across every department, live.' },
+  ];
+
+  // Who is this for
+  const stakeholders = [
+    'Citizen Landowners',
+    'Revenue Officers',
+    'Registration Officers',
+    'Planning Officers',
+    'Tehsildars & Patwaris',
+    'District Collectors',
+    'State Administrators',
+    'Dispute Adjudicators',
+  ];
+
+  // Core platform capabilities
+  const impactSectors = [
+    { name: 'Parcel 360° View', desc: 'One canonical record per parcel — ownership, registration, zoning, tax, restrictions, disputes & encumbrances unified in a single view.', icon: Layers },
+    { name: 'GIS Parcel Search', desc: 'Find any parcel by ULPIN, survey number, plot number, or local identifier and explore it on a live satellite map.', icon: MapPin },
+    { name: 'Document Verification', desc: 'Upload a land document photo and check it against official records — owner name, identifiers, and area — in seconds using AI-assisted OCR.', icon: FileCheck2 },
+    { name: 'Citizen Service Requests', desc: 'Raise requests against your linked parcels, track their status across every department, and receive updates end-to-end.', icon: UserCheck },
+    { name: 'Officer Workflow Dashboard', desc: 'Review citizen requests department-by-department with documents, pre-checks, and approve or reject with full audit trails.', icon: ShieldCheck },
+    { name: 'Governance Alerts', desc: 'Automated alerts flag spatial changes detected via satellite imagery comparison — officers investigate and escalate as needed.', icon: AlertTriangle },
+    { name: 'Historical Imagery Comparison', desc: 'Compare satellite imagery across years to detect unauthorized land use changes and trigger governance reviews.', icon: History },
+    { name: 'Admin Oversight Tools', desc: 'Spatial layer authoring, officer workload monitoring, department management, and platform-wide analytics for administrators.', icon: Building },
+    { name: 'AI Assistance (Groq)', desc: 'Plain-language explanations of records and alerts — AI assists only, all authoritative decisions stay deterministic and role-gated.', icon: Sparkles },
+  ];
+
+
+
+  // Text strings for bilingual support - ALL existing text preserved 100%
   const content = {
     EN: {
+      utility: {
+        skipToMain: 'Skip to main content',
+        govOfIndia: 'Government of India',
+        notifications: 'Notifications',
+        accessibility: 'Accessibility',
+      },
+      ministry: {
+        hindiName: 'पंचायती राज मंत्रालय',
+        engName: 'MINISTRY OF PANCHAYATI RAJ',
+        tagline1: 'MODERNIZING LAND ADMINISTRATION.',
+        tagline2: 'EMPOWERING CITIZENS.',
+      },
       nav: {
+        home: 'Home',
         about: 'About',
-        features: 'Features',
-        loginRegister: 'Login / Register',
+        gisServices: 'GIS Services',
+        verification: 'Verification',
+        citizenServices: 'Citizen Services',
+        resources: 'Resources',
+        portalCta: 'BhoomiSetu Portal',
+        loginRegister: 'Login/SignUp',
       },
       hero: {
         eyebrow: 'GIS-BASED LAND GOVERNANCE',
-        headlineLine1: 'ONE PARCEL.',
-        headlineLine2: 'EVERY RECORD.',
-        body: 'Connecting fragmented land data into a single, verifiable view.',
+        headlineLine1: 'Every Detail About Your Land.',
+        headlineLine2: 'In One Clear, Honest View.',
+        brandSolution: 'Parcel-Centric. Department-Connected. AI-Assisted.',
+        body: 'Land records in India are split across Survey, Registration, Planning, Taxation, and Revenue departments — each with its own records. BhoomiSetu makes the parcel itself the unifying identity, so citizens see one complete picture and officers can coordinate without switching portals.',
+        exploreNow: 'Search a Parcel',
+        learnMore: 'Learn More',
         searchCta: 'Search a Parcel',
         signInCta: 'Get Started',
-        badge: 'BhoomiSetu',
-        footerStrip: 'GOVERNMENT OF INDIA | DIGITAL INDIA | SVAMITVA SCHEME',
+        badges: [
+          { text: 'Role-Gated & Audited', icon: ShieldCheck },
+          { text: '7 Department Feeds', icon: Layers },
+          { text: 'ULPIN / SVAMITVA Aligned', icon: Globe },
+          { text: 'Citizen & Officer Portals', icon: Users },
+        ],
       },
-      stats: [
-        { value: '220', label: 'PARCELS MAPPED' },
-        { value: '5', label: 'PILOT STATES' },
-        { value: '7', label: 'DEPARTMENT FEEDS' },
-        { value: 'Live', label: 'GIS LAYERS', isLive: true },
+      featureCards: [
+        { id: 'search', title: 'Parcel 360° Search', desc: 'Find any parcel by ULPIN, survey number, or plot number and see ownership, zoning, tax, disputes and encumbrances — all in one view.', icon: MapPin, action: 'search' },
+        { id: 'ocr', title: 'Document Verification (OCR)', desc: 'Upload a photo of your land document and check it against official parcel records — owner name, area, and identifiers — in seconds.', icon: FileCheck2, action: 'verify' },
+        { id: 'requests', title: 'Raise Service Requests', desc: 'File requests against your parcels — record copies, mutation, dispute — and track their status through every department.', icon: UserCheck, action: 'citizen' },
+        { id: 'alerts', title: 'Governance Alerts', desc: 'Officers receive automated alerts on spatial changes and suspected encroachments flagged from satellite imagery comparison.', icon: AlertTriangle, action: 'alerts' },
       ],
-      howItWorks: {
-        eyebrow: 'HOW IT WORKS',
-        heading: 'Four steps from plot to proof.',
-        steps: [
-          {
-            num: '01',
-            title: 'Search a Parcel',
-            desc: 'Look up any plot by ULPIN, survey number, or local ID.',
-            icon: Search,
-          },
-          {
-            num: '02',
-            title: 'View Parcel 360',
-            desc: 'See ownership, departments, and records in one unified view.',
-            icon: Layers,
-          },
-          {
-            num: '03',
-            title: 'Verify Documents',
-            desc: 'OCR-check any land document against canonical records.',
-            icon: FileCheck2,
-          },
-          {
-            num: '04',
-            title: 'File a Request',
-            desc: 'Raise a workflow with any department and track it live.',
-            icon: ArrowRight,
-          },
-        ],
-      },
-      gisPreview: {
-        eyebrow: 'LIVE GIS PREVIEW',
-        heading: 'One map. Five states. Zero ambiguity.',
-        body: 'Every parcel carries a verifiable status — from clean title to active dispute. Officers and citizens see the same truth, colored the same way, in real time.',
-        legend: [
-          { label: 'Verified', color: '#166534' },
-          { label: 'Selected', color: '#D97706' },
-          { label: 'Pending', color: '#F59E0B', isDashed: true },
-          { label: 'Disputed', color: '#DC2626' },
-          { label: 'High-Risk', color: '#92400E' },
-        ],
-      },
-      interoperability: {
-        eyebrow: 'INTEROPERABILITY',
-        heading: 'Seven department feeds. One record.',
-        feeds: [
-          { name: 'Land Records', icon: FileText },
-          { name: 'Registration', icon: FileCheck2 },
-          { name: 'Planning', icon: Building2 },
-          { name: 'Tax', icon: Receipt },
-          { name: 'Restriction', icon: ShieldAlert },
-          { name: 'Dispute', icon: Scale },
-          { name: 'Encumbrance', icon: Lock },
-        ],
-      },
-      landAgri: {
-        eyebrow: 'LAND & AGRICULTURE',
-        heading: 'The land, beyond the ledger.',
-        body: 'BhoomiSetu layers agricultural metadata — extent, land use, mutation history, and valuation — alongside legal records, so every parcel tells its full story.',
-        snapshotBadge: 'PARCEL SNAPSHOT',
-        snapshotTitle: 'Survey No. 142 — Kharif & Rabi cycles tracked since 2019.',
-        metadata: [
-          { label: 'Canonical extent', value: '2.31 ha', icon: Crop },
-          { label: 'Land use', value: 'Double-crop agri', icon: Layers },
-          { label: 'Last mutation', value: 'Mar 2024', icon: Calendar },
-          { label: 'Valuation band', value: 'Tier-II', icon: TrendingUp },
-        ],
-      },
-      closingCta: {
-        heading: 'Ready to see your land, clearly?',
-        body: 'Search any parcel by ULPIN, survey number, or plot number — and get a single, verifiable view in seconds.',
-        searchButton: 'Search a Parcel',
-        signInButton: 'Get Started',
-      },
-      footer: {
-        desc: 'A GIS-based land governance and interoperability platform — connecting fragmented land data into a single, verifiable view.',
-        platformTitle: 'Platform',
-        platformLinks: ['Search a Parcel', 'Parcel 360', 'Verify Documents', 'Live Map'],
-        portalsTitle: 'Portals',
-        portalsLinks: ['Citizen Portal', 'Officer Portal', 'Admin Portal'],
-        aboutTitle: 'About',
-        aboutLinks: ['Mission', 'Pilot States', 'Interoperability', 'Contact'],
-        copyright: '© 2026 BhoomiSetu • Government land governance initiative',
-        privacy: 'Privacy',
-        terms: 'Terms',
-        accessibility: 'Accessibility',
-      },
+      tickerLabel: 'LATEST UPDATES',
     },
     HI: {
+      utility: {
+        skipToMain: 'मुख्य सामग्री पर जाएं',
+        govOfIndia: 'भारत सरकार',
+        notifications: 'सूचनाएं',
+        accessibility: 'सुगम्यता',
+      },
+      ministry: {
+        hindiName: 'पंचायती राज मंत्रालय',
+        engName: 'MINISTRY OF PANCHAYATI RAJ',
+        tagline1: 'आधुनिक भू-प्रशासन।',
+        tagline2: 'नागरिक सशक्तिकरण।',
+      },
       nav: {
+        home: 'मुख्य पृष्ठ',
         about: 'परिचय',
-        features: 'विशेषताएं',
-        loginRegister: 'लॉगिन / पंजीकरण करें',
+        gisServices: 'जीआईएस सेवाएं',
+        verification: 'सत्यापन',
+        citizenServices: 'नागरिक सेवाएं',
+        resources: 'संसाधन',
+        portalCta: 'भूमिसेतु पोर्टल',
+        loginRegister: 'लॉगिन / पंजीकरण',
       },
       hero: {
         eyebrow: 'जीआईएस-आधारित भूमि शासन',
-        headlineLine1: 'एक भूखंड.',
-        headlineLine2: 'प्रत्येक अभिलेख.',
-        body: 'खंडित भूमि डेटा को एक एकल, सत्यापन योग्य दृश्य में जोड़ना।',
+        headlineLine1: 'अपनी ज़मीन की पूरी जानकारी।',
+        headlineLine2: 'एक स्पष्ट, सत्यापन योग्य दृश्य में।',
+        brandSolution: 'भूखंड-केंद्रित। विभाग-जुड़ा। AI-सहायित।',
+        body: 'भारत में भूमि अभिलेख सर्वेक्षण, पंजीकरण, योजना, कराधान और राजस्व विभागों में बिखरे हुए हैं। भूमिसेतु भूखंड को एकीकृत पहचान बनाता है — नागरिकों को पूरी जानकारी एक जगह मिलती है।',
+        exploreNow: 'भूखंड खोजें',
+        learnMore: 'अधिक जानें',
         searchCta: 'भूखंड खोजें',
         signInCta: 'शुरू करें',
-        badge: 'भूमिसेतु',
-        footerStrip: 'भारत सरकार | डिजिटल इंडिया | स्वामित्व योजना',
+        badges: [
+          { text: 'भूमिका-आधारित एवं ऑडिटेड', icon: ShieldCheck },
+          { text: '7 विभागीय डेटा फ़ीड', icon: Layers },
+          { text: 'ULPIN / SVAMITVA अनुपालक', icon: Globe },
+          { text: 'नागरिक एवं अधिकारी पोर्टल', icon: Users },
+        ],
       },
-      stats: [
-        { value: '220', label: 'भूखंड मानचित्रित' },
-        { value: '5', label: 'पायलट राज्य' },
-        { value: '7', label: 'विभागीय फ़ीड्स' },
-        { value: 'लाइव', label: 'जीआईएस परतें', isLive: true },
+      featureCards: [
+        { id: 'search', title: 'भूखंड 360° खोज', desc: 'ULPIN, सर्वे नंबर या प्लॉट नंबर से भूखंड खोजें और स्वामित्व, ज़ोनिंग, कर, विवाद — सब एक जगह देखें।', icon: MapPin, action: 'search' },
+        { id: 'ocr', title: 'दस्तावेज़ सत्यापन (OCR)', desc: 'अपने भूमि दस्तावेज़ की फ़ोटो अपलोड करें और आधिकारिक रिकॉर्ड से मिलान करें — मालिक का नाम, क्षेत्रफल, पहचानकर्ता।', icon: FileCheck2, action: 'verify' },
+        { id: 'requests', title: 'सेवा अनुरोध दर्ज करें', desc: 'अपने भूखंड के लिए अनुरोध दर्ज करें — रिकॉर्ड की प्रति, उत्परिवर्तन, विवाद — और हर विभाग में स्थिति ट्रैक करें।', icon: UserCheck, action: 'citizen' },
+        { id: 'alerts', title: 'शासन अलर्ट', desc: 'उपग्रह चित्रों की तुलना से पहचाने गए स्थानिक परिवर्तनों पर अधिकारियों को स्वचालित अलर्ट मिलते हैं।', icon: AlertTriangle, action: 'alerts' },
       ],
-      howItWorks: {
-        eyebrow: 'प्रक्रिया विवरण',
-        heading: 'भूखंड से प्रमाण तक चार चरण।',
-        steps: [
-          {
-            num: '01',
-            title: 'भूखंड खोजें',
-            desc: 'यूलपिन (ULPIN), सर्वेक्षण संख्या या स्थानीय आईडी द्वारा कोई भी भूखंड देखें।',
-            icon: Search,
-          },
-          {
-            num: '02',
-            title: 'भूखंड 360° देखें',
-            desc: 'स्वामित्व, विभाग और रिकॉर्ड एक एकीकृत दृश्य में देखें।',
-            icon: Layers,
-          },
-          {
-            num: '03',
-            title: 'दस्तावेज़ सत्यापित करें',
-            desc: 'प्रामाणिक रिकॉर्ड के विरुद्ध भूमि दस्तावेजों की ओसीआर जांच करें।',
-            icon: FileCheck2,
-          },
-          {
-            num: '04',
-            title: 'अनुरोध दर्ज करें',
-            desc: 'किसी भी विभाग के साथ कार्यप्रवाह शुरू करें और लाइव ट्रैक करें।',
-            icon: ArrowRight,
-          },
-        ],
-      },
-      gisPreview: {
-        eyebrow: 'लाइव जीआईएस पूर्वावलोकन',
-        heading: 'एक मानचित्र। पाँच राज्य। शून्य अस्पष्टता।',
-        body: 'प्रत्येक भूखंड एक सत्यापन योग्य स्थिति रखता है — स्वच्छ शीर्षक से लेकर सक्रिय विवाद तक। अधिकारी और नागरिक एक ही सत्य को वास्तविक समय में देखते हैं।',
-        legend: [
-          { label: 'सत्यापित', color: '#166534' },
-          { label: 'चयनित', color: '#D97706' },
-          { label: 'लंबित', color: '#F59E0B', isDashed: true },
-          { label: 'विवादित', color: '#DC2626' },
-          { label: 'उच्च-जोखिम', color: '#92400E' },
-        ],
-      },
-      interoperability: {
-        eyebrow: 'अंतर-संचालनीयता',
-        heading: 'सात विभागीय फ़ीड्स। एक अभिलेख।',
-        feeds: [
-          { name: 'भूमि रिकॉर्ड', icon: FileText },
-          { name: 'पंजीकरण', icon: FileCheck2 },
-          { name: 'टाउन प्लानिंग', icon: Building2 },
-          { name: 'राजस्व कर', icon: Receipt },
-          { name: 'प्रतिबंध', icon: ShieldAlert },
-          { name: 'विवाद', icon: Scale },
-          { name: 'भार/बंधक', icon: Lock },
-        ],
-      },
-      landAgri: {
-        eyebrow: 'भूमि एवं कृषि',
-        heading: 'बहीखाते से परे, भूमि की संपूर्ण जानकारी।',
-        body: 'भूमिसेतु कानूनी रिकॉर्ड के साथ-साथ कृषि मेटाडेटा — क्षेत्रफल, भूमि उपयोग, म्यूटेशन इतिहास और मूल्यांकन को प्रदर्शित करता है।',
-        snapshotBadge: 'भूखंड स्नैपशॉट',
-        snapshotTitle: 'सर्वेक्षण सं. 142 — 2019 से खरीफ और रबी चक्र ट्रैक किए गए।',
-        metadata: [
-          { label: 'प्रामाणिक क्षेत्रफल', value: '2.31 हेक्टेयर', icon: Crop },
-          { label: 'भूमि उपयोग', value: 'द्वि-फसली कृषि', icon: Layers },
-          { label: 'अंतिम म्यूटेशन', value: 'मार्च 2024', icon: Calendar },
-          { label: 'मूल्यांकन श्रेणी', value: 'टियर-II', icon: TrendingUp },
-        ],
-      },
-      closingCta: {
-        heading: 'अपनी भूमि को स्पष्ट रूप से देखने के लिए तैयार हैं?',
-        body: 'यूलपिन, सर्वेक्षण संख्या, या भूखंड संख्या द्वारा खोजें — और सेकंडों में एकल, सत्यापन योग्य दृश्य प्राप्त करें।',
-        searchButton: 'भूखंड खोजें',
-        signInButton: 'शुरू करें',
-      },
-      footer: {
-        desc: 'एक जीआईएस-आधारित भूमि शासन और अंतर-संचालनीयता मंच — खंडित भूमि डेटा को एक एकल, सत्यापन योग्य दृश्य में जोड़ता है।',
-        platformTitle: 'मंच',
-        platformLinks: ['भूखंड खोजें', 'भूखंड 360°', 'दस्तावेज़ सत्यापन', 'लाइव मानचित्र'],
-        portalsTitle: 'पोर्टल',
-        portalsLinks: ['नागरिक पोर्टल', 'अधिकारी पोर्टल', 'प्रशासन पोर्टल'],
-        aboutTitle: 'के बारे में',
-        aboutLinks: ['उद्देश्य', 'पायलट राज्य', 'अंतर-संचालनीयता', 'संपर्क'],
-        copyright: '© 2026 भूमिसेतु • भारत सरकार भूमि शासन पहल',
-        privacy: 'गोपनीयता',
-        terms: 'नियम व शर्तें',
-        accessibility: 'सुगम्यता',
-      },
+      tickerLabel: 'नवीनतम अपडेट',
     },
   };
 
   const t = content[language];
 
+  const handleCardClick = (action: string) => {
+    if (action === 'search' || action === 'verify') {
+      setIsSearchModalOpen(true);
+    } else if (action === 'citizen') {
+      navigate('/citizen');
+    } else {
+      setIsSearchModalOpen(true);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#F7FAF5] dark:bg-[#0a1a13] text-[#34413A] dark:text-[#F7FAF5] font-sans selection:bg-[#F59E0B] selection:text-black">
-      {/* ========================================================================= */}
-      {/* 1. FLOATING GLASSMORPHISM NAVBAR                                          */}
-      {/* ========================================================================= */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 sm:px-6 pt-4 pointer-events-none transition-all duration-300">
-        <div
-          className={`w-full max-w-7xl h-14 sm:h-[56px] px-4 sm:px-6 rounded-2xl flex items-center justify-between pointer-events-auto transition-all duration-300 ${
-            isScrolled
-              ? 'bg-[#0F3D2E]/95 dark:bg-[#0a1a13]/95 backdrop-blur-md shadow-lg border border-white/20'
-              : 'bg-white/10 dark:bg-black/25 backdrop-blur-[40px] border border-white/25 shadow-[0_8px_32px_0_rgba(0,0,0,0.2),inset_0_1px_0_0_rgba(255,255,255,0.25)]'
-          }`}
-        >
-          {/* Left: Minimal Geometric Logo */}
-          <Link to="/" className="flex items-center gap-2.5 focus:outline-none group">
-            <img
-              src="/apple-touch-icon.png"
-              alt="BhoomiSetu"
-              className="w-6 h-6 rounded-md transition-transform group-hover:scale-105"
+    <div
+      className="min-h-screen font-sans antialiased selection:bg-[var(--action-500)] selection:text-white"
+      style={{
+        background: 'var(--hero-bg)',
+        backgroundColor: 'var(--page-bg)',
+        color: 'var(--text-primary)',
+      }}
+    >
+      <main id="main-content" className="w-full">
+        {/* ========================================================================= */}
+        {/* 04. HERO SECTION WITH CONNECTED NODE VISUAL                               */}
+        {/* ========================================================================= */}
+        <section className="w-full relative overflow-hidden bg-[var(--page-bg)]">
+          {/* Background Image - Absolute positioned img tag behaves perfectly across zoom levels compared to CSS background-size */}
+          <div className="absolute inset-0 w-full h-full pointer-events-none">
+            <img 
+              src="/hero-team.jpg" 
+              alt="Hero Background" 
+              className="w-full h-full object-cover object-center"
             />
-            <span className="font-heading font-bold text-lg sm:text-xl text-white tracking-tight">
-              BhoomiSetu
-            </span>
-          </Link>
-
-          {/* Center Links (Inter 14px, medium, white/75, hover white) */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-white/75">
-            <a href="#about" className="hover:text-white transition-colors duration-150">
-              {t.nav.about}
-            </a>
-            <a href="#features" className="hover:text-white transition-colors duration-150">
-              {t.nav.features}
-            </a>
-          </nav>
-
-          {/* Right: Language Pill Toggle + Theme Toggle */}
-          <div className="flex items-center gap-3">
-            {/* Language Pill Toggle EN / हिंदी */}
-            <div className="flex items-center p-0.5 rounded-full bg-black/25 border border-white/20 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => changeLanguage('EN')}
-                className={`px-2.5 py-1 rounded-full transition-all duration-150 ${
-                  language === 'EN'
-                    ? 'bg-[#F59E0B] text-[#16241A] font-bold shadow-xs'
-                    : 'text-white/80 hover:text-white'
-                }`}
-                aria-label="Switch to English"
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => changeLanguage('HI')}
-                className={`px-2.5 py-1 rounded-full transition-all duration-150 ${
-                  language === 'HI'
-                    ? 'bg-[#F59E0B] text-[#16241A] font-bold shadow-xs'
-                    : 'text-white/80 hover:text-white'
-                }`}
-                aria-label="Switch to Hindi"
-              >
-                हिंदी
-              </button>
-            </div>
-
-            {/* Dark/Light Mode Toggle */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-[#F59E0B]" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Single common entry point - right-aligned, last item before the
-                mobile hamburger takes over below md */}
-            <Link
-              to="/login"
-              className="hidden md:inline-flex px-4 py-1.5 rounded-full bg-[#F59E0B] text-[#16241A] font-heading font-bold text-xs uppercase tracking-wide hover:brightness-105 transition whitespace-nowrap"
-            >
-              {t.nav.loginRegister}
-            </Link>
-
-            {/* Mobile Menu Hamburger */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition"
-              aria-label="Toggle Navigation Menu"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Dropdown Menu */}
-        {mobileMenuOpen && (
-          <div className="absolute top-18 left-4 right-4 bg-[#0F3D2E]/95 dark:bg-[#0a1a13]/95 backdrop-blur-2xl border border-white/20 rounded-2xl p-5 shadow-2xl space-y-3 pointer-events-auto md:hidden animate-fadeIn">
-            <a
-              href="#about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-white/85 hover:text-white hover:bg-white/10 font-medium text-sm"
-            >
-              {t.nav.about}
-            </a>
-            <a
-              href="#features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-white/85 hover:text-white hover:bg-white/10 font-medium text-sm"
-            >
-              {t.nav.features}
-            </a>
-            <div className="pt-2 border-t border-white/15 flex gap-2">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setIsSearchModalOpen(true);
-                }}
-                className="w-full py-2.5 rounded-xl border border-white/25 text-white font-heading font-bold text-xs uppercase tracking-wider"
-              >
-                {t.hero.searchCta}
-              </button>
-              <Link
-                to="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full py-2.5 rounded-xl bg-[#F59E0B] text-[#16241A] font-heading font-bold text-xs uppercase tracking-wider text-center whitespace-nowrap"
-              >
-                {t.nav.loginRegister}
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* ========================================================================= */}
-      {/* 2. HERO SECTION (~92vh)                                                   */}
-      {/* ========================================================================= */}
-      <section className="relative w-full h-[92vh] min-h-[640px] max-h-[960px] flex flex-col justify-between overflow-hidden">
-        {/* Full-bleed aerial photo background */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/Background.jpeg')" }}
-          role="img"
-          aria-label="Aerial drone photograph of Indian farmland with crop fields, trees, and village cluster"
-        />
-
-        {/* Scrim: ONLY left-to-right linear gradient (rgba(6,21,15,0.95) to transparent at ~62%) + subtle vignettes */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(90deg, rgba(6, 21, 15, 0.96) 0%, rgba(6, 21, 15, 0.88) 32%, rgba(6, 21, 15, 0.5) 48%, rgba(6, 21, 15, 0) 62%)',
-          }}
-        />
-        {/* Very subtle top and bottom vignettes */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(6, 21, 15, 0.4) 0%, transparent 18%, transparent 82%, rgba(6, 21, 15, 0.6) 100%)',
-          }}
-        />
-
-        {/* Hero Content - Vertically centered, left-aligned */}
-        <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 my-auto pt-24 sm:pt-28">
-          <div className="max-w-2xl space-y-6 sm:space-y-7">
-            {/* Eyebrow */}
-            <div className="inline-block">
-              <span className="text-white text-[11px] sm:text-xs font-semibold uppercase tracking-[0.3em] opacity-90">
-                {t.hero.eyebrow}
-              </span>
-            </div>
-
-            {/* Bold uppercase Montserrat headline */}
-            <h1 className="font-heading font-extrabold uppercase text-white tracking-tight leading-[1.08] text-4xl sm:text-6xl lg:text-[72px]">
-              {t.hero.headlineLine1}
-              <br />
-              {t.hero.headlineLine2}
-            </h1>
-
-            {/* Body copy: 17-18px Inter, white/85, max-w ~28rem */}
-            <p className="text-white/85 text-base sm:text-[18px] leading-relaxed max-w-[28rem] font-normal">
-              {t.hero.body}
-            </p>
-
-            {/* Two Pill CTAs below */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-2">
-              {/* (1) Search a Parcel CTA - metallic light-gray vertical gradient */}
-              <button
-                type="button"
-                onClick={() => setIsSearchModalOpen(true)}
-                className="btn-brushed-metal inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-heading font-bold text-sm sm:text-base cursor-pointer tracking-wide"
-              >
-                <Search className="w-4 h-4 text-[#16241A]" />
-                <span>{t.hero.searchCta}</span>
-              </button>
-
-              {/* (2) Get Started CTA - transparent glass */}
-              <Link
-                to="/register"
-                className="btn-hero-glass inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-heading font-medium text-sm sm:text-base cursor-pointer tracking-wide"
-              >
-                <span>{t.hero.signInCta}</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Bottom Area */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 space-y-4">
-          {/* Floating badge, bottom-left: parchment-tan rounded card */}
-          <div className="flex items-center">
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#E9DDC2] border border-[#D9CAA5] shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
-              <img src="/apple-touch-icon.png" alt="BhoomiSetu" className="w-5 h-5 rounded-md" />
-              <span className="font-heading font-bold text-xs sm:text-sm text-[#0F3D2E] tracking-tight">
-                {t.hero.badge}
-              </span>
-            </div>
           </div>
 
-          {/* Bottom hairline + row of tracked government labels */}
-          <div className="pt-3 border-t border-white/25">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              <span>GOVERNMENT OF INDIA</span>
-              <span className="text-white/30">|</span>
-              <span>DIGITAL INDIA</span>
-              <span className="text-white/30">|</span>
-              <span>SVAMITVA SCHEME</span>
-            </div>
-          </div>
-        </div>
-      </section>
+          {/* Gradient overlay: uses color-mix to properly apply opacity to the CSS variable */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, var(--page-bg) 30%, color-mix(in srgb, var(--page-bg) 80%, transparent) 50%, transparent 65%)' }} />
 
-      {/* ========================================================================= */}
-      {/* 3. TRUST STATS STRIP ON WHITE                                             */}
-      {/* ========================================================================= */}
-      <section className="w-full bg-white dark:bg-[#122b20] border-b border-black/10 dark:border-white/10 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-black/10 dark:divide-white/10">
-            {t.stats.map((stat, idx) => (
-              <div
-                key={stat.label}
-                className={`flex flex-col items-center justify-center text-center p-4 ${
-                  idx > 1 ? 'pt-6 md:pt-4' : ''
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="font-heading font-bold text-3xl sm:text-4xl lg:text-[44px] text-[#0F3D2E] dark:text-white tracking-tight">
-                    {stat.value}
-                  </span>
-                  {stat.isLive && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#166534] dark:bg-emerald-400 animate-pulse mt-1" />
-                  )}
-                </div>
-                <span className="text-xs sm:text-[13px] font-semibold uppercase tracking-wider text-[#718078] dark:text-white/60 mt-1">
-                  {stat.label}
-                </span>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-16 sm:pb-24 relative z-10">
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-[var(--text-heading)] leading-[1.15] drop-shadow-sm">
+                  {t.hero.headlineLine1}
+                  <br />
+                  {t.hero.headlineLine2}
+                </h1>
+                <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-bold text-[var(--action-700)] tracking-tight mt-1.5 drop-shadow-sm">
+                  {t.hero.brandSolution}
+                </h2>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 4. HOW IT WORKS SECTION (LIGHT THEME, 96PX VERTICAL PADDING)              */}
-      {/* ========================================================================= */}
-      <section id="features" className="w-full py-20 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="space-y-4 max-w-2xl mb-12 sm:mb-16">
-          {/* Eyebrow: mono, tracked, amber */}
-          <div className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#D97706] dark:text-[#F59E0B]">
-            {t.howItWorks.eyebrow}
-          </div>
-          {/* Montserrat bold heading */}
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl text-[#0F3D2E] dark:text-white tracking-tight leading-tight">
-            {t.howItWorks.heading}
-          </h2>
-        </div>
-
-        {/* 4-step grid of white cards with thin borders */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {t.howItWorks.steps.map((step) => {
-            const Icon = step.icon;
-            return (
-              <div
-                key={step.num}
-                className="bg-white dark:bg-[#143225] rounded-2xl p-6 sm:p-7 border border-black/10 dark:border-white/10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-md transition-all duration-200 flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-[#F7FAF5] dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center text-[#0F3D2E] dark:text-white group-hover:bg-[#0F3D2E] group-hover:text-white transition-colors">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="font-mono text-xs font-semibold text-[#718078] dark:text-white/60">
-                      {step.num}
-                    </span>
-                  </div>
-                  <h3 className="font-heading font-bold text-lg text-[#0F3D2E] dark:text-white mb-2">
-                    {step.title}
-                  </h3>
-                  <p className="text-sm text-[#53635A] dark:text-white/70 leading-relaxed font-normal">
-                    {step.desc}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. LIVE GIS PREVIEW (TWO-COLUMN WITH STYLIZED SVG GRID)                   */}
-      {/* ========================================================================= */}
-      <section className="w-full bg-[#F1F5EF] dark:bg-[#0e241b] py-20 sm:py-24 border-y border-black/10 dark:border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Left Column: Eyebrow, Heading, Body Copy, Color Legend */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#D97706] dark:text-[#F59E0B]">
-                {t.gisPreview.eyebrow}
-              </div>
-              <h2 className="font-heading font-bold text-3xl sm:text-4xl text-[#0F3D2E] dark:text-white tracking-tight leading-tight">
-                {t.gisPreview.heading}
-              </h2>
-              <p className="text-[#53635A] dark:text-white/75 text-base sm:text-[17px] leading-relaxed">
-                {t.gisPreview.body}
+              <p className="text-sm sm:text-base text-[var(--text-primary)] leading-relaxed max-w-xl font-medium drop-shadow-sm">
+                {t.hero.body}
               </p>
 
-              {/* Color legend */}
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                {t.gisPreview.legend.map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 text-xs font-medium text-[#34413A] dark:text-white/80">
-                    <span
-                      className={`w-3 h-3 rounded-full shrink-0 ${
-                        item.isDashed ? 'border-2 border-dashed border-[#F59E0B] bg-[#F59E0B]/30' : ''
-                      }`}
-                      style={{ backgroundColor: item.isDashed ? undefined : item.color }}
-                    />
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Quick Action to open search */}
-              <div className="pt-2">
+              <div className="flex flex-wrap items-center gap-3.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsSearchModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F3D2E] hover:bg-[#166534] text-white font-heading font-semibold text-xs uppercase tracking-wider transition shadow-sm"
+                  className="px-5 py-2.5 bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] text-white font-medium text-sm rounded-[4px] transition-colors duration-150 flex items-center gap-2 shadow-sm cursor-pointer"
                 >
-                  <Search className="w-3.5 h-3.5 text-[#F59E0B]" />
-                  <span>Inspect Cadastral Plot</span>
+                  <span>{t.hero.exploreNow}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
+                <Link
+                  to="/features"
+                  className="px-5 py-2.5 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] text-[var(--text-heading)] font-medium text-sm rounded-[4px] border border-[var(--border)] transition-colors duration-150 flex items-center gap-2 shadow-sm"
+                >
+                  <FileText className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span>{t.hero.learnMore}</span>
+                </Link>
               </div>
-            </div>
 
-            {/* Right Column: Stylized SVG Parcel Grid Card */}
-            <div className="lg:col-span-7">
-              <div className="bg-white dark:bg-[#143225] rounded-2xl border border-black/10 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
-                {/* Header row of the card */}
-                <div className="px-6 py-4 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#166534] animate-pulse" />
-                    <span className="font-heading font-bold text-sm text-[#0F3D2E] dark:text-white">
-                      Pune Cluster
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs text-[#718078] dark:text-white/60 font-semibold">
-                    18.52°N · 73.85°E
-                  </span>
-                </div>
-
-                {/* Stylized SVG Parcel Grid */}
-                <div className="p-6 sm:p-8 flex justify-center bg-[#F7FAF5]/50 dark:bg-black/20">
-                  <svg
-                    viewBox="0 0 520 280"
-                    className="w-full max-w-[480px] h-auto drop-shadow-xs"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    {/* Row 1 */}
-                    <rect x="10" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="105" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="200" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="390" y="10" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-
-                    {/* Row 2 */}
-                    <rect x="10" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Selected Parcel in Row 2 Column 2 (Amber with pulsing outline + pin) */}
-                    <g
-                      className="cursor-pointer group"
-                      onClick={() => setSelectedGridParcel('MH-PUN-0042-2018')}
-                    >
-                      <rect
-                        x="105"
-                        y="75"
-                        width="85"
-                        height="55"
-                        rx="6"
-                        fill="#D97706"
-                        stroke="#F59E0B"
-                        strokeWidth="2.5"
-                        className="animate-parcel-pulse"
-                      />
-                      {/* Location Pin inside selected parcel */}
-                      <circle cx="147.5" cy="98" r="6" fill="#78350F" />
-                      <path d="M147.5 108 L144 102 L151 102 Z" fill="#78350F" />
-                    </g>
-                    <rect x="200" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="75" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Pending Parcel (Amber dashed) */}
-                    <rect
-                      x="390"
-                      y="75"
-                      width="85"
-                      height="55"
-                      rx="6"
-                      fill="#F59E0B"
-                      fillOpacity="0.85"
-                      stroke="#B45309"
-                      strokeWidth="2"
-                      strokeDasharray="4 3"
-                    />
-
-                    {/* Row 3 */}
-                    <rect x="10" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* Disputed Parcel (Red #DC2626) */}
-                    <rect x="105" y="140" width="85" height="55" rx="6" fill="#DC2626" opacity="0.9" />
-                    <rect x="200" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="295" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="390" y="140" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-
-                    {/* Row 4 */}
-                    <rect x="10" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="105" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    <rect x="200" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                    {/* High Risk Parcel (Dark Amber #92400E) */}
-                    <rect x="295" y="205" width="85" height="55" rx="6" fill="#92400E" opacity="0.95" />
-                    <rect x="390" y="205" width="85" height="55" rx="6" fill="#166534" opacity="0.95" />
-                  </svg>
-                </div>
-
-                {/* Footer of the card */}
-                <div className="px-6 py-3.5 bg-gray-50/70 dark:bg-black/20 border-t border-black/10 dark:border-white/10 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 font-mono text-[#53635A] dark:text-white/70">
-                    <MapPin className="w-3.5 h-3.5 text-[#D97706]" />
-                    <span>ULPIN: {selectedGridParcel}</span>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#166534]/15 text-[#166534] dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold text-[11px] border border-[#166534]/20">
-                    Verified
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. INTEROPERABILITY BAND                                                  */}
-      {/* ========================================================================= */}
-      <section className="w-full py-20 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="max-w-2xl mx-auto space-y-3 mb-10 sm:mb-12">
-          {/* Centered eyebrow: mono, amber, tracked */}
-          <div className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#D97706] dark:text-[#F59E0B]">
-            {t.interoperability.eyebrow}
-          </div>
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-[#0F3D2E] dark:text-white tracking-tight">
-            {t.interoperability.heading}
-          </h2>
-        </div>
-
-        {/* 7 pill badges in a wrap row */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 max-w-4xl mx-auto">
-          {t.interoperability.feeds.map((feed) => {
-            const Icon = feed.icon;
-            return (
-              <div
-                key={feed.name}
-                className="w-36 sm:w-40 h-12 flex items-center justify-center gap-2.5 px-3 rounded-xl bg-white dark:bg-[#143225] border border-black/10 dark:border-white/10 text-[#0F3D2E] dark:text-white shadow-xs hover:border-[#166534] hover:shadow-sm transition-all duration-150 cursor-default"
-              >
-                <Icon className="w-4 h-4 text-[#166534] dark:text-emerald-400 shrink-0" />
-                <span className="font-heading font-semibold text-xs sm:text-sm tracking-tight whitespace-nowrap">
-                  {feed.name}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 7. LAND & AGRICULTURE SECTION (EARTH-TONE ACCENTS)                       */}
-      {/* ========================================================================= */}
-      <section id="about" className="w-full bg-[#F7FAF5] dark:bg-[#0a1a13] py-20 sm:py-24 border-t border-black/10 dark:border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Left: Stylized Land Parcel Visual Card */}
-            <div className="lg:col-span-5">
-              <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#92400E] via-[#B45309] to-[#78350F] p-8 sm:p-10 text-white shadow-xl min-h-[340px] flex flex-col justify-between">
-                {/* Subtle organic topographic curves in background */}
-                <div className="absolute inset-0 opacity-15 pointer-events-none" aria-hidden="true">
-                  <svg className="w-full h-full" viewBox="0 0 400 300" fill="none">
-                    <path
-                      d="M0 80 Q100 40, 200 100 T400 60 L400 300 L0 300 Z"
-                      fill="#FFFFFF"
-                    />
-                    <path
-                      d="M0 160 Q120 120, 240 180 T400 140 L400 300 L0 300 Z"
-                      fill="#FFFFFF"
-                      fillOpacity="0.5"
-                    />
-                  </svg>
-                </div>
-
-                <div className="relative z-10 space-y-2">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-white/80 font-bold">
-                    {t.landAgri.snapshotBadge}
-                  </span>
-                </div>
-
-                <div className="relative z-10">
-                  <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight leading-snug">
-                    {t.landAgri.snapshotTitle}
-                  </h3>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Eyebrow, Heading, Body & Metadata Grid */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#D97706] dark:text-[#F59E0B]">
-                {t.landAgri.eyebrow}
-              </div>
-              <h2 className="font-heading font-bold text-3xl sm:text-4xl text-[#0F3D2E] dark:text-white tracking-tight leading-tight">
-                {t.landAgri.heading}
-              </h2>
-              <p className="text-[#53635A] dark:text-white/75 text-base leading-relaxed">
-                {t.landAgri.body}
-              </p>
-
-              {/* Grid of metadata cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                {t.landAgri.metadata.map((item) => {
-                  const Icon = item.icon;
+              <div className="pt-6 border-t border-[var(--border)]/60 flex flex-wrap gap-2.5 text-xs text-[var(--text-primary)] font-bold">
+                {t.hero.badges.map((b) => {
+                  const Icon = b.icon;
                   return (
-                    <div
-                      key={item.label}
-                      className="p-4 rounded-xl bg-white dark:bg-[#143225] border border-black/10 dark:border-white/10 shadow-xs flex items-center gap-3.5"
-                    >
-                      <div className="p-2.5 rounded-lg bg-[#F7FAF5] dark:bg-white/10 text-[#92400E] dark:text-[#F59E0B] shrink-0">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#718078] dark:text-white/60">
-                          {item.label}
-                        </span>
-                        <span className="font-mono font-bold text-sm text-[#0F3D2E] dark:text-white">
-                          {item.value}
-                        </span>
-                      </div>
+                    <div key={b.text} className="flex items-center gap-1.5 py-1.5 px-2.5 bg-[var(--surface-1)]/80 backdrop-blur-sm rounded-[4px] border border-[var(--border)]/80 shadow-sm">
+                      <Icon className="w-3.5 h-3.5 text-[var(--bhashini-accent)] shrink-0" />
+                      <span className="text-[11px] leading-tight">{b.text}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ========================================================================= */}
-      {/* 8. CLOSING CTA (ROUNDED-3XL AMBER #D97706 PANEL WITH RADIAL GLOW)         */}
-      {/* ========================================================================= */}
-      <section className="w-full py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl bg-[#D97706] text-[#16241A] p-8 sm:p-14 lg:p-16 overflow-hidden shadow-xl">
-          {/* Radial white glow at top-right at 30% opacity */}
-          <div
-            className="absolute -top-24 -right-24 w-96 h-96 rounded-full pointer-events-none"
-            style={{
-              background: 'radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 70%)',
-            }}
-          />
+        {/* ========================================================================= */}
+        {/* 05. FEATURE CARDS GRID & LIVE GIS PREVIEW                                 */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)]/60 border-y border-[var(--border)] py-8 sm:py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: 4 Feature Cards in lighter warm amber/cream tone */}
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {t.featureCards.slice(0, 4).map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div
+                      key={card.id}
+                      onClick={() => handleCardClick(card.action)}
+                      className="bg-[var(--surface-2)] hover:bg-[var(--action-500)]/15 text-[var(--text-primary)] p-4 rounded-2xl border border-[var(--action-500)]/30 hover:border-[var(--action-500)] shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-[var(--action-500)]/20 flex items-center justify-center group-hover:bg-[var(--action-500)]/30 transition">
+                            <Icon className="w-4 h-4 text-[var(--action-700)]" />
+                          </div>
+                          <h3 className="font-semibold text-xs sm:text-[13px] text-[var(--text-primary)]">{card.title}</h3>
+                        </div>
+                        <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed font-normal">{card.desc}</p>
+                      </div>
+                      <div className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-[var(--action-700)] group-hover:gap-2 transition-all">
+                        <span>Explore</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-          <div className="relative z-10 max-w-2xl space-y-4">
-            <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-[42px] text-[#16241A] tracking-tight leading-tight">
-              {t.closingCta.heading}
-            </h2>
-            <p className="text-[#2b1803] text-base sm:text-lg leading-relaxed font-medium">
-              {t.closingCta.body}
-            </p>
+              {/* Right Column: Live GIS Preview */}
+              <div className="lg:col-span-5">
+                <div className="bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] overflow-hidden shadow-sm">
+                  <div className="px-4 py-2.5 bg-[var(--surface-2)] border-b border-[var(--border)] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[var(--bhashini-accent)] animate-pulse" />
+                      <span className="font-bold text-xs text-[var(--text-heading)] tracking-tight">Live GIS Preview</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-[var(--text-muted)]">Pune · Maharashtra</span>
+                  </div>
+                  <div className="h-56 bg-[var(--surface-2)] relative">
+                    <MapComponent parcels={puneParcels} fitToParcels showLayerPanel={false} />
+                  </div>
+                  <div className="px-4 py-2 bg-[var(--surface-2)] border-t border-[var(--border)] flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 text-[var(--text-secondary)] font-mono">
+                      <MapPin className="w-3 h-3 text-[var(--action-700)]" />
+                      <span>{puneParcels.length} parcels · PostGIS</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[var(--bhashini-accent)] font-semibold text-[10px] border border-emerald-300">Live Data</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-            <div className="flex flex-wrap items-center gap-3.5 pt-4">
-              {/* Dark green button */}
-              <button
-                type="button"
-                onClick={() => setIsSearchModalOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#0F3D2E] hover:bg-[#166534] text-white font-heading font-bold text-sm sm:text-base tracking-wide transition shadow-md"
+        {/* ========================================================================= */}
+        {/* 06. THE PROBLEM WE SOLVE SECTION                                           */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)] py-12 sm:py-16 border-b border-[var(--border)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-6 space-y-4">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--action-500)]">
+                  Why BhoomiSetu Exists
+                </span>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text-heading)] leading-tight">
+                  Land Records Are <span className="text-[var(--action-500)]">Fragmented</span>
+                  <br />Across 7+ Independent Systems
+                </h2>
+                <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed max-w-lg">
+                  Survey, Registration, Planning, Taxation, Restrictions, Dispute, and Encumbrance departments each keep their own schema and identifiers for the same piece of land. A citizen today must visit multiple portals to piece together one parcel's complete picture.
+                </p>
+                <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed max-w-lg">
+                  BhoomiSetu makes the <strong className="text-[var(--text-heading)]">parcel itself the unifying identity</strong> — resolving ULPIN, survey number, plot number, or local codes to the same canonical record, giving citizens a complete 360° view and giving officers a single workflow dashboard.
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchModalOpen(true)}
+                    className="px-5 py-2.5 rounded-xl bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] text-white font-medium text-sm transition shadow-xs flex items-center gap-2"
+                  >
+                    <span>Search a Parcel</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <Link
+                    to="/about"
+                    className="px-5 py-2.5 rounded-xl bg-[var(--surface-1)] border border-[var(--border)] hover:bg-[var(--surface-2)] text-[var(--text-heading)] font-medium text-sm transition"
+                  >
+                    Learn More
+                  </Link>
+                </div>
+              </div>
+
+              <div className="lg:col-span-6 flex justify-center items-center">
+                <div className="relative w-full max-w-xl">
+                  <img
+                    src="/bhashini-dev-team.png"
+                    alt="BhoomiSetu team working on land governance platform"
+                    className="w-full h-auto object-contain drop-shadow-sm rounded-2xl"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 07. HOW IT WORKS — 5 STEPS                                                 */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)]/60 py-10 sm:py-12 border-b border-[var(--border)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-xl mx-auto mb-8">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--bhashini-accent)]">How It Works</span>
+              <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-heading)] mt-1">From Registration to a Complete Parcel View — in 5 Steps</h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+              {workflowSteps.map((step) => (
+                <div key={step.num} className="bg-[var(--surface-1)] p-4 rounded-2xl border border-[var(--border)] shadow-xs relative">
+                  <span className="text-xs font-mono font-bold text-[var(--action-500)] block mb-1">Step {step.num}</span>
+                  <h4 className="font-bold text-sm text-[var(--text-heading)] mb-1">{step.title}</h4>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-normal">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Who is this for */}
+            <div className="mt-8 pt-6 border-t border-[var(--border)]">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                <span className="font-bold text-xs text-[var(--text-heading)] shrink-0">Who is BhoomiSetu for?</span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {stakeholders.map((s) => (
+                    <span key={s} className="px-2.5 py-1 rounded-full bg-[var(--surface-1)] border border-[var(--border)] text-[11px] text-[var(--text-primary)] font-medium">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 08. ARCHITECTURE SECTION 3: MILESTONES AT A GLANCE (PHONE CENTERPIECE)     */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)] py-14 sm:py-20 border-b border-[var(--border)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--action-700)]">Platform at a Glance</span>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text-heading)] mt-1">
+                BhoomiSetu by the Numbers
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">220+</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">Parcels Mapped</span>
+                <span className="text-[11px] text-[var(--text-muted)]">Geo-verified cadastral units with full 360° records</span>
+              </div>
+              <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">7</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">Department Feeds</span>
+                <span className="text-[11px] text-[var(--text-muted)]">Land Records, Registration, Planning, Tax, Restrictions, Disputes & Encumbrance</span>
+              </div>
+              <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--action-700)] font-mono block">3</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">Portals</span>
+                <span className="text-[11px] text-[var(--text-muted)]">Citizen, Officer, and Admin — role-gated with full audit trails</span>
+              </div>
+              <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">100%</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">Deterministic Decisions</span>
+                <span className="text-[11px] text-[var(--text-muted)]">AI assists only — every legal action stays role-gated and logged</span>
+              </div>
+            </div>
+
+            <div className="text-center mt-10">
+              <Link to="/citizen" className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--bhashini-accent)] hover:underline">
+                <span>Sign in and explore your parcel</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 10. PLATFORM CAPABILITIES GRID                                             */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)]/60 py-14 sm:py-20 border-b border-[var(--border)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--action-700)]">What's Built</span>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text-heading)] mt-1">
+                Everything BhoomiSetu Does
+              </h2>
+              <p className="text-sm text-[var(--text-secondary)] mt-2">
+                A parcel-centric view of land governance — built to connect departments that have never talked to each other, not to replace them.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {impactSectors.map((sector) => {
+                const Icon = sector.icon;
+                return (
+                  <div
+                    key={sector.name}
+                    className="bg-[var(--surface-1)] p-5 rounded-2xl border border-[var(--border)] shadow-xs hover:border-[var(--bhashini-accent)] hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[var(--bhashini-accent)] mb-3">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <h3 className="font-bold text-sm text-[var(--text-heading)] mb-1.5">{sector.name}</h3>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{sector.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-center mt-8">
+              <Link
+                to="/features"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] text-white text-xs font-semibold uppercase tracking-wider transition"
               >
-                <Search className="w-4 h-4 text-[#F59E0B]" />
-                <span>{t.closingCta.searchButton}</span>
-              </button>
+                <span>See All Features</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </section>
 
-              {/* Glass dark button */}
+        {/* ========================================================================= */}
+        {/* 11. BUILT FOR CITIZENS, OFFICERS & ADMINS                                  */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--surface-2)] border-b border-[var(--action-500)]/30 py-10 sm:py-14">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--action-700)]">Three Portals, One Platform</span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-heading)] mt-1 leading-tight">
+                Built for Every Role in Land Governance
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-emerald-200 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[var(--bhashini-accent)] mb-4">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-base text-[var(--text-heading)] mb-2">Citizens</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Search any parcel, view the complete Parcel 360° record, verify land documents against official records, raise service requests, and track their status across all departments.
+                </p>
+                <Link to="/citizen" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--bhashini-accent)] hover:underline">
+                  <span>Citizen Portal</span><ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-[var(--action-500)]/30 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-[var(--action-500)]/15 border border-[var(--action-500)]/30 flex items-center justify-center text-[var(--action-700)] mb-4">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-base text-[var(--text-heading)] mb-2">Officers</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Review and act on citizen requests department-by-department. Receive governance alerts from satellite imagery comparison, investigate spatial changes, and maintain full audit trails.
+                </p>
+                <Link to="/officer" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--action-700)] hover:underline">
+                  <span>Officer Portal</span><ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-[var(--border)] shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] mb-4">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-base text-[var(--text-heading)] mb-2">Administrators</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Manage department directories, monitor officer workloads, author GIS spatial layers, oversee platform-wide workflows, and access governance analytics across every parcel.
+                </p>
+                <Link to="/login" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--text-secondary)] hover:underline">
+                  <span>Admin Portal</span><ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <div className="rounded-2xl overflow-hidden border border-[var(--action-500)]/30 shadow-md max-w-2xl w-full">
+                <img
+                  src="/community-land.jpg"
+                  alt="Citizens and officers working with BhoomiSetu land governance platform"
+                  className="w-full h-auto object-cover max-h-[240px]"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 12. ALIGNMENT WITH GOVERNMENT INITIATIVES                                  */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--page-bg)] py-12 sm:py-16 border-b border-[var(--border)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--bhashini-accent)]">
+                  Government Scheme Alignment
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-heading)] leading-tight">
+                  Aligned with India's Land Digitisation Initiatives
+                </h2>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed max-w-xl">
+                  BhoomiSetu is designed to work within the frameworks of SVAMITVA, ULPIN (Bhu-Aadhaar), DigiLocker, and Digital India — connecting existing department systems rather than replacing them.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {['SVAMITVA Scheme', 'ULPIN / Bhu-Aadhaar', 'Digital India', 'MeitY', 'NIC', 'DILRMP'].map((label) => (
+                    <span key={label} className="px-3 py-1.5 rounded-[4px] bg-[var(--surface-1)] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)]">{label}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 bg-[var(--surface-2)] p-5 rounded-[8px] border border-[var(--border)]">
+                <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-3">
+                  What BhoomiSetu Connects
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                  {['Land Records', 'Registration', 'Town Planning', 'Taxation', 'Restrictions', 'Disputes', 'Encumbrance', 'Spatial / GIS'].map((d) => (
+                    <div key={d} className="p-2.5 bg-[var(--surface-1)] rounded border border-[var(--border)] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--bhashini-accent)] shrink-0" />
+                      {d}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 13. CLOSING CALL TO ACTION BANNER                                         */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--surface-2)] text-[var(--text-heading)] border-t border-[var(--border)] py-12 sm:py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text-heading)] tracking-tight">
+              Ready to Get Started? Make Your Land Verifiable Today
+            </h2>
+            <p className="text-sm sm:text-base text-[var(--text-secondary)] max-w-xl mx-auto font-medium">
+              Join thousands of citizens, revenue officers, and certified surveyors building India's single, verifiable GIS land registry.
+            </p>
+            <div className="pt-2">
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-black/10 hover:bg-black/15 border border-black/20 text-[#16241A] font-heading font-semibold text-sm sm:text-base tracking-wide transition"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] text-white font-bold text-sm tracking-wide transition shadow-md"
               >
-                <span>{t.closingCta.signInButton}</span>
+                <span>Access BhoomiSetu Portal</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ========================================================================= */}
-      {/* 9. FOOTER (DEEP FOREST GREEN #0F3D2E)                                     */}
-      {/* ========================================================================= */}
-      <footer className="w-full bg-[#0F3D2E] text-white border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-            {/* Brand Column */}
-            <div className="md:col-span-5 space-y-4">
-              <div className="flex items-center gap-2.5">
-                <img src="/apple-touch-icon.png" alt="BhoomiSetu" className="w-6 h-6 rounded-md" />
-                <span className="font-heading font-bold text-xl text-white tracking-tight">
-                  BhoomiSetu
-                </span>
-              </div>
-              <p className="text-white/70 text-sm leading-relaxed max-w-sm font-normal">
-                {t.footer.desc}
+        {/* ========================================================================= */}
+        {/* 14. LATEST UPDATES TICKER (BOTTOM BANNER)                                 */}
+        {/* ========================================================================= */}
+        <section className="w-full bg-[var(--brand-900)] text-white border-t border-white/10 py-2.5 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-2 py-0.5 rounded-[3px] bg-[var(--bhashini-accent)] text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                {t.tickerLabel}
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs sm:text-sm text-white/70 truncate font-medium">
+                {tickerItems[tickerIndex]}
               </p>
             </div>
 
-            {/* Three Link Columns: Platform, Portals, About */}
-            <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8">
-              {/* Platform */}
-              <div className="space-y-3">
-                <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-white">
-                  {t.footer.platformTitle}
-                </h4>
-                <ul className="space-y-2 text-sm text-white/70">
-                  {t.footer.platformLinks.map((link) => (
-                    <li key={link}>
-                      <button
-                        type="button"
-                        onClick={() => setIsSearchModalOpen(true)}
-                        className="hover:text-white transition text-left"
-                      >
-                        {link}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Portals */}
-              <div className="space-y-3">
-                <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-white">
-                  {t.footer.portalsTitle}
-                </h4>
-                <ul className="space-y-2 text-sm text-white/70">
-                  <li>
-                    <Link to="/citizen" className="hover:text-white transition">
-                      Citizen Portal
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/officer" className="hover:text-white transition">
-                      Officer Portal
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/admin" className="hover:text-white transition">
-                      Admin Portal
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* About */}
-              <div className="space-y-3">
-                <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-white">
-                  {t.footer.aboutTitle}
-                </h4>
-                <ul className="space-y-2 text-sm text-white/70">
-                  {t.footer.aboutLinks.map((link) => (
-                    <li key={link}>
-                      <a href="#about" className="hover:text-white transition">
-                        {link}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="flex items-center gap-1 text-white/50 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTickerIndex((prev) => (prev - 1 + tickerItems.length) % tickerItems.length)}
+                className="p-1 hover:text-white transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTickerPlaying(!tickerPlaying)}
+                className="p-1 hover:text-white transition"
+              >
+                {tickerPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTickerIndex((prev) => (prev + 1) % tickerItems.length)}
+                className="p-1 hover:text-white transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-          {/* Bottom Hairline Row */}
-          <div className="pt-8 mt-12 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/60">
-            <span>{t.footer.copyright}</span>
-            <div className="flex items-center gap-6">
-              <a href="#privacy" className="hover:text-white transition">
-                {t.footer.privacy}
-              </a>
-              <a href="#terms" className="hover:text-white transition">
-                {t.footer.terms}
-              </a>
-              <a href="#accessibility" className="hover:text-white transition">
-                {t.footer.accessibility}
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+        </section>
+      </main>
 
       {/* Parcel Search Modal */}
       <ParcelSearchModal

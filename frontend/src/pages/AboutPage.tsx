@@ -1,65 +1,86 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Circle, Square, Triangle, ArrowRight } from 'lucide-react';
+import { Circle, Square, Triangle, ArrowRight, ShieldCheck, Award, Users } from 'lucide-react';
 
-// Public, informational page (docs/FRONTEND_UPGRADE_SPEC.md §1.1/§2) - no
-// personal parcel data, no functional tools, just what the platform is and
-// who it's for. Same role-shape convention as the nav/portal switcher:
-// circle=Citizen, square=Officer, triangle=Admin.
+// Public, informational page - styled with Bhashini government design tokens
 const AboutPage: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 space-y-8">
-      <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6 sm:p-8">
-        <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
-        <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight font-display text-ink mb-4">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8">
+      {/* Overview Card */}
+      <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-6 sm:p-8 shadow-xs">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="px-2.5 py-0.5 rounded-[4px] bg-emerald-50 dark:bg-emerald-950/60 text-[var(--bhashini-accent)] text-xs font-semibold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
+            About Platform
+          </span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-heading)] mb-4">
           {t('about.heading')}
         </h1>
-        <p className="text-ink/80 leading-relaxed">{t('about.intro')}</p>
+        <p className="text-[var(--text-primary)] leading-relaxed text-sm sm:text-base">
+          {t('about.intro')}
+        </p>
       </div>
 
-      <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6 sm:p-8">
-        <span className="absolute -top-3 -right-3 w-6 h-6 bg-secondary border-2 border-ink" aria-hidden="true" />
-        <h2 className="text-xl font-black uppercase tracking-wide font-display text-ink mb-3">{t('about.missionHeading')}</h2>
-        <p className="text-ink/80 leading-relaxed">{t('about.missionBody')}</p>
+      {/* Mission Card */}
+      <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-6 sm:p-8 shadow-xs">
+        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-heading)] mb-3 flex items-center gap-2">
+          <Award className="w-5 h-5 text-[var(--bhashini-accent)]" />
+          <span>{t('about.missionHeading')}</span>
+        </h2>
+        <p className="text-[var(--text-primary)] leading-relaxed text-sm sm:text-base">
+          {t('about.missionBody')}
+        </p>
       </div>
 
-      <div>
-        <h2 className="text-xl font-black uppercase tracking-wide font-display text-ink mb-4">{t('about.audienceHeading')}</h2>
+      {/* Audience Roles Grid */}
+      <div className="space-y-4">
+        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-heading)] flex items-center gap-2">
+          <Users className="w-5 h-5 text-[var(--bhashini-accent)]" />
+          <span>{t('about.audienceHeading')}</span>
+        </h2>
         <div className="grid gap-5 sm:grid-cols-3">
-          <div className="bg-surface border-2 border-ink shadow-hard-sm p-5 transition hover:-translate-y-1">
-            <div className="w-10 h-10 rounded-full bg-primary/15 border-2 border-primary/50 flex items-center justify-center text-primary mb-3">
+          {/* Citizen */}
+          <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-5 shadow-xs hover:border-[var(--bhashini-accent)] transition">
+            <div className="w-9 h-9 rounded-[4px] bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-[var(--bhashini-accent)] mb-3">
               <Circle className="w-4 h-4 fill-current" aria-hidden="true" />
             </div>
-            <h3 className="font-black uppercase text-sm tracking-wide text-ink mb-1">{t('about.citizenTitle')}</h3>
-            <p className="text-sm text-ink/70 leading-relaxed">{t('about.citizenBody')}</p>
+            <h3 className="font-bold text-sm text-[var(--text-heading)] mb-1">{t('about.citizenTitle')}</h3>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">{t('about.citizenBody')}</p>
           </div>
-          <div className="bg-surface border-2 border-ink shadow-hard-sm p-5 transition hover:-translate-y-1">
-            <div className="w-10 h-10 bg-secondary/15 border-2 border-secondary/50 flex items-center justify-center text-secondary mb-3">
+
+          {/* Officer */}
+          <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-5 shadow-xs hover:border-[var(--bhashini-accent)] transition">
+            <div className="w-9 h-9 rounded-[4px] bg-[var(--action-500)]/15 border border-[var(--action-500)]/30 flex items-center justify-center text-[var(--action-700)] mb-3">
               <Square className="w-4 h-4 fill-current" aria-hidden="true" />
             </div>
-            <h3 className="font-black uppercase text-sm tracking-wide text-ink mb-1">{t('about.officerTitle')}</h3>
-            <p className="text-sm text-ink/70 leading-relaxed">{t('about.officerBody')}</p>
+            <h3 className="font-bold text-sm text-[var(--text-heading)] mb-1">{t('about.officerTitle')}</h3>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">{t('about.officerBody')}</p>
           </div>
-          <div className="bg-surface border-2 border-ink shadow-hard-sm p-5 transition hover:-translate-y-1">
-            <div className="w-10 h-10 bg-accent/20 border-2 border-accent/60 flex items-center justify-center text-accent mb-3">
+
+          {/* Admin */}
+          <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-5 shadow-xs hover:border-[var(--bhashini-accent)] transition">
+            <div className="w-9 h-9 rounded-[4px] bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] mb-3">
               <Triangle className="w-4 h-4 fill-current" aria-hidden="true" />
             </div>
-            <h3 className="font-black uppercase text-sm tracking-wide text-ink mb-1">{t('about.adminTitle')}</h3>
-            <p className="text-sm text-ink/70 leading-relaxed">{t('about.adminBody')}</p>
+            <h3 className="font-bold text-sm text-[var(--text-heading)] mb-1">{t('about.adminTitle')}</h3>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">{t('about.adminBody')}</p>
           </div>
         </div>
       </div>
 
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-      >
-        {t('about.cta')}
-        <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-      </Link>
+      {/* CTA */}
+      <div className="pt-2">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 rounded-[4px] bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] px-5 py-2.5 text-xs sm:text-sm font-medium text-white transition shadow-xs"
+        >
+          <span>{t('about.cta')}</span>
+          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        </Link>
+      </div>
     </div>
   );
 };
