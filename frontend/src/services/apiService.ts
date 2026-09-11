@@ -32,6 +32,17 @@ apiService.interceptors.response.use(
     // should force a hard redirect back to the login page.
     const isLoginAttempt = error.config?.url?.includes('/auth/login');
     if (error.response?.status === 401 && !isLoginAttempt) {
+      // KNOWN_RISKS.md MED-5: clear the now-rejected token before
+      // redirecting - previously left in localStorage, so the request
+      // interceptor above would resurrect it on the very next request (even
+      // on the login page itself) and immediately 401 again instead of
+      // landing on a clean signed-out state.
+      try {
+        localStorage.removeItem('access_token');
+      } catch {
+        // Ignore storage failures (private browsing, quota) - same as
+        // features/auth/auth.ts's clearToken.
+      }
       window.location.href = '/login';
     }
     return Promise.reject(error);

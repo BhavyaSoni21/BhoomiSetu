@@ -11,7 +11,7 @@ vi.mock('maplibre-gl', () => {
     public options: any;
     public layers: Record<string, any> = {};
     public sources: Record<string, any> = {};
-    private listeners: Record<string, Function[]> = {};
+    private listeners: Record<string, Array<(...args: any[]) => void>> = {};
 
     constructor(options: any) {
       this.options = options;
@@ -67,13 +67,18 @@ vi.mock('maplibre-gl', () => {
     }
   }
 
+  // maplibre-gl 6.x ships ESM-only with no default export (KNOWN_RISKS.md
+  // CRIT-1's upgrade) - MapComponent.tsx now does `import * as maplibregl`,
+  // so the mock's members need to be top-level named exports too, not
+  // nested under `default`.
   return {
-    default: {
-      Map: MockMap,
-      NavigationControl: MockNavigationControl,
-      Popup: MockPopup,
-      LngLatBounds: MockLngLatBounds,
-    },
+    Map: MockMap,
+    NavigationControl: MockNavigationControl,
+    Popup: MockPopup,
+    LngLatBounds: MockLngLatBounds,
+    // MapComponent.tsx also pulls in ./maplibreWorkerUrl.ts (the CRIT-1
+    // bundler worker-URL fix), which calls setWorkerUrl at import time.
+    setWorkerUrl: vi.fn(),
   };
 });
 

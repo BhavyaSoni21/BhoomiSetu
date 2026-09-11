@@ -223,6 +223,17 @@ export function useUpdateProfileDetails() {
 export function useLogout() {
   const queryClient = useQueryClient();
   return () => {
+    // Best-effort: bumps the account's tokenVersion server-side
+    // (POST /auth/logout, backend/src/auth/auth.controller.ts) so this
+    // token - and any other outstanding copy of it - actually stops
+    // validating, rather than merely being dropped from this browser's
+    // localStorage below. Never awaited/blocking - a dead network shouldn't
+    // stop the user from signing out on this device.
+    try {
+      apiService.post('/auth/logout')?.catch(() => {});
+    } catch {
+      // Ignore - see above.
+    }
     clearToken();
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
   };

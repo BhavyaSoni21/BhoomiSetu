@@ -1,12 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2 } from 'lucide-react';
-import Parcel360View from './features/parcels/Parcel360View';
 import HomePage from './pages/HomePage';
-import CitizenPortal from './pages/CitizenPortal';
-import OfficerPortal from './pages/OfficerPortal';
-import AdminPortal from './pages/AdminPortal';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AboutPage from './pages/AboutPage';
@@ -18,6 +14,28 @@ import AskAiWidget from './features/ai/AskAiWidget';
 import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from './i18n/config';
 import { useTheme } from './theme/theme';
 import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS } from './navConfig';
+
+// KNOWN_RISKS.md HIGH-8: these four are the bulk of the app's 1.98 MB single
+// bundle - every portal's dashboards/map-layer tools plus Parcel360's
+// MapLibre GL usage, all previously shipped to every visitor regardless of
+// which route (or role) they actually land on. React.lazy + the <Suspense>
+// boundary around <Routes> below is the only change this needs - the route
+// structure itself is untouched.
+const CitizenPortal = lazy(() => import('./pages/CitizenPortal'));
+const OfficerPortal = lazy(() => import('./pages/OfficerPortal'));
+const AdminPortal = lazy(() => import('./pages/AdminPortal'));
+const Parcel360View = lazy(() => import('./features/parcels/Parcel360View'));
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+      <svg className="w-8 h-8 animate-spin text-brand-900" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
@@ -321,50 +339,52 @@ function AppShell() {
 
       {/* ── Main Content Area with GIGW ID ── */}
       <main id="main-content" className="flex-1 min-h-0">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              isGuest || isCitizen ? <HomePage /> : <Navigate to={portalPathForRole(authUser!.role)} replace />
-            }
-          />
-          <Route
-            path="/citizen/*"
-            element={
-              <RequireAuth roles={['CITIZEN']}>
-                <CitizenPortal />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/officer/*"
-            element={
-              <RequireAuth roles={OFFICER_ROLES}>
-                <OfficerPortal />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/admin/*"
-            element={
-              <RequireAuth roles={['ADMIN']}>
-                <AdminPortal />
-              </RequireAuth>
-            }
-          />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route
-            path="/parcels/:id"
-            element={
-              <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <Parcel360View />
-              </div>
-            }
-          />
-        </Routes>
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                isGuest || isCitizen ? <HomePage /> : <Navigate to={portalPathForRole(authUser!.role)} replace />
+              }
+            />
+            <Route
+              path="/citizen/*"
+              element={
+                <RequireAuth roles={['CITIZEN']}>
+                  <CitizenPortal />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/officer/*"
+              element={
+                <RequireAuth roles={OFFICER_ROLES}>
+                  <OfficerPortal />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin/*"
+              element={
+                <RequireAuth roles={['ADMIN']}>
+                  <AdminPortal />
+                </RequireAuth>
+              }
+            />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route
+              path="/parcels/:id"
+              element={
+                <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                  <Parcel360View />
+                </div>
+              }
+            />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* ── Global Government Footer for Internal Pages ── */}

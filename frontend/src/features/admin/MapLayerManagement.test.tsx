@@ -12,22 +12,26 @@ vi.mock('../../services/apiService', () => ({
 // mounts inside the Add/Edit form (see below), so it needs the same inert
 // mock LayerGeometryDrawMap.test.tsx uses for its own maplibre-gl coverage;
 // this file's tests only exercise the surrounding form fields, not drawing.
+// maplibre-gl 6.x ships ESM-only with no default export (KNOWN_RISKS.md
+// CRIT-1's upgrade) - LayerGeometryDrawMap.tsx now does
+// `import * as maplibregl`, so these need to be top-level named exports.
+// setWorkerUrl: also pulled in via ./maplibreWorkerUrl.ts (the CRIT-1
+// bundler worker-URL fix), called at import time.
 vi.mock('maplibre-gl', () => ({
-  default: {
-    Map: vi.fn().mockImplementation(() => ({
-      addControl: vi.fn(),
-      isStyleLoaded: vi.fn(() => true),
-      once: vi.fn(),
-      on: vi.fn(),
-      remove: vi.fn(),
-      fitBounds: vi.fn(),
-    })),
-    NavigationControl: vi.fn(),
-    LngLatBounds: vi.fn().mockImplementation(() => ({
-      extend: vi.fn(),
-      isEmpty: vi.fn(() => true),
-    })),
-  },
+  Map: vi.fn().mockImplementation(() => ({
+    addControl: vi.fn(),
+    isStyleLoaded: vi.fn(() => true),
+    once: vi.fn(),
+    on: vi.fn(),
+    remove: vi.fn(),
+    fitBounds: vi.fn(),
+  })),
+  NavigationControl: vi.fn(),
+  LngLatBounds: vi.fn().mockImplementation(() => ({
+    extend: vi.fn(),
+    isEmpty: vi.fn(() => true),
+  })),
+  setWorkerUrl: vi.fn(),
 }));
 vi.mock('@mapbox/mapbox-gl-draw', () => ({
   default: vi.fn().mockImplementation(() => ({

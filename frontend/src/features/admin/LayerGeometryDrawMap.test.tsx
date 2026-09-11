@@ -7,7 +7,7 @@ const mockDrawInstances: any[] = [];
 
 vi.mock('maplibre-gl', () => {
   class MockMap {
-    listeners: Record<string, Function[]> = {};
+    listeners: Record<string, Array<(...args: any[]) => void>> = {};
     addControl = vi.fn();
     isStyleLoaded = vi.fn(() => true);
     fitBounds = vi.fn();
@@ -16,7 +16,7 @@ vi.mock('maplibre-gl', () => {
     constructor() {
       mockMapInstances.push(this);
     }
-    on(event: string, handler: Function) {
+    on(event: string, handler: (...args: any[]) => void) {
       this.listeners[event] = this.listeners[event] || [];
       this.listeners[event].push(handler);
     }
@@ -34,7 +34,12 @@ vi.mock('maplibre-gl', () => {
       return this.points.length === 0;
     }
   }
-  return { default: { Map: MockMap, NavigationControl: MockNavigationControl, LngLatBounds: MockLngLatBounds } };
+  // maplibre-gl 6.x ships ESM-only with no default export (KNOWN_RISKS.md
+  // CRIT-1's upgrade) - LayerGeometryDrawMap.tsx now does
+  // `import * as maplibregl`, so these need to be top-level named exports.
+  // setWorkerUrl: also pulled in via ./maplibreWorkerUrl.ts (the CRIT-1
+  // bundler worker-URL fix), called at import time.
+  return { Map: MockMap, NavigationControl: MockNavigationControl, LngLatBounds: MockLngLatBounds, setWorkerUrl: vi.fn() };
 });
 
 vi.mock('@mapbox/mapbox-gl-draw', () => {

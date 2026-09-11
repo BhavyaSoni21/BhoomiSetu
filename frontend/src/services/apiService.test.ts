@@ -58,4 +58,43 @@ describe('apiService response interceptor', () => {
 
     expect(window.location.href).toBe('');
   });
+
+  // KNOWN_RISKS.md MED-5: the stale token used to survive the redirect,
+  // resurrected on the very next request by the request interceptor.
+  describe('clearing the stale token (MED-5)', () => {
+    beforeEach(() => {
+      localStorage.setItem('access_token', 'a-stale-token');
+    });
+
+    afterEach(() => {
+      localStorage.clear();
+    });
+
+    it('clears the token on a 401 from an unrelated endpoint', async () => {
+      const handler = getResponseErrorHandler();
+      await expect(
+        handler({ response: { status: 401 }, config: { url: '/parcels/123/risk-score' } }),
+      ).rejects.toBeTruthy();
+
+      expect(localStorage.getItem('access_token')).toBeNull();
+    });
+
+    it('leaves the token alone on a 401 from the login endpoint itself', async () => {
+      const handler = getResponseErrorHandler();
+      await expect(
+        handler({ response: { status: 401 }, config: { url: '/auth/login' } }),
+      ).rejects.toBeTruthy();
+
+      expect(localStorage.getItem('access_token')).toBe('a-stale-token');
+    });
+
+    it('leaves the token alone on a non-401 error', async () => {
+      const handler = getResponseErrorHandler();
+      await expect(
+        handler({ response: { status: 500 }, config: { url: '/parcels' } }),
+      ).rejects.toBeTruthy();
+
+      expect(localStorage.getItem('access_token')).toBe('a-stale-token');
+    });
+  });
 });
