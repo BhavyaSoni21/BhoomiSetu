@@ -8,7 +8,7 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 ## 1. Admin session/timeout & token revocation
 
-**Status: not started — no existing pattern to build on.** JWTs never expire today; a session ends only when the frontend's own Logout button is clicked (a deliberate product decision, not an oversight — see `docs/architecture/KNOWN_RISKS.md`, which independently flags this as a High-severity finding for real deployment). There is no session table, no token revocation, no multi-row-per-user concept anywhere in this codebase. The closest analog is the email-OTP lifecycle on `User` (hashed code + expiry + attempt counter) — a reasonable *template* for a sessions table's shape, but this is still new work from the ground up.
+**Status: partially done (2026-09-11) — real revocation exists, admin-facing controls and timeout don't.** JWTs still never expire (that no-auto-expiry UX is an unchanged, deliberate product decision) and a session still normally ends only when the frontend's own Logout button is clicked, but that click now actually ends it server-side: `User.tokenVersion` (`backend/src/users/user.entity.ts`) is embedded in every JWT and checked on every request (`JwtStrategy.validate()`), and `POST /auth/logout` bumps it — so a captured/replayed token stops working the moment the real user logs out, closing `docs/architecture/KNOWN_RISKS.md` HIGH-2. Still genuinely open: no admin-facing "revoke this specific user's session(s)" control, no idle/inactivity timeout, and no session table (tokenVersion is a single per-user counter, not a per-session record) — so this item stays here rather than moving to FEATURES.md.
 
 *Source: `docs/archive/ADMIN_PANEL_ISSUES.md` (the one item-9 sub-item never picked up).*
 
