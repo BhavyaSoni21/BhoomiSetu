@@ -1,23 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Mail, Phone, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLogin } from '../features/auth/auth';
-import { OFFICER_ROLES, ROLE_LABELS } from '../features/officer/officerAuth';
 import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
 import axios from 'axios';
-
-const DEMO_PASSWORD = 'Demo@123';
-const DEMO_OFFICER_EMAILS: Record<(typeof OFFICER_ROLES)[number], string> = {
-  LAND_RECORD_OFFICER:   'landrecords.officer@bhoomisetu.gov.in',
-  REGISTRATION_OFFICER:  'registration.officer@bhoomisetu.gov.in',
-  PLANNING_OFFICER:      'planning.officer@bhoomisetu.gov.in',
-  DISPUTE_OFFICER:       'dispute.officer@bhoomisetu.gov.in',
-  TAX_OFFICER:           'tax.officer@bhoomisetu.gov.in',
-  RESTRICTION_OFFICER:   'restriction.officer@bhoomisetu.gov.in',
-  ENCUMBRANCE_OFFICER:   'encumbrance.officer@bhoomisetu.gov.in',
-};
-const DEMO_ADMIN_EMAIL = 'admin@bhoomisetu.gov.in';
 
 type LoginMethod = 'EMAIL' | 'MOBILE';
 
@@ -45,7 +32,6 @@ const LoginPage: React.FC = () => {
   const [password, setPassword]         = useState('');
   const [showPwd, setShowPwd]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const [demoOpen, setDemoOpen]         = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,13 +51,6 @@ const LoginPage: React.FC = () => {
           : t('authPage.genericError'),
       );
     }
-  };
-
-  const fillDemo = (demoEmail: string) => {
-    setMethod('EMAIL');
-    setEmail(demoEmail);
-    setPassword(DEMO_PASSWORD);
-    setDemoOpen(false);
   };
 
   return (
@@ -408,109 +387,6 @@ const LoginPage: React.FC = () => {
               {t('authPage.continueAsGuestLink')}
             </Link>
           </p>
-
-          {/* Demo accounts panel */}
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{ border: '1px solid var(--border)' }}
-          >
-            <button
-              type="button"
-              onClick={() => setDemoOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider transition-colors"
-              style={{
-                background: 'var(--surface-2)',
-                color: 'var(--text-secondary)',
-              }}
-              aria-expanded={demoOpen}
-            >
-              {t('authPage.demoAccountsToggle')}
-              <ChevronDown
-                className="w-4 h-4 transition-transform duration-200"
-                style={{ transform: demoOpen ? 'rotate(180deg)' : 'none' }}
-                aria-hidden="true"
-              />
-            </button>
-
-            {demoOpen && (
-              <div className="p-4 space-y-4" style={{ background: 'var(--surface-1)' }}>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {t('authPage.demoSharedPassword')}{' '}
-                  <code
-                    className="font-mono px-1.5 py-0.5 rounded text-xs"
-                    style={{ background: 'var(--surface-2)', color: 'var(--brand-900)' }}
-                  >
-                    {DEMO_PASSWORD}
-                  </code>
-                </p>
-
-                {/* Admin */}
-                <div className="space-y-1.5">
-                  <p
-                    className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    {t('authPage.demoAdminLabel')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => fillDemo(DEMO_ADMIN_EMAIL)}
-                    className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
-                    style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
-                  >
-                    {DEMO_ADMIN_EMAIL}
-                  </button>
-                </div>
-
-                {/* Officers */}
-                <div className="space-y-1.5">
-                  <p
-                    className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    {t('authPage.demoOfficersLabel')}
-                  </p>
-                  <div className="space-y-1">
-                    {OFFICER_ROLES.map((role) => (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => fillDemo(DEMO_OFFICER_EMAILS[role])}
-                        className="flex w-full items-center justify-between text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors hover:opacity-80"
-                        style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
-                      >
-                        <span className="truncate">{DEMO_OFFICER_EMAILS[role]}</span>
-                        <span
-                          className="ml-2 shrink-0 px-2 py-0.5 rounded-full text-[10px] font-sans font-semibold"
-                          style={{ background: '#D1FAE5', color: '#065F46' }}
-                        >
-                          {ROLE_LABELS[role]?.replace(/ Officer$/, '')}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Citizen */}
-                <div className="space-y-1.5">
-                  <p
-                    className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    {t('authPage.demoCitizenLabel')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => fillDemo('citizen1@example.com')}
-                    className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
-                    style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
-                  >
-                    citizen1@example.com
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
         </div>
       </div>

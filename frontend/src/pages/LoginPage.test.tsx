@@ -95,12 +95,6 @@ describe('LoginPage', () => {
     expect(await screen.findByText(/Something went wrong signing in/)).toBeInTheDocument();
   });
 
-  it('lists the demo accounts for convenience', () => {
-    renderPage();
-    expect(screen.getByText(/admin@bhoomisetu.gov.in/)).toBeInTheDocument();
-    expect(screen.getByText(/dispute.officer@bhoomisetu.gov.in/)).toBeInTheDocument();
-  });
-
   // Method-selector (docs/FRONTEND_UPGRADE_SPEC.md §3) - a toggle, not both
   // fields shown at once.
   it('shows only the email field by default, and only the mobile field after switching', () => {
