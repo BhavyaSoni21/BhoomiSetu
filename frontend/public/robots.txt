@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /register
+Disallow: /citizen
+Disallow: /officer
+Disallow: /admin
+Disallow: /parcels/
+
+Sitemap: https://bhoomi-setu-nine.vercel.app/sitemap.xml
