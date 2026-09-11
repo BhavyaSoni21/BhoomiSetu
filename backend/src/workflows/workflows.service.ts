@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { downloadFromStorage } from '../common/supabase-storage';
+import { resolvePagination } from '../common/pagination';
 import { Parcel } from '../parcels/parcel.entity';
 import { CitizenParcel } from '../parcels/citizen-parcel.entity';
 import { ParcelDocument } from '../parcels/parcel-document.entity';
@@ -129,21 +130,41 @@ export class WorkflowsService {
     const parcelIds = links.map((link) => link.parcel.id);
     if (parcelIds.length === 0) return [];
 
+    const { take, skip } = resolvePagination();
     const workflows = await this.workflowRepository.find({
       where: { parcelId: In(parcelIds) },
       order: { createdAt: 'DESC' },
+      take,
+      skip,
     });
 
-    return Promise.all(
-      workflows.map(async (workflow) => {
-        const steps = await this.stepRepository
-          .createQueryBuilder('step')
-          .where('step.workflow_id = :id', { id: workflow.id })
-          .orderBy('step.stepOrder', 'ASC')
-          .getMany();
-        return { ...workflow, steps };
-      }),
-    );
+    const stepsByWorkflowId = await this.stepsByWorkflowId(workflows.map((w) => w.id));
+    return workflows.map((workflow) => ({ ...workflow, steps: stepsByWorkflowId.get(workflow.id) ?? [] }));
+  }
+
+  // KNOWN_RISKS.md HIGH-7: batch-fetches every step for the given workflow
+  // ids in one query instead of the old one-query-per-workflow N+1 pattern
+  // (findAll/findByParcel/findMineForCitizen each used to do this inline).
+  // loadRelationIdAndMap adds the owning workflow's id to each returned step
+  // without loading the full parent Workflow row - all that's needed to
+  // group the steps back onto their workflow afterward.
+  private async stepsByWorkflowId(workflowIds: string[]): Promise<Map<string, WorkflowStep[]>> {
+    const grouped = new Map<string, WorkflowStep[]>();
+    if (workflowIds.length === 0) return grouped;
+
+    const steps = (await this.stepRepository
+      .createQueryBuilder('step')
+      .loadRelationIdAndMap('workflowId', 'step.workflow')
+      .where('step.workflow_id IN (:...ids)', { ids: workflowIds })
+      .orderBy('step.stepOrder', 'ASC')
+      .getMany()) as Array<WorkflowStep & { workflowId: string }>;
+
+    for (const step of steps) {
+      const existing = grouped.get(step.workflowId);
+      if (existing) existing.push(step);
+      else grouped.set(step.workflowId, [step]);
+    }
+    return grouped;
   }
 
   async create(dto: CreateWorkflowInput): Promise<WorkflowWithSteps | 'PARCEL_NOT_FOUND'> {
@@ -349,49 +370,47 @@ export class WorkflowsService {
   // JOIN, matching this codebase's existing preference for plain JS filtering
   // over query-builder joins for read models (see e.g. change-detection's
   // point-in-polygon affected-parcel computation).
-  async findAll(filters: { department?: string; stepStatus?: string }): Promise<WorkflowWithSteps[]> {
+  //
+  // KNOWN_RISKS.md HIGH-6: limit/offset are applied to the filtered result,
+  // not the initial fetch - capping the initial DB fetch before filtering
+  // would risk silently truncating a department's own queue (e.g. the N most
+  // recent workflows across every department might contain none of a
+  // low-volume department's older pending ones). This bounds the *response*
+  // size, which is what actually grows unbounded for a caller; the initial
+  // fetch itself still scans every workflow row, same as before HIGH-7's
+  // batch-fetch fixed the N+1 on its *steps*.
+  async findAll(filters: { department?: string; stepStatus?: string; limit?: number; offset?: number }): Promise<WorkflowWithSteps[]> {
     const workflows = await this.workflowRepository.find({ order: { createdAt: 'DESC' } });
 
-    const withSteps = await Promise.all(
-      workflows.map(async (workflow) => {
-        const steps = await this.stepRepository
-          .createQueryBuilder('step')
-          .where('step.workflow_id = :id', { id: workflow.id })
-          .orderBy('step.stepOrder', 'ASC')
-          .getMany();
-        return { ...workflow, steps };
-      }),
-    );
+    const stepsByWorkflowId = await this.stepsByWorkflowId(workflows.map((w) => w.id));
+    const withSteps = workflows.map((workflow) => ({ ...workflow, steps: stepsByWorkflowId.get(workflow.id) ?? [] }));
 
-    if (!filters.department && !filters.stepStatus) return withSteps;
+    const filtered =
+      !filters.department && !filters.stepStatus
+        ? withSteps
+        : withSteps.filter((workflow) =>
+            workflow.steps.some(
+              (step) =>
+                (!filters.department || step.department === filters.department) &&
+                (!filters.stepStatus || step.status === filters.stepStatus),
+            ),
+          );
 
-    return withSteps.filter((workflow) =>
-      workflow.steps.some(
-        (step) =>
-          (!filters.department || step.department === filters.department) &&
-          (!filters.stepStatus || step.status === filters.stepStatus),
-      ),
-    );
+    const { take, skip } = resolvePagination(filters.limit, filters.offset);
+    return filtered.slice(skip, skip + take);
   }
 
   async findByParcel(parcelId: string): Promise<WorkflowWithSteps[]> {
+    const { take, skip } = resolvePagination();
     const workflows = await this.workflowRepository.find({
       where: { parcelId },
       order: { createdAt: 'DESC' },
+      take,
+      skip,
     });
 
-    const withSteps = await Promise.all(
-      workflows.map(async (workflow) => {
-        const steps = await this.stepRepository
-          .createQueryBuilder('step')
-          .where('step.workflow_id = :id', { id: workflow.id })
-          .orderBy('step.stepOrder', 'ASC')
-          .getMany();
-        return { ...workflow, steps };
-      }),
-    );
-
-    return withSteps;
+    const stepsByWorkflowId = await this.stepsByWorkflowId(workflows.map((w) => w.id));
+    return workflows.map((workflow) => ({ ...workflow, steps: stepsByWorkflowId.get(workflow.id) ?? [] }));
   }
 
   async updateStatus(id: string, dto: UpdateWorkflowStatusDto): Promise<WorkflowWithSteps | null> {

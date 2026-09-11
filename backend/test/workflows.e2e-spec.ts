@@ -54,7 +54,7 @@ describe('Workflows (service requests) (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
@@ -216,6 +216,38 @@ describe('Workflows (service requests) (e2e)', () => {
     it('rejects an unauthenticated request with 401', async () => {
       await request(app.getHttpServer()).get('/api/v1/workflows/00000000-0000-0000-0000-000000000000').expect(401);
     });
+
+    // KNOWN_RISKS.md HIGH-9: findOne must be department-scoped the same way
+    // findAll already is - an officer with no step in their own department
+    // on this workflow gets the same 404 as a nonexistent id.
+    it('allows an officer whose department has a step on the workflow', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}`)
+        .set('Authorization', landRecordsAuth)
+        .expect(200);
+    });
+
+    it('returns 404 (not 403) for a staff role with no step in the workflow', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/workflows')
+        .set('Authorization', citizenAuth)
+        .send({ parcelId: parcel.id, workflowType: 'ROR_COPY_REQUEST' })
+        .expect(201);
+
+      // ROR_COPY_REQUEST's pipeline is LAND_RECORDS/REGISTRATION/PLANNING
+      // (see the create() test above) - TAX has no step here at all.
+      const taxAuth = (await createAuthenticatedUser(testingModule, 'TAX_OFFICER')).authHeader;
+      await request(app.getHttpServer())
+        .get(`/api/v1/workflows/${created.body.id}`)
+        .set('Authorization', taxAuth)
+        .expect(404);
+    });
   });
 
   describe('PATCH /api/v1/workflows/:id/status', () => {
@@ -324,6 +356,19 @@ describe('Workflows (service requests) (e2e)', () => {
     it('returns every workflow when no filters are given (admin only - an officer always gets scoped to their own department)', async () => {
       const res = await request(app.getHttpServer()).get('/api/v1/workflows').set('Authorization', adminAuth).expect(200);
       expect(res.body.length).toBeGreaterThan(0);
+    });
+
+    // KNOWN_RISKS.md HIGH-6: no default cap used to exist on this listing.
+    it('honors an explicit limit, capped to the most recent workflows', async () => {
+      const unlimited = await request(app.getHttpServer()).get('/api/v1/workflows').set('Authorization', adminAuth).expect(200);
+      expect(unlimited.body.length).toBeGreaterThan(2);
+
+      const limited = await request(app.getHttpServer())
+        .get('/api/v1/workflows?limit=2')
+        .set('Authorization', adminAuth)
+        .expect(200);
+      expect(limited.body).toHaveLength(2);
+      expect(limited.body.map((w: any) => w.id)).toEqual(unlimited.body.slice(0, 2).map((w: any) => w.id));
     });
 
     it("scopes an officer's request to their own department even if a different one is requested", async () => {

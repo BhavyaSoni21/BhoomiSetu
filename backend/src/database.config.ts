@@ -13,7 +13,7 @@ export function getDatabaseConnectionOptions(): DataSourceOptions {
       type: 'sqlite',
       database: process.env.SQLITE_PATH || './data/dev.sqlite',
       entities: [],
-      synchronize: true,
+      synchronize: isSynchronizeEnabled(),
     };
   }
 
@@ -32,7 +32,7 @@ export function getDatabaseConnectionOptions(): DataSourceOptions {
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'postgres',
     entities: [],
-    synchronize: true,
+    synchronize: isSynchronizeEnabled(),
     ssl: useSsl ? { rejectUnauthorized: false } : false,
     // keepAlive (TCP-level, not pg's own idle-client recycling - that's
     // already on by default) matters specifically against Supabase's
@@ -49,4 +49,22 @@ export function getDatabaseConnectionOptions(): DataSourceOptions {
 
 export function isSqliteConfigured(): boolean {
   return process.env.USE_SQLITE === 'true' || !process.env.DB_HOST;
+}
+
+// KNOWN_RISKS.md HIGH-3: TypeORM's own "never in production" flag was
+// unconditionally true before this - a destructive migration mistake
+// (renaming a column, changing a type) became a silent, automatic,
+// unreviewed schema change on the next boot against whichever database was
+// configured, dev or production.
+//
+// Deliberately its own opt-out flag (default true) rather than tied to
+// NODE_ENV=production directly: docker-compose.yml's backend service sets
+// NODE_ENV=production so main.ts's JWT_SECRET check forces a real secret,
+// but this project has no real TypeORM migrations yet (that's separate,
+// larger follow-up work) - if this were tied to NODE_ENV instead, a fresh
+// `docker-compose up` (empty Postgres volume) would boot with no tables at
+// all and nothing to create them. A real deployment that does add
+// migrations should set DB_SYNCHRONIZE=false explicitly once it does.
+function isSynchronizeEnabled(): boolean {
+  return process.env.DB_SYNCHRONIZE !== 'false';
 }

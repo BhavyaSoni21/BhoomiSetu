@@ -75,8 +75,19 @@ export async function ensureStorageBucketExists(): Promise<void> {
 // real file elsewhere on disk (e.g. os.tmpdir()) without going through
 // uploadToStorage first, which is a legitimate way to set up "this row
 // already has a document" without needing the full upload flow.
+//
+// A relative key, though, can come indirectly from client-controlled input
+// (KNOWN_RISKS.md HIGH-4 - a workflow-evidence key built partly from the
+// uploaded file's Content-Type), so it's joined and then re-checked: a
+// crafted '../' segment that walks the result back outside
+// LOCAL_FALLBACK_DIR is rejected rather than silently followed.
 function resolveLocalPath(key: string): string {
-  return path.isAbsolute(key) ? key : path.join(LOCAL_FALLBACK_DIR, key);
+  if (path.isAbsolute(key)) return key;
+  const resolved = path.resolve(LOCAL_FALLBACK_DIR, key);
+  if (resolved !== LOCAL_FALLBACK_DIR && !resolved.startsWith(LOCAL_FALLBACK_DIR + path.sep)) {
+    throw new Error(`Refusing to resolve storage key outside the local fallback directory: ${key}`);
+  }
+  return resolved;
 }
 
 export async function uploadToStorage(key: string, buffer: Buffer, contentType: string): Promise<void> {

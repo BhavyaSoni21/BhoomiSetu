@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { AuditLog } from './audit-log.entity';
+import { resolvePagination } from '../common/pagination';
 
 export interface LogParams {
   userId: string;
@@ -41,17 +42,19 @@ export class AuditService {
     });
   }
 
-  async findAll(filters: { entityType?: string; userId?: string }): Promise<AuditLogView[]> {
+  async findAll(filters: { entityType?: string; userId?: string; limit?: number; offset?: number }): Promise<AuditLogView[]> {
     const where: FindOptionsWhere<AuditLog> = {};
     if (filters.entityType) where.entityType = filters.entityType;
     if (filters.userId) where.userId = filters.userId;
 
-    const rows = await this.repository.find({ where, order: { createdAt: 'DESC' } });
+    const { take, skip } = resolvePagination(filters.limit, filters.offset);
+    const rows = await this.repository.find({ where, order: { createdAt: 'DESC' }, take, skip });
     return rows.map((row) => this.parseMetadata(row));
   }
 
   async findByParcel(parcelId: string): Promise<AuditLogView[]> {
-    const rows = await this.repository.find({ where: { parcelId }, order: { createdAt: 'DESC' } });
+    const { take, skip } = resolvePagination();
+    const rows = await this.repository.find({ where: { parcelId }, order: { createdAt: 'DESC' }, take, skip });
     return rows.map((row) => this.parseMetadata(row));
   }
 

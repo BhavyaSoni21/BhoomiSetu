@@ -80,6 +80,14 @@ export class User {
   @Column({ type: 'varchar' })
   passwordHash: string;
 
+  // Bumped on explicit logout (KNOWN_RISKS.md HIGH-2) so a JWT issued before
+  // that point - this device's, or any other copy of it - stops validating
+  // immediately instead of staying valid forever, since tokens themselves
+  // carry no expiry (see auth.module.ts). JwtStrategy.validate() rejects any
+  // token whose embedded tokenVersion doesn't match this current value.
+  @Column({ type: 'int', default: 0 })
+  tokenVersion: number;
+
   @Column({ type: 'varchar' })
   name: string;
 

@@ -35,7 +35,7 @@ describe('POST /api/v1/parcels/identify-from-document (e2e)', () => {
     testingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = testingModule.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     parcelRepository = testingModule.get(getRepositoryToken(Parcel));

@@ -25,7 +25,7 @@ describe('Users (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
@@ -96,6 +96,15 @@ describe('Users (e2e)', () => {
         .post('/api/v1/users')
         .set('Authorization', adminUser.authHeader)
         .send({ email: 'short.pass@test.gov.in', password: 'short', name: 'X', role: 'PLANNING_OFFICER' })
+        .expect(400);
+    });
+
+    // KNOWN_RISKS.md MED-10: same complexity rule as citizen self-registration.
+    it('rejects a long-enough password with no uppercase/digit complexity, with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', adminUser.authHeader)
+        .send({ email: 'weak-complexity@test.gov.in', password: 'alllowercase', name: 'X', role: 'PLANNING_OFFICER' })
         .expect(400);
     });
 

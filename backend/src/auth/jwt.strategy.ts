@@ -9,6 +9,10 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  // Absent on a token minted before this claim existed - treated as 0
+  // below, same as a freshly-created User's own tokenVersion default, so an
+  // already-issued token isn't retroactively invalidated by this change.
+  tokenVersion?: number;
 }
 
 @Injectable()
@@ -28,6 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<User> {
     const user = await this.usersService.findById(payload.sub);
     if (!user) throw new UnauthorizedException();
+    if ((payload.tokenVersion ?? 0) !== user.tokenVersion) throw new UnauthorizedException();
     return user;
   }
 }

@@ -22,8 +22,14 @@ export class RegisterDto {
   @Matches(/^[0-9]{10}$/, { message: 'mobileNumber must be a 10-digit Indian mobile number' })
   mobileNumber?: string;
 
+  // KNOWN_RISKS.md MED-10: length alone let through e.g. 'aaaaaaaa' - not a
+  // meaningful barrier against credential-stuffing (HIGH-1's throttle is the
+  // other half of that mitigation).
   @IsString()
   @MinLength(8, { message: 'password must be at least 8 characters' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+    message: 'password must contain at least one uppercase letter, one lowercase letter, and one number',
+  })
   password: string;
 
   @IsString()

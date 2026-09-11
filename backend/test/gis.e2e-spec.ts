@@ -21,7 +21,7 @@ describe('GIS endpoints (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
@@ -150,12 +150,4 @@ describe('GIS endpoints (e2e)', () => {
     });
   });
 
-  describe('GET /api/v1/gis/parcel-at-location', () => {
-    it('responds successfully (spatial lookup is a dev-mode placeholder)', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/gis/parcel-at-location')
-        .query({ lat: 28.6, lng: 77.1 })
-        .expect(200);
-    });
-  });
 });

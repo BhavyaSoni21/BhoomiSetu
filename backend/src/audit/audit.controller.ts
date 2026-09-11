@@ -13,7 +13,12 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
-  async findAll(@Query('entityType') entityType?: string, @Query('userId') userId?: string) {
-    return this.auditService.findAll({ entityType, userId });
+  async findAll(
+    @Query('entityType') entityType?: string,
+    @Query('userId') userId?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.auditService.findAll({ entityType, userId, limit, offset });
   }
 }

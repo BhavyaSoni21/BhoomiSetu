@@ -95,22 +95,4 @@ export class GisService {
     // For now, returning empty array as placeholder
     return [];
   }
-
-  // Find parcel at specific coordinates (lat, lng)
-  async findParcelAtLocation(lat: number, lng: number): Promise<Parcel | null> {
-    if (isPostgisAvailable(this.parcelRepository)) {
-      const rows: { id: string }[] = await this.parcelRepository.query(
-        `SELECT id FROM parcels
-         WHERE ST_Contains(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326), ST_SetSRID(ST_MakePoint($1, $2), 4326))
-         LIMIT 1`,
-        [lng, lat],
-      );
-      if (rows.length === 0) return null;
-      return this.parcelRepository.findOneBy({ id: rows[0].id });
-    }
-
-    // For development without PostGIS, we'll return null and note the limitation
-    console.warn('Spatial queries disabled in development mode. Enable PostGIS for production.');
-    return null;
-  }
 }

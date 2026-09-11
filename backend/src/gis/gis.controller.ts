@@ -31,14 +31,6 @@ export class GisController {
     });
   }
 
-  @Get('parcel-at-location')
-  async getParcelAtLocation(
-    @Query('lat') lat: number,
-    @Query('lng') lng: number,
-  ) {
-    return this.gisService.findParcelAtLocation(lat, lng);
-  }
-
   @Get('parcels/:id/geometry')
   async getParcelGeometry(@Param('id', ParseUUIDPipe) id: string) {
     return this.gisService.getGeometry(id);

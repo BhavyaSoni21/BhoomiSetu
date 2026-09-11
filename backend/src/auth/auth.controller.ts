@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -21,7 +22,15 @@ export class AuthController {
     private readonly auditService: AuditService,
   ) {}
 
+  // KNOWN_RISKS.md HIGH-1: tighter than the app-wide default (200/min/IP,
+  // see AppModule) - this is the single most common account-takeover vector
+  // when left at the generic default. Same limit as ParcelsController's
+  // search route (parcels.controller.ts) rather than a stricter one: a
+  // per-account failed-attempt lockout (mirroring the OTP lockout already
+  // implemented in AuthService) is the real fix for a targeted credential-
+  // stuffing attempt - this per-IP cap is only the first, cheap layer.
   @Post('login')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async login(@Body() dto: LoginDto) {
     const user = await this.authService.validateUser({ email: dto.email, mobileNumber: dto.mobileNumber }, dto.password);
     if (!user) {
@@ -149,5 +158,24 @@ export class AuthController {
   @Get('me')
   async me(@Req() req: { user: User }) {
     return this.authService.toPublicUser(req.user);
+  }
+
+  // KNOWN_RISKS.md HIGH-2: the only thing that actually revokes a session
+  // server-side - bumps tokenVersion so every previously-issued token for
+  // this account (this device's included) is rejected by
+  // JwtStrategy.validate() from this point on. Any signed-in role may call
+  // it on their own account, same guard as GET /me.
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@CurrentUser() user: User) {
+    await this.authService.logout(user);
+    await this.auditService.log({
+      userId: user.id,
+      userRole: user.role,
+      action: 'AUTH_LOGOUT',
+      entityType: 'USER',
+      entityId: user.id,
+    });
+    return { message: 'Logged out' };
   }
 }

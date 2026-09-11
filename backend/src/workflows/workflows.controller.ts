@@ -16,6 +16,16 @@ import { uploadToStorage } from '../common/supabase-storage';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB, matching the old document-verification controller's own limit
 
+// KNOWN_RISKS.md HIGH-4: the stored file's extension must never come
+// straight from the client-supplied Content-Type subtype (only the
+// 'image/' prefix is validated below) - an allowlist keyed off it instead.
+const IMAGE_EXTENSIONS_BY_SUBTYPE: Record<string, string> = {
+  png: 'png',
+  jpeg: 'jpg',
+  jpg: 'jpg',
+  webp: 'webp',
+};
+
 // Tech.md #23 Workflow API - citizen service requests (Phase 6) and the
 // officer review actions that advance them (Phase 7) both go through this
 // same endpoint set. GET (list) and the steps/:stepId review action are
@@ -78,11 +88,13 @@ export class WorkflowsController {
 
     let evidence: WorkflowEvidenceInput | null = null;
     if (file) {
-      if (!file.mimetype.startsWith('image/')) {
-        throw new BadRequestException('The attached document must be an image');
+      const subtype = file.mimetype.startsWith('image/') ? file.mimetype.slice('image/'.length) : null;
+      const extension = subtype ? IMAGE_EXTENSIONS_BY_SUBTYPE[subtype] : undefined;
+      if (!extension) {
+        throw new BadRequestException('The attached document must be an image (png, jpg, or webp)');
       }
       const { text } = await extractText(file.buffer);
-      const fileName = `${randomUUID()}.${file.mimetype.split('/')[1] || 'png'}`;
+      const fileName = `${randomUUID()}.${extension}`;
       const filePath = `workflow-evidence/${fileName}`;
       await uploadToStorage(filePath, file.buffer, file.mimetype);
       evidence = { fileName, filePath, mimeType: file.mimetype, extractedText: text };
@@ -123,12 +135,14 @@ export class WorkflowsController {
     @CurrentUser() user: User,
     @Query('department') department?: string,
     @Query('stepStatus') stepStatus?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
   ) {
     // An officer only ever gets their own department's queue, regardless of
     // what a client sends - only ADMIN may query across departments (or
     // narrow to a specific one via the query param).
     const scopedDepartment = user.role === 'ADMIN' ? department : ROLE_DEPARTMENT[user.role];
-    return this.workflowsService.findAll({ department: scopedDepartment, stepStatus });
+    return this.workflowsService.findAll({ department: scopedDepartment, stepStatus, limit, offset });
   }
 
   // Registered before ':id' so 'mine' is never swallowed as an id param -
@@ -142,13 +156,24 @@ export class WorkflowsController {
     return this.workflowsService.findMineForCitizen(user.id);
   }
 
+  // Department-scoped like GET /workflows above (KNOWN_RISKS.md HIGH-9) -
+  // a non-ADMIN caller with no step in their own department gets the same
+  // 404 as a nonexistent id, rather than a 403 that would confirm the id
+  // exists.
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ALL_STAFF_ROLES)
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     const workflow = await this.workflowsService.findOne(id);
     if (!workflow) {
       throw new NotFoundException(`Workflow not found: ${id}`);
+    }
+    if (user.role !== 'ADMIN') {
+      const ownDepartment = ROLE_DEPARTMENT[user.role];
+      const hasOwnStep = workflow.steps.some((step) => step.department === ownDepartment);
+      if (!hasOwnStep) {
+        throw new NotFoundException(`Workflow not found: ${id}`);
+      }
     }
     return workflow;
   }

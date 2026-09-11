@@ -39,7 +39,7 @@ describe('Audit logging (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     parcelRepository = moduleFixture.get(getRepositoryToken(Parcel));
@@ -225,6 +225,25 @@ describe('Audit logging (e2e)', () => {
         .expect(200);
       expect(res.body.length).toBeGreaterThan(0);
       expect(res.body.every((e: any) => e.entityType === 'GOVERNANCE_ALERT')).toBe(true);
+    });
+
+    // KNOWN_RISKS.md HIGH-6: this endpoint used to return every row with no
+    // ceiling - a real deployment running for months would see its payload
+    // and query time grow without bound.
+    it('honors an explicit limit, capped to the most recent entries', async () => {
+      const unlimited = await request(app.getHttpServer()).get('/api/v1/audit').set('Authorization', adminAuth).expect(200);
+      expect(unlimited.body.length).toBeGreaterThan(2);
+
+      const limited = await request(app.getHttpServer())
+        .get('/api/v1/audit?limit=2')
+        .set('Authorization', adminAuth)
+        .expect(200);
+      expect(limited.body).toHaveLength(2);
+      expect(limited.body).toEqual(unlimited.body.slice(0, 2));
+    });
+
+    it('ignores an out-of-range limit and falls back to the default cap rather than erroring', async () => {
+      await request(app.getHttpServer()).get('/api/v1/audit?limit=99999').set('Authorization', adminAuth).expect(200);
     });
   });
 

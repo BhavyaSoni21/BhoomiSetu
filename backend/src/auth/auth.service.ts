@@ -82,11 +82,21 @@ export class AuthService {
   }
 
   login(user: User): LoginResult {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion };
     return {
       accessToken: this.jwtService.sign(payload),
       user: this.toPublicUser(user),
     };
+  }
+
+  // Bumps the account's tokenVersion so every previously-issued token -
+  // this device's and any other copy of it - stops passing
+  // JwtStrategy.validate() immediately (KNOWN_RISKS.md HIGH-2). The token
+  // this specific request carries is discarded client-side same as before;
+  // this is what actually ends the session server-side.
+  async logout(user: User): Promise<void> {
+    user.tokenVersion += 1;
+    await this.usersService.save(user);
   }
 
   // Citizen self-registration (docs/FRONTEND_UPGRADE_SPEC.md §3, revised per

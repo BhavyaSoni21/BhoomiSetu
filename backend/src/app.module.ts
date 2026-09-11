@@ -20,6 +20,7 @@ import { AuditModule } from './audit/audit.module';
 import { HistoricalImageryModule } from './historical-imagery/historical-imagery.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationFeedModule } from './notification-feed/notification-feed.module';
+import { HealthController } from './health/health.controller';
 import { getDatabaseConnectionOptions } from './database.config';
 
 @Module({
@@ -57,7 +58,7 @@ import { getDatabaseConnectionOptions } from './database.config';
     AdminModule,
     NotificationFeedModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

@@ -26,6 +26,6 @@ export async function createAuthenticatedUser(
     role,
   });
 
-  const token = jwtService.sign({ sub: user.id, email: user.email, role: user.role });
+  const token = jwtService.sign({ sub: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion });
   return { user, token, authHeader: `Bearer ${token}` };
 }

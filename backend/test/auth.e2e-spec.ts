@@ -61,7 +61,7 @@ describe('Auth (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
 
     userRepository = moduleFixture.get(getRepositoryToken(User));
@@ -271,6 +271,67 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  // KNOWN_RISKS.md HIGH-2: logout must actually end the session server-side
+  // (bump tokenVersion), not just be a client-side localStorage clear the
+  // old token survives.
+  describe('POST /api/v1/auth/logout', () => {
+    it('rejects a request with no Authorization header', async () => {
+      await request(app.getHttpServer()).post('/api/v1/auth/logout').expect(401);
+    });
+
+    it('invalidates the token used to call it, and every other outstanding token for that account', async () => {
+      const user = await userRepository.save({
+        email: `logout-${Date.now()}@test.gov.in`,
+        passwordHash: bcrypt.hashSync('CorrectPass1', 10),
+        name: 'Logout Test',
+        role: 'PLANNING_OFFICER',
+        emailVerified: true,
+      });
+
+      const firstLogin = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: 'CorrectPass1' })
+        .expect(201);
+      const secondLogin = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: 'CorrectPass1' })
+        .expect(201);
+
+      // Both tokens work before logout.
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${firstLogin.body.accessToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/logout')
+        .set('Authorization', `Bearer ${firstLogin.body.accessToken}`)
+        .expect(201);
+
+      // The token that called logout, and the other still-outstanding one,
+      // are both rejected now - this is a per-account revocation, not a
+      // per-token one.
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${firstLogin.body.accessToken}`)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${secondLogin.body.accessToken}`)
+        .expect(401);
+
+      // A fresh login after logout works again.
+      const thirdLogin = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: 'CorrectPass1' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${thirdLogin.body.accessToken}`)
+        .expect(200);
+    });
+  });
+
   // Per the user's explicit "the account should not be created until the
   // number or the email is verified" - this only stages a
   // PendingRegistration and sends its first OTP. No User row, no
@@ -361,6 +422,15 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ name: 'X', method: 'EMAIL', email: 'short@example.com', password: 'Short1', confirmPassword: 'Short1' })
+        .expect(400);
+    });
+
+    // KNOWN_RISKS.md MED-10: length alone previously let through e.g.
+    // 'alllowercase' or '12345678'.
+    it('rejects a long-enough password with no uppercase/digit complexity, with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({ name: 'X', method: 'EMAIL', email: 'weak-complexity@example.com', password: 'alllowercase', confirmPassword: 'alllowercase' })
         .expect(400);
     });
   });
