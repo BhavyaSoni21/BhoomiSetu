@@ -1,0 +1,603 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { ArrowLeft, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
+import apiService from '../../../services/apiService';
+import MapComponent from '../../map/components/MapComponent';
+import ServiceRequestForm from './ServiceRequestForm';
+import AiExplanationCard from '../../ai/components/AiExplanationCard';
+import { OwnershipHistoryRecord, Parcel360Response } from '../../../types/parcel360';
+import { ParcelSummary } from '../../../types/parcel';
+import { AiExplanation } from '../../../types/aiExplanation';
+import { RiskScore } from '../../../types/riskScore';
+import { useAuthUser } from '../../auth/hooks/auth';
+import { OFFICER_ROLES } from '../../officer/hooks/officerAuth';
+import { useHistoricalClusters } from '../../officer/hooks/historicalImagery';
+import HistoricalMapView from '../../officer/components/HistoricalMapView';
+import HistoricalYearCompare from '../../officer/components/HistoricalYearCompare';
+
+type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'landRecords', label: 'Land Records' },
+  { key: 'registration', label: 'Registration' },
+  { key: 'planning', label: 'Planning' },
+  { key: 'tax', label: 'Tax' },
+  { key: 'restriction', label: 'Restriction' },
+  { key: 'dispute', label: 'Dispute' },
+  { key: 'encumbrance', label: 'Encumbrance' },
+  { key: 'ownershipHistory', label: 'Ownership History' },
+];
+
+// Owner-only tabs (parcels.controller.ts's getParcel360 withholds these same
+// five departments server-side when restrictedForViewer is true; Ownership
+// History is separately 401/403-gated by GET :id/ownership-history). Per
+// the user's explicit "remove the options itself... it should not be able
+// to see the details" - hidden entirely for a non-owner, not just shown
+// with a "restricted" message.
+const OWNER_ONLY_TAB_KEYS: TabKey[] = ['planning', 'tax', 'restriction', 'dispute', 'encumbrance', 'ownershipHistory'];
+
+// Same Bauhaus status-badge treatment as TopRiskParcels.tsx (docs/design.md
+// §7) - kept in sync there rather than shared, matching this codebase's
+// usual per-component convention for small lookup tables like this.
+const RISK_BAND_CLASS: Record<string, string> = {
+  LOW: 'bg-muted text-ink border-ink',
+  MEDIUM: 'bg-accent text-ink border-ink',
+  HIGH: 'bg-secondary text-white border-ink',
+  CRITICAL: 'bg-secondary-strong text-white border-ink',
+};
+
+function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function NotAvailable({ department }: { department: string }) {
+  return (
+    <div className="flex h-40 items-center justify-center text-ink/50 text-sm">
+      No {department} data is available for this parcel.
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <p className="text-ink/70 text-sm py-1">
+      <strong className="font-bold text-ink">{label}:</strong> {value}
+    </p>
+  );
+}
+
+const Parcel360View: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { data: authUser } = useAuthUser();
+  const isOfficer = !!authUser && (OFFICER_ROLES as readonly string[]).includes(authUser.role);
+  const isCitizen = authUser?.role === 'CITIZEN';
+  const isStaffViewer = isOfficer || authUser?.role === 'ADMIN';
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+  // "Locate" action, next to the map's own year toggle (per the user's
+  // explicit placement). MapComponent only fits its view to the selected
+  // parcel's context once, when that context first loads (React Query
+  // caches it) - clicking Locate needs to re-trigger that fly-to/fit-bounds
+  // on demand even though nothing about the selection has changed, hence
+  // recenterSignal (bumped on every click, threaded through to MapComponent
+  // either directly or via HistoricalMapView). Also scrolls the map section
+  // into view in case the Overview tab's other content pushed it off-screen.
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
+  const handleLocate = () => {
+    setRecenterSignal((n) => n + 1);
+    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const locateButton = (
+    <button
+      type="button"
+      onClick={handleLocate}
+      className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0"
+    >
+      <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+      Locate
+    </button>
+  );
+  // The two-year comparison used to navigate to /officer/historical-imagery
+  // (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit "the
+  // compare years data in the parcel 360 should also not redirect to
+  // historical analysis, this analysis should be done there only in the
+  // parcel 360") - now toggled inline instead, reusing HistoricalYearCompare
+  // (extracted out of HistoricalImageryPanel.tsx for exactly this).
+  const [showHistoricalCompare, setShowHistoricalCompare] = useState(false);
+
+  const closeServiceRequest = () => {
+    setServiceRequest(null);
+  };
+
+  const { data: parcel360, isLoading, error } = useQuery<Parcel360Response>(
+    ['parcel-360', id],
+    async () => {
+      const response = await apiService.get(`/parcels/${id}/360`);
+      return response.data;
+    },
+    { enabled: !!id },
+  );
+
+  const explainMutation = useMutation<AiExplanation, Error>(async () => {
+    const response = await apiService.post(`/ai/parcels/${id}/explain`);
+    return response.data;
+  });
+
+  // The 3 request buttons below (+ Verify Documents) are citizen actions for
+  // THIS citizen's own parcel, not a generic "any signed-in citizen" action -
+  // the backend already 403s a mismatched citizen (workflows.controller.ts's
+  // isCitizenAssociatedWithParcel check), this just matches the UI to that
+  // reality instead of rendering buttons that would fail on submit (and,
+  // as a side effect, keeps them off an admin/officer's screen entirely -
+  // docs/ADMIN_PANEL_ISSUES.md #2).
+  const { data: myParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
+    ['my-parcels'],
+    async () => (await apiService.get('/parcels/mine')).data,
+    { enabled: isCitizen },
+  );
+  const isOwnParcel = isCitizen && !!myParcelsData?.parcels.some((p) => p.id === parcel360?.parcel_id);
+
+  // Risk score for a citizen's own parcel, or any parcel for staff
+  // (docs/ADMIN_PANEL_ISSUES.md follow-up) - the same real weighted score
+  // AdminDashboard's Top Risk Parcels list already surfaces to staff, now
+  // also shown inline on Parcel 360 itself. Public endpoint, but only
+  // fetched/shown here for an owner/staff viewer so a citizen browsing a
+  // parcel that isn't theirs doesn't see someone else's risk detail.
+  const canViewRiskScore = isOwnParcel || isStaffViewer;
+  const { data: riskScore } = useQuery<RiskScore>(
+    ['risk-score', id],
+    async () => (await apiService.get(`/parcels/${id}/risk-score`)).data,
+    { enabled: !!id && canViewRiskScore },
+  );
+
+  // Public (2026-09-08) - when the parcel belongs to a cluster, upgrades the
+  // "Parcel Map" below into the year-dropdown/dispute-colored historical
+  // view, for citizens as much as staff. Cheap/cached (5 clusters total), so
+  // fetched unconditionally rather than gated on parcel360.clusterId being
+  // known yet.
+  const { data: historicalClusters = [] } = useHistoricalClusters();
+  const historicalCluster = parcel360 ? historicalClusters.find((c) => c.clusterId === parcel360.clusterId) : undefined;
+
+  // Ownership history is citizen-restricted (docs/FEATURE_AUDIT.md §8a) - a
+  // 401/403 here is an expected, normal response for a guest or an
+  // unrelated citizen, not a real error, so it's fetched only once that tab
+  // is actually opened rather than eagerly alongside the rest of Parcel 360.
+  const {
+    data: ownershipHistory,
+    error: ownershipHistoryError,
+    isLoading: ownershipHistoryLoading,
+  } = useQuery<OwnershipHistoryRecord[], Error>(
+    ['ownership-history', id],
+    async () => {
+      const response = await apiService.get(`/parcels/${id}/ownership-history`);
+      return response.data;
+    },
+    { enabled: !!id && activeTab === 'ownershipHistory', retry: false },
+  );
+
+  // Selecting a different parcel on the map below should replace this whole
+  // view, not just move the map's own highlight - drop any open modal/tab
+  // state that referred to the parcel we're navigating away from.
+  useEffect(() => {
+    setServiceRequest(null);
+    setActiveTab('overview');
+    setShowHistoricalCompare(false);
+    explainMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  if (isLoading) {
+    return <div className="flex h-[600px] items-center justify-center text-ink/60 font-medium">Loading parcel details...</div>;
+  }
+
+  if (error) {
+    return <div className="flex h-[600px] items-center justify-center text-secondary-strong font-medium">Error loading parcel details</div>;
+  }
+
+  if (!parcel360) {
+    return <div className="flex h-[600px] items-center justify-center text-ink/60 font-medium">Parcel not found</div>;
+  }
+
+  const { identifiers, location, spatial, sources, departments } = parcel360;
+  const statusByDepartment = Object.fromEntries(sources.map((s) => [s.department, s.status]));
+  const visibleTabs = parcel360.restrictedForViewer ? TABS.filter((tab) => !OWNER_ONLY_TAB_KEYS.includes(tab.key)) : TABS;
+
+  return (
+    <div className="space-y-6">
+      {serviceRequest && (
+        <ServiceRequestForm
+          parcelId={parcel360.parcel_id}
+          workflowType={serviceRequest.workflowType}
+          title={serviceRequest.title}
+          onClose={closeServiceRequest}
+        />
+      )}
+
+      {/* Actions moved to the top of the page (docs/ADMIN_PANEL_ISSUES.md
+          follow-up, per the user's explicit "bring the actions tab on top"). */}
+      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Actions</h2>
+        <div className="flex flex-wrap gap-3">
+          {isOwnParcel && (
+            <>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'ROR_COPY_REQUEST', title: 'Request a Copy of Record of Rights (RoR)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                Request Documents
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'CORRECTION_REQUEST', title: 'Report an Issue / Request a Correction' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <Flag className="w-3.5 h-3.5" aria-hidden="true" />
+                Report Issue
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DISPUTE_FILING', title: 'File a Dispute (Ownership, Boundary, Inheritance, or Encroachment)' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-secondary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
+                File a Dispute
+              </button>
+              <button
+                onClick={() => setServiceRequest({ workflowType: 'DOCUMENT_VERIFICATION_REQUEST', title: 'Verify Documents' })}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink/80 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                Verify Documents
+              </button>
+            </>
+          )}
+          <button
+            className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
+            onClick={() => window.history.back()}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            {/* "to Search" implies a citizen's Find Parcels flow (docs/ADMIN_PANEL_ISSUES.md
+                Admin #2's last remaining piece) - an Officer/Admin viewer more often
+                arrives here from a workflow, alert, or audit log entry instead, so
+                the label stays neutral for them. Left visible either way (unlike
+                Request Documents/Report Issue/File a Dispute/Verify Documents above,
+                gated on isOwnParcel) since browser-back navigation itself isn't a
+                citizen-only action. */}
+            {isCitizen ? 'Back to Search' : 'Back'}
+          </button>
+          {isOfficer && historicalCluster && (
+            <button
+              onClick={() => setShowHistoricalCompare((v) => !v)}
+              aria-expanded={showHistoricalCompare}
+              className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"
+            >
+              <History className="w-3.5 h-3.5" aria-hidden="true" />
+              {showHistoricalCompare ? 'Hide Compare Years' : 'Compare Years & Generate Alerts'}
+            </button>
+          )}
+          <button
+            onClick={() => explainMutation.mutate()}
+            disabled={explainMutation.isLoading}
+            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-4 py-2 text-xs font-bold uppercase tracking-wider text-background shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+            {explainMutation.isLoading ? 'Asking AI...' : 'Explain with AI'}
+          </button>
+        </div>
+
+        {showHistoricalCompare && historicalCluster && (
+          <div className="mt-4 pt-4 border-t-2 border-ink/10">
+            <h3 className="text-sm font-black uppercase tracking-widest text-ink/70 mb-3">Compare Years & Generate Alerts</h3>
+            <HistoricalYearCompare key={historicalCluster.clusterId} clusterId={historicalCluster.clusterId} years={historicalCluster.years} />
+          </div>
+        )}
+
+        {explainMutation.isError && (
+          <p className="text-sm font-medium text-secondary-strong mt-4">
+            {axios.isAxiosError(explainMutation.error) && explainMutation.error.response?.status === 503
+              ? 'AI is not configured on this server.'
+              : 'Something went wrong generating an explanation. Please try again.'}
+          </p>
+        )}
+        {explainMutation.isSuccess && (
+          <div className="mt-4">
+            <AiExplanationCard explanation={explainMutation.data} />
+          </div>
+        )}
+      </div>
+
+      <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+        <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
+        <h1 className="text-2xl font-black uppercase tracking-tight font-display text-ink mb-1">Parcel 360</h1>
+        <p className="text-sm text-ink/50 font-mono mb-4">{parcel360.parcel_id}</p>
+
+        <div className="border-b-2 border-ink/20 mb-4 overflow-x-auto">
+          <nav className="-mb-px flex flex-wrap gap-1" aria-label="Parcel 360 sections">
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+                  activeTab === tab.key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-ink/50 hover:border-ink/30 hover:text-ink'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {activeTab === 'overview' && (
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Identifiers</h2>
+              <Field label="ULPIN" value={identifiers.ulpin || 'N/A'} />
+              <Field label="Survey Number" value={identifiers.survey_number || 'N/A'} />
+              <Field label="Plot Number" value={identifiers.plot_number || 'N/A'} />
+              <Field label="Local Identifier" value={identifiers.local_identifier || 'N/A'} />
+            </div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Location</h2>
+              <Field label="State" value={location.state} />
+              <Field label="District" value={location.district} />
+              <Field label="Locality" value={location.locality} />
+            </div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Area</h2>
+              <Field label="Area" value={`${spatial.area_sq_m.toLocaleString()} m²`} />
+            </div>
+            {canViewRiskScore && riskScore && (
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Risk Score</h2>
+                <span
+                  className={`inline-flex items-center gap-1.5 border-2 px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${
+                    RISK_BAND_CLASS[riskScore.riskBand] ?? 'bg-muted text-ink border-ink'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
+                  {riskScore.riskBand} ({riskScore.overallScore})
+                </span>
+                <div className="mt-2 space-y-1">
+                  {riskScore.factors.filter((f) => f.available).map((factor) => (
+                    <p key={factor.key} className="text-xs text-ink/60">
+                      <strong className="font-bold text-ink/80">{factor.label}:</strong> {factor.rationale}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Data Sources</h2>
+              <div className="space-y-1.5">
+                {sources.map((source) => (
+                  <div key={source.department} className="flex items-center justify-between text-sm">
+                    <span className="text-ink/70">{source.department.replace(/_/g, ' ')}</span>
+                    <span
+                      className={`border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        source.status === 'AVAILABLE' ? 'bg-primary/10 text-primary border-primary/40' : 'bg-muted text-ink/40 border-ink/20'
+                      }`}
+                    >
+                      {source.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div ref={mapSectionRef} className="md:col-span-2 overflow-hidden">
+              <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">Parcel Map</h2>
+              <p className="text-sm text-ink/60 mb-3 leading-relaxed">
+                Selected parcel is highlighted; adjacent and nearby parcels load automatically for spatial context.
+                Click another parcel on the map to view its Parcel 360 details.
+                {historicalCluster &&
+                  ' Parcels are colored by each one’s real dispute/restriction status for the year chosen below.'}
+              </p>
+              {historicalCluster ? (
+                <HistoricalMapView
+                  clusterId={historicalCluster.clusterId}
+                  years={historicalCluster.years}
+                  selectedParcelId={parcel360.parcel_id}
+                  onParcelClick={(clickedId) => {
+                    if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                  }}
+                  actionSlot={locateButton}
+                  recenterSignal={recenterSignal}
+                />
+              ) : (
+                <>
+                  <div className="flex justify-end mb-3">{locateButton}</div>
+                  <MapComponent
+                    parcels={[]}
+                    selectedParcelId={parcel360.parcel_id}
+                    onParcelClick={(clickedId) => {
+                      if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                    }}
+                    // A citizen sees just a "View Zoning" toggle instead of the
+                    // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
+                    // follow-up, per the user's explicit "zoning layer addition
+                    // just the view option for citizens").
+                    visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
+                    recenterSignal={recenterSignal}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'landRecords' && (
+          departments.landRecords ? (
+            <div className="space-y-1">
+              <Field label="Source Schema" value={departments.landRecords.sourceSchema} />
+              <Field label="Source Identifier" value={departments.landRecords.sourceIdentifier} />
+              <Field label="Owner Name" value={departments.landRecords.ownerName} />
+              <Field label="Area" value={`${departments.landRecords.areaSqM.toLocaleString()} m²`} />
+              <Field label="Locality" value={departments.landRecords.locality} />
+            </div>
+          ) : (
+            <NotAvailable department={statusByDepartment.LAND_RECORDS ? 'land records' : 'land records (no matching identifier)'} />
+          )
+        )}
+
+        {activeTab === 'registration' && (
+          departments.registration ? (
+            <div className="space-y-1">
+              <Field label="Status" value={departments.registration.registrationStatus} />
+              <Field label="Registration Number" value={departments.registration.registrationNumber || 'N/A'} />
+              <Field label="Registration Date" value={formatDate(departments.registration.registrationDate)} />
+              <Field label="Last Transaction" value={departments.registration.lastTransactionType || 'N/A'} />
+              <Field label="Last Transaction Date" value={formatDate(departments.registration.lastTransactionDate)} />
+            </div>
+          ) : (
+            <NotAvailable department="registration" />
+          )
+        )}
+
+        {activeTab === 'planning' && (
+          departments.planning ? (
+            <div className="space-y-1">
+              <Field label="Land Use" value={departments.planning.landUse} />
+              <Field label="Zoning Classification" value={departments.planning.zoningClassification} />
+              <Field label="Master Plan Reference" value={departments.planning.masterPlanReference} />
+              <Field label="Building Permission" value={departments.planning.buildingPermissionStatus} />
+            </div>
+          ) : (
+            <NotAvailable department="planning" />
+          )
+        )}
+
+        {activeTab === 'tax' && (
+          departments.tax ? (
+            <div className="space-y-1">
+              <Field label="Assessed Value" value={formatCurrency(departments.tax.assessedValue)} />
+              <Field label="Annual Tax" value={formatCurrency(departments.tax.annualTaxAmount)} />
+              <Field label="Tax Status" value={departments.tax.taxStatus} />
+              <Field label="Outstanding Amount" value={formatCurrency(departments.tax.outstandingAmount)} />
+              <Field label="Last Payment Date" value={formatDate(departments.tax.lastPaymentDate)} />
+              <Field
+                label="Market Value Reference"
+                value={departments.tax.marketValueReference !== null ? formatCurrency(departments.tax.marketValueReference) : 'N/A'}
+              />
+              <Field label="Valuation Date" value={formatDate(departments.tax.valuationDate)} />
+              <Field label="Valuation Source" value={departments.tax.valuationSource || 'N/A'} />
+            </div>
+          ) : (
+            <NotAvailable department="tax" />
+          )
+        )}
+
+        {activeTab === 'restriction' && (
+          departments.restriction ? (
+            <div className="space-y-1">
+              <Field label="Has Restriction" value={departments.restriction.hasRestriction ? 'Yes' : 'No'} />
+              {departments.restriction.hasRestriction && (
+                <>
+                  <Field label="Restriction Type" value={departments.restriction.restrictionType || 'N/A'} />
+                  <Field label="Details" value={departments.restriction.restrictionDetails || 'N/A'} />
+                  <Field label="Imposing Authority" value={departments.restriction.imposingAuthority || 'N/A'} />
+                </>
+              )}
+            </div>
+          ) : (
+            <NotAvailable department="restriction" />
+          )
+        )}
+
+        {activeTab === 'dispute' && (
+          departments.dispute ? (
+            <div className="space-y-1">
+              <Field label="Has Active Dispute" value={departments.dispute.hasActiveDispute ? 'Yes' : 'No'} />
+              <Field label="Dispute Type" value={departments.dispute.disputeType || 'N/A'} />
+              <Field label="Case Status" value={departments.dispute.caseStatus || 'N/A'} />
+              <Field label="Filing Date" value={formatDate(departments.dispute.filingDate)} />
+              {!departments.dispute.hasActiveDispute && departments.dispute.caseStatus && (
+                <>
+                  <Field label="Resolution Date" value={formatDate(departments.dispute.resolutionDate)} />
+                  <Field label="Resolution Summary" value={departments.dispute.resolutionSummary || 'N/A'} />
+                </>
+              )}
+            </div>
+          ) : (
+            <NotAvailable department="dispute" />
+          )
+        )}
+
+        {activeTab === 'encumbrance' && (
+          departments.encumbrance ? (
+            <div className="space-y-1">
+              <Field label="Has Encumbrance" value={departments.encumbrance.hasEncumbrance ? 'Yes' : 'No'} />
+              {departments.encumbrance.hasEncumbrance && (
+                <>
+                  <Field label="Encumbrance Type" value={departments.encumbrance.encumbranceType || 'N/A'} />
+                  <Field label="Lender Name" value={departments.encumbrance.lenderName || 'N/A'} />
+                  <Field label="Instrument Reference" value={departments.encumbrance.instrumentReference || 'N/A'} />
+                  <Field label="Registered Date" value={formatDate(departments.encumbrance.registeredDate)} />
+                  <Field label="Discharge Date" value={formatDate(departments.encumbrance.dischargeDate)} />
+                </>
+              )}
+            </div>
+          ) : (
+            <NotAvailable department="encumbrance" />
+          )
+        )}
+
+        {activeTab === 'ownershipHistory' && (
+          <div>
+            {ownershipHistoryLoading && <div className="text-ink/60 text-sm py-4">Loading ownership history...</div>}
+            {ownershipHistoryError && (
+              <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">
+                {axios.isAxiosError(ownershipHistoryError) && ownershipHistoryError.response?.status === 401
+                  ? 'Sign in as the citizen associated with this parcel, or as staff, to view its ownership history.'
+                  : axios.isAxiosError(ownershipHistoryError) && ownershipHistoryError.response?.status === 403
+                    ? 'Ownership history is only visible for parcels associated with your account.'
+                    : 'Error loading ownership history.'}
+              </div>
+            )}
+            {ownershipHistory && ownershipHistory.length === 0 && (
+              <div className="text-ink/60 text-sm border-2 border-dashed border-ink/30 px-4 py-6 text-center">
+                No ownership history is on file for this parcel.
+              </div>
+            )}
+            {ownershipHistory && ownershipHistory.length > 0 && (
+              <div className="space-y-1 divide-y-2 divide-ink/10">
+                {/* Backend orders oldest-first (transactionDate ASC), so the
+                    last entry is the most recent transaction - the current
+                    owner. */}
+                {ownershipHistory.map((entry, index) => (
+                  <div key={entry.id} className="flex items-start justify-between gap-3 text-sm py-2 first:pt-0 last:pb-0">
+                    <div>
+                      <span className="font-bold text-ink">{entry.ownerName}</span>
+                      {index === ownershipHistory.length - 1 && (
+                        <span className="ml-2 inline-block border-2 border-ink bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white align-middle">
+                          Current Owner
+                        </span>
+                      )}
+                      <p className="text-xs text-ink/50 mt-0.5">
+                        {entry.transactionType.replace(/_/g, ' ')} · {formatDate(entry.transactionDate)}
+                        {entry.documentReference ? ` · ${entry.documentReference}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Parcel360View;

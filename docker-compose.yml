@@ -1,0 +1,88 @@
+# Reflects the actual architecture (see docs/STANDARD_TECHNICAL_DOCUMENT.md
+# §1.1): one backend process, not a mesh of per-department services. The
+# previous version of this file sketched separate `land-records-api`,
+# `registration-api`, `planning-api`, `tax-api`, `restriction-api`, and
+# `ai-service` containers - none of that was ever real; every "department"
+# is a module inside the single backend service below.
+#
+# The original NestJS `backend/` service has been removed from this stack
+# (PYTHON_MIGRATION_PLAN.md §6-equivalent, done locally 2026-09-12 - no
+# real data existed in its `bhoomisetu` database, confirmed before doing
+# this, so there was nothing to migrate/merge, just a database to retire).
+# `backend/`'s source is still in the repo, out of the deploy path, for a
+# grace period per the plan's own §6 step 6 - not deleted outright.
+# `backend-py` is now the only backend this stack runs.
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser (not the frontend container) calls this URL, so it
+        # must be a host-reachable address - the port published below, not
+        # the internal Docker service name.
+        VITE_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend-py
+
+  backend-py:
+    build: ./backend-py
+    ports:
+      - "8000:8000"
+    # Bind-mounted so files this container generates itself - Alembic
+    # migrations, above all - land on the host and get committed, not lost
+    # in the container's throwaway writable layer on the next rebuild.
+    # Safe to mount the whole directory since pip installs to
+    # site-packages, not into /app.
+    volumes:
+      - ./backend-py:/app
+    # backend-py's own env file, not a repo-root one - JWT_SECRET, every
+    # AI/OTP/storage provider key (Groq/Gemini/OpenRouter/Supabase/
+    # TextBee/Mail), CORS_ORIGIN, etc. all live there (gitignored, never
+    # committed), following the exact shape of backend-py/.env.example.
+    # `environment:` below only overrides the handful of values that must
+    # match this compose file's own topology (the `postgis` service name,
+    # its fixed port/DB, and the CI/local-only rate-limit toggle) -
+    # `environment:` entries win over `env_file:` ones for the same key.
+    env_file:
+      - ./backend-py/.env
+    environment:
+      - DB_HOST=postgis
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=bhoomisetu_py
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+    depends_on:
+      - postgis
+
+  # PostGIS Database - no `ports:` mapping on purpose: the backend reaches
+  # it over the internal Docker network by service name (`postgis`), which
+  # needs no published host port at all. Publishing 5432 would put a
+  # database with the default postgres/postgres credentials directly on
+  # the internet on any host with a public IP - only add a `ports:` mapping
+  # back here temporarily if you need a local psql client to connect for
+  # debugging, and remove it again afterward.
+  postgis:
+    image: postgis/postgis:15-3.3
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      # bhoomisetu_py is the only application database now that `backend`
+      # (and its own `bhoomisetu` database) is out of this stack - this is
+      # what a fresh volume creates automatically via postgres's own image.
+      - POSTGRES_DB=bhoomisetu_py
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      # Only runs on a fresh volume (postgres's own image only executes
+      # docker-entrypoint-initdb.d/ once, at first init) - enables the
+      # PostGIS extension on POSTGRES_DB above (postgres's own image
+      # doesn't do this automatically). Delete the postgis_data volume to
+      # re-run it if backend-py's database needs to be recreated from
+      # scratch.
+      - ./backend-py/docker/init-bhoomisetu_py-db.sql:/docker-entrypoint-initdb.d/init-bhoomisetu_py-db.sql:ro
+
+volumes:
+  postgis_data:

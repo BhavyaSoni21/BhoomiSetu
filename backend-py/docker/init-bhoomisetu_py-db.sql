@@ -1,0 +1,14 @@
+-- Runs once, on the postgis container's first init (docker-entrypoint-
+-- initdb.d convention). postgres:15's own image already creates the
+-- database named by POSTGRES_DB (bhoomisetu_py, see docker-compose.yml) -
+-- this script's only remaining job is enabling the PostGIS extension on
+-- it, which postgres's own image doesn't do automatically.
+--
+-- Originally also ran `CREATE DATABASE bhoomisetu_py` here, back when
+-- POSTGRES_DB was `bhoomisetu` for the separate NestJS `backend` service
+-- and backend-py needed its own database alongside it
+-- (PYTHON_MIGRATION_PLAN.md §2: "not integrated with backend/ at any
+-- point before cutover"). `backend` has since been removed from this
+-- stack, `bhoomisetu_py` is POSTGRES_DB now, and creating it again here
+-- would just fail on a database that already exists.
+CREATE EXTENSION IF NOT EXISTS postgis;
