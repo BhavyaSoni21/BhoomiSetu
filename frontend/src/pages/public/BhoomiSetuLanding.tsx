@@ -54,13 +54,13 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import ParcelSearchModal from '../components/landing/ParcelSearchModal';
-import { useTheme } from '../theme/theme';
-import { setStoredLanguage } from '../i18n/config';
-import apiService from '../services/apiService';
-import MapComponent from '../features/map/MapComponent';
-import { ParcelSummary } from '../types/parcel';
-import { useAuthUser } from '../features/auth/auth';
+import ParcelSearchModal from '../../components/landing/ParcelSearchModal';
+import { useTheme } from '../../theme/theme';
+import { setStoredLanguage } from '../../i18n/config';
+import apiService from '../../services/apiService';
+import MapComponent from '../../features/map/MapComponent';
+import { ParcelSummary } from '../../types/parcel';
+import { useAuthUser } from '../../features/auth/auth';
 
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();

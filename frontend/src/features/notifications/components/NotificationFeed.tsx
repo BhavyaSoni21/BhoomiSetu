@@ -2,10 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Bell, ClipboardCheck, ShieldAlert, AlertTriangle, CheckCircle2, RotateCcw } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { AppNotification } from '../../types/notification';
-import { useAuthUser } from '../auth/auth';
-import { OFFICER_ROLES } from '../officer/officerAuth';
+import { useAuthUser } from '../../auth/auth';
+import { OFFICER_ROLES } from '../../officer/officerAuth';
 
 const TYPE_ICON: Record<string, typeof Bell> = {
   WORKFLOW_ASSIGNED: ClipboardCheck,

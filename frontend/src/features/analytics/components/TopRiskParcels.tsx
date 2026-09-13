@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, ArrowUpRight, ShieldAlert } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { RiskScore } from '../../types/riskScore';
 
 // Bauhaus status-badge treatment (docs/design.md §7): solid semantic fill +

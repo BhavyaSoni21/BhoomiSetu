@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { X, Sparkles, AlertCircle, MapPinned } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
-import AiExplanationCard from '../ai/AiExplanationCard';
+import AiExplanationCard from '../../ai/components/AiExplanationCard';
 import {
   AlertStage,
   NEXT_ACTIONS,

@@ -3,11 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NotificationFeed from './NotificationFeed';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { AppNotification } from '../../types/notification';
-import { AuthUser } from '../auth/auth';
+import { AuthUser } from '../../auth/auth';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
 }));
 

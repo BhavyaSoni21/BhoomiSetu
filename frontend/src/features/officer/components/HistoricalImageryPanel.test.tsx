@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HistoricalImageryPanel from './HistoricalImageryPanel';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
 
@@ -12,7 +12,7 @@ vi.mock('../../services/apiService', () => ({
 // with a component that exposes the props HistoricalImageryPanel computes
 // (parcels/parcelColors/parcelLabels) so tests can assert the map coloring
 // wiring without a real map, matching OfficerPortal.test.tsx's own stub.
-vi.mock('../map/MapComponent', () => ({
+vi.mock('../../map/MapComponent', () => ({
   default: (props: { parcels: { id: string }[]; parcelColors?: Record<string, string>; parcelLabels?: Record<string, string> }) => (
     <div data-testid="map-stub">
       <span data-testid="map-parcel-count">{props.parcels.length}</span>

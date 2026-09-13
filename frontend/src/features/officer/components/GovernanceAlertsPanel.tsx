@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { GovernanceAlert } from '../../types/governanceAlert';
 import { AiExplanation } from '../../types/aiExplanation';
 import GovernanceAlertDetailModal from './GovernanceAlertDetailModal';

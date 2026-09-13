@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2, Plus, X, Trash2, Pencil } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { Department } from '../../types/department';
 
 const emptyForm = { code: '', name: '', description: '', contactEmail: '', contactPhone: '' };

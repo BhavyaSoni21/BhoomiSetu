@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MapLayerManagement, { LayerTypeConfig } from './MapLayerManagement';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 

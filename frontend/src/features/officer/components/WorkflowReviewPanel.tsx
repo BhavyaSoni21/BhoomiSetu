@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 import { Parcel360Response } from '../../types/parcel360';
-import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
+import AuthenticatedDocumentImage from '../../parcels/AuthenticatedDocumentImage';
 
 interface WorkflowReviewPanelProps {
   workflowId: string;

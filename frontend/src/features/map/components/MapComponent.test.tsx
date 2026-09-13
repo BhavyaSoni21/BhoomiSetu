@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MapComponent from './MapComponent';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 
 const mockMapInstances: any[] = [];
 
@@ -77,7 +77,7 @@ vi.mock('maplibre-gl', () => {
   };
 });
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn() },
 }));
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
-import { useCompareHistoricalYears } from './historicalImagery';
+import { useCompareHistoricalYears } from '../hooks/historicalImagery';
 import { CATEGORY_LABELS, CategorySwatch } from './HistoricalMapView';
 import { AffectedParcelResult } from '../../types/historicalImagery';
 

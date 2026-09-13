@@ -1,14 +1,14 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { OfficerRole, ROLE_DEPARTMENT } from '../features/officer/officerAuth';
-import { useAuthUser } from '../features/auth/auth';
-import OfficerDashboardPage from './officer/OfficerDashboardPage';
-import AssignedRequestsPage from './officer/AssignedRequestsPage';
-import GovernanceAlertsPage from './officer/GovernanceAlertsPage';
-import OfficerMapPage from './officer/OfficerMapPage';
-import OfficerNotificationsPage from './officer/OfficerNotificationsPage';
-import OfficerProfilePage from './officer/OfficerProfilePage';
-import HistoricalImageryPage from './officer/HistoricalImageryPage';
+import { OfficerRole, ROLE_DEPARTMENT } from '../../features/officer/officerAuth';
+import { useAuthUser } from '../../features/auth/auth';
+import OfficerDashboardPage from './OfficerDashboardPage';
+import AssignedRequestsPage from './AssignedRequestsPage';
+import GovernanceAlertsPage from './GovernanceAlertsPage';
+import OfficerMapPage from './OfficerMapPage';
+import OfficerNotificationsPage from './OfficerNotificationsPage';
+import OfficerProfilePage from './OfficerProfilePage';
+import HistoricalImageryPage from './HistoricalImageryPage';
 
 // Multi-page Officer Portal (docs/FRONTEND_UPGRADE_SPEC.md §5), mounted once
 // at /officer/* by App.tsx (already wrapped in RequireAuth roles={OFFICER_ROLES}

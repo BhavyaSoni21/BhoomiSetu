@@ -7,7 +7,7 @@ import {
 import {
   Loader2, Map as MapIcon, Workflow, AlertTriangle, Gavel, CircleCheck,
 } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { AnalyticsSummary, Distribution } from '../../types/analytics';
 
 // ── Formatting helpers (presentation only - never touches the data itself) ──

@@ -3,9 +3,9 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ChangeDetectionPanel from './ChangeDetectionPanel';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { post: vi.fn() },
 }));
 

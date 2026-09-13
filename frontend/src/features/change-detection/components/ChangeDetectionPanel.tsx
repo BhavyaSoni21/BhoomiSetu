@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { ScanSearch, MapPin, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { ChangeAnalysisResponse } from '../../types/changeDetection';
 
 // Approximate bounding box of the seeded Pune cluster (seed.ts:

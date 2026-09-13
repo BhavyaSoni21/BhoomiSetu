@@ -3,9 +3,9 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthUser, useLogin, useLogout } from './auth';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
 

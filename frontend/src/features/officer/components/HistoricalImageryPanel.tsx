@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistoricalClusters } from './historicalImagery';
+import { useHistoricalClusters } from '../hooks/historicalImagery';
 import HistoricalMapView from './HistoricalMapView';
 import HistoricalYearCompare from './HistoricalYearCompare';
 

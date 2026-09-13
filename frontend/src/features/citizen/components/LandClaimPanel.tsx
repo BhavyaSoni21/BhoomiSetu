@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Paperclip, Search, Flag } from 'lucide-react';
-import apiService from '../../services/apiService';
-import ParcelSearch from '../parcels/ParcelSearch';
-import ServiceRequestForm from '../parcels/ServiceRequestForm';
+import apiService from '../../../services/apiService';
+import ParcelSearch from '../../parcels/ParcelSearch';
+import ServiceRequestForm from '../../parcels/ServiceRequestForm';
 import { ParcelSummary } from '../../types/parcel';
 
 interface IdentifyResult {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { AuditLogEntry } from '../../types/auditLog';
 
 // Read-side of the audit trail (docs/FEATURE_AUDIT.md §8 item 10) - closes

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLogin } from '../features/auth/auth';
-import { OFFICER_ROLES, ROLE_LABELS } from '../features/officer/officerAuth';
-import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
+import { useLogin } from '../../features/auth/auth';
+import { OFFICER_ROLES, ROLE_LABELS } from '../../features/officer/officerAuth';
+import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../../i18n/config';
 import axios from 'axios';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -178,9 +178,13 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* ── Right: Login form ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto relative bg-gradient-to-br from-[#F7F6EE]/80 via-[#FAF8F2]/60 to-[#EEF5F1]/80 dark:from-[#081d16] dark:via-[#0c241c] dark:to-[#081d16]">
+        {/* Subtle ambient blur glow for glassmorphism */}
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+        <div className="absolute bottom-1/4 left-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+
         {/* Top bar: mobile logo + language toggle */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 relative z-10">
           <div className="lg:hidden flex items-center gap-2.5">
             <div style={{ color: 'var(--brand-900)' }}><BsIcon className="w-9 h-9" /></div>
             <span className="font-heading font-bold text-4xl" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
@@ -209,8 +213,8 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="w-full max-w-[420px] space-y-6 glass-card p-6 sm:p-8 rounded-2xl">
+        <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+        <div className="w-full max-w-[420px] space-y-6 glass-card p-6 sm:p-8 rounded-[20px] shadow-2xl border border-white/60 dark:border-white/10 backdrop-blur-md">
           {/* Heading */}
           <div className="space-y-1.5">
             <h2

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { CategorizedParcel, ClusterSummary, HistoricalComparisonResult } from '../../types/historicalImagery';
 
 export const useHistoricalClusters = () =>

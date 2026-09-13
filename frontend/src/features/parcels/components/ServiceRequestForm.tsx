@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { CheckCircle2, LogIn, Send, UserPlus, Paperclip, MessageSquareWarning } from 'lucide-react';
-import apiService from '../../services/apiService';
-import { useAuthUser } from '../auth/auth';
+import apiService from '../../../services/apiService';
+import { useAuthUser } from '../../auth/auth';
 import { Workflow } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 

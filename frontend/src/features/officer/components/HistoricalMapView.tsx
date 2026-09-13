@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useCategorizedParcels } from './historicalImagery';
+import { useCategorizedParcels } from '../hooks/historicalImagery';
 import { ParcelCategory } from '../../types/historicalImagery';
 import { ParcelSummary } from '../../types/parcel';
-import MapComponent from '../map/MapComponent';
+import MapComponent from '../../map/MapComponent';
 
 // Mirrors backend/src/common/parcel-generation/parcel-category.ts's
 // CATEGORY_COLORS/CATEGORY_LABELS - duplicated rather than shared, matching

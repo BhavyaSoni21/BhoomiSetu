@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useQuery } from '@tanstack/react-query';
-import apiService from '../../services/apiService';
-import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
-import { ParcelContextResponse, SpatialFeatureCollection } from '../../types/spatial';
+import apiService from '../../../services/apiService';
+import { ParcelSummary, parseParcelGeometry } from '../../../types/parcel';
+import { ParcelContextResponse, SpatialFeatureCollection } from '../../../types/spatial';
 
 interface MapComponentProps {
   /** When provided, render exactly these parcels instead of fetching all of them. */

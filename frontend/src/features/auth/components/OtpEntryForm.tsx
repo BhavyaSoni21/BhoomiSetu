@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { CheckCircle2, RotateCw } from 'lucide-react';
-import { AuthUser, ContactMethod } from './auth';
+import { AuthUser, ContactMethod } from '../auth';
 
 const OTP_EXPIRY_SECONDS = 10 * 60; // matches EMAIL_OTP_EXPIRY_MINUTES on the backend; used client-side for both channels for a consistent countdown
 const RESEND_COOLDOWN_SECONDS = 30; // matches EMAIL_OTP_RESEND_COOLDOWN_SECONDS; Fast2SMS enforces its own for mobile, this is just the UI's best-effort mirror

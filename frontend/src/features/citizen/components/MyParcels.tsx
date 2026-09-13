@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LogOut, MapPin, UserCircle2 } from 'lucide-react';
-import apiService from '../../services/apiService';
-import { useAuthUser, useLogout } from '../auth/auth';
+import apiService from '../../../services/apiService';
+import { useAuthUser, useLogout } from '../../auth/auth';
 import { ParcelSummary } from '../../types/parcel';
 
 // Optional citizen sign-in (docs/Plan.md Phase 12): shows the parcels linked

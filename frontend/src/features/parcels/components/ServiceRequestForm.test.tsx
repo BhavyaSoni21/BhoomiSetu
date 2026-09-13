@@ -3,10 +3,10 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ServiceRequestForm from './ServiceRequestForm';
-import apiService from '../../services/apiService';
-import { AuthUser } from '../auth/auth';
+import apiService from '../../../services/apiService';
+import { AuthUser } from '../../auth/auth';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { post: vi.fn(), get: vi.fn() },
 }));
 

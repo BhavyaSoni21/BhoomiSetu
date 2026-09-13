@@ -3,10 +3,10 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Parcel360View from './Parcel360View';
-import apiService from '../../services/apiService';
-import { AuthUser } from '../auth/auth';
+import apiService from '../../../services/apiService';
+import { AuthUser } from '../../auth/auth';
 
-vi.mock('../../services/apiService', () => ({
+vi.mock('../../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
 
@@ -21,7 +21,7 @@ const officer: AuthUser = { id: 'o1', email: 'officer1@example.gov.in', name: 'A
 // MapComponent.test.tsx - stub it here so this file focuses on the 360 data
 // and service-request flow. Exposes onParcelClick so tests can simulate
 // clicking a different parcel on the map.
-vi.mock('../map/MapComponent', () => ({
+vi.mock('../../map/MapComponent', () => ({
   default: (props: { onParcelClick?: (id: string) => void; visibleLayerKeys?: string[]; recenterSignal?: number }) => (
     <div
       data-testid="mock-map"

@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod } from '../features/auth/auth';
-import OtpEntryForm from '../features/auth/OtpEntryForm';
-import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
+import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod } from '../../features/auth/auth';
+import OtpEntryForm from '../../features/auth/OtpEntryForm';
+import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../../i18n/config';
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
@@ -124,8 +124,11 @@ const RegisterPage: React.FC = () => {
 
   if (step === 'otp') {
     return (
-      <div className="h-[calc(100vh-3.5rem)] overflow-y-auto flex items-center justify-center px-4" style={{ background: 'var(--page-bg)' }}>
-        <div className="w-full max-w-md space-y-6 glass-card p-6 sm:p-8 rounded-2xl">
+      <div className="h-[calc(100vh-3.5rem)] overflow-y-auto flex items-center justify-center px-4 relative bg-gradient-to-br from-[#F7F6EE]/80 via-[#FAF8F2]/60 to-[#EEF5F1]/80 dark:from-[#081d16] dark:via-[#0c241c] dark:to-[#081d16]">
+        {/* Subtle ambient blur glow for glassmorphism */}
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+        <div className="absolute bottom-1/4 left-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+        <div className="w-full max-w-md space-y-6 glass-card p-6 sm:p-8 rounded-[20px] shadow-2xl border border-white/60 dark:border-white/10 backdrop-blur-md relative z-10">
           <div className="text-center space-y-1">
             <div className="flex justify-center mb-4">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#D1FAE5' }}>
@@ -216,9 +219,13 @@ const RegisterPage: React.FC = () => {
       </div>
 
       {/* ── Right: Register form ───────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto relative bg-gradient-to-br from-[#F7F6EE]/80 via-[#FAF8F2]/60 to-[#EEF5F1]/80 dark:from-[#081d16] dark:via-[#0c241c] dark:to-[#081d16]">
+        {/* Subtle ambient blur glow for glassmorphism */}
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+        <div className="absolute bottom-1/4 left-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -z-0" aria-hidden="true" />
+
         {/* Top bar: mobile logo + language toggle */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 relative z-10">
           <div className="lg:hidden flex items-center gap-2.5">
             <span style={{ color: 'var(--brand-900)' }}><BsIcon className="w-9 h-9" /></span>
             <span className="font-heading font-bold text-4xl" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
@@ -247,8 +254,8 @@ const RegisterPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="w-full max-w-[420px] space-y-5 glass-card p-6 sm:p-8 rounded-2xl">
+        <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+        <div className="w-full max-w-[420px] space-y-5 glass-card p-6 sm:p-8 rounded-[20px] shadow-2xl border border-white/60 dark:border-white/10 backdrop-blur-md">
           <div className="space-y-1">
             <h2 className="font-heading font-bold text-3xl tracking-tight" style={{ color: 'var(--text-heading)' }}>
               {t('authPage.createAccountHeading')}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useQuery } from '@tanstack/react-query';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { SpatialFeatureCollection } from '../../types/spatial';
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };

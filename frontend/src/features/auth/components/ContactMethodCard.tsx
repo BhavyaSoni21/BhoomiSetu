@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { CheckCircle2, Mail, Phone } from 'lucide-react';
-import { useUpdateContact, useVerifyOtp, useResendOtp, AuthUser, ContactMethod } from './auth';
+import { useUpdateContact, useVerifyOtp, useResendOtp, AuthUser, ContactMethod } from '../auth';
 import OtpEntryForm from './OtpEntryForm';
 
 type Mode = 'view' | 'edit' | 'otp';

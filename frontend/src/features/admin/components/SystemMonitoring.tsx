@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Users, LogIn, Clock, Activity } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { AnalyticsSummary } from '../../types/analytics';
 import RecentActivity from './RecentActivity';
 

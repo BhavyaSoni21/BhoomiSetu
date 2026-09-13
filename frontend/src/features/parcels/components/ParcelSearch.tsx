@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams as useUrlSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { RotateCcw, Search } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 
 interface ParcelSearchProps {

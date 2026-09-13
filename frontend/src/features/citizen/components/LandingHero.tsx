@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, LogIn, ShieldCheck, Landmark } from 'lucide-react';
-import { useAuthUser } from '../auth/auth';
+import { useAuthUser } from '../../auth/auth';
 
 // Public Home hero (docs/FRONTEND_UPGRADE_SPEC.md §2's "Landing page header" -
 // value proposition over feature cards). Previously this rendered a

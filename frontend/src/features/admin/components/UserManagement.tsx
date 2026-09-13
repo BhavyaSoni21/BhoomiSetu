@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2, UserPlus, X, Trash2 } from 'lucide-react';
-import apiService from '../../services/apiService';
+import apiService from '../../../services/apiService';
 import { ManagedUser } from '../../types/user';
-import { useAuthUser } from '../auth/auth';
-import { OFFICER_ROLES, ROLE_LABELS } from '../officer/officerAuth';
+import { useAuthUser } from '../../auth/auth';
+import { OFFICER_ROLES, ROLE_LABELS } from '../../officer/officerAuth';
 
 const ALL_ROLE_LABELS: Record<string, string> = { ...ROLE_LABELS, ADMIN: 'Admin' };
 const ALL_ROLES = [...OFFICER_ROLES, 'ADMIN'];
