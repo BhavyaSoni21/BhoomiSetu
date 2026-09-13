@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import apiService from './apiService';
 
 // Exercises the response interceptor registered in apiService.ts directly,
@@ -32,16 +32,17 @@ describe('apiService response interceptor', () => {
     window.location = originalLocation;
   });
 
-  it('redirects to /login on a 401 from an unrelated endpoint', async () => {
+  it('emits a session-expiry event on a 401 from an unrelated endpoint', async () => {
     const handler = getResponseErrorHandler();
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
     await expect(
       handler({ response: { status: 401 }, config: { url: '/parcels/123/risk-score' } }),
     ).rejects.toBeTruthy();
 
-    expect(window.location.href).toBe('/login');
+    expect(dispatchEventSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'bhoomisetu:unauthorized' }));
   });
 
-  it('does not redirect on a 401 from the login endpoint itself', async () => {
+  it('does not emit an event on a 401 from the login endpoint itself', async () => {
     const handler = getResponseErrorHandler();
     await expect(
       handler({ response: { status: 401 }, config: { url: '/auth/login' } }),
@@ -50,7 +51,7 @@ describe('apiService response interceptor', () => {
     expect(window.location.href).toBe('');
   });
 
-  it('does not redirect on a non-401 error', async () => {
+  it('does not emit an event on a non-401 error', async () => {
     const handler = getResponseErrorHandler();
     await expect(
       handler({ response: { status: 500 }, config: { url: '/parcels' } }),

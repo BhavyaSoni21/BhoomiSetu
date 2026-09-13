@@ -7,17 +7,17 @@ import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 // e.g. ad-hoc/non-seeded data). Stored bidirectionally: selecting either
 // parcel finds the relationship with a single `parcelId = :id` lookup.
 @Entity('parcel_neighbours')
-@Index(['parcelId'])
+@Index(['parcel_id'])
 export class ParcelNeighbour {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'parcel_id', type: 'varchar' })
   parcelId: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'neighbour_parcel_id', type: 'varchar' })
   neighbourParcelId: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ name: 'relationship_type', type: 'varchar', length: 20 })
   relationshipType: string; // TOUCHING | NEARBY
 }

@@ -75,6 +75,15 @@ function AppShell() {
     setPortalsDropdownOpen(false);
   }, [location.pathname]);
 
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+      navigate('/login', { replace: true });
+    };
+    window.addEventListener('bhoomisetu:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('bhoomisetu:unauthorized', handleUnauthorized);
+  }, [logout, navigate]);
   const handleLogout = () => {
     logout();
     navigate('/');

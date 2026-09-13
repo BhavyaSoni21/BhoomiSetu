@@ -7,7 +7,7 @@ import { isSqliteConfigured } from '../database.config';
 // officer decision). Auto-created (all PENDING) when a workflow is
 // submitted; Phase 7's Officer Portal is what actually advances these.
 @Entity('workflow_steps')
-@Index(['workflow'])
+@Index(['workflow_id'])
 export class WorkflowStep {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -16,22 +16,22 @@ export class WorkflowStep {
   @JoinColumn({ name: 'workflow_id' })
   workflow: Workflow;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'step_order', type: 'int' })
   stepOrder: number;
 
-  @Column({ type: 'varchar', length: 30 })
+  @Column({ name: 'department', type: 'varchar', length: 30 })
   department: string; // LAND_RECORDS | REGISTRATION | PLANNING | DISPUTE | TAX | RESTRICTION | ENCUMBRANCE
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'assigned_role', type: 'varchar', length: 40 })
   assignedRole: string; // LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER | DISPUTE_OFFICER | TAX_OFFICER | RESTRICTION_OFFICER | ENCUMBRANCE_OFFICER
 
-  @Column({ type: 'varchar', length: 20, default: 'PENDING' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'PENDING' })
   status: string; // PENDING | IN_PROGRESS | APPROVED | REJECTED
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ name: 'action', type: 'varchar', length: 40, nullable: true })
   action: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'remarks', type: 'text', nullable: true })
   remarks: string | null;
 
   // No single literal column type is portable here: sqlite's driver only
@@ -42,6 +42,6 @@ export class WorkflowStep {
   // @CreateDateColumn/@UpdateDateColumn - this is a business-domain value set
   // explicitly by WorkflowsService on approve/reject, not an automatic
   // row-lifecycle timestamp.
-  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ name: 'completed_at', type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   completedAt: Date | null;
 }

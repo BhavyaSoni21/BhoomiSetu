@@ -5,29 +5,29 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // restriction affect?"). Populated by seed.ts; a Restriction department API
 // will read from this in a later phase.
 @Entity('restriction_zones')
-@Index(['stateCode', 'district'])
+@Index(['state_code', 'district'])
 export class RestrictionZone {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ name: 'name', type: 'varchar', length: 100 })
   name: string;
 
-  @Column({ type: 'varchar', length: 30 })
+  @Column({ name: 'restriction_type', type: 'varchar', length: 30 })
   restrictionType: string; // FLOOD | ENVIRONMENTAL | PROTECTED_AREA
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ name: 'state_code', type: 'varchar', length: 10 })
   stateCode: string;
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'district', type: 'varchar', length: 40 })
   district: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'geometry', type: 'text' })
   geometry: string; // GeoJSON Polygon, as text
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ name: 'affected_parcel_ids', type: 'simple-array', nullable: true })
   affectedParcelIds: string[]; // parcels this restriction intersects
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

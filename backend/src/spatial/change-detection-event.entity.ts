@@ -6,26 +6,26 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // -> spatial intersection -> affected parcels -> governance alert) built in
 // a later phase.
 @Entity('change_detection_events')
-@Index(['stateCode', 'district'])
+@Index(['state_code', 'district'])
 export class ChangeDetectionEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'description', type: 'text' })
   description: string;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ name: 'state_code', type: 'varchar', length: 10 })
   stateCode: string;
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'district', type: 'varchar', length: 40 })
   district: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'geometry', type: 'text' })
   geometry: string; // GeoJSON Polygon of the changed region, as text
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ name: 'affected_parcel_ids', type: 'simple-array', nullable: true })
   affectedParcelIds: string[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'detected_at' })
   detectedAt: Date;
 }

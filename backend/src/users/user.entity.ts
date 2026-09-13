@@ -23,17 +23,17 @@ export class User {
   // multiple NULLs on both sqlite and postgres, so two citizens who've each
   // only added a mobile number don't collide on a shared NULL email).
   @Index({ unique: true })
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'email', type: 'varchar', nullable: true })
   email: string | null;
 
   @Index({ unique: true })
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'mobile_number', type: 'varchar', nullable: true })
   mobileNumber: string | null;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
   emailVerified: boolean;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'mobile_verified', type: 'boolean', default: false })
   mobileVerified: boolean;
 
   // Staged new value for the Profile "change contact" flow
@@ -41,43 +41,43 @@ export class User {
   // dropped before the new one is confirmed working") - verifying a pending
   // value copies it into email/mobileNumber above and clears this, rather
   // than ever overwriting a live verified value up front.
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'pending_email', type: 'varchar', nullable: true })
   pendingEmail: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'pending_mobile_number', type: 'varchar', nullable: true })
   pendingMobileNumber: string | null;
 
   // Email OTP challenge state. TextBee (SMS gateway) is send-only so SMS OTP
   // needs the same columns - both methods store the hashed code + expiry here
   // and verify locally (bcrypt compare) rather than delegating to a provider.
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'email_otp_code_hash', type: 'varchar', nullable: true })
   emailOtpCodeHash: string | null;
 
-  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ name: 'email_otp_expires_at', type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   emailOtpExpiresAt: Date | null;
 
   // Resend rate-limiting and lockout for email OTP (reset on every new send).
-  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ name: 'email_otp_sent_at', type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   emailOtpSentAt: Date | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'email_otp_attempts', type: 'int', default: 0 })
   emailOtpAttempts: number;
 
   // SMS OTP challenge state - mirrors the email OTP columns above.
   // TextBee sends the SMS but doesn't store/verify the code; we do.
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'sms_otp_code_hash', type: 'varchar', nullable: true })
   smsOtpCodeHash: string | null;
 
-  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ name: 'sms_otp_expires_at', type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   smsOtpExpiresAt: Date | null;
 
-  @Column({ type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
+  @Column({ name: 'sms_otp_sent_at', type: isSqliteConfigured() ? 'datetime' : 'timestamp', nullable: true })
   smsOtpSentAt: Date | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'sms_otp_attempts', type: 'int', default: 0 })
   smsOtpAttempts: number;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'password_hash', type: 'varchar' })
   passwordHash: string;
 
   // Bumped on explicit logout (KNOWN_RISKS.md HIGH-2) so a JWT issued before
@@ -85,28 +85,28 @@ export class User {
   // immediately instead of staying valid forever, since tokens themselves
   // carry no expiry (see auth.module.ts). JwtStrategy.validate() rejects any
   // token whose embedded tokenVersion doesn't match this current value.
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'token_version', type: 'int', default: 0 })
   tokenVersion: number;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'name', type: 'varchar' })
   name: string;
 
-  @Column({ type: 'varchar', length: 30 })
+  @Column({ name: 'role', type: 'varchar', length: 30 })
   role: string; // ADMIN | LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER | DISPUTE_OFFICER | TAX_OFFICER | RESTRICTION_OFFICER | ENCUMBRANCE_OFFICER | CITIZEN
 
   // Profile "more info" fields (docs/FRONTEND_UPGRADE_SPEC.md follow-up,
   // 2026-09-09) - citizen-editable via PATCH /auth/profile/details, no OTP
   // step (unlike email/mobile above - these aren't identity-verification
   // critical). Nullable/optional for every existing account, including staff.
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'address', type: 'varchar', nullable: true })
   address: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'government_id_number', type: 'varchar', nullable: true })
   governmentIdNumber: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'occupation', type: 'varchar', nullable: true })
   occupation: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

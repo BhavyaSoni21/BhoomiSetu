@@ -21,10 +21,10 @@ class GovernanceAlert(Base):
     __tablename__ = "governance_alerts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parcel_id: Mapped[str] = mapped_column(String, name="parcelId", index=True)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
     # RESTRICTION_ZONE_OVERLAP | UNAUTHORIZED_CHANGE_DETECTED | TAX_OVERDUE |
     # DISPUTE_DETECTED | RESTRICTION_DETECTED
-    alert_type: Mapped[str] = mapped_column(String(40), name="alertType")
+    alert_type: Mapped[str] = mapped_column(String(40))
     severity: Mapped[str] = mapped_column(String(20))  # LOW | MEDIUM | HIGH | CRITICAL
     source: Mapped[str] = mapped_column(String(40))  # RESTRICTION_MONITOR | CHANGE_DETECTION | TAX_MONITOR | HISTORICAL_IMAGERY
 
@@ -41,4 +41,4 @@ class GovernanceAlert(Base):
     # The officer's own reason for reviewing/dismissing this alert.
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(name="createdAt", server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

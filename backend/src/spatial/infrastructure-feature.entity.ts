@@ -4,26 +4,26 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // demonstrate proximity queries ("which parcels are near this road?").
 // Populated by seed.ts.
 @Entity('infrastructure_features')
-@Index(['stateCode', 'district'])
+@Index(['state_code', 'district'])
 export class InfrastructureFeature {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ name: 'name', type: 'varchar', length: 100 })
   name: string;
 
-  @Column({ type: 'varchar', length: 30 })
+  @Column({ name: 'feature_type', type: 'varchar', length: 30 })
   featureType: string; // ROAD | WATER_LINE | ELECTRICITY
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ name: 'state_code', type: 'varchar', length: 10 })
   stateCode: string;
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'district', type: 'varchar', length: 40 })
   district: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'geometry', type: 'text' })
   geometry: string; // GeoJSON LineString or Point, as text
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

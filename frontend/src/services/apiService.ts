@@ -28,11 +28,11 @@ apiService.interceptors.response.use(
   (error) => {
     // A 401 from /auth/login itself just means "wrong email or password" -
     // that's a normal, user-facing form error the caller handles inline, not
-    // a dead session. Only an expired/invalid token on some other request
-    // should force a hard redirect back to the login page.
+    // a dead session. Notify React so it can navigate without a full document
+    // reload, which would otherwise repaint the browser's blank canvas.
     const isLoginAttempt = error.config?.url?.includes('/auth/login');
     if (error.response?.status === 401 && !isLoginAttempt) {
-      window.location.href = '/login';
+      window.dispatchEvent(new Event('bhoomisetu:unauthorized'));
     }
     return Promise.reject(error);
   }

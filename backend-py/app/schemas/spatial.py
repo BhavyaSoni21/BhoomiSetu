@@ -33,8 +33,6 @@ class _GeometryStringMixin(CamelModel):
     @field_validator("geometry", mode="before")
     @classmethod
     def _serialize_geometry(cls, value):
-        if isinstance(value, str):
-            return value
         return json.dumps(geometry_to_geojson(value))
 
 

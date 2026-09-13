@@ -13,26 +13,26 @@ import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 // that decides whether HistoricalComparisonService creates a
 // GovernanceAlert or treats the change as already-on-record.
 @Entity('parcel_historical_states')
-@Index(['parcelId', 'year'])
+@Index(['parcel_id', 'year'])
 export class ParcelHistoricalState {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'parcel_id', type: 'varchar' })
   parcelId: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'year', type: 'int' })
   year: number;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ name: 'land_use', type: 'varchar', length: 40, nullable: true })
   landUse: string | null;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ name: 'zoning_status', type: 'varchar', length: 30, nullable: true })
   zoningStatus: string | null;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ name: 'restriction_status', type: 'varchar', length: 30, nullable: true })
   restrictionStatus: string | null;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'tax_status', type: 'varchar', length: 20, nullable: true })
   taxStatus: string | null;
 }

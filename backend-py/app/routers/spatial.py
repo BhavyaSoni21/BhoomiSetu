@@ -41,13 +41,23 @@ from app.services.spatial_service import (
 )
 
 router = APIRouter(prefix="/gis", tags=["spatial"])
+_DISTRICT_ALIASES = {
+    "PUN": "Pune",
+    "CHE": "Chennai",
+    "BAN": "Bangalore",
+    "NEW": "New Delhi",
+    "CHA": "Chandigarh",
+}
 
 
 def _area_filter(query, model, state: str | None, district: str | None):
     if state:
         query = query.filter(model.state_code == state)
     if district:
-        query = query.filter(model.district == district)
+        district_values = [district]
+        if _DISTRICT_ALIASES.get(district) is not None:
+            district_values.append(_DISTRICT_ALIASES[district])
+        query = query.filter(model.district.in_(district_values))
     return query
 
 

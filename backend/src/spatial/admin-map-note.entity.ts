@@ -12,30 +12,30 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // (Point/LineString/Polygon), not domain-typed like the other three, since
 // its purpose is free-form internal tracking, not a fixed category.
 @Entity('admin_map_notes')
-@Index(['stateCode', 'district'])
+@Index(['state_code', 'district'])
 export class AdminMapNote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ name: 'name', type: 'varchar', length: 100 })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'notes', type: 'text', nullable: true })
   notes: string | null;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ name: 'state_code', type: 'varchar', length: 10 })
   stateCode: string;
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'district', type: 'varchar', length: 40 })
   district: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'geometry', type: 'text' })
   geometry: string; // GeoJSON Point | LineString | Polygon, as text
 
   // Plain string, no FK - same convention as AuditLog.userId/Notification.userId.
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

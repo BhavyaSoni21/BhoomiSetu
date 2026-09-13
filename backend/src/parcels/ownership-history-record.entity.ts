@@ -8,23 +8,23 @@ import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 // a citizen associated with the parcel via CitizenParcel can see it) -
 // enforced in ParcelsController, not here.
 @Entity('ownership_history_records')
-@Index(['parcelId'])
+@Index(['parcel_id'])
 export class OwnershipHistoryRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'parcel_id', type: 'varchar' })
   parcelId: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ name: 'owner_name', type: 'varchar', length: 100 })
   ownerName: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ name: 'transaction_type', type: 'varchar', length: 20 })
   transactionType: string; // ORIGINAL | SALE | GIFT | INHERITANCE | PARTITION
 
-  @Column({ type: 'date' })
+  @Column({ name: 'transaction_date', type: 'date' })
   transactionDate: string;
 
-  @Column({ type: 'varchar', length: 60, nullable: true })
+  @Column({ name: 'document_reference', type: 'varchar', length: 60, nullable: true })
   documentReference: string | null;
 }

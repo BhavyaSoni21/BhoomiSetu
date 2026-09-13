@@ -8,21 +8,21 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 // hand-picked - standing in for the real OpenCV + spatial-intersection +
 // LLM-explanation pipeline until that phase builds it.
 @Entity('governance_alerts')
-@Index(['parcelId'])
+@Index(['parcel_id'])
 export class GovernanceAlert {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ name: 'parcel_id', type: 'varchar' })
   parcelId: string;
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'alert_type', type: 'varchar', length: 40 })
   alertType: string; // RESTRICTION_ZONE_OVERLAP | UNAUTHORIZED_CHANGE_DETECTED | TAX_OVERDUE | DISPUTE_DETECTED | RESTRICTION_DETECTED
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ name: 'severity', type: 'varchar', length: 20 })
   severity: string; // LOW | MEDIUM | HIGH | CRITICAL
 
-  @Column({ type: 'varchar', length: 40 })
+  @Column({ name: 'source', type: 'varchar', length: 40 })
   source: string; // RESTRICTION_MONITOR | CHANGE_DETECTION | TAX_MONITOR | HISTORICAL_IMAGERY
 
   // Four verification stages (docs/ADMIN_PANEL_ISSUES.md Officer #4, added
@@ -35,19 +35,19 @@ export class GovernanceAlert {
   // APPROVED/REJECTED), not a child-steps table like WorkflowStep (that's for
   // *parallel per-department* steps, a different concept that doesn't fit a
   // single-department alert).
-  @Column({ type: 'varchar', length: 20, default: 'OPEN' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'OPEN' })
   status: string; // OPEN | ACKNOWLEDGED | FIELD_VERIFIED | RESOLVED | DISMISSED
 
-  @Column({ type: 'text' })
+  @Column({ name: 'explanation', type: 'text' })
   explanation: string;
 
   // The officer's own reason for reviewing/dismissing this alert - set by
   // PATCH /governance-alerts/:id/status, surfaced to the relevant
   // department's officer(s) via a notification (see
   // GovernanceAlertsService.updateStatus / alertDepartmentFor()).
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'reason', type: 'text', nullable: true })
   reason: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
