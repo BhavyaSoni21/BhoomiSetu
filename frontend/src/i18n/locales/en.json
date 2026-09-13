@@ -231,6 +231,10 @@
     "loading": "Loading parcels...",
     "errorLoading": "Error loading parcels",
     "layersHeading": "Layers",
+    "basemap": {
+      "street": "Street",
+      "satellite": "Satellite"
+    },
     "layer": {
       "selected": "Selected Parcel",
       "adjacent": "Adjacent Parcels",

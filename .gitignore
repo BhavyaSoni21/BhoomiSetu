@@ -27,6 +27,15 @@ frontend/.vite/
 backend/data/*.sqlite
 backend/data/*.sqlite-journal
 
+# Google Cloud / Earth Engine service-account key files - real credentials,
+# never committed regardless of where under the repo they're saved. Covers
+# both a manually-chosen name and Cloud Console's own default download name
+# (<project-id>-<key-id>.json, e.g. bhoomisetu-508519-98e51431e29a.json).
+*service-account*.json
+*serviceaccount*.json
+client_secret_*.json
+backend-py/bhoomisetu-*.json
+
 # backend-py (Python)
 *.py[cod]
 *$py.class

@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
+    # Google Earth Engine - real Sentinel-2 imagery for Change Detection's
+    # satellite-sourced analysis path (app/services/earth_engine_service.py).
+    # Service-account auth (no user in the loop) - the JSON key file itself
+    # is never committed (see .gitignore), only its path lives here.
+    gee_service_account_email: str = ""
+    gee_service_account_key_path: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

@@ -231,6 +231,10 @@
     "loading": "पार्सल लोड हो रहे हैं...",
     "errorLoading": "पार्सल लोड करने में त्रुटि",
     "layersHeading": "परतें",
+    "basemap": {
+      "street": "सड़क",
+      "satellite": "उपग्रह"
+    },
     "layer": {
       "selected": "चयनित पार्सल",
       "adjacent": "सटे हुए पार्सल",

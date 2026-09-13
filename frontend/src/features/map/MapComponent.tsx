@@ -69,6 +69,13 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+// OpenStreetMap itself has no satellite imagery (it's a vector street map,
+// rendered here as raster tiles) - "satellite-background" is a separate
+// free raster source (Esri World Imagery, no API key/registration needed,
+// unlike Google Maps/Earth Engine) toggled via the Street/Satellite
+// control below. Only one of the two 'background'/'satellite-background'
+// layers is visible at a time; both always exist in the style so toggling
+// is just a layout-visibility flip, not adding/removing sources.
 const BASE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -77,6 +84,12 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
       attribution: '&copy; OpenStreetMap contributors',
+    },
+    'satellite-background': {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: '&copy; Esri, Maxar, Earthstar Geographics',
     },
   },
   layers: [
@@ -87,8 +100,18 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       minzoom: 0,
       maxzoom: 19,
     },
+    {
+      id: 'satellite-background',
+      type: 'raster',
+      source: 'satellite-background',
+      minzoom: 0,
+      maxzoom: 19,
+      layout: { visibility: 'none' },
+    },
   ],
 };
+
+type Basemap = 'street' | 'satellite';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({
@@ -183,6 +206,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(DEFAULT_LAYER_VISIBILITY);
   const toggleLayer = (key: LayerKey) => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const [basemap, setBasemap] = useState<Basemap>('street');
 
   // Base "search results" layer: only fetch our own copy of every parcel
   // when the caller hasn't handed us a (possibly search-filtered) list.
@@ -570,6 +595,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [layerVisibility, mapReady]);
 
+  // Street/Satellite basemap toggle - only one of the two background
+  // raster layers is ever visible.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
+    map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
+  }, [basemap, mapReady]);
+
   return (
     <div className="relative h-[500px] w-full border-2 sm:border-4 border-ink">
       <div ref={containerRef} className="h-full w-full" />
@@ -581,6 +615,24 @@ const MapComponent: React.FC<MapComponentProps> = ({
       {showError && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface/85 text-secondary-strong font-bold uppercase tracking-wide text-sm">
           {t('map.errorLoading')}
+        </div>
+      )}
+      {showLayerPanel && (
+        <div className="absolute top-2 left-2 flex bg-surface border-2 border-ink shadow-hard-sm text-xs overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setBasemap('street')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide ${basemap === 'street' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.street')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasemap('satellite')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide border-l-2 border-ink ${basemap === 'satellite' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.satellite')}
+          </button>
         </div>
       )}
       {showLayerPanel && (

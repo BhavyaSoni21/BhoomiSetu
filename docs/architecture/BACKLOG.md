@@ -54,6 +54,18 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 *Source: `docs/archive/CITIZEN_FEATURES_UPGRADE_PLAN.md` §6.*
 
+## 9. Frontend UI for satellite-sourced Change Detection
+
+**Status: backend done (2026-09-14), no way to trigger it from the app.** `POST /change-detection/analyze-satellite` (`app/services/earth_engine_service.py`) fetches real Sentinel-2 NDVI imagery from Google Earth Engine for given bounds/dates and runs it through the existing pixel-diff/governance-alert pipeline — but `ChangeDetectionPanel.tsx` (the only UI that calls this module) isn't mounted anywhere in the app (see `docs/architecture/FEATURES.md`'s Change Detection entry), and even if it were, it only has a form for the older manual-upload `/analyze` endpoint, not this one. Reachable today only via direct API call (curl, `/api/docs`). Needs either a new form (bounds + two dates, no file picker) added to that panel, or its own small officer-facing UI, before this is demoable without a terminal.
+
+*Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
+
+## 10. Real satellite imagery for Historical Imagery Comparison
+
+**Status: not started - a natural follow-on to item 9, not yet built.** `ClusterHistoricalSnapshot` rows (`docs/architecture/FEATURES.md`'s Historical Imagery Comparison entry) are still synthetic SVG-rendered PNGs generated at seed time, not real satellite data — the comparison logic itself is pure DB-record diffing and doesn't touch imagery at all, so this would be a cosmetic-but-credible upgrade: swap what `scripts/seed.py` writes into `ClusterHistoricalSnapshot.image_path` from `cluster_snapshot_generator.py`'s SVG render to `earth_engine_service.get_ndvi_visual_png()`'s output, once Google Earth Engine is confirmed usable server-side and item 9's caching/quota discipline (`PYTHON_MIGRATION_PROGRESS.md`'s Earth Engine entry) is respected — regenerating 25 snapshots (5 clusters × 5 years) on every reseed is meaningfully more Earth Engine usage than item 9's on-demand officer requests.
+
+*Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
+
 ---
 
 ## Not on this list on purpose
