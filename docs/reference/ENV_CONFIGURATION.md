@@ -49,10 +49,22 @@ a reference to *what* was configured, not the configuration itself):
   `MAIL_FROM` (email OTP delivery)
 
 Left as `backend-py`-specific, not copied from anywhere:
-- `DB_*` — points at `backend-py`'s own database (`bhoomisetu_py`), not
-  `backend`'s (which no longer exists — see
-  `docs/architecture/PYTHON_MIGRATION_PROGRESS.md`'s note on the
-  `bhoomisetu` database being retired, not merged).
+- `DB_*` — the raw values in `backend-py/.env` **as of 2026-09-13 point
+  at a real hosted Supabase Postgres+PostGIS instance**
+  (`aws-0-ap-south-1.pooler.supabase.com`, the IPv4-compatible
+  transaction pooler — Supabase's direct-connection host is IPv6-only
+  and doesn't resolve from this dev environment), not `bhoomisetu_py`.
+  This only takes effect when running `backend-py` directly on the host
+  (e.g. `uvicorn app.main:app`) — under `docker-compose.yml`, the
+  `environment:` override above still wins and points it back at the
+  local `postgis` service's `bhoomisetu_py` database regardless of what
+  `.env` says. `USE_SQLITE=false` selects a real Postgres target either
+  way; flipping it to `true` returns to local SQLite dev with no
+  external DB at all. The schema on the Supabase instance was fully
+  reset and regenerated from `backend-py`'s own Alembic migrations on
+  2026-09-13 (see `PYTHON_MIGRATION_PROGRESS.md`'s "Schema ownership
+  finalized" entry) — it no longer carries any TypeORM-era camelCase
+  columns.
 - `CORS_ORIGIN` — left blank (dev default: any origin allowed).
 - `ENVIRONMENT` — set to `development` locally, not `production` (the
   app refuses to start in `production` mode without a real, non-default
