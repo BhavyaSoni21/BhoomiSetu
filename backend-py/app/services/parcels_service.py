@@ -13,11 +13,11 @@ default folding, so no manual quoting is needed.
 from dataclasses import dataclass
 from typing import Any
 
-from geoalchemy2 import Geography
-from sqlalchemy import cast, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.common import supabase_storage
+from app.common.geo_utils import polygon_distance_meters
 from app.common.geometry_json import geometry_to_geojson
 from app.document_verification.field_matcher import text_contains_identifier
 from app.document_verification.ocr import extract_text
@@ -194,38 +194,31 @@ def get_neighbours(db: Session, parcel_id: str, distance_meters: float | None = 
     adjacent_parcels: list[dict[str, Any]] = []
     nearby_parcels: list[dict[str, Any]] = []
 
-    # A correlated scalar subquery on Parcel.geometry itself, not the
-    # already-fetched selected.geometry WKBElement passed as a literal -
-    # binding a Python-side WKBElement into cast(..., Geography) mis-routes
-    # through ST_GeogFromText with raw WKB hex instead of WKT ("01" parse
-    # error), at least under SQLAlchemy's compiled-statement caching. Both
-    # sides of every distance comparison below come from the real mapped
-    # column this way, sidestepping that binding path entirely.
-    selected_geometry = select(Parcel.geometry).where(Parcel.id == selected.id).scalar_subquery()
+    selected_geojson = geometry_to_geojson(selected.geometry)
+
+    def distance_to(parcel: Parcel) -> float | None:
+        candidate_geojson = geometry_to_geojson(parcel.geometry)
+        if not selected_geojson or not candidate_geojson:
+            return None
+        selected_ring = selected_geojson.get("coordinates", [[]])[0]
+        candidate_ring = candidate_geojson.get("coordinates", [[]])[0]
+        if len(selected_ring) < 2 or len(candidate_ring) < 2:
+            return None
+        ref_lat = sum(point[1] for point in selected_ring) / len(selected_ring)
+        return polygon_distance_meters(selected_ring, candidate_ring, ref_lat)
 
     relationship_rows = db.query(ParcelNeighbour).filter_by(parcel_id=str(selected.id)).all()
 
     if relationship_rows:
         neighbour_ids = [row.neighbour_parcel_id for row in relationship_rows]
-        # One query computing every neighbour's real ST_Distance (geography
-        # cast) from the selected parcel, rather than N round trips or the
-        # TS version's JS planar-approximation (polygonDistanceMeters) -
-        # real PostGIS is available here regardless of which branch found
-        # the neighbour (explicit ParcelNeighbour row vs. the live
-        # ST_DWithin fallback below), so there's no reason to compute this
-        # one distance differently depending on how the neighbour was found.
-        distance_expr = func.ST_Distance(
-            cast(Parcel.geometry, Geography),
-            cast(selected_geometry, Geography),
-        )
-        distance_rows = db.query(Parcel, distance_expr.label("distance_m")).filter(Parcel.id.in_(neighbour_ids)).all()
-        parcel_by_id = {str(p.id): (p, dist) for p, dist in distance_rows}
+        neighbour_rows = db.query(Parcel).filter(Parcel.id.in_(neighbour_ids)).all()
+        parcel_by_id = {str(parcel.id): parcel for parcel in neighbour_rows}
 
         for row in relationship_rows:
-            found = parcel_by_id.get(row.neighbour_parcel_id)
-            if not found:
+            parcel = parcel_by_id.get(row.neighbour_parcel_id)
+            if not parcel:
                 continue
-            parcel, distance = found
+            distance = distance_to(parcel)
             entry = {
                 "parcelId": str(parcel.id), "canonicalParcelId": parcel.canonical_parcel_id,
                 "relationship": row.relationship_type, "distanceMeters": round(float(distance), 1) if distance is not None else None,
@@ -235,19 +228,16 @@ def get_neighbours(db: Session, parcel_id: str, distance_meters: float | None = 
     else:
         max_distance = distance_meters if distance_meters and distance_meters > 0 else _DEFAULT_NEIGHBOUR_DISTANCE_M
 
-        # Real ST_Distance/ST_DWithin (geography cast, for accurate real-
-        # world metres). GREATEST(max_distance, TOUCH_EPSILON_M) makes sure
-        # touching parcels are always fetched even if the caller requested
-        # a smaller max_distance.
-        distance_expr = func.ST_Distance(cast(Parcel.geometry, Geography), cast(selected_geometry, Geography))
-        rows = (
-            db.query(Parcel, distance_expr.label("distance_m"))
-            .filter(Parcel.state_code == selected.state_code, Parcel.district_code == selected.district_code, Parcel.id != selected.id)
-            .filter(func.ST_DWithin(cast(Parcel.geometry, Geography), cast(selected_geometry, Geography), max(max_distance, _TOUCH_EPSILON_M)))
-            .all()
-        )
+        candidates = db.query(Parcel).filter(
+            Parcel.state_code == selected.state_code,
+            Parcel.district_code == selected.district_code,
+            Parcel.id != selected.id,
+        ).all()
 
-        for candidate, distance in rows:
+        for candidate in candidates:
+            distance = distance_to(candidate)
+            if distance is None or distance > max(max_distance, _TOUCH_EPSILON_M):
+                continue
             distance = round(float(distance), 1)
             entry = {
                 "parcelId": str(candidate.id), "canonicalParcelId": candidate.canonical_parcel_id,

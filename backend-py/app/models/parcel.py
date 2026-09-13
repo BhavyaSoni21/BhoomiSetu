@@ -12,7 +12,6 @@ import uuid
 from datetime import date, datetime
 
 from geoalchemy2 import Geometry
-from geoalchemy2.elements import WKBElement
 from sqlalchemy import ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,24 +23,24 @@ class Parcel(Base):
     __tablename__ = "parcels"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    canonical_parcel_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    canonical_parcel_id: Mapped[str | None] = mapped_column(String(50), name="canonicalParcelId", nullable=True)
     # Identifies the connected cadastral network (e.g. "MH-PUNE-01") a
     # parcel's geometry was generated as part of - null for parcels not
     # seeded as part of a cluster. See ParcelNeighbour for explicit
     # touching/nearby edges.
-    cluster_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    cluster_id: Mapped[str | None] = mapped_column(String(50), name="clusterId", nullable=True, index=True)
     ulpin: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
-    state_code: Mapped[str] = mapped_column(String(10))
-    district_code: Mapped[str] = mapped_column(String(20))
-    local_body_code: Mapped[str] = mapped_column(String(20))
+    state_code: Mapped[str] = mapped_column(String(10), name="stateCode")
+    district_code: Mapped[str] = mapped_column(String(20), name="districtCode")
+    local_body_code: Mapped[str] = mapped_column(String(20), name="localBodyCode")
 
-    geometry: Mapped[WKBElement] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326))
-    area_sq_m: Mapped[float] = mapped_column(Numeric(15, 2))
+    geometry: Mapped[object] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False))
+    area_sq_m: Mapped[float] = mapped_column(Numeric(15, 2), name="areaSqM")
 
     identifiers: Mapped[list["ParcelIdentifier"]] = relationship(back_populates="parcel", cascade="all, delete-orphan")
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(name="createdAt", server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(name="updatedAt", server_default=func.now(), onupdate=func.now())
 
 
 class ParcelIdentifier(Base):
@@ -52,10 +51,10 @@ class ParcelIdentifier(Base):
     parcel: Mapped["Parcel"] = relationship(back_populates="identifiers")
 
     # e.g. ULPIN | SURVEY_NUMBER | PLOT_NUMBER | LOCAL_PARCEL_ID
-    identifier_type: Mapped[str] = mapped_column(String(50), index=True)
-    identifier_value: Mapped[str] = mapped_column(String(100), index=True)
-    source_state: Mapped[str] = mapped_column(String(10))  # state that issued this identifier
-    source_department: Mapped[str] = mapped_column(String(50))  # department that issued this identifier
+    identifier_type: Mapped[str] = mapped_column(String(50), name="identifierType", index=True)
+    identifier_value: Mapped[str] = mapped_column(String(100), name="identifierValue", index=True)
+    source_state: Mapped[str] = mapped_column(String(10), name="sourceState")  # state that issued this identifier
+    source_department: Mapped[str] = mapped_column(String(50), name="sourceDepartment")  # department that issued this identifier
 
 
 class ParcelNeighbour(Base):
@@ -69,9 +68,9 @@ class ParcelNeighbour(Base):
     __tablename__ = "parcel_neighbours"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parcel_id: Mapped[str] = mapped_column(String, index=True)
-    neighbour_parcel_id: Mapped[str] = mapped_column(String)
-    relationship_type: Mapped[str] = mapped_column(String(20))  # TOUCHING | NEARBY
+    parcel_id: Mapped[str] = mapped_column(String, name="parcelId", index=True)
+    neighbour_parcel_id: Mapped[str] = mapped_column(String, name="neighbourParcelId")
+    relationship_type: Mapped[str] = mapped_column(String(20), name="relationshipType")  # TOUCHING | NEARBY
 
 
 class CitizenParcel(Base):

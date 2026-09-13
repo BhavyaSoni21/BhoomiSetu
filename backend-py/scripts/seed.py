@@ -52,6 +52,7 @@ from app.models.parcel import (
 )
 from app.models.spatial import ChangeDetectionEvent, InfrastructureFeature, RestrictionZone, ZoningOverlay
 from app.models.user import User
+from app.models.workflow import Workflow, WorkflowStep
 
 SQM_PER_HECTARE = 10000
 SQFT_PER_SQM = 10.7639
@@ -272,7 +273,7 @@ def seed_database() -> None:
         # (Postgres refuses to delete a row another table's live FK still
         # points at).
         tables_to_clear = [
-            Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
+            WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
             PlanningRecord, TaxRecord, RestrictionRecord, EncumbranceRecord, OwnershipHistoryRecord,
             ParcelHistoricalState, ClusterHistoricalSnapshot,
             StateALandRecord, StateBLandRecord,
@@ -791,13 +792,10 @@ def seed_database() -> None:
         db.flush()
         print(f"Saved change-detection event affecting {len(change_affected_ids)} parcels")
 
-        # Governance alerts are deliberately NOT hand-seeded here - a
-        # governance alert should only ever come from something that
-        # actually happened (a real spatial-overlap computation, a real
-        # change-detection analysis, a real historical-year comparison),
-        # never fabricated alongside demo data disconnected from any real
-        # monitor. The flood zone / simulated change event / tax records
-        # above are still seeded as real demo data for their own features.
+        # Demo governance alerts and requests are linked to the generated
+        # parcels and demo citizens so the officer queues are useful after a
+        # fresh seed. They are intentionally marked as demo data by their
+        # explanations/details and are cleared/recreated on every seed run.
 
         # Demo accounts for real login - one per officer role plus one
         # admin, all sharing one demo password. Never real credentials.
@@ -863,6 +861,83 @@ def seed_database() -> None:
         db.add_all(citizen_parcel_rows)
         db.flush()
         print(f"Saved {len(citizens)} demo citizen accounts (password: Demo@123), linked to {len(citizen_parcel_rows)} parcels total")
+
+        # Citizen request queue: two examples of every supported request type.
+        # The steps mirror WorkflowsService's deterministic pipelines, without
+        # calling the AI router or creating notifications during seeding.
+        request_pipelines = {
+            "ROR_COPY_REQUEST": [("LAND_RECORDS", "LAND_RECORD_OFFICER"), ("REGISTRATION", "REGISTRATION_OFFICER"), ("PLANNING", "PLANNING_OFFICER")],
+            "CORRECTION_REQUEST": [("LAND_RECORDS", "LAND_RECORD_OFFICER"), ("REGISTRATION", "REGISTRATION_OFFICER"), ("PLANNING", "PLANNING_OFFICER")],
+            "DISPUTE_FILING": [("DISPUTE", "DISPUTE_OFFICER")],
+            "LAND_CLAIM_REQUEST": [("LAND_RECORDS", "LAND_RECORD_OFFICER")],
+            "DOCUMENT_VERIFICATION_REQUEST": [("LAND_RECORDS", "LAND_RECORD_OFFICER")],
+        }
+        request_details = {
+            "ROR_COPY_REQUEST": "Demo request: please provide a certified copy of the Record of Rights.",
+            "CORRECTION_REQUEST": "Demo request: the owner name on this parcel needs correction.",
+            "DISPUTE_FILING": "Demo request: review a reported boundary and ownership dispute.",
+            "LAND_CLAIM_REQUEST": "Demo request: review the attached land claim against this parcel.",
+            "DOCUMENT_VERIFICATION_REQUEST": "Demo request: verify the uploaded ownership document.",
+        }
+        seeded_workflows = []
+        request_types = list(request_pipelines)
+        for index, workflow_type in enumerate(request_types * 2):
+            parcel = all_saved_parcels[index % len(all_saved_parcels)]
+            citizen = citizens[index % len(citizens)]
+            current_status = "UNDER_REVIEW" if index % 3 == 1 else ("COMPLETED" if index % 3 == 2 else "SUBMITTED")
+            workflow = Workflow(
+                parcel_id=str(parcel.id),
+                workflow_type=workflow_type,
+                current_status=current_status,
+                created_by=str(citizen.id),
+                citizen_id=str(citizen.id),
+                request_details=request_details[workflow_type],
+                last_remarks="Demo seed record for officer queue review.",
+            )
+            db.add(workflow)
+            db.flush()
+            steps = []
+            for step_order, (department, assigned_role) in enumerate(request_pipelines[workflow_type], start=1):
+                step_status = "APPROVED" if current_status == "COMPLETED" else ("IN_PROGRESS" if current_status == "UNDER_REVIEW" and step_order == 1 else "PENDING")
+                steps.append(
+                    WorkflowStep(
+                        workflow_id=workflow.id,
+                        step_order=step_order,
+                        department=department,
+                        assigned_role=assigned_role,
+                        status=step_status,
+                        action="DEMO_SEED" if step_status == "APPROVED" else None,
+                        remarks="Demo seed workflow step." if step_status != "PENDING" else None,
+                    )
+                )
+            db.add_all(steps)
+            seeded_workflows.append(workflow)
+        db.flush()
+        print(f"Saved {len(seeded_workflows)} demo requests across {len(request_types)} request types")
+
+        alert_types = [
+            ("RESTRICTION_ZONE_OVERLAP", "RESTRICTION_MONITOR", "HIGH", "Restriction zone overlap detected in demo monitoring."),
+            ("UNAUTHORIZED_CHANGE_DETECTED", "CHANGE_DETECTION", "CRITICAL", "Unauthorized change detected in demo imagery comparison."),
+            ("TAX_OVERDUE", "TAX_MONITOR", "MEDIUM", "Tax overdue condition detected in demo monitoring."),
+            ("DISPUTE_DETECTED", "HISTORICAL_IMAGERY", "HIGH", "Dispute signal detected in demo parcel history."),
+            ("RESTRICTION_DETECTED", "RESTRICTION_MONITOR", "LOW", "Land-use restriction detected in demo parcel review."),
+        ]
+        seeded_alerts = []
+        for alert_index, (alert_type, source, severity, explanation) in enumerate(alert_types * 2):
+            parcel = all_saved_parcels[(alert_index + 12) % len(all_saved_parcels)]
+            seeded_alerts.append(
+                GovernanceAlert(
+                    parcel_id=str(parcel.id),
+                    alert_type=alert_type,
+                    severity=severity,
+                    source=source,
+                    status="OPEN" if alert_index % 2 == 0 else "ACKNOWLEDGED",
+                    explanation=f"Demo seed alert: {explanation}",
+                )
+            )
+        db.add_all(seeded_alerts)
+        db.flush()
+        print(f"Saved {len(seeded_alerts)} demo governance alerts across {len(alert_types)} alert types")
 
         # Land property papers - deliberately partial and messy, not a
         # uniform 1:1 seed: only citizen-linked parcels are even

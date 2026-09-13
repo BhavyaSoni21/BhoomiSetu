@@ -231,31 +231,6 @@ body {
   transform: translateY(-1px);
 }
 
-/* ── Glass Morphism ── */
-.glass-card {
-  background: rgba(255, 255, 255, 0.68);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.50);
-  box-shadow: 0 12px 36px -4px rgba(15, 61, 46, 0.09), 0 4px 14px -2px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  border-radius: 20px;
-}
-.dark .glass-card {
-  background: rgba(13, 38, 29, 0.60);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  border-radius: 20px;
-}
-.glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.78);
-  border-color: rgba(255, 255, 255, 0.65);
-}
-.dark .glass-card-hover:hover {
-  background: rgba(13, 38, 29, 0.75);
-}
-
 /* ── Animations ───────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(20px); }

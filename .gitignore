@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+coverage/
 
 # Vite's local dependency pre-bundling cache - regenerates automatically,
 # not something to commit.
@@ -27,12 +28,25 @@ backend/data/*.sqlite
 backend/data/*.sqlite-journal
 
 # backend-py (Python)
+*.py[cod]
+*$py.class
 backend-py/__pycache__/
 backend-py/**/__pycache__/
 backend-py/.venv/
 backend-py/venv/
 backend-py/.pytest_cache/
 backend-py/uploads/
+backend-py/*.db
+backend-py/*.sqlite
+backend-py/*.sqlite-*
+
+# Python tooling caches and coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # tesseract.js downloads and caches its language model into the working
 # directory on first OCR call (docs/FEATURE_AUDIT.md's Document Verification
