@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import GovernanceAlertsPanel from '../../features/officer/GovernanceAlertsPanel';
 import BackButton from '../../components/BackButton';
 

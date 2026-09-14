@@ -23,6 +23,7 @@ from app.routers import (
     health,
     historical_imagery,
     land_records,
+    multilingual,
     notification_feed,
     parcels,
     predictive_analytics,
@@ -120,6 +121,7 @@ app.include_router(departments.router, prefix="/api/v1")
 app.include_router(notification_feed.router, prefix="/api/v1")
 app.include_router(governance.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
+app.include_router(multilingual.router)
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(workflows.router, prefix="/api/v1")

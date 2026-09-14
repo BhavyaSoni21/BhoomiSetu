@@ -49,6 +49,22 @@ class Settings(BaseSettings):
     gee_service_account_email: str = ""
     gee_service_account_key_path: str = ""
 
+    # Bhashini Multilingual API Configuration (Government of India)
+    ulca_user_id: str = ""
+    ulca_api_key: str = ""
+    bhashini_pipeline_id: str = "64392f96daac500b55c543cd"
+    default_source_lang: str = "en"
+    default_target_lang: str = "hi"
+    bhashini_auth_url: str = "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline"
+    bhashini_inference_url: str = "https://dhruva-api.bhashini.gov.in/services/inference/pipeline"
+    bhashini_translation_timeout: int = 30
+    bhashini_transliteration_timeout: int = 10
+    bhashini_tts_timeout: int = 30
+    bhashini_asr_timeout: int = 30
+    bhashini_cache_ttl: int = 3600
+    bhashini_max_retries: int = 2
+    bhashini_retry_backoff_ms: int = 500
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

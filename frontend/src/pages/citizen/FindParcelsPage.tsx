@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Search, Map as MapIcon, Layers, Info, Filter, Compass } from 'lucide-react';
 import ParcelSearch from '../../features/parcels/ParcelSearch';
 import MapComponent from '../../features/map/MapComponent';

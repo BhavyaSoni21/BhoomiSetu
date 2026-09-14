@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../context/LanguageContext';
 import { Circle, Square, Triangle, ArrowRight, ShieldCheck, Award, Users } from 'lucide-react';
 
 // Public, informational page - styled with Bhashini government design tokens

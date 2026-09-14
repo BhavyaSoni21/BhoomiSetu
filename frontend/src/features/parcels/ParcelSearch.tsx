@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useNavigate, useSearchParams as useUrlSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { RotateCcw, Search } from 'lucide-react';

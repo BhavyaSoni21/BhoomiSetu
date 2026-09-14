@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { CheckCircle2, ShieldCheck, XCircle, X } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
 

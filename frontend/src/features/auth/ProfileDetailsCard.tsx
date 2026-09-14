@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import axios from 'axios';
 import { Pencil } from 'lucide-react';
 import { useUpdateProfileDetails, AuthUser } from './auth';

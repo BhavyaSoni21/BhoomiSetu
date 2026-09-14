@@ -31,7 +31,9 @@ apiService.interceptors.response.use(
     // a dead session. Notify React so it can navigate without a full document
     // reload, which would otherwise repaint the browser's blank canvas.
     const isLoginAttempt = error.config?.url?.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginAttempt) {
+    const token = localStorage.getItem('access_token');
+    const isDemoToken = token?.startsWith('demo-jwt-token-');
+    if (error.response?.status === 401 && !isLoginAttempt && !isDemoToken) {
       window.dispatchEvent(new Event('bhoomisetu:unauthorized'));
     }
     return Promise.reject(error);

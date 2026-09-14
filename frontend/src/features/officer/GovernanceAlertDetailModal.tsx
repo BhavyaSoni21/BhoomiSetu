@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import { X, Sparkles, AlertCircle, MapPinned } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';

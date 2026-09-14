@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from '../context/LanguageContext';
 import { Mail, Phone, MapPin, Youtube, Facebook, Twitter, Instagram, Linkedin, ArrowUpRight } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -28,7 +30,7 @@ export const Footer: React.FC = () => {
                   Bhoomi<span className="text-[#208A43]">Setu</span>
                 </span>
                 <span className="text-[10px] text-gray-600 font-semibold tracking-wider uppercase mt-0.5">
-                  Land Governance Portal
+                  {t('footer.tagline')}
                 </span>
               </div>
             </div>
@@ -36,14 +38,14 @@ export const Footer: React.FC = () => {
             {/* Department info */}
             <div className="space-y-1 text-xs">
               <h3 className="font-bold text-white text-sm tracking-wide">
-                Digital India BhoomiSetu Division
+                {t('footer.departmentHeading')}
               </h3>
               <p className="text-white/70 text-[11px] font-medium">
-                Autonomous Division under Ministry of Panchayati Raj & Department of Land Resources
+                Ministry of Panchayati Raj & Department of Land Resources
               </p>
               <p className="text-white/60 text-[11px] flex items-start gap-1.5 pt-1">
                 <MapPin className="w-3.5 h-3.5 text-[var(--action-500)] shrink-0 mt-0.5" />
-                <span>Electronics Niketan, 6-CGO Complex, Lodhi Road, New Delhi - 110003</span>
+                <span>{t('footer.address')}</span>
               </p>
             </div>
 
@@ -58,7 +60,7 @@ export const Footer: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-[var(--action-500)] shrink-0" />
                 <span className="font-mono text-[11px] text-white/90">
-                  Toll-Free Helpline: <strong className="text-white">1800-11-2026</strong> / 011-2430 1361
+                  {t('footer.helplineLabel')}: <strong className="text-white">1800-11-2026</strong> / 011-2430 1361
                 </span>
               </div>
             </div>
@@ -67,32 +69,32 @@ export const Footer: React.FC = () => {
           {/* Column 2: Quick Links (Spans 2 cols) */}
           <div className="lg:col-span-2 space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--action-500)] font-heading">
-              Quick Links
+              {t('footer.quickLinks')}
             </h4>
             <ul className="space-y-2 text-xs font-medium">
               <li>
                 <Link to="/" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
-                  <span>Home</span>
+                  <span>{t('footer.linkHome')}</span>
                 </Link>
               </li>
               <li>
                 <Link to="/about" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
-                  <span>About BhoomiSetu</span>
+                  <span>{t('footer.linkAbout')}</span>
                 </Link>
               </li>
               <li>
                 <Link to="/features" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
-                  <span>Platform Features</span>
+                  <span>{t('footer.linkFeatures')}</span>
                 </Link>
               </li>
               <li>
                 <Link to="/citizen" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
-                  <span>Citizen Services</span>
+                  <span>{t('footer.linkCitizen')}</span>
                 </Link>
               </li>
               <li>
                 <Link to="/officer" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
-                  <span>Officer Portal</span>
+                  <span>{t('footer.linkOfficer')}</span>
                 </Link>
               </li>
             </ul>
@@ -101,22 +103,22 @@ export const Footer: React.FC = () => {
           {/* Column 3: Governance & Support (Spans 2 cols) */}
           <div className="lg:col-span-2 space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--action-500)] font-heading">
-              Governance
+              {t('footer.governance')}
             </h4>
             <ul className="space-y-2 text-xs font-medium">
               <li>
                 <Link to="/terms-of-use" className="text-white/75 hover:text-white transition-colors duration-150">
-                  Terms of Use
+                  {t('footer.linkTerms')}
                 </Link>
               </li>
               <li>
                 <Link to="/privacy-policy" className="text-white/75 hover:text-white transition-colors duration-150">
-                  Privacy Policy
+                  {t('footer.linkPrivacy')}
                 </Link>
               </li>
               <li>
                 <Link to="/contact-us" className="text-white/75 hover:text-white transition-colors duration-150">
-                  Contact Us
+                  {t('footer.linkContact')}
                 </Link>
               </li>
               <li>
@@ -137,7 +139,7 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-3 space-y-4">
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-white font-heading mb-2">
-                Get The BhoomiSetu App
+                {t('footer.getAppHeading')}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {/* Mock Google Play badge */}
@@ -167,7 +169,7 @@ export const Footer: React.FC = () => {
             {/* Social Icons */}
             <div>
               <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider block mb-2">
-                Join Us
+                {t('footer.joinUs')}
               </span>
               <div className="flex items-center gap-2 text-white/70">
                 <a href="#youtube" aria-label="YouTube" className="p-1.5 rounded bg-white/5 hover:bg-white/15 hover:text-white transition">
@@ -196,20 +198,20 @@ export const Footer: React.FC = () => {
       <div className="border-t border-white/10 bg-black/20 text-xs text-white/70 py-3.5 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
           <div>
-            © {currentYear} — Copyright All rights reserved. Government of India · BhoomiSetu
+            © {currentYear} — {t('footer.copyrightLine')} Government of India
           </div>
           <div className="flex flex-wrap items-center gap-2 text-white/60">
-            <Link to="/about" className="hover:text-white transition">Sitemap</Link>
+            <Link to="/about" className="hover:text-white transition">{t('footer.bottomLinkSitemap')}</Link>
             <span>|</span>
-            <Link to="/terms-of-use" className="hover:text-white transition">Terms of Use</Link>
+            <Link to="/terms-of-use" className="hover:text-white transition">{t('footer.bottomLinkTerms')}</Link>
             <span>|</span>
-            <Link to="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link>
+            <Link to="/privacy-policy" className="hover:text-white transition">{t('footer.bottomLinkPrivacy')}</Link>
             <span>|</span>
-            <Link to="/terms-of-use" className="hover:text-white transition">Copyright Policy</Link>
+            <Link to="/terms-of-use" className="hover:text-white transition">{t('footer.bottomLinkCopyright')}</Link>
             <span>|</span>
-            <Link to="/contact-us" className="hover:text-white transition">Contact Us</Link>
+            <Link to="/contact-us" className="hover:text-white transition">{t('footer.bottomLinkContact')}</Link>
             <span>|</span>
-            <Link to="/contact-us" className="hover:text-white transition">Notifications</Link>
+            <Link to="/contact-us" className="hover:text-white transition">{t('footer.bottomLinkNotifications')}</Link>
           </div>
         </div>
       </div>

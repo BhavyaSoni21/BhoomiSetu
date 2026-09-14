@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Paperclip, Search, Flag } from 'lucide-react';
 import apiService from '../../services/apiService';
 import ParcelSearch from '../parcels/ParcelSearch';

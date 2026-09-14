@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
 import { UserCircle2, FolderOpen } from 'lucide-react';
 import apiService from '../../services/apiService';

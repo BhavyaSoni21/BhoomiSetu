@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../context/LanguageContext';
 import { MapPinned, FileSearch, ClipboardList, ShieldCheck, BarChart3, ArrowRight } from 'lucide-react';
 
 const FEATURE_CARDS = [
@@ -20,7 +20,7 @@ const FeaturesPage: React.FC = () => {
       <div className="bg-[var(--surface-1)] border border-[var(--border)] rounded-[8px] p-6 sm:p-8 shadow-xs">
         <div className="flex items-center gap-2 mb-3">
           <span className="px-2.5 py-0.5 rounded-[4px] bg-emerald-50 dark:bg-emerald-950/60 text-[var(--bhashini-accent)] text-xs font-semibold uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
-            Platform Capabilities
+            {t('features.platformCapabilitiesBadge')}
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-heading)] mb-4">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import axios from 'axios';
 import { CheckCircle2, RotateCw } from 'lucide-react';
 import { AuthUser, ContactMethod } from './auth';

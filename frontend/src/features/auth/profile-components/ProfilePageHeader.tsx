@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../../context/LanguageContext';
 import BackButton from '../../../components/BackButton';
 
 interface ProfilePageHeaderProps {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { History, Layers, Calendar, Clock } from 'lucide-react';
 import HistoricalImageryPanel from '../../features/officer/HistoricalImageryPanel';
 import BackButton from '../../components/BackButton';

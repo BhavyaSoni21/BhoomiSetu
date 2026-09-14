@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import {
   FileText,
   Flag,
@@ -33,33 +33,33 @@ const RaiseRequestPage: React.FC = () => {
   const services = [
     {
       type: 'ROR_COPY_REQUEST',
-      title: 'Certified RoR / 7-12 Extract',
-      desc: 'Official digitally signed Record of Rights copy with government QR authentication code.',
-      sla: '2 Working Days',
+      title: t('raiseRequestPage.service.rorTitle'),
+      desc: t('raiseRequestPage.service.rorDesc'),
+      sla: t('raiseRequestPage.service.rorSla'),
       Icon: FileText,
       accent: 'brand',
     },
     {
       type: 'CORRECTION_REQUEST',
-      title: 'Record Name / Area Correction',
-      desc: 'Rectification of clerical or spelling errors in land owner names, survey extents, or remarks.',
-      sla: '7 Working Days',
+      title: t('raiseRequestPage.service.correctionTitle'),
+      desc: t('raiseRequestPage.service.correctionDesc'),
+      sla: t('raiseRequestPage.service.correctionSla'),
       Icon: Flag,
       accent: 'amber',
     },
     {
       type: 'DISPUTE_FILING',
-      title: 'Formal Land Dispute Filing',
-      desc: 'Initiate legal review for boundary overlap, partition grievances, or illegal encroachment.',
-      sla: '30 Days Statutory SLA',
+      title: t('raiseRequestPage.service.disputeTitle'),
+      desc: t('raiseRequestPage.service.disputeDesc'),
+      sla: t('raiseRequestPage.service.disputeSla'),
       Icon: MessageSquareWarning,
       accent: 'red',
     },
     {
       type: 'DOCUMENT_VERIFICATION_REQUEST',
-      title: 'Encumbrance & Document Verification',
-      desc: 'Verification of the ownership documents currently on file for this parcel.',
-      sla: 'Instant / 24 Hours',
+      title: t('raiseRequestPage.service.verificationTitle'),
+      desc: t('raiseRequestPage.service.verificationDesc'),
+      sla: t('raiseRequestPage.service.verificationSla'),
       Icon: ShieldCheck,
       accent: 'brand',
     },
@@ -81,26 +81,27 @@ const RaiseRequestPage: React.FC = () => {
       <div className="pb-4 border-b border-gov-border">
         <div className="flex items-center gap-2 text-action-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">
           <Send className="w-4 h-4" />
-          <span>Citizen Revenue Portal · Application Submission</span>
+          <span>{t('raiseRequestPage.pageSubtitle')}</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-heading">
           {t('citizenPortal.raiseRequestHeading', 'Raise Service Request')}
         </h1>
         <p className="text-xs sm:text-sm text-text-secondary mt-1">
-          Select one of your registered land parcels to initiate a revenue workflow with guaranteed officer SLA.
+          {t('raiseRequestPage.pageDesc')}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-text-muted">Loading your registered parcels…</div>
+        <div className="py-12 text-center text-sm text-text-muted">{t('raiseRequestPage.loadingParcels')}</div>
       ) : data?.total === 0 ? (
         <div className="gov-card p-8 text-center bg-surface-2 border border-gov-border">
           <MapPin className="w-10 h-10 mx-auto text-text-muted mb-3" />
           <h3 className="font-heading font-bold text-base text-text-heading">
-            No registered parcels on your profile
+            {t('raiseRequestPage.noParcelsHeading')}
           </h3>
           <p className="text-xs text-text-secondary mt-1 max-w-md mx-auto">
-            You can search public cadastre parcels or file an ownership claim under SVAMITVA to link your agricultural or residential land.
+            {/* SVAMITVA and ULPIN are official government scheme names — intentionally not translated */}
+            {t('raiseRequestPage.noParcelsDesc')}
           </p>
         </div>
       ) : (
@@ -115,7 +116,7 @@ const RaiseRequestPage: React.FC = () => {
                 htmlFor="raiseRequestParcelSelect"
                 className="text-sm font-heading font-bold text-text-heading"
               >
-                Select Target Land Parcel
+                {t('raiseRequestPage.selectParcelLabel')}
               </label>
             </div>
 
@@ -125,7 +126,7 @@ const RaiseRequestPage: React.FC = () => {
               onChange={(e) => setSelectedParcelId(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gov-border bg-surface-1 text-text-heading font-mono text-sm focus:outline-none focus:border-brand-700"
             >
-              <option value="">-- Choose a parcel to apply against --</option>
+              <option value="">{t('raiseRequestPage.parcelSelectPlaceholder')}</option>
               {data?.parcels.map((parcel) => (
                 <option key={parcel.id} value={parcel.id}>
                   {parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : `Parcel #${parcel.id.substring(0, 8)}`} — {parcel.stateCode}-{parcel.districtCode} ({parcel.areaSqM.toLocaleString()} m²)
@@ -143,15 +144,15 @@ const RaiseRequestPage: React.FC = () => {
                         {selectedParcel.ulpin || `ID: ${selectedParcel.id.substring(0, 10)}`}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-green-100 text-green-800">
-                        Active Holding
+                        {t('raiseRequestPage.activeHoldingBadge')}
                       </span>
                     </div>
                     <p className="text-xs text-text-secondary mt-1">
-                      Region: <span className="font-semibold text-text-heading">{selectedParcel.stateCode} / District {selectedParcel.districtCode}</span> · Sub-division: <span className="font-mono">{selectedParcel.localBodyCode}</span>
+                      {t('raiseRequestPage.regionLabel')}: <span className="font-semibold text-text-heading">{selectedParcel.stateCode} / District {selectedParcel.districtCode}</span> · Sub-division: <span className="font-mono">{selectedParcel.localBodyCode}</span>
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-mono text-text-muted">Total Registered Area</span>
+                    <span className="text-xs font-mono text-text-muted">{t('raiseRequestPage.totalRegisteredAreaLabel')}</span>
                     <p className="text-base font-heading font-bold text-brand-900">
                       {selectedParcel.areaSqM.toLocaleString()} m²
                     </p>
@@ -170,10 +171,10 @@ const RaiseRequestPage: React.FC = () => {
                 </span>
                 <div>
                   <h2 className="text-sm font-heading font-bold text-text-heading">
-                    Select Revenue Service
+                    {t('raiseRequestPage.selectServiceHeading')}
                   </h2>
                   <p className="text-xs text-text-secondary">
-                    Choose the type of request to file. Your application will be routed to the jurisdiction officer.
+                    {t('raiseRequestPage.selectServiceDesc')}
                   </p>
                 </div>
               </div>
@@ -213,7 +214,7 @@ const RaiseRequestPage: React.FC = () => {
                             background: s.accent === 'amber' ? 'var(--action-600)' : 'var(--brand-900)',
                           }}
                         >
-                          <span>Apply Now</span>
+                          <span>{t('raiseRequestPage.applyNowButton')}</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       </div>

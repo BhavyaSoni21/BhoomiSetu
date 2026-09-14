@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { CheckCircle2, LogIn, Send, UserPlus, Paperclip, MessageSquareWarning } from 'lucide-react';
@@ -114,7 +114,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
               onClick={onClose}
               className="ml-auto text-xs font-bold uppercase tracking-wider text-ink/60 hover:text-ink transition"
             >
-              Cancel
+              {t('serviceRequestForm.cancelButton')}
             </button>
           </div>
         </div>
@@ -130,11 +130,11 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
           <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink flex items-center justify-center" aria-hidden="true">
             <CheckCircle2 className="w-3.5 h-3.5 text-white" />
           </span>
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-primary mb-2">Request Submitted</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-primary mb-2">{t('serviceRequestForm.successHeading')}</h3>
           <p className="text-sm text-ink/80 mb-1">
-            Your request has been submitted and is now <strong className="text-ink">{workflow.currentStatus}</strong>.
+            {t('serviceRequestForm.successBodyPrefix')} <strong className="text-ink">{workflow.currentStatus}</strong>.
           </p>
-          <p className="text-xs text-ink/50 font-mono mb-4">Reference ID: {workflow.id}</p>
+          <p className="text-xs text-ink/50 font-mono mb-4">{t('serviceRequestForm.referenceIdLabel')} {workflow.id}</p>
           <div className="space-y-1 mb-4 border-t-2 border-b-2 border-ink/15 py-3 divide-y-2 divide-ink/10">
             {workflow.steps.map((step) => (
               <div key={step.id} className="flex justify-between text-sm text-ink/70 py-1 first:pt-0 last:pb-0">
@@ -147,7 +147,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
             onClick={onClose}
             className="w-full flex items-center justify-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           >
-            Close
+            {t('serviceRequestForm.closeButton')}
           </button>
         </div>
       </div>
@@ -162,7 +162,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="requestDetailsInput" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-              Reason
+              {t('serviceRequestForm.reasonLabel')}
             </label>
             <textarea
               id="requestDetailsInput"
@@ -170,32 +170,32 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
               onChange={(e) => setRequestDetails(e.target.value)}
               rows={4}
               className="w-full border-2 border-ink bg-surface px-3.5 py-2.5 text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
-              placeholder="Why are you raising this request?"
+              placeholder={t('serviceRequestForm.reasonPlaceholder')}
             />
           </div>
 
           {(needsUpload || isDispute) && (
             <div>
               <p className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                {isDispute ? 'Supporting Document (optional)' : 'Upload Your Papers'}
+                {isDispute ? t('serviceRequestForm.supportingDocumentOptional') : t('serviceRequestForm.uploadYourPapers')}
               </p>
               <label
                 htmlFor="documentUploadInput"
                 className="flex items-center gap-2 border-2 border-dashed border-ink/40 px-3.5 py-2.5 text-sm text-ink/70 cursor-pointer hover:border-ink transition"
               >
                 <Paperclip className="w-4 h-4 shrink-0" aria-hidden="true" />
-                {file ? file.name : 'Choose an image...'}
+                {file ? file.name : t('serviceRequestForm.chooseImagePlaceholder')}
               </label>
               <input
                 id="documentUploadInput"
                 type="file"
                 accept="image/*"
-                aria-label={isDispute ? 'Supporting Document (optional)' : 'Upload Your Papers'}
+                aria-label={isDispute ? t('serviceRequestForm.supportingDocumentOptional') : t('serviceRequestForm.uploadYourPapers')}
                 className="sr-only"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
               {needsUpload && (
-                <p className="text-xs text-ink/50 mt-1">No papers are on file for this parcel yet - please attach a photo of your document.</p>
+                <p className="text-xs text-ink/50 mt-1">{t('serviceRequestForm.noPapersHint')}</p>
               )}
             </div>
           )}
@@ -212,13 +212,13 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-white text-xs font-bold uppercase tracking-wide border-2 border-ink hover:bg-secondary-strong transition"
                 >
                   <MessageSquareWarning className="w-3.5 h-3.5" aria-hidden="true" />
-                  File a Dispute Instead
+                  {t('serviceRequestForm.fileDisputeInstead')}
                 </button>
               )}
             </div>
           ) : (
             mutation.isError && (
-              <p className="text-sm font-medium text-secondary-strong">Something went wrong submitting your request. Please try again.</p>
+              <p className="text-sm font-medium text-secondary-strong">{t('serviceRequestForm.submitError')}</p>
             )
           )}
           <div className="flex justify-end gap-3">
@@ -227,7 +227,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
               onClick={onClose}
               className="px-4 py-2 border-2 border-ink text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
             >
-              Cancel
+              {t('serviceRequestForm.cancelButton')}
             </button>
             <button
               type="submit"
@@ -235,7 +235,7 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
               className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-sm font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
               <Send className="w-4 h-4" aria-hidden="true" />
-              {mutation.isLoading ? 'Submitting...' : 'Submit Request'}
+              {mutation.isLoading ? t('serviceRequestForm.submittingButton') : t('serviceRequestForm.submitButton')}
             </button>
           </div>
         </form>

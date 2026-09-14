@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, SupportedLanguage } from '../context/LanguageContext';
 import { useLogin } from '../features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS } from '../features/officer/officerAuth';
-import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
 import axios from 'axios';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -32,12 +31,7 @@ const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const loginMutation = useLogin();
-  const { t, i18n } = useTranslation();
-
-  const handleLanguageChange = (lang: SupportedLanguage) => {
-    i18n.changeLanguage(lang);
-    setStoredLanguage(lang);
-  };
+  const { t, currentLang, setLanguage } = useTranslation();
 
   const [method, setMethod]             = useState<LoginMethod>('EMAIL');
   const [email, setEmail]               = useState('');
@@ -178,8 +172,8 @@ const LoginPage: React.FC = () => {
             <Globe className="w-4 h-4" style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
             <select
               aria-label={t('nav.languageSelectLabel')}
-              value={i18n.language}
-              onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
+              value={currentLang}
+              onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
               className="text-xs font-semibold rounded-lg px-2.5 py-1.5 border cursor-pointer focus:outline-none focus:ring-2 transition"
               style={{
                 background: 'var(--surface-2)',
@@ -187,11 +181,17 @@ const LoginPage: React.FC = () => {
                 color: 'var(--text-primary)',
               }}
             >
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang === 'Hindi' ? 'हिंदी (Hindi)' : lang}
-                </option>
-              ))}
+              <option value="en">English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="gu">ગુજરાતી (Gujarati)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="mr">मराठी (Marathi)</option>
+              <option value="or">ଓଡ଼ିଆ (Odia)</option>
+              <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="te">తెలుగు (Telugu)</option>
             </select>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
 import { useCompareHistoricalYears } from './historicalImagery';
 import { CATEGORY_LABELS, CategorySwatch } from './HistoricalMapView';

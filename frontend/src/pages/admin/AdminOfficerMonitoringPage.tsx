@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Users } from 'lucide-react';
 import OfficerMonitoring from '../../features/admin/OfficerMonitoring';
 import BackButton from '../../components/BackButton';
