@@ -22,18 +22,38 @@ SIH_2026_BhoomiSetu/
 ## Technology Stack
 
 ### Backend
+**Primary (Python):**
+- **Runtime**: Python 3.9+
+- **Framework**: FastAPI
+- **Server**: Uvicorn
+- **Database**: SQLite for development, PostgreSQL + PostGIS for production (live-verified against a hosted Supabase instance - see Database below)
+- **ORM**: SQLAlchemy with Alembic for migrations
+- **Auth**: `python-jose` + JWT (JWT issuance/verification), `bcrypt` (password hashing)
+- **File uploads**: `python-multipart` (Starlette/FastAPI file upload handling) - imagery for Change Detection, document photos/scans for Document Verification
+- **OCR**: `pytesseract` - local, in-process text extraction for Document Verification (no external API, no API key)
+- **Image processing**: `Pillow` and `cairosvg` - decode/resize/SVG rendering
+- **Geospatial**: `geopandas`, `shapely`, `geoalchemy2` - PostGIS integration and spatial calculations
+- **Validation**: `pydantic` (HTTP request DTOs and data validation)
+- **AI**: Groq (via OpenAI-compatible `openai` SDK) + Google Generative AI as fallback (backend-only)
+- **API Documentation**: OpenAPI/Swagger (served at `/docs`)
+- **Testing**: pytest + httpx
+- **Rate Limiting**: `slowapi` (SlowAPI)
+
+**Alternative (NestJS - TypeScript, optional):**
 - **Runtime**: Node.js 22+
 - **Framework**: NestJS (TypeScript)
-- **Database**: SQLite for development, PostgreSQL + PostGIS for production (live-verified against a hosted Supabase instance - see Database below)
+- **Database**: SQLite for development, PostgreSQL + PostGIS for production
 - **ORM**: TypeORM
-- **Auth**: `@nestjs/jwt` + `passport-jwt` (JWT issuance/verification), `bcryptjs` (password hashing)
-- **File uploads**: `@nestjs/platform-express` (Multer) - imagery for Change Detection, document photos/scans for Document Verification
-- **OCR**: `tesseract.js` - local, in-process text extraction for Document Verification (no external API, no API key)
-- **Image processing**: `sharp` - decode/resize for Change Detection's pixel-diff pipeline
-- **Validation**: `class-validator` (HTTP request DTOs), `zod` (validating Groq's AI output before it's trusted - see Groq AI Endpoints below)
-- **AI**: Groq, via the OpenAI-compatible `openai` SDK (backend-only, never called from the frontend)
+- **Auth**: `@nestjs/jwt` + `passport-jwt`, `bcryptjs`
+- **File uploads**: `@nestjs/platform-express` (Multer)
+- **OCR**: `tesseract.js`
+- **Image processing**: `sharp`
+- **Validation**: `class-validator` (HTTP DTOs), `zod` (AI output validation)
+- **AI**: Groq via `openai` SDK
 - **API Documentation**: Swagger/OpenAPI (served at `/api`)
 - **Testing**: Jest + Supertest (e2e)
+
+*(Note: The codebase includes both backend implementations. The Python backend is the primary one; the NestJS backend is available as an alternative if needed.)*
 
 ### Frontend
 - **Framework**: React (TypeScript)
@@ -68,36 +88,57 @@ SIH_2026_BhoomiSetu/
    cd BhoomiSetu
    ```
 
-2. **Backend setup**
+2. **Python Backend setup** (in a terminal)
+   ```bash
+   cd backend-py
+   python -m venv venv              # Create a virtual environment
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   
+   pip install -r requirements.txt  # Install dependencies
+   cp .env.example .env             # defaults use SQLite, no edits needed for local dev
+   python -m alembic upgrade head   # Apply database migrations
+   python scripts/seed.py            # Populate database with 220 mock parcels + demo accounts
+   uvicorn app.main:app --reload    # Start on http://localhost:8000
+   ```
+
+3. **NestJS Backend setup** (in another terminal - optional, if using the TypeScript backend instead)
    ```bash
    cd backend
    npm install
-   cp .env.example .env   # defaults use SQLite, no edits needed for local dev
-   npm run seed            # populate ./data/dev.sqlite with 220 mock parcels + demo accounts
-   npm run start:dev       # start on http://localhost:3000
+   cp .env.example .env             # defaults use SQLite, no edits needed for local dev
+   npm run seed                      # populate ./data/dev.sqlite with 220 mock parcels + demo accounts
+   npm run start:dev                 # start on http://localhost:3000
    ```
    The first request that runs OCR (Document Verification) downloads Tesseract's English language model (~5MB) into `backend/` and caches it there for subsequent runs - this is gitignored and regenerates automatically, not something to commit.
 
-3. **Frontend setup** (in a second terminal)
+4. **Frontend setup** (in a third terminal)
    ```bash
    cd frontend
    npm install
-   npm run dev              # start on http://localhost:5173
+   npm run dev                       # start on http://localhost:5173
    ```
 
-4. **Open the app**
+5. **Open the app**
    - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000/api/v1
-   - Swagger docs: http://localhost:3000/api
+   - Python Backend API: http://localhost:8000/api/v1 (or http://localhost:8000/docs for interactive docs)
+   - NestJS Backend API: http://localhost:3000/api/v1 (if using TypeScript backend)
 
-5. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/archive/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
+6. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/archive/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
    - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other 4 officer accounts are listed on the sign-in page itself)
    - Citizen: `citizen1@example.com` through `citizen20@example.com`, password `Demo@123` for all - each is linked to a random 0-5 parcels (see Citizen Sign-In / My Parcels below)
 
 ### Running Tests
 
 ```bash
-# Backend e2e tests (Jest + Supertest, isolated in-memory SQLite)
+# Python Backend tests (pytest)
+cd backend-py
+# Make sure the virtual environment is activated first
+python -m pytest
+
+# NestJS Backend e2e tests (Jest + Supertest, isolated in-memory SQLite) - optional
 cd backend
 npm test
 

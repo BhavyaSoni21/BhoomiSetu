@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { UserCircle2 } from 'lucide-react';
 import { useAuthUser } from '../../features/auth/auth';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';

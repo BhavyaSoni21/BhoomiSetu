@@ -31,7 +31,10 @@ apiService.interceptors.response.use(
     // a dead session. Only an expired/invalid token on some other request
     // should force a hard redirect back to the login page.
     const isLoginAttempt = error.config?.url?.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginAttempt) {
+    const token = localStorage.getItem('access_token');
+    const isDemoToken = token?.startsWith('demo-jwt-token-');
+    
+    if (error.response?.status === 401 && !isLoginAttempt && !isDemoToken) {
       window.location.href = '/login';
     }
     return Promise.reject(error);

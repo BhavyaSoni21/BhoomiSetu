@@ -52,11 +52,10 @@ import {
   Award,
   ChevronUp,
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
 import ParcelSearchModal from '../components/landing/ParcelSearchModal';
 import { useTheme } from '../theme/theme';
-import { setStoredLanguage } from '../i18n/config';
 import apiService from '../services/apiService';
 import MapComponent from '../features/map/MapComponent';
 import { ParcelSummary } from '../types/parcel';
@@ -65,25 +64,17 @@ import { useAuthUser } from '../features/auth/auth';
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();
   const [theme, toggleTheme] = useTheme();
-  const { i18n } = useTranslation();
+  const { t, currentLang, setLanguage } = useTranslation();
   const { data: authUser } = useAuthUser();
   const isGuest = !authUser;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [language, setLanguage] = useState<'EN' | 'HI'>(i18n.language === 'Hindi' ? 'HI' : 'EN');
   const [fontSizeOffset, setFontSizeOffset] = useState<number>(0);
   const [activeNavDropdown, setActiveNavDropdown] = useState<string | null>(null);
   const [tickerPlaying, setTickerPlaying] = useState(true);
   const [tickerIndex, setTickerIndex] = useState(0);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-
-  const changeLanguage = (next: 'EN' | 'HI') => {
-    setLanguage(next);
-    const i18nLang = next === 'HI' ? 'Hindi' : 'English';
-    i18n.changeLanguage(i18nLang);
-    setStoredLanguage(i18nLang);
-  };
 
   // Real Pune cluster data for the "Live GIS Preview" section
   const { data: puneParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
@@ -125,141 +116,55 @@ export const BhoomiSetuLanding: React.FC = () => {
 
   // How it works steps
   const workflowSteps = [
-    { num: '01', title: 'Register or Sign In', desc: 'Citizens create a free account. Officers and admins use department credentials.' },
-    { num: '02', title: 'Search Your Parcel', desc: 'Find any parcel by ULPIN, survey number, plot number, or local identifier.' },
-    { num: '03', title: 'View Parcel 360°', desc: 'See ownership, registration, zoning, tax, disputes, and encumbrances in one place.' },
-    { num: '04', title: 'Verify Documents', desc: 'Upload a land document and check it against official parcel records in seconds.' },
-    { num: '05', title: 'Raise & Track Requests', desc: 'File service requests and track their status across every department, live.' },
+    { num: '01', title: t('landing.workflowSteps.step1.title'), desc: t('landing.workflowSteps.step1.desc') },
+    { num: '02', title: t('landing.workflowSteps.step2.title'), desc: t('landing.workflowSteps.step2.desc') },
+    { num: '03', title: t('landing.workflowSteps.step3.title'), desc: t('landing.workflowSteps.step3.desc') },
+    { num: '04', title: t('landing.workflowSteps.step4.title'), desc: t('landing.workflowSteps.step4.desc') },
+    { num: '05', title: t('landing.workflowSteps.step5.title'), desc: t('landing.workflowSteps.step5.desc') },
   ];
 
   // Who is this for
   const stakeholders = [
-    'Citizen Landowners',
-    'Revenue Officers',
-    'Registration Officers',
-    'Planning Officers',
-    'Tehsildars & Patwaris',
-    'District Collectors',
-    'State Administrators',
-    'Dispute Adjudicators',
+    t('landing.stakeholders.citizenLandowners'),
+    t('landing.stakeholders.revenueOfficers'),
+    t('landing.stakeholders.registrationOfficers'),
+    t('landing.stakeholders.planningOfficers'),
+    t('landing.stakeholders.tehsildarsPatwaris'),
+    t('landing.stakeholders.districtCollectors'),
+    t('landing.stakeholders.stateAdministrators'),
+    t('landing.stakeholders.disputeAdjudicators'),
   ];
 
   // Core platform capabilities
   const impactSectors = [
-    { name: 'Parcel 360° View', desc: 'One canonical record per parcel — ownership, registration, zoning, tax, restrictions, disputes & encumbrances unified in a single view.', icon: Layers },
-    { name: 'GIS Parcel Search', desc: 'Find any parcel by ULPIN, survey number, plot number, or local identifier and explore it on a live satellite map.', icon: MapPin },
-    { name: 'Document Verification', desc: 'Upload a land document photo and check it against official records — owner name, identifiers, and area — in seconds using AI-assisted OCR.', icon: FileCheck2 },
-    { name: 'Citizen Service Requests', desc: 'Raise requests against your linked parcels, track their status across every department, and receive updates end-to-end.', icon: UserCheck },
-    { name: 'Officer Workflow Dashboard', desc: 'Review citizen requests department-by-department with documents, pre-checks, and approve or reject with full audit trails.', icon: ShieldCheck },
-    { name: 'Governance Alerts', desc: 'Automated alerts flag spatial changes detected via satellite imagery comparison — officers investigate and escalate as needed.', icon: AlertTriangle },
-    { name: 'Historical Imagery Comparison', desc: 'Compare satellite imagery across years to detect unauthorized land use changes and trigger governance reviews.', icon: History },
-    { name: 'Admin Oversight Tools', desc: 'Spatial layer authoring, officer workload monitoring, department management, and platform-wide analytics for administrators.', icon: Building },
-    { name: 'AI Assistance (Groq)', desc: 'Plain-language explanations of records and alerts — AI assists only, all authoritative decisions stay deterministic and role-gated.', icon: Sparkles },
+    { name: t('landing.impactSectors.parcel360View.title'), desc: t('landing.impactSectors.parcel360View.desc'), icon: Layers },
+    { name: t('landing.impactSectors.gisParcelSearch.title'), desc: t('landing.impactSectors.gisParcelSearch.desc'), icon: MapPin },
+    { name: t('landing.impactSectors.documentVerification.title'), desc: t('landing.impactSectors.documentVerification.desc'), icon: FileCheck2 },
+    { name: t('landing.impactSectors.citizenServiceRequests.title'), desc: t('landing.impactSectors.citizenServiceRequests.desc'), icon: UserCheck },
+    { name: t('landing.impactSectors.officerWorkflowDashboard.title'), desc: t('landing.impactSectors.officerWorkflowDashboard.desc'), icon: ShieldCheck },
+    { name: t('landing.impactSectors.governanceAlerts.title'), desc: t('landing.impactSectors.governanceAlerts.desc'), icon: AlertTriangle },
+    { name: t('landing.impactSectors.historicalImageryComparison.title'), desc: t('landing.impactSectors.historicalImageryComparison.desc'), icon: History },
+    { name: t('landing.impactSectors.adminOversightTools.title'), desc: t('landing.impactSectors.adminOversightTools.desc'), icon: Building },
+    { name: t('landing.impactSectors.aiAssistance.title'), desc: t('landing.impactSectors.aiAssistance.desc'), icon: Sparkles },
   ];
 
 
 
-  // Text strings for bilingual support - ALL existing text preserved 100%
-  const content = {
-    EN: {
-      utility: {
-        skipToMain: 'Skip to main content',
-        govOfIndia: 'Government of India',
-        notifications: 'Notifications',
-        accessibility: 'Accessibility',
-      },
-      ministry: {
-        hindiName: 'पंचायती राज मंत्रालय',
-        engName: 'MINISTRY OF PANCHAYATI RAJ',
-        tagline1: 'MODERNIZING LAND ADMINISTRATION.',
-        tagline2: 'EMPOWERING CITIZENS.',
-      },
-      nav: {
-        home: 'Home',
-        about: 'About',
-        gisServices: 'GIS Services',
-        verification: 'Verification',
-        citizenServices: 'Citizen Services',
-        resources: 'Resources',
-        portalCta: 'BhoomiSetu Portal',
-        loginRegister: 'Login/SignUp',
-      },
-      hero: {
-        eyebrow: 'GIS-BASED LAND GOVERNANCE',
-        headlineLine1: 'Every Detail About Your Land.',
-        headlineLine2: 'In One Clear, Honest View.',
-        brandSolution: 'Parcel-Centric. Department-Connected. AI-Assisted.',
-        body: 'Land records in India are split across Survey, Registration, Planning, Taxation, and Revenue departments — each with its own records. BhoomiSetu makes the parcel itself the unifying identity, so citizens see one complete picture and officers can coordinate without switching portals.',
-        exploreNow: 'Search a Parcel',
-        learnMore: 'Learn More',
-        searchCta: 'Search a Parcel',
-        signInCta: 'Get Started',
-        badges: [
-          { text: 'Role-Gated & Audited', icon: ShieldCheck },
-          { text: '7 Department Feeds', icon: Layers },
-          { text: 'ULPIN / SVAMITVA Aligned', icon: Globe },
-          { text: 'Citizen & Officer Portals', icon: Users },
-        ],
-      },
-      featureCards: [
-        { id: 'search', title: 'Parcel 360° Search', desc: 'Find any parcel by ULPIN, survey number, or plot number and see ownership, zoning, tax, disputes and encumbrances — all in one view.', icon: MapPin, action: 'search' },
-        { id: 'ocr', title: 'Document Verification (OCR)', desc: 'Upload a photo of your land document and check it against official parcel records — owner name, area, and identifiers — in seconds.', icon: FileCheck2, action: 'verify' },
-        { id: 'requests', title: 'Raise Service Requests', desc: 'File requests against your parcels — record copies, mutation, dispute — and track their status through every department.', icon: UserCheck, action: 'citizen' },
-        { id: 'alerts', title: 'Governance Alerts', desc: 'Officers receive automated alerts on spatial changes and suspected encroachments flagged from satellite imagery comparison.', icon: AlertTriangle, action: 'alerts' },
-      ],
-      tickerLabel: 'LATEST UPDATES',
-    },
-    HI: {
-      utility: {
-        skipToMain: 'मुख्य सामग्री पर जाएं',
-        govOfIndia: 'भारत सरकार',
-        notifications: 'सूचनाएं',
-        accessibility: 'सुगम्यता',
-      },
-      ministry: {
-        hindiName: 'पंचायती राज मंत्रालय',
-        engName: 'MINISTRY OF PANCHAYATI RAJ',
-        tagline1: 'आधुनिक भू-प्रशासन।',
-        tagline2: 'नागरिक सशक्तिकरण।',
-      },
-      nav: {
-        home: 'मुख्य पृष्ठ',
-        about: 'परिचय',
-        gisServices: 'जीआईएस सेवाएं',
-        verification: 'सत्यापन',
-        citizenServices: 'नागरिक सेवाएं',
-        resources: 'संसाधन',
-        portalCta: 'भूमिसेतु पोर्टल',
-        loginRegister: 'लॉगिन / पंजीकरण',
-      },
-      hero: {
-        eyebrow: 'जीआईएस-आधारित भूमि शासन',
-        headlineLine1: 'अपनी ज़मीन की पूरी जानकारी।',
-        headlineLine2: 'एक स्पष्ट, सत्यापन योग्य दृश्य में।',
-        brandSolution: 'भूखंड-केंद्रित। विभाग-जुड़ा। AI-सहायित।',
-        body: 'भारत में भूमि अभिलेख सर्वेक्षण, पंजीकरण, योजना, कराधान और राजस्व विभागों में बिखरे हुए हैं। भूमिसेतु भूखंड को एकीकृत पहचान बनाता है — नागरिकों को पूरी जानकारी एक जगह मिलती है।',
-        exploreNow: 'भूखंड खोजें',
-        learnMore: 'अधिक जानें',
-        searchCta: 'भूखंड खोजें',
-        signInCta: 'शुरू करें',
-        badges: [
-          { text: 'भूमिका-आधारित एवं ऑडिटेड', icon: ShieldCheck },
-          { text: '7 विभागीय डेटा फ़ीड', icon: Layers },
-          { text: 'ULPIN / SVAMITVA अनुपालक', icon: Globe },
-          { text: 'नागरिक एवं अधिकारी पोर्टल', icon: Users },
-        ],
-      },
-      featureCards: [
-        { id: 'search', title: 'भूखंड 360° खोज', desc: 'ULPIN, सर्वे नंबर या प्लॉट नंबर से भूखंड खोजें और स्वामित्व, ज़ोनिंग, कर, विवाद — सब एक जगह देखें।', icon: MapPin, action: 'search' },
-        { id: 'ocr', title: 'दस्तावेज़ सत्यापन (OCR)', desc: 'अपने भूमि दस्तावेज़ की फ़ोटो अपलोड करें और आधिकारिक रिकॉर्ड से मिलान करें — मालिक का नाम, क्षेत्रफल, पहचानकर्ता।', icon: FileCheck2, action: 'verify' },
-        { id: 'requests', title: 'सेवा अनुरोध दर्ज करें', desc: 'अपने भूखंड के लिए अनुरोध दर्ज करें — रिकॉर्ड की प्रति, उत्परिवर्तन, विवाद — और हर विभाग में स्थिति ट्रैक करें।', icon: UserCheck, action: 'citizen' },
-        { id: 'alerts', title: 'शासन अलर्ट', desc: 'उपग्रह चित्रों की तुलना से पहचाने गए स्थानिक परिवर्तनों पर अधिकारियों को स्वचालित अलर्ट मिलते हैं।', icon: AlertTriangle, action: 'alerts' },
-      ],
-      tickerLabel: 'नवीनतम अपडेट',
-    },
-  };
+// Hero badges data - keep structure, translate text via t()
+  const heroBadges = [
+    { text: t('landing.hero.badges.0.text'), icon: ShieldCheck },
+    { text: t('landing.hero.badges.1.text'), icon: Layers },
+    { text: t('landing.hero.badges.2.text'), icon: Globe },
+    { text: t('landing.hero.badges.3.text'), icon: Users },
+  ];
 
-  const t = content[language];
+  // Feature cards data - keep structure, translate text via t()
+  const featureCards = [
+    { id: 'search', title: t('landing.featureCards.search.title'), desc: t('landing.featureCards.search.desc'), icon: MapPin, action: 'search' },
+    { id: 'ocr', title: t('landing.featureCards.ocr.title'), desc: t('landing.featureCards.ocr.desc'), icon: FileCheck2, action: 'verify' },
+    { id: 'requests', title: t('landing.featureCards.requests.title'), desc: t('landing.featureCards.requests.desc'), icon: UserCheck, action: 'citizen' },
+    { id: 'alerts', title: t('landing.featureCards.alerts.title'), desc: t('landing.featureCards.alerts.desc'), icon: AlertTriangle, action: 'alerts' },
+  ];
 
   const handleCardClick = (action: string) => {
     if (action === 'search' || action === 'verify') {
@@ -302,16 +207,16 @@ export const BhoomiSetuLanding: React.FC = () => {
               <div className="max-w-2xl space-y-6">
                 <div>
                   <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-[var(--text-heading)] leading-[1.15] drop-shadow-sm">
-                    {t.hero.headlineLine1}
+                    {t('landing.hero.headlineLine1')}
                     <br />
-                    {t.hero.headlineLine2}
+                    {t('landing.hero.headlineLine2')}
                   </h1>
                   <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-bold text-[var(--action-700)] tracking-tight mt-1.5 drop-shadow-sm">
-                    {t.hero.brandSolution}
+                    {t('landing.hero.brandSolution')}
                   </h2>
                 </div>
                 <p className="text-sm sm:text-base text-[var(--text-primary)] leading-relaxed max-w-xl font-medium drop-shadow-sm">
-                  {t.hero.body}
+                  {t('landing.hero.body')}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3.5 pt-1">
@@ -320,7 +225,7 @@ export const BhoomiSetuLanding: React.FC = () => {
                     onClick={() => setIsSearchModalOpen(true)}
                     className="px-5 py-2.5 bg-[var(--bhashini-accent)] hover:bg-[var(--brand-700)] text-white font-medium text-sm rounded-[4px] transition-colors duration-150 flex items-center gap-2 shadow-sm cursor-pointer"
                   >
-                    <span>{t.hero.exploreNow}</span>
+                    <span>{t('landing.hero.exploreNow')}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                   <Link
@@ -328,12 +233,12 @@ export const BhoomiSetuLanding: React.FC = () => {
                     className="px-5 py-2.5 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] text-[var(--text-heading)] font-medium text-sm rounded-[4px] border border-[var(--border)] transition-colors duration-150 flex items-center gap-2 shadow-sm"
                   >
                     <FileText className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span>{t.hero.learnMore}</span>
+                    <span>{t('landing.hero.learnMore')}</span>
                   </Link>
                 </div>
 
                 <div className="pt-6 border-t border-[var(--border)]/60 flex flex-wrap gap-2.5 text-xs text-[var(--text-primary)] font-bold">
-                  {t.hero.badges.map((b) => {
+                  {heroBadges.map((b) => {
                     const Icon = b.icon;
                     return (
                       <div key={b.text} className="flex items-center gap-1.5 py-1.5 px-2.5 bg-[var(--surface-1)]/80 backdrop-blur-sm rounded-[4px] border border-[var(--border)]/80 shadow-sm">
@@ -356,7 +261,7 @@ export const BhoomiSetuLanding: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Column: 4 Feature Cards in lighter warm amber/cream tone */}
               <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {t.featureCards.slice(0, 4).map((card) => {
+                {featureCards.slice(0, 4).map((card) => {
                   const Icon = card.icon;
                   return (
                     <div
@@ -717,7 +622,7 @@ export const BhoomiSetuLanding: React.FC = () => {
             <div className="flex items-center gap-2 shrink-0">
               <span className="px-2 py-0.5 rounded-[3px] bg-[var(--bhashini-accent)] text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                {t.tickerLabel}
+                {t('landing.tickerLabel')}
               </span>
             </div>
 

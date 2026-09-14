@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { MapPinned, Shield, Zap, Lock, Layers } from 'lucide-react';
 import CornerMarker from '../../features/admin/CornerMarker';
 import MapLayerManagement, { LayerTypeConfig } from '../../features/admin/MapLayerManagement';

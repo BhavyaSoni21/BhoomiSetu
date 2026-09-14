@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Building2 } from 'lucide-react';
 import DepartmentManagement from '../../features/admin/DepartmentManagement';
 import CornerMarker from '../../features/admin/CornerMarker';

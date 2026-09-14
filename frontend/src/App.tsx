@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, SupportedLanguage } from './context/LanguageContext';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock } from 'lucide-react';
 import Parcel360View from './features/parcels/Parcel360View';
@@ -19,7 +19,6 @@ import RequireAuth from './features/auth/RequireAuth';
 import { useAuthUser, useLogout } from './features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS } from './features/officer/officerAuth';
 import AskAiWidget from './features/ai/AskAiWidget';
-import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from './i18n/config';
 import { useTheme } from './theme/theme';
 import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS } from './navConfig';
 import SvgIndianEmblem from './components/IndianEmblem';
@@ -59,7 +58,7 @@ function portalPathForRole(role: string): string {
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t, i18n } = useTranslation();
+  const { t, currentLang, setLanguage } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalsDropdownOpen, setPortalsDropdownOpen] = useState(false);
   const portalsRef = useRef<HTMLDivElement>(null);
@@ -78,11 +77,6 @@ function AppShell() {
   const handleLogout = () => {
     logout();
     navigate('/');
-  };
-
-  const handleLanguageChange = (next: SupportedLanguage) => {
-    i18n.changeLanguage(next);
-    setStoredLanguage(next);
   };
 
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
@@ -142,15 +136,21 @@ function AppShell() {
                 {/* Language Selector */}
                 <select
                   aria-label="Language selection"
-                  value={i18n.language}
-                  onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
+                  value={currentLang}
+                  onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
                   className="bg-transparent text-white/90 hover:text-white cursor-pointer focus:outline-none text-[11px] font-semibold"
                 >
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang} className="bg-[var(--brand-900)] text-white">
-                      {lang === 'Hindi' ? 'हिंदी (Hindi)' : lang}
-                    </option>
-                  ))}
+                  <option value="en" className="bg-[var(--brand-900)] text-white">English</option>
+                  <option value="hi" className="bg-[var(--brand-900)] text-white">हिंदी (Hindi)</option>
+                  <option value="bn" className="bg-[var(--brand-900)] text-white">বাংলা (Bengali)</option>
+                  <option value="gu" className="bg-[var(--brand-900)] text-white">ગુજરાતી (Gujarati)</option>
+                  <option value="kn" className="bg-[var(--brand-900)] text-white">ಕನ್ನಡ (Kannada)</option>
+                  <option value="ml" className="bg-[var(--brand-900)] text-white">മലയാളം (Malayalam)</option>
+                  <option value="mr" className="bg-[var(--brand-900)] text-white">मराठी (Marathi)</option>
+                  <option value="or" className="bg-[var(--brand-900)] text-white">ଓଡ଼ିଆ (Odia)</option>
+                  <option value="pa" className="bg-[var(--brand-900)] text-white">ਪੰਜਾਬੀ (Punjabi)</option>
+                  <option value="ta" className="bg-[var(--brand-900)] text-white">தமிழ் (Tamil)</option>
+                  <option value="te" className="bg-[var(--brand-900)] text-white">తెలుగు (Telugu)</option>
                 </select>
 
                 <span className="text-white/20">|</span>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { LogOut, MapPin, UserCircle2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser, useLogout } from '../auth/auth';

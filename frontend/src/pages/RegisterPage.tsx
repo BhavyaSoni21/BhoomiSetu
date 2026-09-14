@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, SupportedLanguage } from '../context/LanguageContext';
 import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod } from '../features/auth/auth';
 import OtpEntryForm from '../features/auth/OtpEntryForm';
-import { SUPPORTED_LANGUAGES, SupportedLanguage, setStoredLanguage } from '../i18n/config';
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
@@ -59,12 +58,7 @@ const RegisterPage: React.FC = () => {
   const registerMutation = useRegister();
   const verifyRegistrationOtpMutation = useVerifyRegistrationOtp();
   const resendRegistrationOtpMutation = useResendRegistrationOtp();
-  const { t, i18n } = useTranslation();
-
-  const handleLanguageChange = (lang: SupportedLanguage) => {
-    i18n.changeLanguage(lang);
-    setStoredLanguage(lang);
-  };
+  const { t, currentLang, setLanguage } = useTranslation();
 
   const [step, setStep]                   = useState<'form' | 'otp'>('form');
   const [registrationId, setRegistrationId] = useState<string | null>(null);
@@ -229,8 +223,8 @@ const RegisterPage: React.FC = () => {
             <Globe className="w-4 h-4" style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
             <select
               aria-label={t('nav.languageSelectLabel')}
-              value={i18n.language}
-              onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
+              value={currentLang}
+              onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
               className="text-xs font-semibold rounded-lg px-2.5 py-1.5 border cursor-pointer focus:outline-none focus:ring-2 transition"
               style={{
                 background: 'var(--surface-2)',
@@ -238,11 +232,17 @@ const RegisterPage: React.FC = () => {
                 color: 'var(--text-primary)',
               }}
             >
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang === 'Hindi' ? 'हिंदी (Hindi)' : lang}
-                </option>
-              ))}
+              <option value="en">English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="gu">ગુજરાતી (Gujarati)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="mr">मराठी (Marathi)</option>
+              <option value="or">ଓଡ଼ିଆ (Odia)</option>
+              <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="te">తెలుగు (Telugu)</option>
             </select>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, Eye, FileText, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Filter } from 'lucide-react';
@@ -49,18 +49,18 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
             </span>
           </h3>
           <p className="text-[11px] font-mono text-text-secondary">
-            {parcel ? `${parcel.stateCode}-${parcel.districtCode} · ${parcel.areaSqM.toLocaleString()} m²` : 'Loading...'}
+            {parcel ? `${parcel.stateCode}-${parcel.districtCode} · ${parcel.areaSqM.toLocaleString()} m²` : t('assignedRequestsPage.loadingParcel')}
           </p>
         </div>
         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-surface-2 text-text-secondary">
-          {workflows.length} {workflows.length === 1 ? 'case' : 'cases'}
+          {workflows.length} {workflows.length === 1 ? t('assignedRequestsPage.casesSingular') : t('assignedRequestsPage.casesPlural')}
         </span>
       </div>
 
       {documents.length > 0 && (
         <div className="pt-2 border-t border-gov-border">
           <p className="text-[10px] font-mono uppercase text-text-muted mb-1.5 font-semibold">
-            On-File Land Records
+            {t('assignedRequestsPage.onFileLandRecords')}
           </p>
           <div className="flex flex-wrap gap-2">
             {documents.map((doc) => (
@@ -116,7 +116,7 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
               <div className="flex items-center gap-1.5 shrink-0">
                 {workflow.evidenceFileName && (
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-                    Evidence
+                    {t('assignedRequestsPage.evidenceBadge')}
                   </span>
                 )}
                 <span
@@ -168,13 +168,13 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
         <div>
           <div className="flex items-center gap-2 text-brand-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">
             <ClipboardList className="w-4 h-4 text-action-600" />
-            <span>Adjudication & Verification Bench</span>
+            <span>{t('assignedRequestsPage.pageSubtitle')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-heading">
-            Assigned Service Requests
+            {t('assignedRequestsPage.pageHeading')}
           </h1>
           <p className="text-xs sm:text-sm text-text-secondary mt-1">
-            Department queue for <span className="font-semibold text-text-heading">{department.replace(/_/g, ' ')}</span>. Cross-verify deed documents and issue statutory decisions.
+            {t('assignedRequestsPage.pageDesc1')} <span className="font-semibold text-text-heading">{department.replace(/_/g, ' ')}</span>. {t('assignedRequestsPage.pageDesc2')}
           </p>
         </div>
 
@@ -185,7 +185,7 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
             onChange={(e) => setPendingOnly(e.target.checked)}
             className="w-4 h-4 rounded accent-brand-700"
           />
-          Show Pending Actions Only ({workflows.filter((w) => myStepOf(w)?.status === 'PENDING').length})
+          {t('assignedRequestsPage.pendingOnlyLabel')} ({workflows.filter((w) => myStepOf(w)?.status === 'PENDING').length})
         </label>
       </div>
 
@@ -196,23 +196,23 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
           <div className="flex items-center justify-between pb-3 border-b border-gov-border">
             <h2 className="text-sm font-heading font-bold text-text-heading flex items-center gap-2">
               <ClipboardList className="w-4 h-4 text-action-600" />
-              Incoming Cases ({visibleWorkflows.length})
+              {t('assignedRequestsPage.incomingCasesHeading')} ({visibleWorkflows.length})
             </h2>
             <span className="text-[11px] font-mono text-text-muted">
-              {parcelIds.length} Parcels
+              {parcelIds.length} {t('assignedRequestsPage.parcelsLabel')}
             </span>
           </div>
 
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-text-muted">Loading department workflows…</div>
+            <div className="py-12 text-center text-sm text-text-muted">{t('assignedRequestsPage.loadingWorkflows')}</div>
           ) : error ? (
-            <div className="py-8 text-center text-sm text-gov-error">Error loading workflow queue.</div>
+            <div className="py-8 text-center text-sm text-gov-error">{t('assignedRequestsPage.errorLoadingWorkflows')}</div>
           ) : parcelIds.length === 0 ? (
             <div className="p-8 text-center bg-surface-2 rounded-xl border border-gov-border">
               <CheckCircle2 className="w-8 h-8 mx-auto text-gov-success mb-2" />
-              <p className="text-sm font-semibold text-text-heading">Queue Clear</p>
+              <p className="text-sm font-semibold text-text-heading">{t('assignedRequestsPage.queueClearHeading')}</p>
               <p className="text-xs text-text-secondary mt-1">
-                No active workflows require your department review at this time.
+                {t('assignedRequestsPage.queueClearDesc')}
               </p>
             </div>
           ) : (
@@ -235,7 +235,7 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
           <div className="flex items-center justify-between pb-3 border-b border-gov-border">
             <h2 className="text-sm font-heading font-bold text-text-heading flex items-center gap-2">
               <Eye className="w-4 h-4 text-brand-700" />
-              Case Review & Officer Decision
+              {t('assignedRequestsPage.reviewPanelHeading')}
             </h2>
             {selectedWorkflowId && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-brand-900 text-white">
@@ -249,9 +249,9 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
           ) : (
             <div className="py-20 text-center rounded-xl bg-surface-2 border border-gov-border">
               <Eye className="w-10 h-10 mx-auto text-text-muted mb-2 opacity-50" />
-              <p className="text-sm font-semibold text-text-heading">Select a Case to Review</p>
+              <p className="text-sm font-semibold text-text-heading">{t('assignedRequestsPage.selectCaseHeading')}</p>
               <p className="text-xs text-text-secondary mt-1 max-w-sm mx-auto">
-                Click any workflow in the left column to view citizen-submitted evidence, compare records, and issue approval or rejection orders.
+                {t('assignedRequestsPage.selectCaseDesc')}
               </p>
             </div>
           )}
