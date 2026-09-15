@@ -99,7 +99,14 @@ const AskAiWidget: React.FC = () => {
   // the position itself changes) plus whether it ever crossed the
   // move threshold, so the button's onClick can tell a real click from the
   // pointerup that ends a drag and skip toggling open/closed for the latter.
-  const dragRef = useRef<{ target: 'button' | 'panel'; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const dragRef = useRef<{
+    target: 'button' | 'panel';
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    panelOrigin?: Position;
+  } | null>(null);
   const draggedRef = useRef(false);
 
   const mutation = useMutation<AiQueryResponse, Error, string>(async (q) => {
@@ -130,7 +137,16 @@ const AskAiWidget: React.FC = () => {
   const startDrag = (target: 'button' | 'panel') => (e: React.PointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return; // left mouse button (or touch/pen) only
     const origin = target === 'button' ? buttonPos : (panelPos ?? defaultPanelPos(buttonPos));
-    dragRef.current = { target, startX: e.clientX, startY: e.clientY, originX: origin.x, originY: origin.y };
+    dragRef.current = {
+      target,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: origin.x,
+      originY: origin.y,
+      // Keep the open panel anchored to the icon by moving both from their
+      // original positions with the same pointer delta.
+      panelOrigin: target === 'button' && isOpen ? panelPos ?? defaultPanelPos(buttonPos) : undefined,
+    };
     draggedRef.current = false;
     // Guard rather than assume setPointerCapture exists - not every
     // environment implements it (notably jsdom in tests); dragging still
@@ -151,8 +167,12 @@ const AskAiWidget: React.FC = () => {
     if (!draggedRef.current) return;
 
     const next = { x: drag.originX + dx, y: drag.originY + dy };
-    if (drag.target === 'button') setButtonPos(clampButtonPos(next));
-    else setPanelPos(clampPanelPos(next));
+    if (drag.target === 'button') {
+      setButtonPos(clampButtonPos(next));
+      if (drag.panelOrigin) setPanelPos(clampPanelPos({ x: drag.panelOrigin.x + dx, y: drag.panelOrigin.y + dy }));
+    } else {
+      setPanelPos(clampPanelPos(next));
+    }
   };
 
   const endDrag = () => {
@@ -321,20 +341,26 @@ const AskAiWidget: React.FC = () => {
       <button
         style={{ left: buttonPos.x, top: buttonPos.y }}
         onClick={handleButtonClick}
-        onPointerDown={startDrag('button')}
-        onPointerMove={onDragMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
         aria-label={isOpen ? t('askAiWidget.closeAskAi') : t('askAiWidget.openAskAi')}
-        className={`fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md overflow-hidden ${
+        className={`fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md overflow-hidden ${
           isDraggingButton ? 'cursor-grabbing' : 'cursor-grab transition-transform hover:scale-105'
         }`}
       >
         {isOpen ? (
           <X className="h-6 w-6" aria-hidden="true" />
         ) : (
-          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} className="h-full w-full object-cover" />
+          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} draggable={false} className="h-full w-full pointer-events-none select-none object-cover" />
         )}
+        {/* Transparent drag layer prevents the browser from dragging the image itself. */}
+        <span
+          aria-hidden="true"
+          data-testid="ask-ai-drag-handle"
+          onPointerDown={startDrag('button')}
+          onPointerMove={onDragMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className={`absolute inset-0 z-10 touch-none bg-transparent ${isDraggingButton ? 'cursor-grabbing' : 'cursor-grab'}`}
+        />
       </button>
     </>
   );
