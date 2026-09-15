@@ -7,6 +7,8 @@ import apiService from '../../services/apiService';
 import { AiQueryResponse } from '../../types/aiQuery';
 import { ParcelSummary } from '../../types/parcel';
 import { useTranslation } from '../../context/LanguageContext';
+import MicButton from '../../components/MicButton';
+import SpeakerButton from '../../components/SpeakerButton';
 
 interface ChatMessage {
   id: string;
@@ -265,7 +267,12 @@ const AskAiWidget: React.FC = () => {
                         : 'bg-muted text-ink border-ink/10'
                   }`}
                 >
-                  <p>{message.text}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="flex-1">{message.text}</p>
+                    {message.role === 'assistant' && !message.isError && (
+                      <SpeakerButton text={message.text} className="shrink-0 -mt-0.5 -mr-1" />
+                    )}
+                  </div>
                   {message.results && message.results.length > 0 && (
                     <div className="mt-2 space-y-1.5 border-t-2 border-ink/10 pt-2">
                       <p className="text-xs font-bold uppercase tracking-wide text-ink/50">{t('askAiWidget.parcelsMatched', { count: message.results.length })}</p>
@@ -298,13 +305,16 @@ const AskAiWidget: React.FC = () => {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t-2 border-ink/15 p-3">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t-2 border-ink/15 p-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t('askAiWidget.inputPlaceholder')}
               className="flex-1 border-2 border-ink bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
+            />
+            <MicButton
+              onResult={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
             />
             <button
               type="submit"

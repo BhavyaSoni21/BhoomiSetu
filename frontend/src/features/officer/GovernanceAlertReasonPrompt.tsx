@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { CheckCircle2, ShieldCheck, XCircle, X } from 'lucide-react';
 import { GovernanceAlert } from '../../types/governanceAlert';
+import MicButton from '../../components/MicButton';
 
 export type AlertStage = 'ACKNOWLEDGED' | 'FIELD_VERIFIED' | 'RESOLVED' | 'DISMISSED';
 
@@ -113,9 +114,14 @@ const GovernanceAlertReasonPrompt: React.FC<GovernanceAlertReasonPromptProps> = 
           </button>
         </div>
 
-        <label htmlFor="alert-reason-prompt" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1.5">
-          {t('officerPortal.reasonLabel')}
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label htmlFor="alert-reason-prompt" className="block text-xs font-bold uppercase tracking-widest text-ink">
+            {t('officerPortal.reasonLabel')}
+          </label>
+          <MicButton
+            onResult={(text) => setReason((prev) => (prev ? `${prev} ${text}` : text))}
+          />
+        </div>
         <textarea
           id="alert-reason-prompt"
           autoFocus

@@ -8,6 +8,7 @@ import apiService from '../../services/apiService';
 import { useAuthUser } from '../auth/auth';
 import { Workflow } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
+import MicButton from '../../components/MicButton';
 
 interface ServiceRequestFormProps {
   parcelId: string;
@@ -161,9 +162,14 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
         <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">{title}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="requestDetailsInput" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-              {t('serviceRequestForm.reasonLabel')}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="requestDetailsInput" className="block text-xs font-bold uppercase tracking-widest text-ink">
+                {t('serviceRequestForm.reasonLabel')}
+              </label>
+              <MicButton
+                onResult={(text) => setRequestDetails((prev) => (prev ? `${prev} ${text}` : text))}
+              />
+            </div>
             <textarea
               id="requestDetailsInput"
               value={requestDetails}

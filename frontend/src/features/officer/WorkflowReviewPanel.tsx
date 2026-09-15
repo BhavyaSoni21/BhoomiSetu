@@ -8,6 +8,7 @@ import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workfl
 import { ParcelDocument } from '../../types/parcelDocument';
 import { Parcel360Response } from '../../types/parcel360';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
+import MicButton from '../../components/MicButton';
 
 interface WorkflowReviewPanelProps {
   workflowId: string;
@@ -225,9 +226,14 @@ const StepReviewForm: React.FC<StepReviewFormProps> = ({ workflowId, step }) => 
 
   return (
     <div>
-      <label htmlFor={remarksId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.remarksRequiredLabel')}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={remarksId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.remarksRequiredLabel')}
+        </label>
+        <MicButton
+          onResult={(text) => setRemarks((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={remarksId}
         value={remarks}
@@ -313,9 +319,14 @@ const EscalateStepForm: React.FC<EscalateStepFormProps> = ({ workflowId, step, o
 
   return (
     <div className="mt-2 border-2 border-accent/60 bg-accent/10 p-3">
-      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.escalateMessageLabel', { role: roleLabel })}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.escalateMessageLabel', { role: roleLabel })}
+        </label>
+        <MicButton
+          onResult={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={fieldId}
         value={message}
@@ -447,9 +458,14 @@ const ReopenStepForm: React.FC<ReopenStepFormProps> = ({ workflowId, step, onCan
 
   return (
     <div className="mt-2 border-2 border-secondary/60 bg-secondary/10 p-3">
-      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
+        </label>
+        <MicButton
+          onResult={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={fieldId}
         value={message}

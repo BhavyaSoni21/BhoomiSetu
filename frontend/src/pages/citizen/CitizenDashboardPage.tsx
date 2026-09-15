@@ -19,6 +19,7 @@ import { useAuthUser } from '../../features/auth/auth';
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
 import LandClaimPanel from '../../features/citizen/LandClaimPanel';
+import SpeakerButton from '../../components/SpeakerButton';
 
 const CitizenDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -227,7 +228,10 @@ const CitizenDashboardPage: React.FC = () => {
                           #{w.id.slice(0, 8)}
                         </td>
                         <td className="py-3 font-medium text-text-primary">
-                          {w.workflowType?.replace(/_/g, ' ')}
+                          <div className="flex items-center gap-1.5">
+                            <span>{w.workflowType?.replace(/_/g, ' ')}</span>
+                            {w.workflowType && <SpeakerButton text={w.workflowType.replace(/_/g, ' ')} />}
+                          </div>
                         </td>
                         <td className="py-3">
                           <span

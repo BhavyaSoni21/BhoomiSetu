@@ -12,6 +12,7 @@ import json
 import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, File, Form, UploadFile, status
+from fastapi.responses import Response as HTTPResponse
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
@@ -153,6 +154,7 @@ async def transliterate(request: TransliterateRequest):
 
 @router.post(
     "/tts",
+    response_class=HTTPResponse,
     response_description="Audio file (WAV format)",
     summary="Convert text to speech",
     description="Generate audio from text using Bhashini TTS"
@@ -175,7 +177,11 @@ async def text_to_speech_endpoint(request: TTSRequest):
             text=request.text,
             language=request.language
         )
-        return result.audio_bytes
+        return HTTPResponse(
+            content=result.audio_bytes,
+            media_type="audio/wav",
+            headers={"Content-Disposition": "inline; filename=speech.wav"}
+        )
     except HTTPException:
         raise
     except Exception as e:
