@@ -2,6 +2,7 @@ import React from 'react';
 import { Map, ShieldCheck, ExternalLink } from 'lucide-react';
 import { ProfileField } from './ProfileField';
 import StatusBadge from './StatusBadge';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface PermissionChipProps {
   label: string;
@@ -29,22 +30,23 @@ interface GISPermissionsCardProps {
 }
 
 const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixClick, onPermissionRequestClick }) => {
+  const { t } = useTranslation();
   const layers = [
-    'Cadastral parcel layer',
-    'Survey and resurvey layer',
-    'Ownership and mutation records',
-    'Historical imagery',
-    'Drone survey imagery',
-    'Land-use classification',
-    'Public infrastructure layer',
+    t('gisPermissionsCard.layers.cadastral'),
+    t('gisPermissionsCard.layers.survey'),
+    t('gisPermissionsCard.layers.ownership'),
+    t('gisPermissionsCard.layers.historicalImagery'),
+    t('gisPermissionsCard.layers.droneImagery'),
+    t('gisPermissionsCard.layers.landUse'),
+    t('gisPermissionsCard.layers.infrastructure'),
   ];
 
   const permissions = [
-    { label: 'View/search parcels', scope: 'view' as const },
-    { label: 'Verify and annotate records', scope: 'verify' as const },
-    { label: 'Raise field inspection requests', scope: 'approve' as const },
-    { label: 'Download authorized datasets', scope: 'export' as const },
-    { label: 'Access historical imagery', scope: 'view' as const },
+    { label: t('gisPermissionsCard.permissions.viewSearch'), scope: 'view' as const },
+    { label: t('gisPermissionsCard.permissions.verifyAnnotate'), scope: 'verify' as const },
+    { label: t('gisPermissionsCard.permissions.raiseInspection'), scope: 'approve' as const },
+    { label: t('gisPermissionsCard.permissions.downloadDatasets'), scope: 'export' as const },
+    { label: t('gisPermissionsCard.permissions.accessHistorical'), scope: 'view' as const },
   ];
 
   return (
@@ -52,7 +54,7 @@ const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixC
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Map className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">GIS Access & Permissions</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('gisPermissionsCard.heading')}</h3>
         </div>
         <div className="flex items-center gap-2">
           {onPermissionRequestClick && (
@@ -62,7 +64,7 @@ const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixC
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
             >
               <ExternalLink className="w-3 h-3" aria-hidden="true" />
-              Request Permission Change
+              {t('gisPermissionsCard.requestChange')}
             </button>
           )}
           {onAccessMatrixClick && (
@@ -72,7 +74,7 @@ const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixC
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
             >
               <ExternalLink className="w-3 h-3" aria-hidden="true" />
-              View Access Matrix
+              {t('gisPermissionsCard.viewAccessMatrix')}
             </button>
           )}
         </div>
@@ -81,11 +83,11 @@ const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixC
         <div>
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">Access Level</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('gisPermissionsCard.accessLevel')}</h4>
           </div>
-          <ProfileField label="Role" value="District Land Records Officer" />
+          <ProfileField label={t('gisPermissionsCard.role')} value="District Land Records Officer" />
           <div className="mt-4">
-            <h5 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">GIS Layers Available</h5>
+            <h5 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">{t('gisPermissionsCard.layersAvailable')}</h5>
             <div className="space-y-2">
               {layers.map((layer) => (
                 <div key={layer} className="flex items-center gap-2">
@@ -97,24 +99,24 @@ const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixC
           </div>
         </div>
         <div>
-          <h4 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">Permission Scope</h4>
+          <h4 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">{t('gisPermissionsCard.permissionScope')}</h4>
           <div className="flex flex-wrap gap-2 mb-4">
-            <PermissionChip label="View" scope="view" />
-            <PermissionChip label="Verify" scope="verify" />
-            <PermissionChip label="Approve" scope="approve" />
-            <PermissionChip label="Export" scope="export" />
+            <PermissionChip label={t('gisPermissionsCard.chip.view')} scope="view" />
+            <PermissionChip label={t('gisPermissionsCard.chip.verify')} scope="verify" />
+            <PermissionChip label={t('gisPermissionsCard.chip.approve')} scope="approve" />
+            <PermissionChip label={t('gisPermissionsCard.chip.export')} scope="export" />
           </div>
           <div className="space-y-3">
             {permissions.map((perm) => (
               <div key={perm.label} className="flex items-center justify-between">
                 <span className="text-sm text-ink font-medium">{perm.label}</span>
-                <PermissionChip label="Granted" scope={perm.scope} />
+                <PermissionChip label={t('gisPermissionsCard.chip.granted')} scope={perm.scope} />
               </div>
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-ink/20">
-            <ProfileField label="Last permissions review" value="10 Sep 2026" />
-            <ProfileField label="Permission administrator" value="District Land Records Administrator" />
+            <ProfileField label={t('gisPermissionsCard.lastReview')} value="10 Sep 2026" />
+            <ProfileField label={t('gisPermissionsCard.permissionAdministrator')} value="District Land Records Administrator" />
           </div>
         </div>
       </div>

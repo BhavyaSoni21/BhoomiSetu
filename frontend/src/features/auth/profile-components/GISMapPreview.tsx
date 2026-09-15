@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface LegendItem {
   color: string;
@@ -18,17 +19,19 @@ const GISMapPreview: React.FC<GISMapPreviewProps> = ({
   taluka = 'Haveli',
   assignedVillages = 12,
   zones = ['Zone A', 'Zone B', 'Zone C'],
-  legend = [
-    { color: '#061D15', label: 'District Boundary' },
-    { color: '#C87525', label: 'Taluka Boundary' },
-    { color: '#16A34A', label: 'Assigned Area' },
-    { color: '#92400E', label: 'Parcel Boundary' },
-  ],
+  legend,
 }) => {
+  const { t } = useTranslation();
+  const resolvedLegend = legend ?? [
+    { color: '#061D15', label: t('gisMapPreview.legend.districtBoundary') },
+    { color: '#C87525', label: t('gisMapPreview.legend.talukaBoundary') },
+    { color: '#16A34A', label: t('gisMapPreview.legend.assignedArea') },
+    { color: '#92400E', label: t('gisMapPreview.legend.parcelBoundary') },
+  ];
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-sm p-4" aria-label="GIS map preview showing assigned jurisdiction">
+    <div className="bg-surface border-2 border-ink shadow-hard-sm p-4" aria-label={t('gisMapPreview.ariaLabel')}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-black uppercase tracking-widest text-ink">Jurisdiction Map Preview</h3>
+        <h3 className="text-xs font-black uppercase tracking-widest text-ink">{t('gisMapPreview.heading')}</h3>
         <span className="text-[10px] font-bold uppercase tracking-wide text-ink/50">{district} / {taluka}</span>
       </div>
       <div className="aspect-video bg-ink/5 relative overflow-hidden border border-ink/20">
@@ -49,7 +52,7 @@ const GISMapPreview: React.FC<GISMapPreviewProps> = ({
         </svg>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-4">
-        {legend.map((item) => (
+        {resolvedLegend.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
             <span className="w-4 h-4 border border-ink/30" style={{ backgroundColor: item.color }} aria-hidden="true" />
             <span className="text-[10px] font-bold uppercase tracking-wide text-ink/50">{item.label}</span>

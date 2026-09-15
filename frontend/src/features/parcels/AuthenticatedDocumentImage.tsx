@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiService from '../../services/apiService';
 import ImageLightbox from './ImageLightbox';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface AuthenticatedDocumentImageProps {
   // API path to fetch the image from (e.g. `/parcels/:id/documents/:docId/file`
@@ -18,6 +19,7 @@ interface AuthenticatedDocumentImageProps {
 }
 
 const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({ src, alt, className, zoomable }) => {
+  const { t } = useTranslation();
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -46,8 +48,8 @@ const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({
     };
   }, [src]);
 
-  if (failed) return <span className="text-xs text-ink/40 italic">Image unavailable</span>;
-  if (!objectUrl) return <span className="text-xs text-ink/40">Loading...</span>;
+  if (failed) return <span className="text-xs text-ink/40 italic">{t('documentImage.unavailable')}</span>;
+  if (!objectUrl) return <span className="text-xs text-ink/40">{t('common.loading')}</span>;
 
   const image = <img src={objectUrl} alt={alt} className={className} />;
 

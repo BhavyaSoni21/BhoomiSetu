@@ -30,7 +30,7 @@ const MyParcels: React.FC = () => {
     <div className="relative h-full bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6 hover:-translate-y-1 transition duration-200">
       <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink">My Parcels</h2>
+        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('myParcels.heading')}</h2>
         {isCitizen && (
           <div className="flex items-center gap-3">
             <Link
@@ -45,7 +45,7 @@ const MyParcels: React.FC = () => {
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink/60 hover:text-secondary transition"
             >
               <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-              Sign out
+              {t('myParcels.signOut')}
             </button>
           </div>
         )}
@@ -54,23 +54,24 @@ const MyParcels: React.FC = () => {
       {!isCitizen ? (
         <p className="text-sm text-ink/70 leading-relaxed">
           <Link to="/login" className="font-bold text-primary hover:text-primary-strong underline underline-offset-2">
-            Sign in
+            {t('myParcels.signIn')}
           </Link>{' '}
-          to see the parcels linked to your account. An account is never required to search or use the rest of this
-          portal.
+          {t('myParcels.signInPrompt')}
         </p>
       ) : isLoading ? (
-        <p className="text-sm text-ink/60">Loading your parcels...</p>
+        <p className="text-sm text-ink/60">{t('myParcels.loading')}</p>
       ) : error ? (
-        <p className="text-sm font-medium text-secondary-strong">Something went wrong loading your parcels.</p>
+        <p className="text-sm font-medium text-secondary-strong">{t('myParcels.error')}</p>
       ) : data!.total === 0 ? (
         <p className="text-sm text-ink/70">
-          Signed in as {user!.name}. No parcels are linked to your account yet.
+          {t('myParcels.signedInNoParcels', { name: user!.name })}
         </p>
       ) : (
         <div className="space-y-0 divide-y-2 divide-ink/10">
           <p className="text-sm text-ink/70 pb-3">
-            Signed in as {user!.name} — {data!.total} parcel{data!.total === 1 ? '' : 's'} linked to your account.
+            {data!.total === 1
+              ? t('myParcels.signedInWithParcel', { name: user!.name, count: data!.total })
+              : t('myParcels.signedInWithParcels', { name: user!.name, count: data!.total })}
           </p>
           {data!.parcels.map((parcel) => (
             <div key={parcel.id} className="py-3">
@@ -78,9 +79,9 @@ const MyParcels: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-ink flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden="true" />
-                    Parcel #{parcel.id.substring(0, 8)}...
+                    {t('myParcels.parcelHash', { id: parcel.id.substring(0, 8) })}
                   </h3>
-                  <p className="text-sm text-ink/60">{parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : 'No ULPIN'}</p>
+                  <p className="text-sm text-ink/60">{parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : t('myParcels.noUlpin')}</p>
                   <p className="text-sm text-ink/60">
                     {parcel.stateCode}-{parcel.districtCode}
                   </p>
@@ -91,7 +92,7 @@ const MyParcels: React.FC = () => {
                     onClick={() => navigate(`/parcels/${parcel.id}`)}
                     className="mt-1 px-2.5 py-1 bg-primary text-white text-xs font-bold uppercase tracking-wide border-2 border-ink hover:bg-primary-strong transition"
                   >
-                    View
+                    {t('myParcels.view')}
                   </button>
                 </div>
               </div>

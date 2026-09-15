@@ -50,7 +50,7 @@ SIH_2026_BhoomiSetu/
 - **GIS Map**: MapLibre GL JS - Street (OpenStreetMap) and Satellite (Esri World Imagery, free, no API key) basemaps, toggleable per-map (added 2026-09-14)
 - **Styling**: Tailwind CSS - a Bauhaus-inspired design system (`docs/architecture/DESIGN_SYSTEM.md`): an earth-tone palette derived from the BhoomiSetu logo, exposed as semantic CSS-variable-backed tokens (`primary`/`secondary`/`accent`/`ink`/`surface`) so light/dark mode is a variable swap, not per-component `dark:` classes. A theme toggle persists the choice in `localStorage`
 - **Icons**: `lucide-react`
-- **Localization**: Custom `LanguageContext` (`frontend/src/context/LanguageContext.tsx`) backed by [Bhashini](https://bhashini.gov.in/) (Government of India multilingual AI) - 11 languages (English + 10 with full NMT/ASR/TTS coverage), static UI text served from `backend-py`'s pre-translated `ui_strings_<lang>.json` cache (no live API calls for static text), persisted language choice via `localStorage`. Replaces the earlier `i18next`/`react-i18next` setup - see `docs/BHASHINI_INTEGRATION.md`
+- **Localization**: Custom `LanguageContext` (`frontend/src/context/LanguageContext.tsx`) backed by [Bhashini](https://bhashini.gov.in/) (Government of India multilingual AI) - 11 languages (English + 10 with full NMT/ASR/TTS coverage), static UI text served from `backend-py`'s pre-translated `ui_strings_<lang>.json` cache (no live API calls for static text), persisted language choice via `localStorage`. Replaces the earlier `i18next`/`react-i18next` setup - see `docs/architecture/BHASHINI_INTEGRATION.md`
 - **HTTP Client**: Axios
 - **Charts**: `recharts` (Admin Portal's analytics dashboard)
 - **Testing**: Vitest + React Testing Library

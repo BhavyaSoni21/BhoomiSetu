@@ -16,7 +16,7 @@ const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCanc
   return (
     <div className="bg-surface border-2 border-ink shadow-hard-lg p-6">
       <p className="text-sm text-ink/60 mb-4">
-        Your profile information helps BhoomiSetu route land-governance requests to the correct authorized team.
+        {t('profileActionBar.description')}
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
@@ -26,7 +26,7 @@ const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCanc
               onClick={onEditClick}
               className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
             >
-              Edit Profile
+              {t('profileActionBar.editProfile')}
             </button>
           )}
           {onSaveClick && (
@@ -44,7 +44,7 @@ const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCanc
               onClick={onCancelClick}
               className="px-4 py-2.5 border-2 border-ink text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
             >
-              Cancel
+              {t('profileActionBar.cancel')}
             </button>
           )}
         </div>
@@ -55,7 +55,7 @@ const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCanc
             className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
           >
             <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            Download Profile Summary
+            {t('profileActionBar.downloadSummary')}
           </button>
         )}
         {onSupportClick && (
@@ -65,7 +65,7 @@ const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCanc
             className="shrink-0 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
           >
             <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            Contact Support
+            {t('profileActionBar.contactSupport')}
           </button>
         )}
       </div>

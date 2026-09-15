@@ -3,6 +3,7 @@ import { Briefcase, MapPin, Calendar, Building } from 'lucide-react';
 import { ProfileField } from './ProfileField';
 import { AuthUser } from '../auth';
 import { OfficerRole } from '../../officer/officerAuth';
+import { useTranslation } from '../../../context/LanguageContext';
 
 function employeeIdMask(value: string): string {
   if (!value) return 'LRM******3421';
@@ -17,6 +18,7 @@ interface PersonalProfessionalCardProps {
 }
 
 const PersonalProfessionalCard: React.FC<PersonalProfessionalCardProps> = ({ user, children }) => {
+  const { t } = useTranslation();
   const name = user?.name ?? 'Asha Kulkarni';
   const preferredName = name.split(/\s+/)[0];
   // roleKey kept for potential future role-specific label display
@@ -31,7 +33,7 @@ const PersonalProfessionalCard: React.FC<PersonalProfessionalCardProps> = ({ use
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Briefcase className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Personal &amp; Professional Information</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('personalProfessionalCard.heading')}</h3>
         </div>
       </div>
       <div className="p-6 space-y-6">
@@ -39,35 +41,35 @@ const PersonalProfessionalCard: React.FC<PersonalProfessionalCardProps> = ({ use
           <div>
             <div className="flex items-center gap-2 mb-3">
               <MapPin className="w-4 h-4 text-primary" aria-hidden="true" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">Personal Details</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.personalDetails')}</h4>
             </div>
-            <ProfileField label="Full name" value={name} />
-            <ProfileField label="Preferred name" value={preferredName} />
-            <ProfileField label="Date of birth" value="•••• •• 1988" />
-            <ProfileField label="Gender" value="Female" />
+            <ProfileField label={t('personalProfessionalCard.fullName')} value={name} />
+            <ProfileField label={t('personalProfessionalCard.preferredName')} value={preferredName} />
+            <ProfileField label={t('personalProfessionalCard.dateOfBirth')} value="•••• •• 1988" />
+            <ProfileField label={t('personalProfessionalCard.gender')} value="Female" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Building className="w-4 h-4 text-primary" aria-hidden="true" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">Professional Details</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.professionalDetails')}</h4>
             </div>
-            <ProfileField label="Designation" value={designation} />
-            <ProfileField label="Department" value={department} />
-            <ProfileField label="Employee / Officer ID" value={employeeId} />
-            <ProfileField label="Joining date" value="12 Jun 2015" />
-            <ProfileField label="Employment status" value="Regular (Government)" />
+            <ProfileField label={t('personalProfessionalCard.designation')} value={designation} />
+            <ProfileField label={t('personalProfessionalCard.department')} value={department} />
+            <ProfileField label={t('personalProfessionalCard.employeeOfficerId')} value={employeeId} />
+            <ProfileField label={t('personalProfessionalCard.joiningDate')} value="12 Jun 2015" />
+            <ProfileField label={t('personalProfessionalCard.employmentStatus')} value="Regular (Government)" />
           </div>
         </div>
 
         <div className="border-t border-ink/20 pt-4 mt-4">
           <div className="flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">Additional Information</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.additionalInformation')}</h4>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
-              <ProfileField label="Preferred language" value="English, Marathi" />
-              <ProfileField label="Official office location" value={officeLocation} />
+              <ProfileField label={t('personalProfessionalCard.preferredLanguage')} value="English, Marathi" />
+              <ProfileField label={t('personalProfessionalCard.officeLocation')} value={officeLocation} />
             </div>
           </div>
         </div>

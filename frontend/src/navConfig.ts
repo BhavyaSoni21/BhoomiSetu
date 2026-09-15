@@ -42,4 +42,5 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/workflows', labelKey: 'adminNav.workflows' },
   { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
   { to: '/admin/officer-monitoring', labelKey: 'adminNav.officerMonitoring' },
+  { to: '/admin/profile', iconOnly: true, iconName: 'UserCircle2', label: 'Profile' },
 ];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, ShieldCheck, ExternalLink } from 'lucide-react';
 import { useAuthUser } from '../auth';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface UserManagementSummaryProps {
   onViewClick?: () => void;
@@ -8,6 +9,7 @@ interface UserManagementSummaryProps {
 
 const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewClick }) => {
   const { data: user } = useAuthUser();
+  const { t } = useTranslation();
 
   const managedUsers = user?.role === 'ADMIN' ? 184 : undefined;
   const pendingApprovals = 23;
@@ -19,7 +21,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Managed Users</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('userManagementSummary.heading')}</h3>
         </div>
       </div>
       <div className="p-6 grid grid-cols-1 gap-4">
@@ -30,7 +32,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
             </div>
             <div>
               <p className="text-2xl font-black text-ink">{managedUsers ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">Managed Users</p>
+              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.heading')}</p>
             </div>
           </div>
         </div>
@@ -41,7 +43,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
             </div>
             <div>
               <p className="text-2xl font-black text-ink">{pendingApprovals ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">Pending Approvals</p>
+              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.pendingApprovals')}</p>
             </div>
           </div>
         </div>
@@ -52,7 +54,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
             </div>
             <div>
               <p className="text-2xl font-black text-ink">{accessRequests ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">Access Requests</p>
+              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.accessRequests')}</p>
             </div>
           </div>
         </div>
@@ -63,7 +65,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
             </div>
             <div>
               <p className="text-2xl font-black text-ink">{roleChanges ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">Role Changes</p>
+              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.roleChanges')}</p>
             </div>
           </div>
         </div>
@@ -75,7 +77,7 @@ const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewCli
           className="w-full inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
         >
           <ExternalLink className="w-3 h-3" aria-hidden="true" />
-          Open User Management
+          {t('userManagementSummary.openUserManagement')}
         </button>
       </div>
     </div>

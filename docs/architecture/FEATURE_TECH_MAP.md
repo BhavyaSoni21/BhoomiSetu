@@ -4,7 +4,7 @@ A single lookup table: for every feature, which third-party library actually imp
 
 All backend paths are relative to `backend/src/`, frontend paths to `frontend/src/`, API paths to `/api/v1`.
 
-**Note on feature 9**: `docs/FEATURES.md` still describes a standalone `POST /document-verification/verify` endpoint and a `DocumentVerificationPanel`/`VerifyDocumentsPage`. Neither exists any more — `DocumentVerificationModule` is not registered in `app.module.ts`, and the frontend files are gone. OCR verification now happens two other ways: (a) automatically, as a pre-check inside `POST /workflows` when filing a `DOCUMENT_VERIFICATION_REQUEST` (`workflows.service.ts`'s `buildVerificationPrecheck`, reusing the same `document-verification/field-matcher.ts` helper), and (b) as the upload-first Land Claim lookup, `POST /parcels/identify-from-document`. This table reflects the real, current routes.
+**Note on feature 9**: `docs/architecture/FEATURES.md` still describes a standalone `POST /document-verification/verify` endpoint and a `DocumentVerificationPanel`/`VerifyDocumentsPage`. Neither exists any more — `DocumentVerificationModule` is not registered in `app.module.ts`, and the frontend files are gone. OCR verification now happens two other ways: (a) automatically, as a pre-check inside `POST /workflows` when filing a `DOCUMENT_VERIFICATION_REQUEST` (`workflows.service.ts`'s `buildVerificationPrecheck`, reusing the same `document-verification/field-matcher.ts` helper), and (b) as the upload-first Land Claim lookup, `POST /parcels/identify-from-document`. This table reflects the real, current routes.
 
 ---
 
@@ -230,15 +230,15 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 | **Backend** | `spatial/spatial.controller.ts`, `spatial/spatial.service.ts`, `common/geo-utils.ts` |
 | **Frontend** | `features/admin/MapLayerManagement.tsx`, `features/admin/LayerGeometryDrawMap.tsx`, `features/admin/AdminCombinedLayerMap.tsx`, on `pages/admin/AdminMapLayerAuthoringPage.tsx` |
 
-## 22. Multilingual UI (English / Hindi)
+## 22. Multilingual UI (11 languages, Bhashini-backed)
 
 | | |
 |---|---|
-| **Library (backend)** | none |
-| **Library (frontend)** | `i18next` + `react-i18next` (`localStorage`-backed persistence) |
-| **Endpoints** | none |
-| **Backend** | none |
-| **Frontend** | `i18n/config.ts`, `i18n/locales/en.json`, `i18n/locales/hi.json` — wired throughout every portal via `navConfig.ts`'s `labelKey` pattern |
+| **Library (backend)** | `httpx` (calls to Bhashini's ULCA/Dhruva APIs) |
+| **Library (frontend)** | none — plain `fetch` + React Context, no i18n library (replaced `i18next`/`react-i18next` 2026-09-15) |
+| **Endpoints** | `GET /api/v1/multilingual/ui-text/{lang}` (cached static text), plus live `translate`/`transliterate`/`tts`/`asr` endpoints for dynamic content |
+| **Backend** | `app/services/bhashini.py`, `app/routers/multilingual.py`, `app/services/ui_text.py`, `static/ui_strings_<lang>.json` (11 files), `scripts/batch_translate_ui.py` |
+| **Frontend** | `context/LanguageContext.tsx` — wired throughout every portal via `navConfig.ts`'s `labelKey` pattern |
 
 ## 23. Rate Limiting
 

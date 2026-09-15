@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, CheckCircle2, ExternalLink } from 'lucide-react';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface ActivityItem {
   action: string;
@@ -9,26 +10,31 @@ interface ActivityItem {
   status: 'Completed' | 'Successful' | 'Failed';
 }
 
-const activities: ActivityItem[] = [
-  { action: 'Signed in from Pune office', timestamp: '11 Sep 2026, 10:24 AM', location: 'Pune office', device: 'Windows · Chrome', status: 'Successful' },
-  { action: 'Verified an ownership request', timestamp: '10 Sep 2026, 04:18 PM', location: 'Pune office', device: '', status: 'Completed' },
-  { action: 'Reviewed a cadastral parcel', timestamp: '10 Sep 2026, 02:32 PM', location: 'GIS workstation', device: '', status: 'Completed' },
-  { action: 'Downloaded a land-record report', timestamp: '09 Sep 2026, 05:46 PM', location: 'Windows · Chrome', device: '', status: 'Completed' },
-  { action: 'Updated profile information', timestamp: '08 Sep 2026, 11:15 AM', location: 'Pune office', device: '', status: 'Completed' },
-  { action: 'Permissions reviewed by administrator', timestamp: '07 Sep 2026', location: 'Administration portal', device: '', status: 'Completed' },
-];
-
 interface ActivityTimelineProps {
   onViewLogClick?: () => void;
 }
 
 const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ onViewLogClick }) => {
+  const { t } = useTranslation();
+  const activities: ActivityItem[] = [
+    { action: t('activityTimeline.event.signedIn'), timestamp: '11 Sep 2026, 10:24 AM', location: 'Pune office', device: 'Windows · Chrome', status: 'Successful' },
+    { action: t('activityTimeline.event.verifiedOwnership'), timestamp: '10 Sep 2026, 04:18 PM', location: 'Pune office', device: '', status: 'Completed' },
+    { action: t('activityTimeline.event.reviewedParcel'), timestamp: '10 Sep 2026, 02:32 PM', location: 'GIS workstation', device: '', status: 'Completed' },
+    { action: t('activityTimeline.event.downloadedReport'), timestamp: '09 Sep 2026, 05:46 PM', location: 'Windows · Chrome', device: '', status: 'Completed' },
+    { action: t('activityTimeline.event.updatedProfile'), timestamp: '08 Sep 2026, 11:15 AM', location: 'Pune office', device: '', status: 'Completed' },
+    { action: t('activityTimeline.event.permissionsReviewed'), timestamp: '07 Sep 2026', location: 'Administration portal', device: '', status: 'Completed' },
+  ];
+  const statusLabel: Record<ActivityItem['status'], string> = {
+    Completed: t('activityTimeline.status.completed'),
+    Successful: t('activityTimeline.status.successful'),
+    Failed: t('activityTimeline.status.failed'),
+  };
   return (
     <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Clock className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Recent Account Activity</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('activityTimeline.heading')}</h3>
         </div>
         {onViewLogClick && (
           <button
@@ -37,7 +43,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ onViewLogClick }) =
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
           >
             <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            View Full Activity Log
+            {t('activityTimeline.viewFullLog')}
           </button>
         )}
       </div>
@@ -56,7 +62,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ onViewLogClick }) =
                     'bg-accent/20 text-secondary-strong border-accent/50'
                   }`}>
                     {activity.status === 'Successful' && <CheckCircle2 className="w-3 h-3" aria-hidden="true" />}
-                    {activity.status}
+                    {statusLabel[activity.status]}
                   </span>
                 </div>
                 <p className="text-xs text-ink/50 mt-1">{activity.timestamp}</p>

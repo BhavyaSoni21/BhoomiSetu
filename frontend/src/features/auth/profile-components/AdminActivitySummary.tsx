@@ -19,11 +19,11 @@ const AdminActivitySummary: React.FC<AdminActivitySummaryProps> = ({ onViewLogCl
   const recentEntries = isLoading ? [] : (entries || []).slice(0, 5);
 
   const actionLabels: Record<string, string> = {
-    permissionApproved: 'Permission Approved',
-    roleChanged: 'Role Changed',
-    userAccountUpdated: 'User Account Updated',
-    accessRequestApproved: 'Access Request Approved',
-    configurationChanged: 'Configuration Changed',
+    permissionApproved: t('adminActivitySummary.action.permissionApproved'),
+    roleChanged: t('adminActivitySummary.action.roleChanged'),
+    userAccountUpdated: t('adminActivitySummary.action.userAccountUpdated'),
+    accessRequestApproved: t('adminActivitySummary.action.accessRequestApproved'),
+    configurationChanged: t('adminActivitySummary.action.configurationChanged'),
   };
 
   return (
@@ -31,14 +31,14 @@ const AdminActivitySummary: React.FC<AdminActivitySummaryProps> = ({ onViewLogCl
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Clock className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Administrative Activity</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('adminActivitySummary.heading')}</h3>
         </div>
       </div>
       <div className="p-6">
         {isLoading ? (
-          <p className="text-sm text-ink/60">Loading activity...</p>
+          <p className="text-sm text-ink/60">{t('adminActivitySummary.loading')}</p>
         ) : recentEntries.length === 0 ? (
-          <p className="text-sm text-ink/60">No activity recorded</p>
+          <p className="text-sm text-ink/60">{t('adminActivitySummary.noActivity')}</p>
         ) : (
           <div className="space-y-3 max-h-[200px] overflow-y-auto">
             {recentEntries.map((entry) => {
@@ -67,7 +67,7 @@ const AdminActivitySummary: React.FC<AdminActivitySummaryProps> = ({ onViewLogCl
           className="w-full inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
         >
           <ExternalLink className="w-3 h-3" aria-hidden="true" />
-          View Audit Log
+          {t('adminActivitySummary.viewAuditLog')}
         </button>
       </div>
     </div>

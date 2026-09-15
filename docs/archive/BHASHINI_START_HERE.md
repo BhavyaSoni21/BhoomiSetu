@@ -72,7 +72,7 @@ GET    /api/v1/multilingual/health            Health check
 
 | File | Purpose | Size | Read Time |
 |------|---------|------|-----------|
-| **SETUP_CHECKLIST.md** | Quick start (THIS FILE!) | 200 lines | 5 min |
+| **BHASHINI_SETUP_CHECKLIST.md** | Quick start (THIS FILE!) | 200 lines | 5 min |
 | **BHASHINI_QUICKREF.md** | Quick reference | 300 lines | 10 min |
 | **BHASHINI_INTEGRATION.md** | Complete guide | 500 lines | 20 min |
 | **BHASHINI_EXAMPLES.md** | Code examples | 400 lines | 15 min |
@@ -244,7 +244,7 @@ backend-py/
 ├── .env                                   ← ADD YOUR CREDENTIALS
 ├── .env.bhashini.example                  ← Template reference
 │
-├── SETUP_CHECKLIST.md                     ← START HERE (this file)
+├── BHASHINI_SETUP_CHECKLIST.md                     ← START HERE (this file)
 ├── BHASHINI_QUICKREF.md                   ← 300 lines, 10-min read
 ├── BHASHINI_INTEGRATION.md                ← 500 lines, complete guide
 ├── BHASHINI_EXAMPLES.md                   ← 400 lines, code samples
@@ -275,7 +275,7 @@ backend-py/
 ## 🎓 Learning Path
 
 1. **Quick Start** (5 min)
-   - Read: SETUP_CHECKLIST.md (this file)
+   - Read: BHASHINI_SETUP_CHECKLIST.md (this file)
    - Do: Follow the 4 steps above
 
 2. **Understand** (15 min)
@@ -364,7 +364,7 @@ $ python test_bhashini.py
 | Priority | Task | Time | Reference |
 |----------|------|------|-----------|
 | **HIGH** | Get Bhashini credentials | 5 min | bhashini.gov.in |
-| **HIGH** | Add to .env, restart | 2 min | SETUP_CHECKLIST.md |
+| **HIGH** | Add to .env, restart | 2 min | BHASHINI_SETUP_CHECKLIST.md |
 | **HIGH** | Test with test_bhashini.py | 3 min | test_bhashini.py |
 | MEDIUM | Add language toggle UI | 30 min | BHASHINI_EXAMPLES.md |
 | MEDIUM | Add TTS buttons | 20 min | BHASHINI_EXAMPLES.md |

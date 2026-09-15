@@ -84,7 +84,8 @@ frontend/src/
 ├── services/apiService.ts   one shared axios instance; JWT bearer-token
 │                            interceptor + 401 redirect-to-login interceptor
 ├── types/            one file per API response shape
-├── i18n/             i18next config + en.json/hi.json locale files
+├── context/LanguageContext.tsx  Bhashini-backed multilingual context (feature 22) -
+│                     replaced i18n/'s i18next config + en.json/hi.json locale files
 └── test/setup.ts
 ```
 
@@ -273,7 +274,7 @@ Design principles actually followed, checked against the real UI:
 | Progressive information disclosure | Followed | Parcel 360's tab structure (overview first, department detail behind a click); the map's layer-toggle panel defaults to only essential layers visible |
 | Clear workflow/process status | Followed | Every workflow step shows a color-coded status badge consistently across citizen and officer views; governance alerts show an explicit 4-step progress stepper (Detected → Acknowledged → Field Verified → Resolved) with the current stage highlighted |
 | Consistent design/terminology | Followed, with a shared component layer | Status-badge/stage-config/action-button logic for governance alerts is centralized in one shared module (`GovernanceAlertReasonPrompt.tsx`'s exports) consumed by both the list panel and detail modal, specifically to prevent visual/behavioral drift between them |
-| Multilingual | Followed | Full English/Hindi coverage across all three portals (`i18next`/`react-i18next`, ~180+ translation keys for the Officer/Admin surface alone), language choice persisted in `localStorage`, live-switchable with no page reload |
+| Multilingual | Followed | 11 languages across all three portals, backed by Bhashini (`context/LanguageContext.tsx` + `app/services/bhashini.py`, ~694 translation keys), language choice persisted in `localStorage`, live-switchable with no page reload |
 | Responsive/mobile | Followed | A hamburger menu replaces nav links below the `md` breakpoint; layouts wrap rather than overflow; live-verified at a 375px viewport with no horizontal overflow |
 | Accessibility (WCAG/screen-reader) | Not done | No formal accessibility review has been performed — a real gap, not a scored item that was intentionally skipped |
 

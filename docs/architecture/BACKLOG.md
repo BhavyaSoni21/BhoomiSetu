@@ -60,11 +60,95 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 *Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
 
-## 10. Real satellite imagery for Historical Imagery Comparison
+## 10. Remove `cluster_historical_snapshots` (superseded by live GEE imagery)
 
-**Status: not started - a natural follow-on to item 9, not yet built.** `ClusterHistoricalSnapshot` rows (`docs/architecture/FEATURES.md`'s Historical Imagery Comparison entry) are still synthetic SVG-rendered PNGs generated at seed time, not real satellite data — the comparison logic itself is pure DB-record diffing and doesn't touch imagery at all, so this would be a cosmetic-but-credible upgrade: swap what `scripts/seed.py` writes into `ClusterHistoricalSnapshot.image_path` from `cluster_snapshot_generator.py`'s SVG render to `earth_engine_service.get_ndvi_visual_png()`'s output, once Google Earth Engine is confirmed usable server-side and item 9's caching/quota discipline (`PYTHON_MIGRATION_PROGRESS.md`'s Earth Engine entry) is respected — regenerating 25 snapshots (5 clusters × 5 years) on every reseed is meaningfully more Earth Engine usage than item 9's on-demand officer requests.
+**Status: not started, decided 2026-09-15 — reversal of the item-10 plan above.** Now that GEE is the live satellite source (item 9), the stored/seeded `ClusterHistoricalSnapshot` table is being dropped rather than upgraded to real imagery. Low-risk: `HistoricalMapView.tsx` already renders categorized parcels as map polygons and never calls the `/clusters/{id}/years/{year}/image` endpoint, so `list_clusters`/`get_parcels_for_year`/`compare` (pure `ParcelHistoricalState` category diffing, no pixels involved) are unaffected by the removal. Needs: delete `get_image()` route + `get_snapshot_image()` service fn, delete `app/models/historical_imagery.py` + its `models/__init__.py` import, delete `cluster_snapshot_generator.py` and its seed.py call site, an Alembic drop-table migration, and cleanup of the orphaned Supabase Storage objects (ops step).
+
+*Source: this session, 2026-09-15.*
+
+## 14. Generate the official parcel document PDF on demand instead of storing a rendered image
+
+**Status: not started, decided 2026-09-15.** `parcel_document_generator.py` renders a synthetic "Record of Rights" PNG at seed time and stores it via Supabase (`ParcelDocument.file_path`) — replace with a reportlab-rendered Form 7/12-style PDF generated per-request (`GET /parcels/{id}/documents/official-pdf?lang=en|hi`, straight to the HTTP response, nothing persisted), built from real `Parcel`/`OwnershipHistoryRecord`/workflow-approval rows instead of mock data. `parcel_documents` then only holds real citizen-**uploaded** evidence (the OCR-verification flow already uses it that way in `workflows_service.py`), not a seed-time rendered image. New deps: `reportlab`, `qrcode[pil]`; needs a bundled Devanagari `.ttf` for Hindi output rather than an `apt-get`-installed system font.
+
+*Source: this session, 2026-09-15.*
+
+## 15. OpenCV tamper/authenticity signal alongside OCR document verification
+
+**Status: not started, decided 2026-09-15.** `app/document_verification/ocr.py`'s pytesseract-based `extract_text()` stays as-is for field extraction/matching (`field_matcher.py` already matches against real DB values, not user-retyped input — no change needed there). Add a separate `check_authenticity()` in a new `app/document_verification/authenticity.py` (Laplacian sharpness / noise / edge-density heuristic, `opencv-python-headless`), called alongside OCR in the evidence-upload path (`routers/workflows.py`) and `parcels_service.identify_from_document()`. Surfaced to the reviewing officer as an extra flag next to the existing field MATCHED/MISMATCH checks — a soft signal for review, not a hard accept/reject gate, since the heuristic's thresholds are hand-tuned and unvalidated against real tampered documents.
+
+*Source: this session, 2026-09-15.*
+
+## 11. Bhashini SpeakerButton / MicButton / search transliteration
+
+**Status: backend ready, frontend not built (2026-09-15).** The Bhashini multilingual migration (`docs/architecture/BHASHINI_INTEGRATION.md`) shipped translation for all static UI text across 11 languages, but three pieces of its own scope are still open: a `SpeakerButton` component (TTS playback for status messages/notifications — `text_to_speech()` is tested and working backend-side), a `MicButton` component (ASR voice input for search/request forms — `speech_to_text()` is tested and working backend-side), and wiring `transliterate_text()` into parcel search so a Roman-script query still matches Devanagari/other-script records. None of the three need backend work, only frontend components/wiring.
+
+*Source: `docs/architecture/BHASHINI_INTEGRATION.md` §7.*
+
+## 12. Bhashini OCR / ALD — blocked on account provisioning
+
+**Status: blocked, not a code problem.** Bhashini's OCR pipeline returns `"Requested pipeline does not exist with this submitter"` and ALD (Audio Language Detection) returns `"TaskType is not valid"` for this project's Bhashini account — both need a request to Bhashini's support/dashboard team to enable, or (for ALD) confirming the correct task type, before either can be built.
+
+*Source: `docs/architecture/BHASHINI_INTEGRATION.md` §7.*
+
+## 13. Frontend test suite doesn't cover the Bhashini `LanguageContext` migration
+
+**Status: partially patched (2026-09-15), real gap remains.** `useTranslation()` (`context/LanguageContext.tsx`) throws if no `<LanguageProvider>` wraps the component tree, and ~26 component test files never did — the old `react-i18next` setup didn't need one, since it used real English resource strings loaded via a side-effect import. A global mock added to `frontend/src/test/setup.ts` stops the outright crash (same pattern as the existing `ResizeObserver`/`matchMedia` stubs), but its `t(key)` fallback just returns the raw key, not real English copy — so tests asserting on literal UI text (e.g. `screen.getByLabelText('Email')`) still fail (~190 tests across files like `LoginPage.test.tsx`, `App.test.tsx`, `ParcelSearch.test.tsx`). Fixing this properly needs the test mock's `t()` to resolve real English strings (e.g. reading `backend-py/static/ui_strings_en.json`) instead of echoing the key, or updating each affected assertion — neither done yet.
+
+*Source: this session's i18n-removal validation work, 2026-09-15 — not previously scoped anywhere.*
 
 *Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
+
+---
+
+## Low priority — not started, not previously scoped
+
+The items below came out of a feature-parity check against a separate requirements list (2026-09-15) and are new ideas, not confirmed product asks — kept here deliberately deprioritized until one is actually wanted. None have design/investigation behind them yet; each needs its own scoping pass before work starts.
+
+## 16. Dedicated single-ULPIN instant ownership check
+
+A one-field "enter a ULPIN, get ownership back" screen distinct from today's general Parcel Search (feature 3) — gated by OTP or rate-limiting instead of a captcha. Both OTP (feature 11) and rate limiting (feature 23) already exist as infra; this would be a thin new screen/endpoint wiring them to a single-identifier lookup, not new plumbing.
+
+## 17. QR code per parcel
+
+Generate and display a unique QR code per parcel (e.g. on the official document from item 14, or on Parcel 360) encoding its identifier for quick lookup. No QR generation exists anywhere in the codebase today.
+
+## 18. General SMS outreach channel
+
+TextBee (`notifications/`) is wired for OTP delivery only. A broader outreach channel (e.g. notifying feature-phone users of a decision or alert by SMS) would reuse that same integration but needs its own trigger points and opt-in/consent model — distinct from item 5's "deliver existing in-app notifications via SMS/push/email," which is the closer match if this is really about workflow/alert delivery rather than open-ended outreach.
+
+## 19. Verifier role + GPS/photo/timestamp field evidence capture
+
+No `VERIFIER` role exists today (RBAC, feature 13, covers Citizen/Officer/Admin only). Physical site verification with tamper-proof, geotagged/timestamped photo evidence would need a new role, a new evidence-capture endpoint/table, and mobile-camera + GPS access on the frontend — a genuinely new subsystem, not an extension of an existing one.
+
+## 20. Penalty for intentional false claims
+
+No penalty/enforcement mechanism exists. Would need a way to distinguish "intentionally false" from "genuine mistake" (manual officer judgment call, presumably) before any penalty logic could apply — policy question first, code second.
+
+## 21. Notify owner when their parcel is viewed, with anonymized in-app contact
+
+In-app notifications (feature 27) exist but nothing today notifies an owner that someone looked up their parcel, and there's no in-app messaging channel that hides phone/email between two users. Needs a consent flag on `citizen_parcels`, a write path from parcel-view to notification, and a real messaging feature — the last of which doesn't exist in any form yet.
+
+## 22. Duplicate/fraud cross-check on new complaints
+
+Nothing today compares a new workflow/complaint against existing or previously-rejected ones. Would need a similarity check (same parcel + same complaint type + overlapping details) run at submission time, surfaced to the reviewing officer.
+
+## 23. Offline field verification with later sync
+
+No offline mode exists anywhere in the frontend. Depends on item 19 (verifier role/evidence capture) existing first — this would be that feature's offline-capable variant (local queue + sync-on-reconnect), not a standalone piece.
+
+## 24. Onboarding tutorial tooltips
+
+No step-by-step onboarding UI exists in any portal today. Pure frontend addition once a target flow (citizen registration? first service request?) is picked — genuinely last-priority, cosmetic rather than functional.
+
+---
+
+## 25. Seed-time OCR regression: seeded parcel documents have `extracted_text=None`
+
+**Status: real regression from the NestJS original, found 2026-09-15 during a route-by-route migration parity check.** `backend/seed.ts:982,990` ran real Tesseract OCR on every generated parcel-document PNG at seed time and stored the result in `extractedText`. `backend-py/scripts/seed.py:980` hardcodes `extracted_text=None` instead — the script's own docstring (`seed.py:8-11`) says this was deliberately deferred "until ParcelsModule ports OCR," but that module landed (`app/document_verification/ocr.py` + `field_matcher.py`, used live by workflow evidence uploads and `identify-from-document`) and the seed script was never updated to match. Real consequence: `workflows_service._build_verification_precheck()` (`workflows_service.py:117-124`) falls back to a parcel's existing `ParcelDocument.extracted_text` when a citizen files a request with no fresh evidence upload — for every seeded document that's `None`, so the automatic OCR pre-check silently does nothing for any demo/seeded parcel, only for citizens who upload their own evidence. Fix is a one-line call to `extract_text()` on the rendered PNG in `seed.py`, matching what `seed.ts` did — though this may become moot once item 14 (on-demand document generation) retires stored/seeded document images entirely, so worth sequencing after that decision lands rather than fixing twice.
+
+*Source: this session's NestJS-vs-backend-py parity audit, 2026-09-15.*
+
+**Not tracked as a gap, by design:** `backend-py` has no SQLite fallback (`postgis.py`/`geo-utils.ts`'s hand-rolled JS geometry math was deliberately not ported — Postgres+PostGIS only, per `PYTHON_MIGRATION_PLAN.md` §2's single-database constraint). Confirmed deliberate, not an oversight, and the project doesn't want SQLite support restored — noted here only so it isn't rediscovered and mistakenly re-flagged as a regression later.
 
 ---
 

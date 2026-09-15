@@ -110,7 +110,7 @@ const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="w-full max-w-[1400px] mx-auto space-y-6">
       <BackButton variant="ink" />
       <div className="border-b-2 border-ink/20">
         <nav className="-mb-px flex flex-wrap gap-1" aria-label="Profile sections">

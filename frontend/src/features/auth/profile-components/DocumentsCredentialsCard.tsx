@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, ExternalLink, Download, Edit } from 'lucide-react';
 import { ProfileField } from './ProfileField';
 import StatusBadge from './StatusBadge';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface DocumentItem {
   name: string;
@@ -22,24 +23,25 @@ interface DocumentsCredentialsCardProps {
 }
 
 const DocumentsCredentialsCard: React.FC<DocumentsCredentialsCardProps> = ({ onDocumentAction }) => {
+  const { t } = useTranslation();
   return (
     <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
       <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Documents & Official Credentials</h3>
+          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('documentsCredentialsCard.heading')}</h3>
         </div>
         <button
           type="button"
           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
         >
           <Edit className="w-3 h-3" aria-hidden="true" />
-          Upload Document
+          {t('documentsCredentialsCard.uploadDocument')}
         </button>
       </div>
       <div className="p-6">
         <p className="text-sm text-ink/60 mb-4">
-          Secure document repository for official credentials. Raw document numbers and private credentials are never displayed.
+          {t('documentsCredentialsCard.description')}
         </p>
         <div className="space-y-3">
           {documents.map((doc) => (
@@ -48,27 +50,27 @@ const DocumentsCredentialsCard: React.FC<DocumentsCredentialsCardProps> = ({ onD
               <div className="flex-1 min-w-[180px]">
                 <div className="flex items-center gap-3 flex-wrap">
                   <p className="text-sm font-bold text-ink">{doc.name}</p>
-                  <StatusBadge variant={doc.status}>{doc.status === 'verified' ? 'Verified Credential' : 'Active'}</StatusBadge>
+                  <StatusBadge variant={doc.status}>{doc.status === 'verified' ? t('documentsCredentialsCard.verifiedCredential') : t('profileField.status.active')}</StatusBadge>
                 </div>
-                <p className="text-xs text-ink/50 mt-1">Uploaded: {doc.uploadDate}</p>
+                <p className="text-xs text-ink/50 mt-1">{t('documentsCredentialsCard.uploaded')}: {doc.uploadDate}</p>
               </div>
               <div className="flex items-center gap-2">
                 {onDocumentAction && (
                   <button type="button" onClick={() => onDocumentAction(doc.name, 'View')} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition">
                     <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                    View
+                    {t('documentsCredentialsCard.view')}
                   </button>
                 )}
                 {onDocumentAction && (
                   <button type="button" onClick={() => onDocumentAction(doc.name, 'Replace')} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition">
                     <Edit className="w-3 h-3" aria-hidden="true" />
-                    Replace
+                    {t('documentsCredentialsCard.replace')}
                   </button>
                 )}
                 {onDocumentAction && (
                   <button type="button" onClick={() => onDocumentAction(doc.name, 'Download')} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition">
                     <Download className="w-3 h-3" aria-hidden="true" />
-                    Download
+                    {t('documentsCredentialsCard.download')}
                   </button>
                 )}
               </div>

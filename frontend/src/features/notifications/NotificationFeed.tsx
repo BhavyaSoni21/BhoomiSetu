@@ -6,6 +6,7 @@ import apiService from '../../services/apiService';
 import { AppNotification } from '../../types/notification';
 import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
+import { useTranslation } from '../../context/LanguageContext';
 
 const TYPE_ICON: Record<string, typeof Bell> = {
   WORKFLOW_ASSIGNED: ClipboardCheck,
@@ -25,6 +26,7 @@ function formatDateTime(value: string): string {
 }
 
 const NotificationFeed: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: user } = useAuthUser();
@@ -59,20 +61,20 @@ const NotificationFeed: React.FC = () => {
     return (
       <div className="flex items-center gap-2 text-sm font-medium text-text-muted py-6">
         <Loader2 className="w-4 h-4 animate-spin text-brand-700" aria-hidden="true" />
-        Loading notifications...
+        {t('notificationFeed.loading')}
       </div>
     );
   }
   if (error) {
-    return <div className="text-sm font-medium text-gov-error py-4">Error loading notifications</div>;
+    return <div className="text-sm font-medium text-gov-error py-4">{t('notificationFeed.error')}</div>;
   }
   if (notifications.length === 0) {
     return (
       <div className="gov-card p-10 text-center bg-surface-2 border border-gov-border">
         <Bell className="w-8 h-8 mx-auto text-text-muted mb-2 opacity-50" />
-        <p className="text-sm font-semibold text-text-heading">No notifications yet</p>
+        <p className="text-sm font-semibold text-text-heading">{t('notificationFeed.empty')}</p>
         <p className="text-xs text-text-secondary mt-1">
-          You will be notified when your land documents are verified or workflows update.
+          {t('notificationFeed.emptyDesc')}
         </p>
       </div>
     );
@@ -122,7 +124,7 @@ const NotificationFeed: React.FC = () => {
             {unread && (
               <span
                 className="w-2.5 h-2.5 rounded-full bg-action-500 shrink-0 mt-2"
-                title="Unread notification"
+                title={t('notificationFeed.unread')}
                 aria-hidden="true"
               />
             )}

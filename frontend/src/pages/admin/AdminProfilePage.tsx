@@ -28,15 +28,15 @@ const AdminProfilePage: React.FC = () => {
       {/* ── Page Header ── */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <BackButton variant="ink" label="Back" />
+          <BackButton variant="ink" />
           <h1 className="text-3xl font-black uppercase tracking-tight font-display text-ink mt-3">
-            Administrator Profile
+            {t('adminProfilePage.heading')}
           </h1>
           <p className="text-sm text-ink/60 mt-1">
-            Manage your system administrator account, security settings, and preferences.
+            {t('adminProfilePage.subtitle')}
           </p>
           <p className="text-xs text-ink/40 mt-2 font-mono">
-            Last updated: {lastActive}
+            {t('adminProfilePage.lastUpdated')}: {lastActive}
           </p>
         </div>
       </div>
@@ -44,13 +44,13 @@ const AdminProfilePage: React.FC = () => {
       {/* ── Profile Summary ── */}
       <ProfileSummaryCard
         name={user.name}
-        role="System Administrator"
-        department="Administration"
-        status="Verified Government Account"
+        role={t('adminProfilePage.systemAdministrator')}
+        department={t('adminProfilePage.administration')}
+        status={t('profileSummaryCard.verifiedGovernmentAccount')}
         memberSince={createdAt}
         lastActive={lastActive}
         completeness={85}
-        message="Your profile is nearly complete. Add jurisdictional details for faster request routing."
+        message={t('adminProfilePage.completenessMessage')}
       />
 
       {/* ── Row 1 (2-col): Editable account details | Contact method verification ── */}
@@ -59,10 +59,10 @@ const AdminProfilePage: React.FC = () => {
 
         <div className="bg-surface border-2 border-ink shadow-hard-md p-6">
           <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">
-            Contact Methods
+            {t('contactMethodsCard.contactMethods')}
           </h2>
           <p className="text-sm text-ink/60 mb-4">
-            Verify your email and mobile number for system notifications and 2FA.
+            {t('adminProfilePage.contactMethodsDesc')}
           </p>
           <div className="space-y-3">
             <ContactMethodCard method="EMAIL" user={user} />
@@ -82,45 +82,45 @@ const AdminProfilePage: React.FC = () => {
         <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" aria-hidden="true" />
-            <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">Administrative Access & Permissions</h3>
+            <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('adminProfilePage.accessPermissions')}</h3>
           </div>
         </div>
         <div className="p-6">
           <p className="text-sm text-ink/60 mb-4">
-            System administrator permissions across land-governance modules.
+            {t('adminProfilePage.permissionsDesc')}
           </p>
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary border border-ink rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">User Management</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.userManagement')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-accent/20 text-secondary-strong border-accent/40 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">Role Management</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.roleManagement')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">Permission Management</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.permissionManagement')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">Request Workflow Administration</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.workflowAdministration')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">GIS Configuration</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.gisConfiguration')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">Governance Configuration</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.governanceConfiguration')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">Audit Access</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.auditAccess')}</span>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">System Configuration</span>
+              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.systemConfiguration')}</span>
             </div>
             <div>
               <button
@@ -128,7 +128,7 @@ const AdminProfilePage: React.FC = () => {
                 className="w-full inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
               >
                 <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                View Full Permission Matrix
+                {t('adminProfilePage.viewFullMatrix')}
               </button>
             </div>
           </div>

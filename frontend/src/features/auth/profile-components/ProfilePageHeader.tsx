@@ -12,7 +12,7 @@ const ProfilePageHeader: React.FC<ProfilePageHeaderProps> = ({ onEditClick }) =>
   return (
     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div className="flex-1 min-w-0">
-        <BackButton variant="ink" label="Back" />
+        <BackButton variant="ink" />
         <h1 className="text-3xl font-black uppercase tracking-tight font-display text-ink mt-3">
           {t('citizenPortal.profileHeading')}
         </h1>
@@ -29,7 +29,7 @@ const ProfilePageHeader: React.FC<ProfilePageHeaderProps> = ({ onEditClick }) =>
           onClick={onEditClick}
           className="shrink-0 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
         >
-          Edit Profile
+          {t('profileActionBar.editProfile')}
         </button>
       )}
     </div>

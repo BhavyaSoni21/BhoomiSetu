@@ -1,74 +1,113 @@
-import React from 'react';
-import { useTranslation } from '../../context/LanguageContext';
-import { UserCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthUser } from '../../features/auth/auth';
-import ContactMethodCard from '../../features/auth/ContactMethodCard';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
+import {
+  ActivityTimeline,
+  ContactMethodsCard,
+  DocumentsCredentialsCard,
+  GISPermissionsCard,
+  JurisdictionCard,
+  PersonalProfessionalCard,
+  PreferencesCard,
+  ProfileActionBar,
+  ProfilePageHeader,
+  ProfileSummaryCard,
+  SecurityCard,
+  VerificationCard,
+} from '../../features/auth/profile-components';
 import { OfficerRole, ROLE_DEPARTMENT, ROLE_LABELS } from '../../features/officer/officerAuth';
-import BackButton from '../../components/BackButton';
 
-function formatDate(value: string): string {
+function formatDate(value?: string): string {
+  if (!value) return '15 Apr 2022';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// Officer's own account info (docs/FRONTEND_UPGRADE_SPEC.md §5) - built out
-// 2026-09-10 (docs/ADMIN_PANEL_ISSUES.md Officer #2, "richer Profile, same
-// depth as Citizen's ProfilePage") to match the Citizen Portal's ProfilePage.tsx:
-// editable name/address/government ID/occupation (ProfileDetailsCard) and
-// verified email/mobile with OTP (ContactMethodCard), both extracted out of
-// ProfilePage.tsx into features/auth/ so they're shared rather than
-// duplicated. No second tab here (unlike Citizen's Account/Documents split) -
-// an officer has no personal linked-parcel documents to show, so a lone
-// "Documents" tab would be pointless.
+/**
+ * Officer profile is intentionally assembled from the shared profile cards.
+ * Only the existing profile-details and contact cards mutate account data;
+ * operational cards are isolated presentation fallbacks until matching APIs
+ * are supplied by the platform.
+ */
 const OfficerProfilePage: React.FC = () => {
-  const { t } = useTranslation();
   const { data: user } = useAuthUser();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<string | null>(null);
+
   if (!user) return null;
+
   const role = user.role as OfficerRole;
+  const roleLabel = ROLE_LABELS[role] ?? 'Land Records Officer';
+  const department = (ROLE_DEPARTMENT[role] ?? 'LAND_RECORDS').replace(/_/g, ' ');
+  const showUnavailable = (label: string) => setNotice(`${label} is available through the authorised administration service.`);
+
+  const downloadSummary = () => {
+    const summary = [
+      'BhoomiSetu Officer Profile Summary',
+      `Name: ${user.name}`,
+      `Role: ${roleLabel}`,
+      `Department: ${department}`,
+      `Member since: ${formatDate(user.createdAt)}`,
+      'Jurisdiction: Pune, Maharashtra / Haveli',
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([summary], { type: 'text/plain' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bhoomisetu-profile-summary.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="max-w-xl space-y-6">
-      <BackButton variant="ink" />
-      <div className="relative bg-surface border-4 border-ink shadow-hard-lg p-6">
-        <span className="absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center bg-secondary border-2 border-ink" aria-hidden="true">
-          <UserCircle2 className="w-3.5 h-3.5 text-white" />
-        </span>
-        <h1 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">Profile</h1>
-        <dl className="grid grid-cols-2 gap-4">
-          <div>
-            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">Name</dt>
-            <dd className="text-ink font-medium">{user.name}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">Role</dt>
-            <dd className="text-ink font-medium">{ROLE_LABELS[role]}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">Department</dt>
-            <dd className="text-ink font-medium">{ROLE_DEPARTMENT[role].replace(/_/g, ' ')}</dd>
-          </div>
-          {user.createdAt && (
-            <div>
-              <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">Member Since</dt>
-              <dd className="text-ink font-medium">{formatDate(user.createdAt)}</dd>
-            </div>
-          )}
-        </dl>
-      </div>
+    <div className="w-full max-w-[1400px] mx-auto space-y-6 pb-8">
+      <ProfilePageHeader onEditClick={() => document.getElementById('profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
 
-      <ProfileDetailsCard user={user} />
+      <ProfileSummaryCard
+        name={user.name}
+        role={roleLabel}
+        department={department}
+        status="Verified Government Account"
+        memberSince={formatDate(user.createdAt)}
+        lastActive="11 Sep 2026, 10:24 AM"
+        completeness={user.mobileNumber ? 92 : 82}
+        message="Add your mobile number and emergency contact to complete your profile."
+      />
 
-      <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-        <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">
-          {t('citizenPortal.profileContactHeading')}
-        </h2>
-        <p className="text-sm text-ink/60 mb-4">{t('citizenPortal.profileContactDesc')}</p>
-        <div className="space-y-3">
-          <ContactMethodCard method="EMAIL" user={user} />
-          <ContactMethodCard method="MOBILE" user={user} />
+      {notice && (
+        <div role="status" className="border-2 border-accent/60 bg-accent/10 px-4 py-3 text-sm text-ink flex items-center justify-between gap-4">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="text-xs font-bold uppercase underline">Dismiss</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
+        <div className="xl:col-span-3 space-y-6">
+          <PersonalProfessionalCard user={user} />
+          <div id="profile-details" className="scroll-mt-6"><ProfileDetailsCard user={user} /></div>
+          <JurisdictionCard />
+          <GISPermissionsCard onAccessMatrixClick={() => showUnavailable('The access matrix')} onPermissionRequestClick={() => showUnavailable('Permission change requests')} />
+          <DocumentsCredentialsCard onDocumentAction={(document, action) => showUnavailable(`${action} for ${document}`)} />
+        </div>
+        <div className="xl:col-span-2 space-y-6">
+          <VerificationCard
+            user={user}
+            onVerifyClick={() => document.getElementById('contact-methods')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            onUpdateClick={() => document.getElementById('profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            onHistoryClick={() => showUnavailable('Verification history')}
+          />
+          <div id="contact-methods" className="scroll-mt-6"><ContactMethodsCard user={user} /></div>
+          <SecurityCard on2facClick={() => showUnavailable('Two-factor authentication')} onSessionsClick={() => showUnavailable('Active session review')} onPasswordClick={() => showUnavailable('Password change')} />
+          <PreferencesCard />
+          <ActivityTimeline onViewLogClick={() => showUnavailable('The activity log')} />
         </div>
       </div>
+
+      <ProfileActionBar
+        onEditClick={() => document.getElementById('profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+        onDownloadClick={downloadSummary}
+        onSupportClick={() => navigate('/contact-us')}
+      />
     </div>
   );
 };

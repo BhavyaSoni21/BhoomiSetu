@@ -5,6 +5,7 @@ import axios from 'axios';
 import { ScanSearch, MapPin, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ChangeAnalysisResponse } from '../../types/changeDetection';
+import { useTranslation } from '../../context/LanguageContext';
 
 // Approximate bounding box of the seeded Pune cluster (seed.ts:
 // centerLng 73.8567, centerLat 18.5204, 10x10 grid, 0.0015 spacing) - a
@@ -12,6 +13,7 @@ import { ChangeAnalysisResponse } from '../../types/changeDetection';
 const PUNE_BOUNDS = { minLng: '73.8492', minLat: '18.5129', maxLng: '73.8642', maxLat: '18.5279' };
 
 const ChangeDetectionPanel: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
@@ -66,17 +68,16 @@ const ChangeDetectionPanel: React.FC = () => {
     <div className="bg-surface border-4 border-ink shadow-hard-lg p-4 sm:p-6">
       <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight font-display text-ink mb-1 flex items-center gap-2">
         <ScanSearch className="w-5 h-5 text-secondary" aria-hidden="true" />
-        Analyze Imagery
+        {t('changeDetectionPanel.heading')}
       </h2>
       <p className="text-sm text-ink/60 mb-4">
-        Upload a before/after image pair covering a known geographic area to detect physical changes and generate
-        governance alerts for any parcel affected.
+        {t('changeDetectionPanel.intro')}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="cd-before-image" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">Before Image</label>
+            <label htmlFor="cd-before-image" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">{t('changeDetectionPanel.beforeImage')}</label>
             <input
               id="cd-before-image"
               type="file"
@@ -87,7 +88,7 @@ const ChangeDetectionPanel: React.FC = () => {
             />
           </div>
           <div>
-            <label htmlFor="cd-after-image" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">After Image</label>
+            <label htmlFor="cd-after-image" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">{t('changeDetectionPanel.afterImage')}</label>
             <input
               id="cd-after-image"
               type="file"
@@ -101,26 +102,26 @@ const ChangeDetectionPanel: React.FC = () => {
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold uppercase tracking-widest text-ink">Geographic Bounds Covered by Both Images</label>
+            <label className="block text-xs font-bold uppercase tracking-widest text-ink">{t('changeDetectionPanel.boundsLabel')}</label>
             <button
               type="button"
               onClick={() => setBounds(PUNE_BOUNDS)}
               className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-primary hover:text-primary-strong hover:underline"
             >
               <MapPin className="w-3 h-3" aria-hidden="true" />
-              Use Pune cluster bounds
+              {t('changeDetectionPanel.usePuneBounds')}
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {boundsField('minLng', 'Min Longitude')}
-            {boundsField('minLat', 'Min Latitude')}
-            {boundsField('maxLng', 'Max Longitude')}
-            {boundsField('maxLat', 'Max Latitude')}
+            {boundsField('minLng', t('changeDetectionPanel.minLongitude'))}
+            {boundsField('minLat', t('changeDetectionPanel.minLatitude'))}
+            {boundsField('maxLng', t('changeDetectionPanel.maxLongitude'))}
+            {boundsField('maxLat', t('changeDetectionPanel.maxLatitude'))}
           </div>
         </div>
 
         <div>
-          <label htmlFor="cd-description" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">Description (optional)</label>
+          <label htmlFor="cd-description" className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">{t('changeDetectionPanel.descriptionOptional')}</label>
           <input
             id="cd-description"
             type="text"
@@ -135,8 +136,8 @@ const ChangeDetectionPanel: React.FC = () => {
           <p className="flex items-center gap-1.5 text-sm font-medium text-secondary-strong">
             <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
             {axios.isAxiosError(mutation.error) && mutation.error.response?.status === 400
-              ? 'Please check the images and bounds provided.'
-              : 'Something went wrong analyzing this imagery. Please try again.'}
+              ? t('changeDetectionPanel.errorBadInput')
+              : t('changeDetectionPanel.errorGeneric')}
           </p>
         )}
 
@@ -146,7 +147,7 @@ const ChangeDetectionPanel: React.FC = () => {
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-xs uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
         >
           <ScanSearch className="w-4 h-4" aria-hidden="true" />
-          {mutation.isLoading ? 'Analyzing...' : 'Analyze'}
+          {mutation.isLoading ? t('changeDetectionPanel.analyzing') : t('changeDetectionPanel.analyze')}
         </button>
       </form>
 
@@ -156,22 +157,21 @@ const ChangeDetectionPanel: React.FC = () => {
             <div className="border-2 border-ink border-l-4 border-l-secondary bg-secondary/10 p-4 space-y-2">
               <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
                 <AlertTriangle className="w-4 h-4 text-secondary shrink-0" aria-hidden="true" />
-                Change detected: {(mutation.data.changedPixelRatio * 100).toFixed(1)}% of the analyzed area
+                {t('changeDetectionPanel.changeDetected', { pct: (mutation.data.changedPixelRatio * 100).toFixed(1) })}
               </p>
               <p className="text-sm text-ink/70">
-                {mutation.data.affectedParcelIds.length} parcel(s) affected, {mutation.data.alertsCreated} governance
-                alert(s) created.
+                {t('changeDetectionPanel.affectedSummary', { parcels: mutation.data.affectedParcelIds.length, alerts: mutation.data.alertsCreated })}
               </p>
               {mutation.data.affectedParcelIds.length > 0 && (
                 <div className="border-2 border-ink divide-y-2 divide-ink bg-surface">
                   {mutation.data.affectedParcelIds.map((parcelId) => (
                     <div key={parcelId} className="flex items-center justify-between text-sm px-3 py-2">
-                      <span className="text-ink/70">Parcel #{parcelId.substring(0, 8)}...</span>
+                      <span className="text-ink/70">{t('myParcels.parcelHash', { id: parcelId.substring(0, 8) })}</span>
                       <button
                         onClick={() => navigate(`/parcels/${parcelId}`)}
                         className="px-3 py-1 bg-primary text-white text-xs font-bold uppercase tracking-widest border-2 border-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                       >
-                        View
+                        {t('myParcels.view')}
                       </button>
                     </div>
                   ))}
@@ -181,8 +181,7 @@ const ChangeDetectionPanel: React.FC = () => {
           ) : (
             <p className="flex items-center gap-1.5 text-sm text-ink/70 border-2 border-ink border-l-4 border-l-primary bg-primary/10 p-4">
               <CheckCircle2 className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-              No significant change detected ({(mutation.data.changedPixelRatio * 100).toFixed(2)}% of the analyzed
-              area differed).
+              {t('changeDetectionPanel.noChange', { pct: (mutation.data.changedPixelRatio * 100).toFixed(2) })}
             </p>
           )}
         </div>

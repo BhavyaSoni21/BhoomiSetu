@@ -1,5 +1,22 @@
+import { vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import '../i18n/config';
+
+// Components call useTranslation() (LanguageContext.tsx) without every test
+// wrapping in <LanguageProvider> - stub it the same way ResizeObserver/
+// matchMedia are stubbed below, so useTranslation() works standalone and
+// t(key) just returns the key, same fallback behavior as the real hook.
+vi.mock('../context/LanguageContext', async () => {
+  const actual = await vi.importActual<typeof import('../context/LanguageContext')>('../context/LanguageContext');
+  return {
+    ...actual,
+    useTranslation: () => ({
+      t: (key: string, options?: Record<string, string | number> | string) => (typeof options === 'string' ? options : key),
+      currentLang: 'en',
+      setLanguage: () => Promise.resolve(),
+      loading: false,
+    }),
+  };
+});
 
 // jsdom has no ResizeObserver (it does no real layout), but recharts'
 // ResponsiveContainer requires one to exist at all just to mount - without

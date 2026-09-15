@@ -77,17 +77,18 @@ function DepartmentRecordField({ label, value }: { label: string; value: React.R
 }
 
 function DepartmentRecordFields({ department, departments }: { department: string; departments: Parcel360Response['departments'] }) {
+  const { t } = useTranslation();
   switch (department) {
     case 'LAND_RECORDS': {
       const record = departments.landRecords;
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Source Schema" value={record.sourceSchema} />
-          <DepartmentRecordField label="Source Identifier" value={record.sourceIdentifier} />
-          <DepartmentRecordField label="Owner Name" value={record.ownerName} />
-          <DepartmentRecordField label="Area" value={`${record.areaSqM.toLocaleString()} m²`} />
-          <DepartmentRecordField label="Locality" value={record.locality} />
+          <DepartmentRecordField label={t('parcel360.field.sourceSchema')} value={record.sourceSchema} />
+          <DepartmentRecordField label={t('parcel360.field.sourceIdentifier')} value={record.sourceIdentifier} />
+          <DepartmentRecordField label={t('parcel360.field.ownerName')} value={record.ownerName} />
+          <DepartmentRecordField label={t('parcel360.area')} value={`${record.areaSqM.toLocaleString()} m²`} />
+          <DepartmentRecordField label={t('parcel360.field.locality')} value={record.locality} />
         </>
       );
     }
@@ -96,11 +97,11 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Status" value={record.registrationStatus} />
-          <DepartmentRecordField label="Registration Number" value={record.registrationNumber || 'N/A'} />
-          <DepartmentRecordField label="Registration Date" value={formatDate(record.registrationDate)} />
-          <DepartmentRecordField label="Last Transaction" value={record.lastTransactionType || 'N/A'} />
-          <DepartmentRecordField label="Last Transaction Date" value={formatDate(record.lastTransactionDate)} />
+          <DepartmentRecordField label={t('verificationCard.status')} value={record.registrationStatus} />
+          <DepartmentRecordField label={t('parcel360.field.registrationNumber')} value={record.registrationNumber || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.registrationDate')} value={formatDate(record.registrationDate)} />
+          <DepartmentRecordField label={t('parcel360.field.lastTransaction')} value={record.lastTransactionType || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.lastTransactionDate')} value={formatDate(record.lastTransactionDate)} />
         </>
       );
     }
@@ -109,10 +110,10 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Land Use" value={record.landUse} />
-          <DepartmentRecordField label="Zoning Classification" value={record.zoningClassification} />
-          <DepartmentRecordField label="Master Plan Reference" value={record.masterPlanReference} />
-          <DepartmentRecordField label="Building Permission" value={record.buildingPermissionStatus} />
+          <DepartmentRecordField label={t('parcel360.field.landUse')} value={record.landUse} />
+          <DepartmentRecordField label={t('parcel360.field.zoningClassification')} value={record.zoningClassification} />
+          <DepartmentRecordField label={t('parcel360.field.masterPlanReference')} value={record.masterPlanReference} />
+          <DepartmentRecordField label={t('parcel360.field.buildingPermission')} value={record.buildingPermissionStatus} />
         </>
       );
     }
@@ -121,11 +122,11 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Assessed Value" value={formatCurrency(record.assessedValue)} />
-          <DepartmentRecordField label="Annual Tax" value={formatCurrency(record.annualTaxAmount)} />
-          <DepartmentRecordField label="Tax Status" value={record.taxStatus} />
-          <DepartmentRecordField label="Outstanding Amount" value={formatCurrency(record.outstandingAmount)} />
-          <DepartmentRecordField label="Last Payment Date" value={formatDate(record.lastPaymentDate)} />
+          <DepartmentRecordField label={t('parcel360.field.assessedValue')} value={formatCurrency(record.assessedValue)} />
+          <DepartmentRecordField label={t('parcel360.field.annualTax')} value={formatCurrency(record.annualTaxAmount)} />
+          <DepartmentRecordField label={t('parcel360.field.taxStatus')} value={record.taxStatus} />
+          <DepartmentRecordField label={t('parcel360.field.outstandingAmount')} value={formatCurrency(record.outstandingAmount)} />
+          <DepartmentRecordField label={t('parcel360.field.lastPaymentDate')} value={formatDate(record.lastPaymentDate)} />
         </>
       );
     }
@@ -134,12 +135,12 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Restriction" value={record.hasRestriction ? 'Yes' : 'No'} />
+          <DepartmentRecordField label={t('parcel360.field.hasRestriction')} value={record.hasRestriction ? t('common.yes') : t('common.no')} />
           {record.hasRestriction && (
             <>
-              <DepartmentRecordField label="Restriction Type" value={record.restrictionType || 'N/A'} />
-              <DepartmentRecordField label="Details" value={record.restrictionDetails || 'N/A'} />
-              <DepartmentRecordField label="Imposing Authority" value={record.imposingAuthority || 'N/A'} />
+              <DepartmentRecordField label={t('parcel360.field.restrictionType')} value={record.restrictionType || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.details')} value={record.restrictionDetails || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.imposingAuthority')} value={record.imposingAuthority || t('common.notApplicable')} />
             </>
           )}
         </>
@@ -150,10 +151,10 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Active Dispute" value={record.hasActiveDispute ? 'Yes' : 'No'} />
-          <DepartmentRecordField label="Dispute Type" value={record.disputeType || 'N/A'} />
-          <DepartmentRecordField label="Case Status" value={record.caseStatus || 'N/A'} />
-          <DepartmentRecordField label="Filing Date" value={formatDate(record.filingDate)} />
+          <DepartmentRecordField label={t('parcel360.field.hasActiveDispute')} value={record.hasActiveDispute ? t('common.yes') : t('common.no')} />
+          <DepartmentRecordField label={t('parcel360.field.disputeType')} value={record.disputeType || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.caseStatus')} value={record.caseStatus || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.filingDate')} value={formatDate(record.filingDate)} />
         </>
       );
     }
@@ -162,12 +163,12 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Encumbrance" value={record.hasEncumbrance ? 'Yes' : 'No'} />
+          <DepartmentRecordField label={t('parcel360.field.hasEncumbrance')} value={record.hasEncumbrance ? t('common.yes') : t('common.no')} />
           {record.hasEncumbrance && (
             <>
-              <DepartmentRecordField label="Encumbrance Type" value={record.encumbranceType || 'N/A'} />
-              <DepartmentRecordField label="Lender Name" value={record.lenderName || 'N/A'} />
-              <DepartmentRecordField label="Instrument Reference" value={record.instrumentReference || 'N/A'} />
+              <DepartmentRecordField label={t('parcel360.field.encumbranceType')} value={record.encumbranceType || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.lenderName')} value={record.lenderName || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.instrumentReference')} value={record.instrumentReference || t('common.notApplicable')} />
             </>
           )}
         </>

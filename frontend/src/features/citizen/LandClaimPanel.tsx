@@ -78,7 +78,7 @@ const LandClaimPanel: React.FC<LandClaimPanelProps> = ({ onSubmitted }) => {
       <ServiceRequestForm
         parcelId={confirmedParcel.id}
         workflowType="DISPUTE_FILING"
-        title="File a Dispute"
+        title={t('common.fileDispute')}
         initialFile={file}
         onClose={reset}
       />
@@ -86,7 +86,7 @@ const LandClaimPanel: React.FC<LandClaimPanelProps> = ({ onSubmitted }) => {
       <ServiceRequestForm
         parcelId={confirmedParcel.id}
         workflowType="LAND_CLAIM_REQUEST"
-        title="Claim This Parcel"
+        title={t('citizenPortal.landClaimClaimCta')}
         initialFile={file}
         onConflict={() => setDisputeMode(true)}
         onClose={reset}
