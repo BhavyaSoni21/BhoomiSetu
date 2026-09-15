@@ -99,7 +99,7 @@ export function useAuthUser() {
         throw err;
       }
     },
-    { retry: 1, retryDelay: 1000, staleTime: Infinity },
+    { retry: 1, retryDelay: 1000, staleTime: 5000, refetchOnWindowFocus: true, refetchInterval: 10000 },
   );
 }
 

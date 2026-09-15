@@ -1,78 +1,89 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
-import { ProfileField } from './ProfileField';
-import { useTranslation } from '../../../context/LanguageContext';
+import { Sliders, Check } from 'lucide-react';
+import { ProfileCard } from './ProfileCard';
+import { StatusPill } from './StatusPill';
 
 interface PreferencesCardProps {
-  onViewAccessMatrixClick?: () => void;
+  mode?: 'citizen' | 'officer' | 'admin';
 }
 
-const PreferencesCard: React.FC<PreferencesCardProps> = ({ onViewAccessMatrixClick }) => {
-  const { t } = useTranslation();
+export const PreferencesCard: React.FC<PreferencesCardProps> = ({
+  mode = 'citizen',
+}) => {
+  const isOfficer = mode === 'officer';
+
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-      <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ExternalLink className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('preferencesCard.heading')}</h3>
+    <ProfileCard
+      icon={<Sliders className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
+      title="PREFERENCES"
+    >
+      <div className="space-y-3">
+        {/* Language */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Language</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-heading">English</span>
+            <StatusPill status="active" label="Enabled" size="sm" />
+          </div>
         </div>
+
+        {/* Regional Language */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Regional language</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-heading">{isOfficer ? 'Marathi' : 'Hindi'}</span>
+            <StatusPill status="user-provided" size="sm" />
+          </div>
+        </div>
+
+        {isOfficer ? (
+          <>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Map display</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Standard</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-text-muted font-medium">Default layer</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Cadastral Parcels</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Date Format */}
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Date format</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading font-mono">DD MMM YYYY</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Notifications</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Email, In-app</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+
+            {/* Accessibility */}
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-text-muted font-medium">Accessibility</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Standard</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      <div className="p-6">
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50 mb-3">{t('preferencesCard.basicPreferences')}</h4>
-            <ProfileField label={t('preferencesCard.preferredLanguage')} value="English" />
-            <ProfileField label={t('preferencesCard.regionalLanguage')} value="Marathi" />
-            <ProfileField label={t('preferencesCard.dateFormat')} value="DD MMM YYYY" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50 mb-3">{t('preferencesCard.mapDisplayPreferences')}</h4>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span>{t('preferencesCard.defaultMapLayer')}</span>
-                <span className="text-ink font-medium">{t('preferencesCard.cadastralParcels')}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t('preferencesCard.mapTheme')}</span>
-                <span className="text-ink font-medium">{t('preferencesCard.standard')}</span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50 mb-3">{t('preferencesCard.accessibilityText')}</h4>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span>{t('preferencesCard.highContrastMode')}</span>
-                <span className="text-ink font-medium">{t('preferencesCard.off')}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t('preferencesCard.textSizePreference')}</span>
-                <span className="text-ink font-medium">{t('preferencesCard.medium')}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50 mb-3">{t('preferencesCard.systemIntegration')}</h4>
-          <div className="space-y-3">
-            {onViewAccessMatrixClick && (
-              <button
-                type="button"
-                onClick={onViewAccessMatrixClick}
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
-              >
-                <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                {t('preferencesCard.viewAccessMatrix')}
-              </button>
-            )}
-            <div>
-              <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('preferencesCard.notificationPreferences')}</dt>
-              <dd className="text-sm text-ink font-medium">{t('preferencesCard.configuredPerSection')}</dd>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProfileCard>
   );
 };
 

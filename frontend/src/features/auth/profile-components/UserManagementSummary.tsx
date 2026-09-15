@@ -1,86 +1,70 @@
 import React from 'react';
-import { Users, ShieldCheck, ExternalLink } from 'lucide-react';
-import { useAuthUser } from '../auth';
-import { useTranslation } from '../../../context/LanguageContext';
+import { Users, ArrowRight, UserCheck, Clock, Key } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ProfileCard } from './ProfileCard';
 
 interface UserManagementSummaryProps {
-  onViewClick?: () => void;
+  managedUsers?: number;
+  activeOfficers?: number;
+  pendingApprovals?: number;
+  accessRequests?: number;
+  onOpenUserManagement?: () => void;
+  onOpenAccessManagement?: () => void;
 }
 
-const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({ onViewClick }) => {
-  const { data: user } = useAuthUser();
-  const { t } = useTranslation();
-
-  const managedUsers = user?.role === 'ADMIN' ? 184 : undefined;
-  const pendingApprovals = 23;
-  const accessRequests = 15;
-  const roleChanges = 8;
-
+export const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({
+  managedUsers = 184,
+  activeOfficers = 32,
+  pendingApprovals = 7,
+  accessRequests = 12,
+  onOpenUserManagement,
+  onOpenAccessManagement,
+}) => {
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-      <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('userManagementSummary.heading')}</h3>
+    <ProfileCard
+      icon={<Users className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
+      title="USER & ACCESS MANAGEMENT"
+    >
+      <div className="space-y-4">
+        {/* Live Counters */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2">
+          <div className="bg-white dark:bg-surface-2/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-2xs">
+            <div className="text-xl font-black font-heading text-text-heading">{managedUsers}</div>
+            <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mt-0.5">Managed Users</div>
+          </div>
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl">
+            <div className="text-xl font-black font-heading text-emerald-700 dark:text-emerald-400">{activeOfficers}</div>
+            <div className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider mt-0.5">Active Officers</div>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl">
+            <div className="text-xl font-black font-heading text-amber-700 dark:text-amber-400">{pendingApprovals}</div>
+            <div className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider mt-0.5">Pending Approvals</div>
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-950/40 p-2.5 rounded-xl">
+            <div className="text-xl font-black font-heading text-blue-700 dark:text-blue-400">{accessRequests}</div>
+            <div className="text-[10px] font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider mt-0.5">Access Requests</div>
+          </div>
+        </div>
+
+        {/* Action Links */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800/60 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-400">
+          <Link
+            to="/admin/officers"
+            className="inline-flex items-center gap-1.5 hover:underline"
+          >
+            <span>Open User Management</span>
+            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+          </Link>
+          <Link
+            to="/admin/workflows"
+            className="inline-flex items-center gap-1.5 hover:underline"
+          >
+            <span>Open Access Management</span>
+            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+          </Link>
         </div>
       </div>
-      <div className="p-6 grid grid-cols-1 gap-4">
-        <div className="bg-surface/50 border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <Users className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-ink">{managedUsers ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.heading')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-surface/50 border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-accent/20 text-secondary-strong border-accent/40 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-ink">{pendingApprovals ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.pendingApprovals')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-surface/50 border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary border-primary/50 flex items-center justify-center">
-              <ExternalLink className="w-4 h-4" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-ink">{accessRequests ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.accessRequests')}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-surface/50 border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary border-primary/50 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-ink">{roleChanges ?? '—'}</p>
-              <p className="text-xs text-ink/50 font-bold uppercase tracking-wider">{t('userManagementSummary.roleChanges')}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="p-6 border-t border-ink/20">
-        <button
-          type="button"
-          onClick={onViewClick}
-          className="w-full inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
-        >
-          <ExternalLink className="w-3 h-3" aria-hidden="true" />
-          {t('userManagementSummary.openUserManagement')}
-        </button>
-      </div>
-    </div>
+    </ProfileCard>
   );
 };
 

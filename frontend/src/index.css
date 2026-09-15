@@ -263,14 +263,74 @@ body {
   animation: shimmer 1.6s infinite;
 }
 
+/* ── Profile micro-animations ────────────────────────────────────────────── */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes counterPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  70%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes statusGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  50%       { box-shadow: 0 0 0 4px rgba(16,185,129,0.18); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-card-enter {
+  animation: cardEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-card-enter-1 { animation-delay: 0.05s; }
+.animate-card-enter-2 { animation-delay: 0.10s; }
+.animate-card-enter-3 { animation-delay: 0.15s; }
+.animate-card-enter-4 { animation-delay: 0.20s; }
+.animate-card-enter-5 { animation-delay: 0.25s; }
+.animate-card-enter-6 { animation-delay: 0.30s; }
+.animate-card-enter-7 { animation-delay: 0.35s; }
+.animate-card-enter-8 { animation-delay: 0.40s; }
+
+.animate-counter-pop {
+  animation: counterPop 0.45s ease both;
+}
+.animate-status-glow {
+  animation: statusGlow 2.4s ease-in-out infinite;
+  border-radius: 9999px;
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Card hover lift (profile cards) */
+.profile-card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.profile-card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.10);
+}
+.dark .profile-card-lift:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.30);
+}
+
+/* Stat chip bounce on mount */
+.stat-chip-enter {
+  animation: cardEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 /* ── Navbar & Header utilities ───────────────────────────────────────────────── */
 .utility-bar {
-  background: linear-gradient(90deg, #C2410C 0%, #B45309 20%, #0F3D2E 50%, #166534 80%, #138808 100%);
+  background: #0F3D2E;
   border-bottom: 1px solid rgba(255,255,255,0.15);
   color: var(--nav-text);
 }
 .dark .utility-bar {
-  background: linear-gradient(90deg, #9A3412 0%, #854D0E 20%, #06150F 50%, #14532D 80%, #0E6206 100%);
+  background: #06150F;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .ministry-header {
   background: var(--surface-1);
@@ -295,13 +355,52 @@ body {
 
 /* ── Card defaults ───────────────────────────────────────────────────────── */
 .gov-card {
-  background: var(--surface-1);
+  background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 1rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border-radius: 1.25rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: all 0.2s ease-in-out;
+}
+.gov-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.09);
+}
+.dark .gov-card {
+  background: var(--surface-1);
 }
 
-/* ── Status badge ─────────────────────────────────────────────────────────── */
+/* ── Profile Card System ── */
+.profile-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 1.125rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  padding: 1.25rem;
+  transition: all 0.2s ease-in-out;
+}
+.dark .profile-card {
+  background: var(--surface-1);
+}
+@media (min-width: 640px) {
+  .profile-card {
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+  }
+}
+.profile-card:hover {
+  box-shadow: 0 6px 22px rgba(0,0,0,0.08);
+}
+
+.icon-chip {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Status badge & pills ─────────────────────────────────────────────────── */
 .badge-verified  { background:#D1FAE5; color:#065F46; }
 .badge-pending   { background:#FEF3C7; color:#92400E; }
 .badge-disputed  { background:#FEE2E2; color:#991B1B; }

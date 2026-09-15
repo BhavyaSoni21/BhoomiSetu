@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OfficerProfilePage from './OfficerProfilePage';
 import apiService from '../../services/apiService';
@@ -9,9 +10,6 @@ vi.mock('../../services/apiService', () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
 
-// Email verified, mobile not yet added - same fixture shape as the Citizen
-// Portal's ProfilePage.test.tsx, since this page reuses the exact same
-// ContactMethodCard/ProfileDetailsCard components.
 const officer: AuthUser = {
   id: 'o1', email: 'land.officer@bhoomisetu.gov.in', name: 'Officer Rao', role: 'LAND_RECORD_OFFICER',
   emailVerified: true, mobileNumber: null, mobileVerified: false, pendingEmail: null, pendingMobileNumber: null,
@@ -23,7 +21,9 @@ function renderPage(user: AuthUser) {
   client.setQueryData(['auth-me'], user);
   return render(
     <QueryClientProvider client={client}>
-      <OfficerProfilePage />
+      <MemoryRouter>
+        <OfficerProfilePage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -36,8 +36,6 @@ describe('OfficerProfilePage', () => {
 
   it("shows the officer's name, role, department, and member-since", () => {
     renderPage(officer);
-    // "Officer Rao" appears twice - the static top card and the editable
-    // Profile Details card below it both show Name.
     expect(screen.getAllByText('Officer Rao').length).toBeGreaterThan(0);
     expect(screen.getByText('Land Record Officer')).toBeInTheDocument();
     expect(screen.getByText('LAND RECORDS')).toBeInTheDocument();

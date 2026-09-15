@@ -1,126 +1,111 @@
 import React from 'react';
-import { Map, ShieldCheck, ExternalLink } from 'lucide-react';
-import { ProfileField } from './ProfileField';
-import StatusBadge from './StatusBadge';
-import { useTranslation } from '../../../context/LanguageContext';
-
-interface PermissionChipProps {
-  label: string;
-  scope: 'view' | 'verify' | 'approve' | 'export';
-}
-
-const SCOPE_STYLES: Record<PermissionChipProps['scope'], string> = {
-  view: 'bg-primary/10 text-primary border-primary/40',
-  verify: 'bg-accent/20 text-secondary-strong border-accent/40',
-  approve: 'bg-primary/15 text-primary border-primary/50',
-  export: 'bg-muted text-ink/70 border-ink/20',
-};
-
-const PermissionChip: React.FC<PermissionChipProps> = ({ label, scope }) => {
-  return (
-    <span className={`inline-flex items-center gap-1.5 border-2 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${SCOPE_STYLES[scope]}`}>
-      {label}
-    </span>
-  );
-};
+import { Layers, ShieldCheck, Check, ExternalLink } from 'lucide-react';
+import { ProfileCard } from './ProfileCard';
+import { StatusPill } from './StatusPill';
 
 interface GISPermissionsCardProps {
   onAccessMatrixClick?: () => void;
   onPermissionRequestClick?: () => void;
 }
 
-const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({ onAccessMatrixClick, onPermissionRequestClick }) => {
-  const { t } = useTranslation();
+export const GISPermissionsCard: React.FC<GISPermissionsCardProps> = ({
+  onAccessMatrixClick,
+  onPermissionRequestClick,
+}) => {
   const layers = [
-    t('gisPermissionsCard.layers.cadastral'),
-    t('gisPermissionsCard.layers.survey'),
-    t('gisPermissionsCard.layers.ownership'),
-    t('gisPermissionsCard.layers.historicalImagery'),
-    t('gisPermissionsCard.layers.droneImagery'),
-    t('gisPermissionsCard.layers.landUse'),
-    t('gisPermissionsCard.layers.infrastructure'),
+    'Cadastral parcel layer',
+    'Survey & resurvey layer',
+    'Ownership & mutation records',
+    'Historical imagery',
+    'Land-use classification',
+    'Public infrastructure layer',
   ];
 
-  const permissions = [
-    { label: t('gisPermissionsCard.permissions.viewSearch'), scope: 'view' as const },
-    { label: t('gisPermissionsCard.permissions.verifyAnnotate'), scope: 'verify' as const },
-    { label: t('gisPermissionsCard.permissions.raiseInspection'), scope: 'approve' as const },
-    { label: t('gisPermissionsCard.permissions.downloadDatasets'), scope: 'export' as const },
-    { label: t('gisPermissionsCard.permissions.accessHistorical'), scope: 'view' as const },
+  const scopes = [
+    { name: 'View', granted: true },
+    { name: 'Verify', granted: true },
+    { name: 'Approve', granted: true },
+    { name: 'Export', granted: true },
   ];
 
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-      <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Map className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('gisPermissionsCard.heading')}</h3>
+    <ProfileCard
+      icon={<Layers className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
+      title="GIS ACCESS & PERMISSIONS"
+    >
+      <div className="space-y-4">
+        {/* Access Level */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Access level</span>
+          <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+            District Land Records Officer
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          {onPermissionRequestClick && (
-            <button
-              type="button"
-              onClick={onPermissionRequestClick}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
-            >
-              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-              {t('gisPermissionsCard.requestChange')}
-            </button>
-          )}
+
+        {/* Available Layers */}
+        <div>
+          <span className="text-xs font-bold text-text-heading block mb-2">Available layers</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {layers.map((layer) => (
+              <div
+                key={layer}
+                className="flex items-center gap-2 p-2 rounded-xl bg-surface-2 dark:bg-surface-2/60 text-xs text-text-secondary"
+              >
+                <div className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <Check className="w-2.5 h-2.5" />
+                </div>
+                <span className="truncate">{layer}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Permission Scopes */}
+        <div className="pt-2 border-t border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs font-bold text-text-heading block mb-2">Permission scope</span>
+          <div className="flex flex-wrap gap-2">
+            {scopes.map((s) => (
+              <span
+                key={s.name}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
+              >
+                <Check className="w-3 h-3" />
+                <span>{s.name}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Last review */}
+        <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-gray-100 dark:border-gray-800/60">
+          <span>Last review: <strong className="text-text-secondary font-medium">10 Sep 2026</strong></span>
+          <span>Permission admin: <strong className="text-text-secondary font-medium">District Land Records Admin</strong></span>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2 pt-2">
           {onAccessMatrixClick && (
             <button
               type="button"
               onClick={onAccessMatrixClick}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-[var(--border)] bg-surface-1 hover:bg-surface-2 text-text-heading transition shadow-xs flex items-center gap-1.5"
             >
-              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-              {t('gisPermissionsCard.viewAccessMatrix')}
+              <ExternalLink className="w-3 h-3" />
+              <span>View Access Matrix</span>
+            </button>
+          )}
+          {onPermissionRequestClick && (
+            <button
+              type="button"
+              onClick={onPermissionRequestClick}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-[var(--border)] bg-surface-1 hover:bg-surface-2 text-text-heading transition shadow-xs"
+            >
+              Request Permission Change
             </button>
           )}
         </div>
       </div>
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <ShieldCheck className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('gisPermissionsCard.accessLevel')}</h4>
-          </div>
-          <ProfileField label={t('gisPermissionsCard.role')} value="District Land Records Officer" />
-          <div className="mt-4">
-            <h5 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">{t('gisPermissionsCard.layersAvailable')}</h5>
-            <div className="space-y-2">
-              {layers.map((layer) => (
-                <div key={layer} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-primary border border-ink" aria-hidden="true" />
-                  <span className="text-sm text-ink font-medium">{layer}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div>
-          <h4 className="text-[11px] font-bold uppercase tracking-widest text-ink/50 mb-3">{t('gisPermissionsCard.permissionScope')}</h4>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <PermissionChip label={t('gisPermissionsCard.chip.view')} scope="view" />
-            <PermissionChip label={t('gisPermissionsCard.chip.verify')} scope="verify" />
-            <PermissionChip label={t('gisPermissionsCard.chip.approve')} scope="approve" />
-            <PermissionChip label={t('gisPermissionsCard.chip.export')} scope="export" />
-          </div>
-          <div className="space-y-3">
-            {permissions.map((perm) => (
-              <div key={perm.label} className="flex items-center justify-between">
-                <span className="text-sm text-ink font-medium">{perm.label}</span>
-                <PermissionChip label={t('gisPermissionsCard.chip.granted')} scope={perm.scope} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-ink/20">
-            <ProfileField label={t('gisPermissionsCard.lastReview')} value="10 Sep 2026" />
-            <ProfileField label={t('gisPermissionsCard.permissionAdministrator')} value="District Land Records Administrator" />
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProfileCard>
   );
 };
 

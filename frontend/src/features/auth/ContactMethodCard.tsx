@@ -120,7 +120,7 @@ const ContactMethodCard: React.FC<ContactMethodCardProps> = ({ method, user }) =
   }
 
   return (
-    <div className="border-2 border-ink/20 p-4">
+    <div className="bg-white dark:bg-surface-1 border border-gray-100 dark:border-gray-800 rounded-xl p-4 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-bold text-ink flex items-center gap-1.5">
@@ -154,7 +154,7 @@ const ContactMethodCard: React.FC<ContactMethodCardProps> = ({ method, user }) =
               setOtpTarget(pendingValue ?? currentValue ?? '');
               setMode('otp');
             }}
-            className="shrink-0 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+            className="shrink-0 px-3 py-1.5 border-2 border-ink bg-white dark:bg-surface-1 text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition rounded-lg"
           >
             {t('citizenPortal.profileVerifyCta')}
           </button>
@@ -165,7 +165,7 @@ const ContactMethodCard: React.FC<ContactMethodCardProps> = ({ method, user }) =
               setInputValue('');
               setMode('edit');
             }}
-            className="shrink-0 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
+            className="shrink-0 px-3 py-1.5 border-2 border-ink bg-white dark:bg-surface-1 text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition rounded-lg"
           >
             {currentValue ? t('citizenPortal.profileChangeCta') : t('citizenPortal.profileAddCta')}
           </button>

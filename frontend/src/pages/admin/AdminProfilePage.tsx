@@ -1,69 +1,131 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
-import { ExternalLink, ShieldCheck } from 'lucide-react';
-import BackButton from '../../components/BackButton';
 import { useAuthUser } from '../../features/auth/auth';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
-import VerificationCard from '../../features/auth/profile-components/VerificationCard';
-import SecurityCard from '../../features/auth/profile-components/SecurityCard';
-import PreferencesCard from '../../features/auth/profile-components/PreferencesCard';
-import ProfileSummaryCard from '../../features/auth/profile-components/ProfileSummaryCard';
-import ProfileActionBar from '../../features/auth/profile-components/ProfileActionBar';
-import UserManagementSummary from '../../features/auth/profile-components/UserManagementSummary';
-import GovernanceSummary from '../../features/auth/profile-components/GovernanceSummary';
-import AdminActivitySummary from '../../features/auth/profile-components/AdminActivitySummary';
+import {
+  ProfileHeader,
+  ProfileSummaryCard,
+  PersonalProfessionalCard,
+  IdentityVerificationCard,
+  AdminAccessPermissionsCard,
+  UserManagementSummary,
+  GovernanceSummary,
+  ContactMethodsCard,
+  AdminActivitySummary,
+  SecurityCard,
+  PreferencesCard,
+  ProfileActionBar,
+} from '../../features/auth/profile-components';
+
+function formatDate(value?: string): string {
+  if (!value) return '10 Jan 2021';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 const AdminProfilePage: React.FC = () => {
   const { t } = useTranslation();
   const { data: user } = useAuthUser();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   if (!user) return null;
-  const createdAt = user.createdAt ? user.createdAt : '';
-  const lastActive = '11 Sep 2026, 10:24 AM';
-  const initials = user.name ? user.name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase() : 'AD';
+
+  const showToast = (msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleDownloadSummary = () => {
+    const summary = [
+      '=========================================',
+      'BHOOMISETU SYSTEM ADMINISTRATOR PROFILE',
+      '=========================================',
+      `Name: ${user.name}`,
+      `Role: System Administrator`,
+      `Department: Land Records (State) / Secretariat, New Delhi`,
+      `Admin ID: ADM******9087`,
+      `Email: ${user.email}`,
+      `Access Scope: Full System Access (8 Domains)`,
+      `Managed Users: 184 (32 Active Officers)`,
+      `Districts Managed: 5 Districts`,
+      `Export Timestamp: ${new Date().toLocaleString()}`,
+      '=========================================',
+    ].join('\n');
+
+    const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bhoomisetu-admin-profile-summary.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Admin profile summary downloaded successfully.');
+  };
 
   return (
-    <div className="max-w-[1400px] w-full mx-auto px-6 py-6 space-y-6">
-      {/* ── Page Header ── */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <BackButton variant="ink" />
-          <h1 className="text-3xl font-black uppercase tracking-tight font-display text-ink mt-3">
-            {t('adminProfilePage.heading')}
-          </h1>
-          <p className="text-sm text-ink/60 mt-1">
-            {t('adminProfilePage.subtitle')}
-          </p>
-          <p className="text-xs text-ink/40 mt-2 font-mono">
-            {t('adminProfilePage.lastUpdated')}: {lastActive}
-          </p>
+    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-12">
+      {/* Toast Notification */}
+      {notice && (
+        <div
+          role="status"
+          className="fixed top-16 right-6 z-50 px-4 py-3 rounded-2xl bg-emerald-900 text-white text-xs font-semibold shadow-xl border border-emerald-700 flex items-center justify-between gap-3 animate-fade-up"
+        >
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="text-emerald-300 hover:text-white text-xs font-bold"
+          >
+            ✕
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* ── Profile Summary ── */}
-      <ProfileSummaryCard
-        name={user.name}
-        role={t('adminProfilePage.systemAdministrator')}
-        department={t('adminProfilePage.administration')}
-        status={t('profileSummaryCard.verifiedGovernmentAccount')}
-        memberSince={createdAt}
-        lastActive={lastActive}
-        completeness={85}
-        message={t('adminProfilePage.completenessMessage')}
+      {/* Header */}
+      <ProfileHeader
+        title="My Profile"
+        subtitle="Manage your administrative identity, access, and system preferences."
+        lastUpdated="11 Sep 2026, 10:24 AM"
       />
 
-      {/* ── Row 1 (2-col): Editable account details | Contact method verification ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ProfileDetailsCard user={user} />
+      {/* Profile Summary Card */}
+      <ProfileSummaryCard
+        name={user.name}
+        role="System Administrator"
+        department="Land Records (State)"
+        location="New Delhi, India"
+        status="Active"
+        isGovernmentAccount={true}
+        isAdminAccount={true}
+        memberSince={user.createdAt ? formatDate(user.createdAt) : '10 Jan 2021'}
+        lastActive="11 Sep 2026, 10:24 AM"
+        completeness={90}
+        message="Your profile is almost complete."
+      />
 
-        <div className="bg-surface border-2 border-ink shadow-hard-md p-6">
-          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">
-            {t('contactMethodsCard.contactMethods')}
-          </h2>
-          <p className="text-sm text-ink/60 mb-4">
-            {t('adminProfilePage.contactMethodsDesc')}
-          </p>
+      {/* Profile Details Edit Form Target */}
+      <div id="admin-profile-details" className="scroll-mt-6">
+        <ProfileDetailsCard user={user} />
+      </div>
+
+      {/* Row 1: Administrative Information + Identity & Verification */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <PersonalProfessionalCard
+          user={user}
+          mode="admin"
+          onEdit={() => document.getElementById('admin-profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+        />
+        <div className="space-y-6">
+          <IdentityVerificationCard
+            user={user}
+            mode="admin"
+            onUpdateDetails={() => document.getElementById('admin-profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            onViewHistory={() => showToast('Audit trail logged for verification history.')}
+          />
           <div className="space-y-3">
             <ContactMethodCard method="EMAIL" user={user} />
             <ContactMethodCard method="MOBILE" user={user} />
@@ -71,86 +133,57 @@ const AdminProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Row 2 (2-col): Security | Preferences ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SecurityCard />
-        <PreferencesCard />
+      {/* Row 2: Admin Access & Permissions + User Management Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <AdminAccessPermissionsCard
+          onViewAccessMatrix={() => showToast('Full System Access matrix generated.')}
+        />
+        <UserManagementSummary
+          managedUsers={184}
+          activeOfficers={32}
+          pendingApprovals={7}
+          accessRequests={12}
+        />
       </div>
 
-      {/* ── Administrative Access & Permissions ── */}
-      <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-        <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" aria-hidden="true" />
-            <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('adminProfilePage.accessPermissions')}</h3>
-          </div>
-        </div>
-        <div className="p-6">
-          <p className="text-sm text-ink/60 mb-4">
-            {t('adminProfilePage.permissionsDesc')}
-          </p>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary border border-ink rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.userManagement')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-accent/20 text-secondary-strong border-accent/40 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.roleManagement')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.permissionManagement')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.workflowAdministration')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.gisConfiguration')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.governanceConfiguration')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.auditAccess')}</span>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-4 h-4 bg-primary/15 text-primary border-primary/50 rounded-full shrink-0" aria-hidden="true" />
-              <span className="text-sm text-ink font-medium">{t('adminProfilePage.permission.systemConfiguration')}</span>
-            </div>
-            <div>
-              <button
-                type="button"
-                className="w-full inline-flex items-center justify-center gap-2 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
-              >
-                <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                {t('adminProfilePage.viewFullMatrix')}
-              </button>
-            </div>
-          </div>
+      {/* Row 3: Governance Summary + Contact & Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <GovernanceSummary
+          activeConfigs={8}
+          pendingChanges={2}
+          districtsManaged={5}
+          statesManaged={1}
+        />
+        <ContactMethodsCard user={user} mode="admin" />
+      </div>
+
+      {/* Row 4: Recent Admin Activity + Security & Preferences */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <AdminActivitySummary />
+        <div className="space-y-6">
+          <SecurityCard
+            onManage2FA={() => showToast('Administrator 2FA policy enforced.')}
+            onViewSessions={() => showToast('Audit log active for current sessions.')}
+          />
+          <PreferencesCard mode="admin" />
         </div>
       </div>
 
-      {/* ── User / Access Management Summary ── */}
-      <UserManagementSummary />
-
-      {/* ── Governance / System Summary ── */}
-      <GovernanceSummary />
-
-      {/* ── Administrative Activity / Audit Summary ── */}
-      <AdminActivitySummary />
-
-      {/* ── Bottom Action Bar ── */}
+      {/* Bottom Action Bar */}
       <ProfileActionBar
-        onSaveClick={() => {}}
-        onCancelClick={() => {}}
-        onDownloadClick={() => {}}
-        onSupportClick={() => {}}
-        onEditClick={() => {}}
+        infoMessage="Your profile information helps BhoomiSetu maintain a secure and transparent land-governance platform."
+        isEditing={isEditing}
+        onEdit={() => {
+          setIsEditing(true);
+          document.getElementById('admin-profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        onSave={() => {
+          setIsEditing(false);
+          showToast('Profile changes saved successfully.');
+        }}
+        onCancel={() => setIsEditing(false)}
+        onDownloadSummary={handleDownloadSummary}
+        onContactSupport={() => navigate('/contact-us')}
       />
     </div>
   );

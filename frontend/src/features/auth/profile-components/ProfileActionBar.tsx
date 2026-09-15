@@ -1,73 +1,82 @@
 import React from 'react';
-import { useTranslation } from '../../../context/LanguageContext';
-import { ExternalLink } from 'lucide-react';
+import { Info, Edit3, Save, X, Download, HelpCircle } from 'lucide-react';
 
 interface ProfileActionBarProps {
-  onSaveClick?: () => void;
-  onCancelClick?: () => void;
-  onDownloadClick?: () => void;
-  onSupportClick?: () => void;
-  onEditClick?: () => void;
+  infoMessage?: string;
+  isEditing?: boolean;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  onDownloadSummary?: () => void;
+  onContactSupport?: () => void;
 }
 
-const ProfileActionBar: React.FC<ProfileActionBarProps> = ({ onSaveClick, onCancelClick, onDownloadClick, onSupportClick, onEditClick }) => {
-  const { t } = useTranslation();
-
+export const ProfileActionBar: React.FC<ProfileActionBarProps> = ({
+  infoMessage = 'Your profile information helps BhoomiSetu provide better services and securely manage your land records.',
+  isEditing = false,
+  onEdit,
+  onSave,
+  onCancel,
+  onDownloadSummary,
+  onContactSupport,
+}) => {
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-lg p-6">
-      <p className="text-sm text-ink/60 mb-4">
-        {t('profileActionBar.description')}
-      </p>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {onEditClick && (
-            <button
-              type="button"
-              onClick={onEditClick}
-              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              {t('profileActionBar.editProfile')}
-            </button>
-          )}
-          {onSaveClick && (
-            <button
-              type="button"
-              onClick={onSaveClick}
-              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              {t('citizenPortal.profileSaveCta')}
-            </button>
-          )}
-          {onCancelClick && (
-            <button
-              type="button"
-              onClick={onCancelClick}
-              className="px-4 py-2.5 border-2 border-ink text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
-            >
-              {t('profileActionBar.cancel')}
-            </button>
-          )}
-        </div>
-        {onDownloadClick && (
+    <div className="w-full space-y-4 pt-4">
+      {/* Informational Banner */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200">
+        <Info className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+        <span className="font-medium">{infoMessage}</span>
+      </div>
+
+      {/* Button Row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {!isEditing ? (
           <button
             type="button"
-            onClick={onDownloadClick}
-            className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F3D2E] hover:bg-[#166534] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition"
           >
-            <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            {t('profileActionBar.downloadSummary')}
+            <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Edit Profile</span>
           </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onSave}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F3D2E] hover:bg-[#166534] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition"
+            >
+              <Save className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Save Changes</span>
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-white dark:bg-surface-1 hover:bg-gray-50 dark:hover:bg-surface-2 text-text-heading text-xs font-bold uppercase tracking-wider shadow-2xs transition"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Cancel</span>
+            </button>
+          </>
         )}
-        {onSupportClick && (
-          <button
-            type="button"
-            onClick={onSupportClick}
-            className="shrink-0 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface text-ink font-bold uppercase text-xs tracking-wider hover:bg-muted transition"
-          >
-            <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            {t('profileActionBar.contactSupport')}
-          </button>
-        )}
+
+        <button
+          type="button"
+          onClick={onDownloadSummary}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-white dark:bg-surface-1 hover:bg-gray-50 dark:hover:bg-surface-2 text-text-heading text-xs font-bold uppercase tracking-wider shadow-2xs transition"
+        >
+          <Download className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Download Profile Summary</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onContactSupport}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-white dark:bg-surface-1 hover:bg-gray-50 dark:hover:bg-surface-2 text-text-heading text-xs font-bold uppercase tracking-wider shadow-2xs transition"
+        >
+          <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Contact Support</span>
+        </button>
       </div>
     </div>
   );

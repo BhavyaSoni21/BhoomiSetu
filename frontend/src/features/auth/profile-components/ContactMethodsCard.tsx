@@ -1,85 +1,143 @@
-import React from 'react';
-import { Mail, Smartphone, Phone, MapPin, Bell, Settings } from 'lucide-react';
-import StatusBadge from './StatusBadge';
-import ContactMethodCard from '../ContactMethodCard';
+import React, { useState } from 'react';
+import { Phone, Mail, MapPin, Bell } from 'lucide-react';
 import { AuthUser } from '../auth';
-import { useTranslation } from '../../../context/LanguageContext';
+import { ProfileCard } from './ProfileCard';
+import { StatusPill } from './StatusPill';
 
 interface ContactMethodsCardProps {
-  user: AuthUser;
+  user?: AuthUser;
+  mode?: 'officer' | 'admin';
 }
 
-const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({ user }) => {
-  const { t } = useTranslation();
+export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
+  user,
+  mode = 'officer',
+}) => {
+  const isOfficer = mode === 'officer';
+  const defaultEmail = isOfficer
+    ? 'asha.kulkarni@maharashtra.gov.in'
+    : 'rajesh.sharma@nic.in';
+  const email = user?.email || defaultEmail;
+
+  const defaultMobile = isOfficer ? null : '+91 98100 11223';
+  const mobile = user?.mobileNumber || defaultMobile;
+
+  const officePhone = isOfficer ? '020-2612-3456' : '011-2309-1111';
+  const officeAddress = isOfficer
+    ? 'District Collectorate, Shivajinagar, Pune - 411005'
+    : 'Ministry of Panchayati Raj, New Delhi - 110001';
+
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [inAppEnabled, setInAppEnabled] = useState(true);
+
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-      <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('contactMethodsCard.heading')}</h3>
+    <ProfileCard
+      icon={<Phone className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
+      title={isOfficer ? 'CONTACT METHODS & NOTIFICATIONS' : 'CONTACT & NOTIFICATIONS'}
+    >
+      <div className="space-y-3">
+        {/* Official Email */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Official email</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-heading truncate max-w-[150px] sm:max-w-[200px]">{email}</span>
+            <StatusPill status="verified" size="sm" />
+          </div>
         </div>
-        <button
-          type="button"
-          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-ink bg-surface text-ink font-bold text-xs uppercase tracking-wider hover:bg-muted transition"
-        >
-          <Bell className="w-3 h-3" aria-hidden="true" />
-          {t('contactMethodsCard.managePreferences')}
-        </button>
+
+        {/* Mobile Number */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Mobile number</span>
+          <div className="flex items-center gap-2">
+            {mobile ? (
+              <>
+                <span className="text-xs font-mono font-medium text-text-heading">{mobile}</span>
+                <StatusPill status="verified" size="sm" />
+              </>
+            ) : (
+              <>
+                <span className="text-xs font-medium text-text-muted">Not provided</span>
+                <button
+                  type="button"
+                  aria-label="Add official mobile"
+                  className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 transition"
+                >
+                  + Add
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Office Phone */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Office phone</span>
+          <span className="text-xs font-mono font-medium text-text-heading">{officePhone}</span>
+        </div>
+
+        {/* Office Address */}
+        <div className="py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium block">Office address</span>
+          <p className="text-xs font-medium text-text-heading mt-0.5 leading-relaxed">{officeAddress}</p>
+        </div>
+
+        {/* Preferred Contact */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Preferred contact</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-heading">Email</span>
+            <button
+              type="button"
+              className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 hover:underline"
+            >
+              Change
+            </button>
+          </div>
+        </div>
+
+        {/* Notification Toggles */}
+        <div className="pt-2 space-y-2.5">
+          <span className="text-xs font-bold text-text-heading block">Notification Channels</span>
+          
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-secondary">SMS notifications</span>
+            <button
+              type="button"
+              onClick={() => setSmsEnabled(!smsEnabled)}
+              className={`w-9 h-5 rounded-full transition-colors relative ${smsEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+              aria-label="Toggle SMS notifications"
+            >
+              <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.75 transition-transform ${smsEnabled ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-secondary">Email notifications</span>
+            <button
+              type="button"
+              onClick={() => setEmailEnabled(!emailEnabled)}
+              className={`w-9 h-5 rounded-full transition-colors relative ${emailEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+              aria-label="Toggle email notifications"
+            >
+              <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.75 transition-transform ${emailEnabled ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-secondary">In-app notifications</span>
+            <button
+              type="button"
+              onClick={() => setInAppEnabled(!inAppEnabled)}
+              className={`w-9 h-5 rounded-full transition-colors relative ${inAppEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+              aria-label="Toggle in-app notifications"
+            >
+              <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.75 transition-transform ${inAppEnabled ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Smartphone className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('contactMethodsCard.contactMethods')}</h4>
-          </div>
-          <div className="space-y-3">
-            <ContactMethodCard method="EMAIL" user={user} />
-            <ContactMethodCard method="MOBILE" user={user} />
-          </div>
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Phone className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('contactMethodsCard.otherContactDetails')}</h4>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('contactMethodsCard.officePhone')}</dt>
-              <dd className="text-ink font-medium">020-2612-3456</dd>
-              <span className="inline-flex items-center gap-1 mt-1 border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-primary/15 text-primary border-primary/50">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-                {t('contactMethodsCard.verifiedLine')}
-              </span>
-            </div>
-            <div>
-              <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('contactMethodsCard.officeAddress')}</dt>
-              <dd className="text-ink font-medium">District Collectorate, Shivajinagar,</dd>
-              <dd className="text-ink font-medium">Pune - 411005, Maharashtra</dd>
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Bell className="w-4 h-4 text-primary" aria-hidden="true" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('contactMethodsCard.notificationPreferences')}</h4>
-            </div>
-            <div className="space-y-2">
-              {[
-                { label: t('contactMethodsCard.smsNotifications'), active: true },
-                { label: t('contactMethodsCard.emailNotifications'), active: true },
-                { label: t('contactMethodsCard.inAppNotifications'), active: true },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm text-ink font-medium">{item.label}</span>
-                  <span className={`inline-flex items-center gap-1 border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${item.active ? 'bg-primary/15 text-primary border-primary/50' : 'bg-muted text-ink/50 border-ink/15'}`}>
-                    {item.active ? t('contactMethodsCard.enabled') : t('contactMethodsCard.disabled')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProfileCard>
   );
 };
 

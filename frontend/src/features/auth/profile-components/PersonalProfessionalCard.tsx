@@ -1,81 +1,169 @@
 import React from 'react';
-import { Briefcase, MapPin, Calendar, Building } from 'lucide-react';
-import { ProfileField } from './ProfileField';
+import { User, Briefcase, Shield } from 'lucide-react';
 import { AuthUser } from '../auth';
-import { OfficerRole } from '../../officer/officerAuth';
-import { useTranslation } from '../../../context/LanguageContext';
-
-function employeeIdMask(value: string): string {
-  if (!value) return 'LRM******3421';
-  const visible = value.slice(-4);
-  const prefix = value.slice(0, 3).toUpperCase();
-  return prefix + '******' + visible;
-}
+import { ProfileCard } from './ProfileCard';
+import { StatusPill } from './StatusPill';
 
 interface PersonalProfessionalCardProps {
   user?: AuthUser;
-  children?: React.ReactNode;
+  mode?: 'citizen' | 'officer' | 'admin';
+  onEdit?: () => void;
 }
 
-const PersonalProfessionalCard: React.FC<PersonalProfessionalCardProps> = ({ user, children }) => {
-  const { t } = useTranslation();
-  const name = user?.name ?? 'Asha Kulkarni';
-  const preferredName = name.split(/\s+/)[0];
-  // roleKey kept for potential future role-specific label display
-  const _roleKey = user?.role as OfficerRole;
-  const designation = 'Senior Land Records Officer';
-  const department = 'Land Records';
-  const employeeId = user?.governmentIdNumber ? employeeIdMask(user.governmentIdNumber) : 'LRM******3421';
-  const officeLocation = 'Collectorate, Pune';
+export const PersonalProfessionalCard: React.FC<PersonalProfessionalCardProps> = ({
+  user,
+  mode = 'citizen',
+  onEdit,
+}) => {
+  const isCitizen = mode === 'citizen';
+  const isOfficer = mode === 'officer';
+  const isAdmin = mode === 'admin';
+
+  const name = user?.name || (isCitizen ? 'Amit Kumar' : isOfficer ? 'Asha Kulkarni' : 'Rajesh Sharma');
+  const preferredName = user?.name ? user.name.split(' ')[0] : isCitizen ? 'Amit' : isOfficer ? 'Asha' : 'Rajesh';
+  const designation = isOfficer ? 'Senior Land Records Officer' : isAdmin ? 'System Administrator' : 'Citizen';
+  const department = isOfficer ? 'Land Records' : isAdmin ? 'Land Records (State)' : 'Public Sector';
+  const idNumber = isOfficer
+    ? user?.governmentIdNumber
+      ? `LRM******${user.governmentIdNumber.slice(-4)}`
+      : 'LRM******3421'
+    : isAdmin
+    ? user?.governmentIdNumber
+      ? `ADM******${user.governmentIdNumber.slice(-4)}`
+      : 'ADM******9087'
+    : '•••• •••• 4821';
+  const joiningDate = isOfficer ? '12 Jun 2015' : isAdmin ? '10 Jan 2021' : '11 Sep 2026';
+  const officeLocation = isOfficer ? 'Collectorate, Pune' : isAdmin ? 'Secretariat, New Delhi' : 'Not provided';
+  const preferredLang = 'English, Marathi';
+
+  const title = isCitizen
+    ? 'PERSONAL INFORMATION'
+    : isOfficer
+    ? 'PROFESSIONAL INFORMATION'
+    : 'ADMINISTRATIVE INFORMATION';
+
+  const Icon = isCitizen ? User : isOfficer ? Briefcase : Shield;
 
   return (
-    <div className="bg-surface border-2 border-ink shadow-hard-md overflow-hidden">
-      <div className="border-b-2 border-ink/20 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Briefcase className="w-5 h-5 text-primary" aria-hidden="true" />
-          <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{t('personalProfessionalCard.heading')}</h3>
-        </div>
-      </div>
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin className="w-4 h-4 text-primary" aria-hidden="true" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.personalDetails')}</h4>
-            </div>
-            <ProfileField label={t('personalProfessionalCard.fullName')} value={name} />
-            <ProfileField label={t('personalProfessionalCard.preferredName')} value={preferredName} />
-            <ProfileField label={t('personalProfessionalCard.dateOfBirth')} value="•••• •• 1988" />
-            <ProfileField label={t('personalProfessionalCard.gender')} value="Female" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Building className="w-4 h-4 text-primary" aria-hidden="true" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.professionalDetails')}</h4>
-            </div>
-            <ProfileField label={t('personalProfessionalCard.designation')} value={designation} />
-            <ProfileField label={t('personalProfessionalCard.department')} value={department} />
-            <ProfileField label={t('personalProfessionalCard.employeeOfficerId')} value={employeeId} />
-            <ProfileField label={t('personalProfessionalCard.joiningDate')} value="12 Jun 2015" />
-            <ProfileField label={t('personalProfessionalCard.employmentStatus')} value="Regular (Government)" />
+    <ProfileCard
+      icon={<Icon className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
+      title={title}
+    >
+      <div className="space-y-3">
+        {/* Row: Full name */}
+        <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+          <span className="text-xs text-text-muted font-medium">Full name</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-text-heading">{name}</span>
+            <StatusPill status="verified" size="sm" />
           </div>
         </div>
 
-        <div className="border-t border-ink/20 pt-4 mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar className="w-4 h-4 text-primary" aria-hidden="true" />
-            <h4 className="text-xs font-bold uppercase tracking-widest text-ink/50">{t('personalProfessionalCard.additionalInformation')}</h4>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <ProfileField label={t('personalProfessionalCard.preferredLanguage')} value="English, Marathi" />
-              <ProfileField label={t('personalProfessionalCard.officeLocation')} value={officeLocation} />
+        {isCitizen && (
+          <>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Preferred name</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{preferredName}</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
             </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Date of birth</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">•••• •• 1990</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Gender</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Male</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Residential address</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-secondary">{user?.address || 'Not provided'}</span>
+                <StatusPill status={user?.address ? 'verified' : 'not-provided'} size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Occupation</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{user?.occupation || 'Private Sector'}</span>
+                <StatusPill status="user-provided" size="sm" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {(isOfficer || isAdmin) && (
+          <>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Designation</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{designation}</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Department</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{department}</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">{isOfficer ? 'Employee ID' : 'Admin ID'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-medium text-text-heading">{idNumber}</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Joining date</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{joiningDate}</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Employment status</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">Regular (Government)</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-800/60">
+              <span className="text-xs text-text-muted font-medium">Office location</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-text-heading">{officeLocation}</span>
+                <StatusPill status="verified" size="sm" />
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex items-center justify-between py-1.5">
+          <span className="text-xs text-text-muted font-medium">Preferred language</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-heading">{preferredLang}</span>
+            <StatusPill status={isCitizen ? 'verified' : 'user-provided'} size="sm" />
           </div>
         </div>
-        {children}
       </div>
-    </div>
+    </ProfileCard>
   );
 };
 
