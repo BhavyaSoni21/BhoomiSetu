@@ -22,13 +22,12 @@ export const LinkedParcelsCard: React.FC<LinkedParcelsCardProps> = ({
   const displayRegistered = registeredCount !== undefined ? registeredCount : displayTotal;
   const displayPending = pendingCount !== undefined ? pendingCount : 0;
 
-  const sampleParcel = parcels[0] || {
+  const sampleParcel: Pick<ParcelSummary, 'id' | 'ulpin' | 'areaSqM' | 'districtCode' | 'stateCode'> = parcels[0] || {
     id: 'MH-PUN-1229',
     ulpin: 'MH-PUN-1229',
-    area: '30,839 m²',
-    district: 'Pune',
-    state: 'Maharashtra',
-    status: 'REGISTERED',
+    areaSqM: 30839,
+    districtCode: 'Pune',
+    stateCode: 'Maharashtra',
   };
 
   return (
@@ -72,10 +71,10 @@ export const LinkedParcelsCard: React.FC<LinkedParcelsCardProps> = ({
             </div>
             <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
               <MapPin className="w-3 h-3 text-text-muted shrink-0" aria-hidden="true" />
-              <span>{sampleParcel.district || 'Pune'}, {sampleParcel.state || 'Maharashtra'}</span>
+              <span>{sampleParcel.districtCode}, {sampleParcel.stateCode}</span>
             </p>
             <p className="text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400 mt-1">
-              {sampleParcel.area || '30,839 m²'}
+              {sampleParcel.areaSqM.toLocaleString()} m²
             </p>
           </div>
         </div>

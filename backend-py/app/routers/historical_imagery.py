@@ -2,13 +2,14 @@
 
 `list_clusters`/`get_parcels_for_year` are public - the underlying facts
 (dispute/restriction status) are already public via a parcel's own 360
-view, so this doesn't expose anything new. `get_image`/`compare` stay
-staff-only: compare has a real side effect (creates GovernanceAlert rows,
-costs a real LLM call) that only the Officer Portal's comparison workflow
-should be able to trigger.
+view, so this doesn't expose anything new. `compare` stays staff-only: it
+has a real side effect (creates GovernanceAlert rows, costs a real LLM
+call) that only the Officer Portal's comparison workflow should be able to
+trigger. Snapshot imagery (`get_image`) is gone - satellite context now
+comes live from Google Earth Engine (see docs/architecture/BACKLOG.md item 10).
 """
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_roles
@@ -37,11 +38,6 @@ def get_parcels_for_year(cluster_id: str, year: int, db: Session = Depends(get_d
     parcels = service.get_parcels_for_year(db, cluster_id, year)
     return [CategorizedParcelOut.model_validate(p) for p in parcels]
 
-
-@router.get("/clusters/{cluster_id}/years/{year}/image")
-def get_image(cluster_id: str, year: int, db: Session = Depends(get_db), _staff: User = Depends(require_roles(*ALL_STAFF_ROLES))):
-    buffer = service.get_snapshot_image(db, cluster_id, year)
-    return Response(content=buffer, media_type="image/png")
 
 
 @router.post("/clusters/{cluster_id}/compare", response_model=HistoricalComparisonResultOut, status_code=201)

@@ -13,19 +13,17 @@ updated to call the real port once ParcelsModule lands.
 """
 
 import bcrypt
-import json
 import math
 import random
-from dataclasses import dataclass, field
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString, Point as ShapelyPoint, Polygon
 
 from app.common.geo_utils import point_in_ring, polygon_distance_meters
 from app.common.parcel_generation.cluster_generator import CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generate_cluster_parcels
-from app.common.parcel_generation.cluster_snapshot_generator import compute_cluster_bounds, render_cluster_snapshot
-from app.common.parcel_generation.parcel_category import CURRENT_YEAR, category_for
+from app.common.parcel_generation.parcel_category import CURRENT_YEAR
 from app.common.parcel_generation.parcel_document_generator import ParcelDocumentFields, render_parcel_document_image
 from app.common.supabase_storage import ensure_storage_bucket_exists, upload_to_storage
 from app.database import SessionLocal
@@ -39,10 +37,10 @@ from app.models.department_record import (
     TaxRecord,
 )
 from app.models.governance import GovernanceAlert
-from app.models.historical_imagery import ClusterHistoricalSnapshot
 from app.models.land_records import StateALandRecord, StateBLandRecord
 from app.models.parcel import (
     CitizenParcel,
+    CropRecord,
     OwnershipHistoryRecord,
     Parcel,
     ParcelDocument,
@@ -52,6 +50,7 @@ from app.models.parcel import (
 )
 from app.models.spatial import ChangeDetectionEvent, InfrastructureFeature, RestrictionZone, ZoningOverlay
 from app.models.user import User
+from app.models.verification_evidence import VerificationEvidence
 from app.models.workflow import Workflow, WorkflowStep
 
 SQM_PER_HECTARE = 10000
@@ -115,6 +114,16 @@ IDENTIFIER_PROFILES = {
         {"type": "SECTOR_NUMBER", "probability": 0.7, "format": lambda: f"SECTOR-{rand_int(1, 47)}"},
     ],
 }
+
+# Every other state (the one-city + one-village-per-state expansion) gets
+# this generic profile rather than a hand-tuned one per state - nothing
+# downstream treats identifier_type as anything but a free-form string, so
+# there's no real cadastral-accuracy loss in not modeling each state's
+# actual scheme.
+_DEFAULT_IDENTIFIER_PROFILE = [
+    {"type": "SURVEY_NUMBER", "probability": 0.9, "format": lambda: f"{rand_int(1, 200)}/{rand_int(1, 12)}"},
+    {"type": "ULPIN", "probability": 0.5, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
+]
 
 LAND_USES = [("RESIDENTIAL", 5), ("COMMERCIAL", 2), ("AGRICULTURAL", 2), ("MIXED_USE", 1)]
 
@@ -233,12 +242,6 @@ class ClusterParcelEntry:
     parcel: Parcel
     ring: Ring
     centroid: Point
-    has_active_dispute: bool = False
-    dispute_type: str | None = None
-    # restriction_status for every SNAPSHOT_YEARS year - the historical-
-    # imagery snapshot renderer needs this per parcel per year to compute a
-    # real ParcelCategory, not just the current live restriction flag.
-    restriction_by_year: dict = field(default_factory=dict)
 
 
 def compute_neighbour_rows(entries: list[ClusterParcelEntry], ref_lat: float) -> list[ParcelNeighbour]:
@@ -273,9 +276,9 @@ def seed_database() -> None:
         # (Postgres refuses to delete a row another table's live FK still
         # points at).
         tables_to_clear = [
-            WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
-            PlanningRecord, TaxRecord, RestrictionRecord, EncumbranceRecord, OwnershipHistoryRecord,
-            ParcelHistoricalState, ClusterHistoricalSnapshot,
+            VerificationEvidence, WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
+            PlanningRecord, TaxRecord, RestrictionRecord, EncumbranceRecord, OwnershipHistoryRecord, CropRecord,
+            ParcelHistoricalState,
             StateALandRecord, StateBLandRecord,
             ParcelNeighbour, ParcelIdentifier, ChangeDetectionEvent, RestrictionZone,
             ZoningOverlay, InfrastructureFeature, Parcel,
@@ -327,10 +330,9 @@ def seed_database() -> None:
         dispute_records_to_save: list[DisputeRecord] = []
         encumbrance_records_to_save: list[EncumbranceRecord] = []
         ownership_history_records_to_save: list[OwnershipHistoryRecord] = []
+        crop_records_to_save: list[CropRecord] = []
         parcel_historical_states_to_save: list[ParcelHistoricalState] = []
-        cluster_historical_snapshots_to_save: list[ClusterHistoricalSnapshot] = []
 
-        SNAPSHOT_YEARS = [2022, 2023, 2024, 2025, CURRENT_YEAR]
         ensure_storage_bucket_exists()
 
         pune_entries: list[ClusterParcelEntry] = []
@@ -345,7 +347,7 @@ def seed_database() -> None:
             cluster_entries: list[ClusterParcelEntry] = []
 
             for gp in generated:
-                profile = IDENTIFIER_PROFILES[config.state_code]
+                profile = IDENTIFIER_PROFILES.get(config.state_code, _DEFAULT_IDENTIFIER_PROFILE)
                 ulpin_entry = next((p for p in profile if p["type"] == "ULPIN"), None)
                 has_ulpin = bool(ulpin_entry and random.random() < ulpin_entry["probability"])
 
@@ -436,6 +438,33 @@ def seed_database() -> None:
                     )
                 )
 
+                # Crop register (Form 12) - only ever seeded for
+                # AGRICULTURAL parcels, since a residential/commercial
+                # parcel genuinely has no crop history. One row for the
+                # current agricultural year.
+                if land_use == "AGRICULTURAL":
+                    crop_name_en, crop_type = random.choice([
+                        ("Paddy (Rice)", "FOOD_CROP"), ("Wheat", "FOOD_CROP"), ("Sugarcane", "CASH_CROP"),
+                        ("Cotton", "CASH_CROP"), ("Vegetables", "HORTICULTURE"),
+                    ])
+                    irrigated_fraction = random.random()
+                    irrigated_area = round(float(parcel.area_sq_m) * irrigated_fraction, 2)
+                    unirrigated_area = round(float(parcel.area_sq_m) - irrigated_area, 2)
+                    crop_records_to_save.append(
+                        CropRecord(
+                            parcel_id=str(parcel.id),
+                            agricultural_year=f"{CURRENT_YEAR - 1}-{str(CURRENT_YEAR)[2:]}",
+                            season=weighted_pick([("KHARIF", 3), ("RABI", 2), ("SUMMER", 1)]),
+                            crop_type=crop_type,
+                            crop_name=crop_name_en,
+                            irrigated_area_sq_m=irrigated_area,
+                            unirrigated_area_sq_m=unirrigated_area,
+                            irrigation_source=weighted_pick([("WELL", 3), ("BOREWELL", 2), ("CANAL", 2), ("RAINFED", 1)]) if irrigated_area > 0 else None,
+                            uncultivable_area_sq_m=0,
+                            remark=None,
+                        )
+                    )
+
                 rate_per_sqm = rand_int(300, 3000)
                 assessed_value = round(float(parcel.area_sq_m) * rate_per_sqm, 2)
                 annual_tax_amount = round(assessed_value * (0.003 + random.random() * 0.007), 2)
@@ -491,8 +520,6 @@ def seed_database() -> None:
                 case_status = weighted_pick([("FILED", 2), ("UNDER_REVIEW", 2), ("RESOLVED", 3), ("DISMISSED", 1)]) if has_dispute else None
                 is_closed_case = case_status in ("RESOLVED", "DISMISSED")
                 has_active_dispute = case_status in ("FILED", "UNDER_REVIEW")
-                entry.has_active_dispute = has_active_dispute
-                entry.dispute_type = dispute_type if has_active_dispute else None
                 dispute_records_to_save.append(
                     DisputeRecord(
                         parcel_id=str(parcel.id),
@@ -545,6 +572,7 @@ def seed_database() -> None:
                                 transaction_type="ORIGINAL" if k == 0 else weighted_pick([("SALE", 3), ("GIFT", 1), ("INHERITANCE", 1), ("PARTITION", 1)]),
                                 transaction_date=transaction_date,
                                 document_reference=None if k == 0 else f"DEED-{rand_int(100000, 999999)}",
+                                khata_number=str(rand_int(1000, 9999)),
                             )
                         )
 
@@ -559,7 +587,6 @@ def seed_database() -> None:
                 history_restriction = "RESTRICTED" if has_restriction else "UNRESTRICTED"
                 history_tax = tax_status
                 for year in (CURRENT_YEAR, 2025, 2024, 2023, 2022):
-                    entry.restriction_by_year[year] = history_restriction
                     parcel_historical_states_to_save.append(
                         ParcelHistoricalState(
                             parcel_id=str(parcel.id),
@@ -623,29 +650,6 @@ def seed_database() -> None:
             neighbour_rows_to_save.extend(compute_neighbour_rows(cluster_entries, config.center_lat))
             print(f"Built {len(cluster_entries)} parcel entities + department records for cluster {config.cluster_id}")
 
-            # One snapshot image per year, all five sharing the identical
-            # bounding box computed from this cluster's own real
-            # (already-saved) parcel boundaries.
-            rings = [e.ring for e in cluster_entries]
-            snapshot_bounds = compute_cluster_bounds(rings)
-            for year in SNAPSHOT_YEARS:
-                categories = [
-                    category_for(
-                        e.restriction_by_year.get(year),
-                        {"hasActiveDispute": e.has_active_dispute, "disputeType": e.dispute_type} if year == CURRENT_YEAR else None,
-                    )
-                    for e in cluster_entries
-                ]
-                png = render_cluster_snapshot(rings, snapshot_bounds, categories)
-                image_path = f"cluster-snapshots/{config.cluster_id}-{year}.png"
-                upload_to_storage(image_path, png, "image/png")
-                bounds_json = json.dumps(
-                    {"minLng": snapshot_bounds.min_lng, "minLat": snapshot_bounds.min_lat, "maxLng": snapshot_bounds.max_lng, "maxLat": snapshot_bounds.max_lat}
-                )
-                cluster_historical_snapshots_to_save.append(
-                    ClusterHistoricalSnapshot(cluster_id=config.cluster_id, year=year, image_path=image_path, bounds=bounds_json)
-                )
-
         db.flush()
         print(f"Saved {len(identifiers_to_save)} parcel identifiers")
 
@@ -677,13 +681,12 @@ def seed_database() -> None:
         db.add_all(ownership_history_records_to_save)
         db.flush()
         print(f"Saved {len(ownership_history_records_to_save)} ownership history records")
+        db.add_all(crop_records_to_save)
+        db.flush()
+        print(f"Saved {len(crop_records_to_save)} crop records")
         db.add_all(parcel_historical_states_to_save)
         db.flush()
         print(f"Saved {len(parcel_historical_states_to_save)} parcel historical state records")
-        db.add_all(cluster_historical_snapshots_to_save)
-        db.flush()
-        print(f"Saved {len(cluster_historical_snapshots_to_save)} cluster historical snapshot images (Supabase Storage, bucket 'bhoomisetu-uploads')")
-
         db.add_all(neighbour_rows_to_save)
         db.flush()
         print(f"Saved {len(neighbour_rows_to_save)} explicit neighbour relationships (TOUCHING + NEARBY)")
@@ -815,8 +818,14 @@ def seed_database() -> None:
                 User(email="encumbrance.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Kavita Rao", role="ENCUMBRANCE_OFFICER", email_verified=True),
             ]
         )
+        verifiers = [
+            User(email="verifier1@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Sunil Patwardhan", role="VERIFIER", email_verified=True),
+            User(email="verifier2@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Neha Joshi", role="VERIFIER", email_verified=True),
+        ]
+        db.add_all(verifiers)
         db.flush()
         print("Saved 8 demo user accounts (1 admin + 7 officer roles, password: Demo@123)")
+        print(f"Saved {len(verifiers)} demo verifier accounts (password: Demo@123)")
 
         # Optional citizen sign-in: each demo citizen account gets linked to
         # a random 0-5 parcels for the "My Parcels" dashboard, weighted so
@@ -915,6 +924,33 @@ def seed_database() -> None:
         db.flush()
         print(f"Saved {len(seeded_workflows)} demo requests across {len(request_types)} request types")
 
+        # A couple of demo requests get a Verifier assigned + real field-
+        # visit evidence already on file, so the Verifier Portal and the
+        # officer's "Field Evidence" review section are demoable
+        # immediately without manually creating this state through the UI
+        # first (docs/architecture/BACKLOG.md item 19).
+        field_evidence_rows = []
+        for index, workflow in enumerate(seeded_workflows[:2]):
+            verifier = verifiers[index % len(verifiers)]
+            workflow.assigned_verifier_id = str(verifier.id)
+            photo = render_parcel_document_image(
+                ParcelDocumentFields(owner_name="Field Visit Photo", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED")
+            )
+            photo_file_name = f"{workflow.id}-1.png"
+            photo_file_path = f"verification-evidence/{photo_file_name}"
+            upload_to_storage(photo_file_path, photo, "image/png")
+            field_evidence_rows.append(
+                VerificationEvidence(
+                    workflow_id=workflow.id, verifier_id=str(verifier.id),
+                    photo_file_name=photo_file_name, photo_file_path=photo_file_path, mime_type="image/png",
+                    latitude=18.5204 + index * 0.01, longitude=73.8567 + index * 0.01,
+                    captured_at=datetime.now(), notes="Boundary and structures match recorded details.",
+                )
+            )
+        db.add_all(field_evidence_rows)
+        db.flush()
+        print(f"Saved {len(field_evidence_rows)} demo field-evidence records across {min(2, len(seeded_workflows))} verifier-assigned requests")
+
         alert_types = [
             ("RESTRICTION_ZONE_OVERLAP", "RESTRICTION_MONITOR", "HIGH", "Restriction zone overlap detected in demo monitoring."),
             ("UNAUTHORIZED_CHANGE_DETECTED", "CHANGE_DETECTION", "CRITICAL", "Unauthorized change detected in demo imagery comparison."),
@@ -946,9 +982,19 @@ def seed_database() -> None:
         # REGISTERED, a smaller share UNREGISTERED, so an officer's queue
         # has real pre-existing unregistered paperwork to act on from day
         # one rather than everything looking freshly pristine.
+        #
+        # Temporarily skipped: with the one-city+one-village-per-state
+        # expansion there are ~10x as many citizen-linked parcels as
+        # before, and this whole path (render + store a synthetic PNG per
+        # document) is already slated for removal by
+        # docs/architecture/BACKLOG.md item 14 (on-demand PDF generation
+        # replacing seed-time rendered images). Re-enable by deleting this
+        # early exit once that lands, or sooner if seeded documents are
+        # needed again before then.
+        SKIP_PARCEL_DOCUMENT_IMAGES = True
         parcel_documents_to_save: list[ParcelDocument] = []
         for _citizen, parcel in citizen_parcel_links:
-            if random.random() >= 0.55:
+            if SKIP_PARCEL_DOCUMENT_IMAGES or random.random() >= 0.55:
                 continue
             info = parcel_document_info_by_id.get(str(parcel.id), {"owner_name": random_person_name(), "identifier_value": None})
             registration_status = "REGISTERED" if random.random() < 0.7 else "UNREGISTERED"

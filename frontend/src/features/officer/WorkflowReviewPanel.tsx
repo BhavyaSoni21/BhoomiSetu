@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw, MapPin, UserCheck } from 'lucide-react';
 import apiService from '../../services/apiService';
-import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
+import { Workflow, WorkflowStep, VerificationPrecheck, FieldEvidence } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 import { Parcel360Response } from '../../types/parcel360';
+import { ManagedUser } from '../../types/user';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
 import MicButton from '../../components/MicButton';
 
@@ -539,6 +540,92 @@ const AdminDecidedStepRow: React.FC<AdminDecidedStepRowProps> = ({ workflowId, s
   );
 };
 
+// Admin-only (PATCH /workflows/{id}/assign-verifier requires ADMIN) - hands
+// this workflow off to an Authorized Field Verifier for a site visit.
+// Reuses the same admin-users listing UserManagement.tsx is built on
+// (GET /users), filtered client-side to just the VERIFIER role rather than
+// adding a new lower-privilege listing endpoint.
+const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: string | null; requiresFieldVerification: boolean }> = ({
+  workflowId,
+  assignedVerifierId,
+  requiresFieldVerification,
+}) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { data: users = [] } = useQuery<ManagedUser[]>(['admin-users'], async () => (await apiService.get('/users')).data);
+  const verifiers = users.filter((u) => u.role === 'VERIFIER');
+
+  const assignMutation = useMutation(
+    async (verifierId: string) => (await apiService.patch(`/workflows/${workflowId}/assign-verifier`, { verifierId })).data as Workflow,
+    { onSuccess: () => queryClient.invalidateQueries(['workflow', workflowId]) },
+  );
+
+  const assignedVerifier = verifiers.find((v) => v.id === assignedVerifierId);
+
+  return (
+    <div className="border-t-4 border-ink pt-4">
+      <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5 flex items-center gap-1.5">
+        <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('officerPortal.assignVerifierLabel')}
+      </h4>
+      {!requiresFieldVerification && !assignedVerifier && (
+        <p className="text-xs text-ink/50 mb-1.5">{t('officerPortal.verificationNotTypicallyNeeded')}</p>
+      )}
+      {assignedVerifier && <p className="text-sm text-ink mb-1.5">{t('officerPortal.currentlyAssignedTo', { name: assignedVerifier.name })}</p>}
+      <select
+        value={assignedVerifierId ?? ''}
+        onChange={(e) => e.target.value && assignMutation.mutate(e.target.value)}
+        disabled={assignMutation.isLoading || verifiers.length === 0}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+      >
+        <option value="" disabled>
+          {verifiers.length === 0 ? t('officerPortal.noVerifiersAvailable') : t('officerPortal.selectVerifierPlaceholder')}
+        </option>
+        {verifiers.map((v) => (
+          <option key={v.id} value={v.id}>{v.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
+// Every field-visit evidence item a Verifier has submitted for this
+// workflow - photo, GPS, who captured it and when. Shown to staff before a
+// review decision is made (docs/SIH26014_Hidden_Insights_Strategy.md §3-4).
+const FieldEvidenceSection: React.FC<{ workflowId: string }> = ({ workflowId }) => {
+  const { t } = useTranslation();
+  const { data: evidence = [] } = useQuery<FieldEvidence[]>(
+    ['field-evidence', workflowId],
+    async () => (await apiService.get(`/workflows/${workflowId}/field-evidence`)).data,
+  );
+
+  if (evidence.length === 0) return null;
+
+  return (
+    <div className="border-t-4 border-ink pt-4">
+      <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5 flex items-center gap-1.5">
+        <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('officerPortal.fieldEvidenceLabel')}
+      </h4>
+      <div className="flex flex-wrap gap-3">
+        {evidence.map((item) => (
+          <div key={item.id} className="w-32">
+            <AuthenticatedDocumentImage
+              src={`/workflows/${workflowId}/field-evidence/${item.id}/photo`}
+              alt={t('officerPortal.fieldEvidenceAlt')}
+              className="w-32 h-40 object-cover border-2 border-ink"
+              zoomable
+            />
+            <p className="mt-1 text-[10px] font-mono text-ink/70">{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</p>
+            <p className="text-[10px] text-ink/50">{formatDate(item.capturedAt)}</p>
+            {item.notes && <p className="text-[10px] text-ink/60 italic mt-0.5">&quot;{item.notes}&quot;</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, officerDepartment }) => {
   const { t } = useTranslation();
   const { data: workflow, isLoading, error } = useQuery<Workflow>(
@@ -627,6 +714,22 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                   zoomable
                 />
               </div>
+              {workflow.evidenceAuthenticitySuspicious && (
+                <div className="mt-2 inline-flex items-start gap-1.5 border-2 border-secondary-strong bg-secondary/10 px-2 py-1.5 max-w-xs">
+                  <AlertTriangle className="w-3.5 h-3.5 text-secondary-strong shrink-0 mt-0.5" aria-hidden="true" />
+                  <span className="text-[11px] text-ink/80">
+                    {t('officerPortal.authenticitySuspiciousLabel')}
+                    {(() => {
+                      try {
+                        const reasons = workflow.evidenceAuthenticityReasons ? (JSON.parse(workflow.evidenceAuthenticityReasons) as string[]) : [];
+                        return reasons.length > 0 ? ` (${reasons.join(', ').replace(/_/g, ' ').toLowerCase()})` : '';
+                      } catch {
+                        return '';
+                      }
+                    })()}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -654,7 +757,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
       <div>
         <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{workflow.workflowType.replace(/_/g, ' ')}</h3>
         <p className="text-sm text-ink/60 flex items-center gap-1.5 flex-wrap">
-          {t('officerPortal.parcelLabel', { id: workflow.parcelId })}
+          {workflow.parcelId}
           {/* Notifications stopped auto-opening Parcel 360 (docs/ADMIN_PANEL_ISSUES.md
               follow-up), so this is now the direct path from a request's
               review back to its parcel's full detail view - still fully
@@ -672,6 +775,15 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         </span>
         {workflow.requestDetails && <p className="text-sm text-ink/70 mt-2 italic">&quot;{workflow.requestDetails}&quot;</p>}
       </div>
+
+      {isAdminMode && (
+        <AssignVerifierControl
+          workflowId={workflowId}
+          assignedVerifierId={workflow.assignedVerifierId}
+          requiresFieldVerification={workflow.requiresFieldVerification}
+        />
+      )}
+      <FieldEvidenceSection workflowId={workflowId} />
 
       {/* Scoped to the reviewing officer's own department only (never the
           other 6 departments' records) - the case review panel's job is

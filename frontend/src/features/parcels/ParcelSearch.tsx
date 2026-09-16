@@ -295,10 +295,10 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-bold text-ink">
-                      {t('parcelSearch.parcelLabel', { id: parcel.id.substring(0, 8) })}
+                      {parcel.id.substring(0, 8)}
                     </h3>
                     <p className="text-sm text-ink/60">
-                      {parcel.ulpin ? t('parcelSearch.ulpinValue', { value: parcel.ulpin }) : t('parcelSearch.noUlpin')}
+                      {parcel.ulpin ? `${t('parcelSearch.ulpinLabel')}: ${parcel.ulpin}` : t('parcelSearch.noUlpin')}
                     </p>
                     <p className="text-sm text-ink/60">
                       {parcel.stateCode}-{parcel.districtCode}

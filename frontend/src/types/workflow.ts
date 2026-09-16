@@ -30,6 +30,13 @@ export interface Workflow {
   lastRemarks: string | null;
   // Snapshotted from the citizen's profile at creation (docs/FRONTEND_UPGRADE_SPEC.md
   // follow-up, "simplified Raise Request") - shown to the reviewing officer.
+  // Set by an Admin via PATCH /workflows/{id}/assign-verifier - null until
+  // a Verifier is assigned to make the field visit.
+  assignedVerifierId: string | null;
+  // Deterministic per workflowType (backend/app/models/workflow.py's
+  // FIELD_VERIFICATION_WORKFLOW_TYPES) - false for desk-only requests like
+  // ROR_COPY_REQUEST that never need a Verifier's field visit.
+  requiresFieldVerification: boolean;
   applicantContact: string | null;
   applicantAddress: string | null;
   // JSON string (Workflow.verificationPrecheck is a plain text column) -
@@ -43,7 +50,27 @@ export interface Workflow {
   // was attached (evidenceMimeType covers content-type for display).
   evidenceFileName: string | null;
   evidenceMimeType: string | null;
+  // OpenCV tamper/authenticity heuristic (BACKLOG.md item 15) - a soft
+  // signal, not a hard accept/reject gate. evidenceAuthenticityReasons is a
+  // JSON string (list[str]) same convention as verificationPrecheck.
+  evidenceAuthenticitySuspicious: boolean | null;
+  evidenceAuthenticityReasons: string | null;
   createdAt: string;
   updatedAt: string;
   steps: WorkflowStep[];
+}
+
+// A Verifier's field-visit evidence for one workflow - geotagged photo +
+// timestamp + notes, reviewed by staff before a workflow step is decided.
+export interface FieldEvidence {
+  id: string;
+  workflowId: string;
+  verifierId: string;
+  photoFileName: string;
+  mimeType: string;
+  latitude: number;
+  longitude: number;
+  capturedAt: string;
+  notes: string | null;
+  createdAt: string;
 }

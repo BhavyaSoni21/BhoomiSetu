@@ -189,10 +189,9 @@ export const BhoomiSetuLanding: React.FC = () => {
         {/* ========================================================================= */}
         {/* 04. HERO SECTION WITH CONNECTED NODE VISUAL                               */}
         {/* ========================================================================= */}
-        <section className="w-full bg-[var(--page-bg)]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-            {/* Background Image - Bounded inside section container so it stays within section boundaries even when zoomed out */}
-            <div className="absolute inset-0 w-full h-full pointer-events-none">
+        <section className="relative w-full overflow-hidden bg-[var(--page-bg)]">
+          {/* Background image spans the complete viewport-width section. */}
+          <div className="absolute inset-0 h-full w-full pointer-events-none">
               <img 
                 src="/hero-team.jpg" 
                 alt="Hero Background" 
@@ -203,7 +202,7 @@ export const BhoomiSetuLanding: React.FC = () => {
             {/* Gradient overlay: uses color-mix to properly apply opacity to the CSS variable */}
             <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, var(--page-bg) 30%, color-mix(in srgb, var(--page-bg) 80%, transparent) 50%, transparent 65%)' }} />
 
-            <div className="pt-12 sm:pt-20 pb-16 sm:pb-24 relative z-10">
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-16 sm:pb-24">
               <div className="max-w-2xl space-y-6">
                 <div>
                   <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-[var(--text-heading)] leading-[1.15] drop-shadow-sm">
@@ -250,7 +249,6 @@ export const BhoomiSetuLanding: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
         </section>
 
         {/* ========================================================================= */}
@@ -365,7 +363,7 @@ export const BhoomiSetuLanding: React.FC = () => {
         </section>
 
         {/* ========================================================================= */}
-        {/* 07. HOW IT WORKS — 5 STEPS                                                 */}
+        {/* 07. HOW IT WORKS â€” 5 STEPS                                                 */}
         {/* ========================================================================= */}
         <section className="w-full bg-[var(--page-bg)]/60 py-10 sm:py-12 border-b border-[var(--border)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

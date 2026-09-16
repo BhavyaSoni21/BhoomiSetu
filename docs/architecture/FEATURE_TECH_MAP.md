@@ -238,7 +238,7 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 | **Library (frontend)** | none — plain `fetch` + React Context, no i18n library (replaced `i18next`/`react-i18next` 2026-09-15) |
 | **Endpoints** | `GET /api/v1/multilingual/ui-text/{lang}` (cached static text), plus live `translate`/`transliterate`/`tts`/`asr` endpoints for dynamic content |
 | **Backend** | `app/services/bhashini.py`, `app/routers/multilingual.py`, `app/services/ui_text.py`, `static/ui_strings_<lang>.json` (11 files), `scripts/batch_translate_ui.py` |
-| **Frontend** | `context/LanguageContext.tsx` — wired throughout every portal via `navConfig.ts`'s `labelKey` pattern |
+| **Frontend** | `context/LanguageContext.tsx` — wired throughout every portal via `navConfig.ts`'s `labelKey` pattern; `components/SpeakerButton.tsx`/`components/MicButton.tsx` (TTS/ASR, wired into 8+ call sites as of 2026-09-16) |
 
 ## 23. Rate Limiting
 
@@ -274,11 +274,11 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 
 | | |
 |---|---|
-| **Library (backend)** | `sharp` (SVG-to-PNG rasterization at seed time, `common/parcel-generation/cluster-snapshot-generator.ts`); `openai` SDK pointed at **OpenRouter** (`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, text-only — a separate client from Groq/feature 17, since Groq's model here takes no image/needs no image) |
+| **Library (backend)** | `openai` SDK pointed at **OpenRouter** (`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, text-only — a separate client from Groq/feature 17, since Groq's model here takes no image/needs no image); `earthengine-api` for the real satellite-photo toggle (added 2026-09-16, see feature 9) — the seed-time `sharp`/`cluster-snapshot-generator.ts` PNG-rasterization path was removed 2026-09-15 (`docs/architecture/BACKLOG.md` item 10, done) |
 | **Library (frontend)** | `maplibre-gl` (`features/map/MapComponent.tsx`, extended with `parcelColors`/`parcelLabels` props) |
-| **Endpoints** | `GET /historical-imagery/clusters`, `GET /historical-imagery/clusters/:clusterId/years/:year/parcels`, `GET /historical-imagery/clusters/:clusterId/years/:year/image`, `POST /historical-imagery/clusters/:clusterId/compare` (rate-limited 30/min, staff-only, locked to the most recent year pair only) |
-| **Backend** | `historical-imagery/historical-imagery.controller.ts`, `historical-imagery/historical-comparison.service.ts`, `historical-imagery/narrative.service.ts`, `common/parcel-generation/parcel-category.ts`, `common/parcel-generation/cluster-snapshot-generator.ts` |
-| **Frontend** | `features/officer/HistoricalImageryPanel.tsx` (`pages/officer/HistoricalImageryPage.tsx`), `features/officer/HistoricalYearCompare.tsx` (also embedded inline in `features/parcels/Parcel360View.tsx`) |
+| **Endpoints** | `GET /historical-imagery/clusters`, `GET /historical-imagery/clusters/:clusterId/years/:year/parcels`, `POST /historical-imagery/clusters/:clusterId/compare` (rate-limited 30/min, staff-only, locked to the most recent year pair only); `GET /change-detection/clusters/:clusterId/satellite-image?date=` (added 2026-09-16, real true-color Earth Engine photo for the Satellite Photo toggle) |
+| **Backend** | `app/routers/historical_imagery.py`, `app/services/historical_comparison_service.py`, `app/services/narrative_service.py`, `app/common/parcel_generation/parcel_category.py`, `app/services/earth_engine_service.py` (`get_true_color_visual_png`, added 2026-09-16) |
+| **Frontend** | `features/officer/HistoricalImageryPanel.tsx` (`pages/officer/HistoricalImageryPage.tsx`), `features/officer/HistoricalMapView.tsx` (Parcel Map / Satellite Photo toggle, added 2026-09-16), `features/officer/HistoricalYearCompare.tsx` (also embedded inline in `features/parcels/Parcel360View.tsx`) |
 
 ## 27. In-App Notifications
 
@@ -311,6 +311,16 @@ All backend paths are relative to `backend/src/`, frontend paths to `frontend/sr
 | **Endpoints** | folded into `PATCH /governance-alerts/:id/status` (feature 10) |
 | **Backend** | `governance/governance-alerts.service.ts` (`alertDepartmentFor`) |
 | **Frontend** | `features/officer/GovernanceAlertReasonPrompt.tsx` |
+
+## 30. Verifier Role & Field Evidence Capture
+
+| | |
+|---|---|
+| **Library (backend)** | none new — plain multipart upload, same pattern as evidence upload elsewhere |
+| **Library (frontend)** | `navigator.geolocation` (new usage — GPS capture) |
+| **Endpoints** | `PATCH /workflows/:id/assign-verifier`, `GET /workflows/assigned-to-me`, `POST /workflows/:id/field-evidence`, `GET /workflows/:id/field-evidence` |
+| **Backend** | `app/auth/roles.py` (`VERIFIER_ROLE`), `app/models/verification_evidence.py`, `app/services/workflows_service.py` (`assign_verifier`, `find_assigned_to_verifier`, `add_field_evidence`, `list_field_evidence`), `app/routers/workflows.py` |
+| **Frontend** | `pages/VerifierPortal.tsx`, `pages/verifier/AssignedVisitsPage.tsx`, `features/verifier/FieldEvidenceCaptureForm.tsx`, `pages/verifier/VerifierProfilePage.tsx` |
 
 ---
 

@@ -35,6 +35,12 @@ vi.mock('maplibre-gl', () => {
     });
     setFilter = vi.fn();
     fitBounds = vi.fn();
+    getBounds = vi.fn(() => ({
+      getWest: () => -1,
+      getSouth: () => -1,
+      getEast: () => 1,
+      getNorth: () => 1,
+    }));
     getSource = vi.fn((id: string) => this.sources[id]);
     isStyleLoaded = vi.fn(() => true);
     getCanvas = vi.fn(() => ({ style: {} }));
@@ -67,14 +73,18 @@ vi.mock('maplibre-gl', () => {
     }
   }
 
-  return {
-    default: {
-      Map: MockMap,
-      NavigationControl: MockNavigationControl,
-      Popup: MockPopup,
-      LngLatBounds: MockLngLatBounds,
-    },
+  // MapComponent.tsx does `import * as maplibregl from 'maplibre-gl'` (a
+  // namespace import), which reads named exports off the module object
+  // directly - not nested under `default`. Exporting both shapes here
+  // covers that plus any `import maplibregl from 'maplibre-gl'` default-
+  // import usage elsewhere.
+  const named = {
+    Map: MockMap,
+    NavigationControl: MockNavigationControl,
+    Popup: MockPopup,
+    LngLatBounds: MockLngLatBounds,
   };
+  return { ...named, default: named };
 });
 
 vi.mock('../../services/apiService', () => ({
@@ -196,7 +206,10 @@ describe('MapComponent', () => {
 
     renderWithClient(<MapComponent />);
 
-    expect(screen.getByText(/loading parcels/i)).toBeInTheDocument();
+    // The base parcels query only enables once the map has mounted and
+    // reported its initial viewport bbox (see MapComponent's viewBbox
+    // state), one tick after render rather than synchronously with it.
+    await waitFor(() => expect(screen.getByText(/loading parcels/i)).toBeInTheDocument());
     resolveParcels!({ data: { parcels: [] } });
     await waitFor(() => expect(screen.queryByText(/loading parcels/i)).not.toBeInTheDocument());
   });
@@ -206,7 +219,9 @@ describe('MapComponent', () => {
 
     renderWithClient(<MapComponent />);
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/gis/parcels'));
+    await waitFor(() =>
+      expect(apiService.get).toHaveBeenCalledWith('/gis/parcels', { params: { bbox: '-1,-1,1,1', limit: 1000 } }),
+    );
   });
 
   it('adds a parcels-source and parcels-layer once data arrives, parsing string geometry', async () => {

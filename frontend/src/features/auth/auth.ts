@@ -3,7 +3,7 @@ import axios from 'axios';
 import apiService from '../../services/apiService';
 import { OfficerRole } from '../officer/officerAuth';
 
-export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN';
+export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN' | 'VERIFIER';
 export type ContactMethod = 'EMAIL' | 'MOBILE';
 
 export interface AuthUser {

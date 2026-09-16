@@ -21,6 +21,7 @@ class GovernanceAlertOut(CamelModel):
     explanation: str
     reason: str | None
     created_at: datetime
+    department: str | None = None
 
 
 class UpdateGovernanceAlertStatus(CamelModel):

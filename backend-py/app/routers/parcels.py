@@ -12,7 +12,7 @@ landed.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user_optional, require_roles
@@ -77,6 +77,7 @@ async def identify_from_document(
     return IdentifyFromDocumentResponse(
         extracted_text=result.extracted_text, ocr_confidence=result.ocr_confidence,
         candidates=[ParcelOut.model_validate(p) for p in result.candidates],
+        authenticity_suspicious=result.authenticity_suspicious, authenticity_reasons=result.authenticity_reasons or [],
     )
 
 
@@ -155,6 +156,24 @@ def get_documents(id: UUID, db: Session = Depends(get_db)):
     return service.get_documents(db, str(id))
 
 
+@router.get("/{id}/documents/official-pdf")
+def get_official_document_pdf(
+    id: UUID, lang: str = Query("en", pattern="^(en|hi)$"),
+    db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
+):
+    if not service.find_one(db, str(id)):
+        raise _not_found(id)
+    # Same access rule as the seed-time document file above - a citizen
+    # only sees it for a parcel actually linked to their account.
+    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
+    pdf_bytes = service.get_official_document_pdf(db, str(id), lang)
+    return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+# Registered above this route - "official-pdf" is a literal path segment,
+# not a doc_id UUID, so it must be matched before this {doc_id}: UUID
+# route or FastAPI would try (and fail) to parse it as one.
 @router.get("/{id}/documents/{doc_id}/file")
 def get_document_file(id: UUID, doc_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
     if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):

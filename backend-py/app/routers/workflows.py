@@ -11,23 +11,27 @@ instead, validating either shape through the same CreateWorkflow schema.
 """
 
 import uuid
+from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.auth.deps import require_roles
-from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT
+from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT, VERIFIER_ROLE
 from app.common.supabase_storage import upload_to_storage
 from app.database import get_db
+from app.document_verification.authenticity import check_authenticity
 from app.document_verification.ocr import extract_text
 from app.models.user import User
-from app.schemas.workflow import CreateWorkflow, EscalateWorkflowStep, ReopenWorkflowStep, ReviewWorkflowStep, UpdateWorkflowStatus, WorkflowOut
+from app.schemas.workflow import (
+    AssignVerifier, CreateWorkflow, EscalateWorkflowStep, FieldEvidenceOut, ReopenWorkflowStep, ReviewWorkflowStep, UpdateWorkflowStatus, WorkflowOut,
+)
 from app.services import audit_service
 from app.services import workflows_service as service
-from app.services.workflows_service import CreateWorkflowInput, WorkflowEvidenceInput
+from app.services.workflows_service import CreateWorkflowInput, FieldEvidenceInput, WorkflowEvidenceInput
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -104,10 +108,14 @@ async def create(request: Request, db: Session = Depends(get_db), user: User = D
         if len(data) > _MAX_IMAGE_BYTES:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The attached document must be 5MB or smaller")
         ocr_result = extract_text(data)
+        authenticity_result = check_authenticity(data)
         file_name = f"{uuid.uuid4()}.{extension}"
         file_path = f"workflow-evidence/{file_name}"
         upload_to_storage(file_path, data, content_type_header)
-        evidence = WorkflowEvidenceInput(file_name=file_name, file_path=file_path, mime_type=content_type_header, extracted_text=ocr_result.text)
+        evidence = WorkflowEvidenceInput(
+            file_name=file_name, file_path=file_path, mime_type=content_type_header, extracted_text=ocr_result.text,
+            authenticity_suspicious=authenticity_result.suspicious, authenticity_reasons=authenticity_result.reasons,
+        )
 
     # Simplified Raise Request: applicant contact/address snapshotted from
     # the citizen's own profile, never client-entered - whichever contact
@@ -147,6 +155,12 @@ def find_all(
 @router.get("/mine", response_model=list[WorkflowOut])
 def find_mine(db: Session = Depends(get_db), user: User = Depends(require_roles(CITIZEN_ROLE))):
     return service.find_mine_for_citizen(db, str(user.id))
+
+
+# Same registration-order reason as '/mine' above.
+@router.get("/assigned-to-me", response_model=list[WorkflowOut])
+def find_assigned_to_me(db: Session = Depends(get_db), user: User = Depends(require_roles(VERIFIER_ROLE))):
+    return service.find_assigned_to_verifier(db, str(user.id))
 
 
 # Department-scoped like GET /workflows above (KNOWN_RISKS.md HIGH-9) - a
@@ -245,3 +259,78 @@ def reopen_step(workflow_id: UUID, step_id: UUID, dto: ReopenWorkflowStep, db: S
         entity_id=str(step_id), parcel_id=result.parcel_id, metadata={"workflowId": str(workflow_id), "department": reopened_step.department, "message": dto.message},
     )
     return result
+
+
+# Admin-only, same as the rest of staff account/assignment management
+# (see users_service.find_all's docstring) - hands a workflow off to an
+# Authorized Field Verifier.
+@router.patch("/{id}/assign-verifier", response_model=WorkflowOut)
+def assign_verifier(id: UUID, dto: AssignVerifier, db: Session = Depends(get_db), user: User = Depends(require_roles("ADMIN"))):
+    result = service.assign_verifier(db, str(id), str(dto.verifier_id))
+    if result == service.WORKFLOW_NOT_FOUND:
+        raise _not_found_workflow(id)
+    audit_service.log(
+        db, user_id=str(user.id), user_role=user.role, action="WORKFLOW_VERIFIER_ASSIGNED", entity_type="WORKFLOW",
+        entity_id=str(id), parcel_id=result.parcel_id, metadata={"verifierId": str(dto.verifier_id)},
+    )
+    return result
+
+
+@router.post("/{id}/field-evidence", response_model=FieldEvidenceOut, status_code=status.HTTP_201_CREATED)
+async def add_field_evidence(
+    id: UUID,
+    photo: UploadFile = File(...),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    captured_at: datetime = Form(..., alias="capturedAt"),
+    notes: str | None = Form(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(VERIFIER_ROLE)),
+):
+    # Same image-extension allowlist/size cap as the citizen evidence
+    # upload in create() above (KNOWN_RISKS.md HIGH-4: never trust the
+    # client-supplied Content-Type subtype for the stored extension).
+    content_type_header = photo.content_type or ""
+    subtype = content_type_header[len("image/"):] if content_type_header.startswith("image/") else None
+    extension = _IMAGE_EXTENSIONS_BY_SUBTYPE.get(subtype) if subtype else None
+    if extension is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The field-evidence photo must be an image (png, jpg, or webp)")
+    data = await photo.read()
+    if len(data) > _MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The field-evidence photo must be 5MB or smaller")
+
+    file_name = f"{uuid.uuid4()}.{extension}"
+    file_path = f"verification-evidence/{file_name}"
+    upload_to_storage(file_path, data, content_type_header)
+
+    result = service.add_field_evidence(
+        db, str(id), str(user.id),
+        FieldEvidenceInput(
+            file_name=file_name, file_path=file_path, mime_type=content_type_header,
+            latitude=latitude, longitude=longitude, captured_at=captured_at, notes=notes,
+        ),
+    )
+    if result == service.WORKFLOW_NOT_FOUND:
+        raise _not_found_workflow(id)
+    if result == service.NOT_ASSIGNED_TO_YOU:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This workflow is not assigned to you")
+
+    audit_service.log(
+        db, user_id=str(user.id), user_role=user.role, action="FIELD_EVIDENCE_SUBMITTED", entity_type="WORKFLOW",
+        entity_id=str(id), metadata={"evidenceId": str(result.id)},
+    )
+    return result
+
+
+@router.get("/{id}/field-evidence", response_model=list[FieldEvidenceOut])
+def get_field_evidence(id: UUID, db: Session = Depends(get_db), _staff: User = Depends(require_roles(*ALL_STAFF_ROLES))):
+    return service.list_field_evidence(db, str(id))
+
+
+@router.get("/{id}/field-evidence/{evidence_id}/photo")
+def get_field_evidence_photo(id: UUID, evidence_id: UUID, db: Session = Depends(get_db), _staff: User = Depends(require_roles(*ALL_STAFF_ROLES))):
+    file = service.get_field_evidence_photo(db, str(id), str(evidence_id))
+    if file is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No field-evidence photo found: {evidence_id}")
+    data, mime_type = file
+    return Response(content=data, media_type=mime_type)

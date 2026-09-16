@@ -11,8 +11,9 @@ occasional small gap.
 
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from .osm_roads import resolve_road_angles
 from .geometry import (
     LocalPoint,
     LocalRing,
@@ -63,7 +64,94 @@ class ClusterGeometryConfig:
     gap_meters: float
 
 
-# Five clusters, each with a genuinely different orientation/envelope
+def _auto_config(cluster_id: str, state_code: str, district: str, center_lng: float, center_lat: float, *, is_village: bool) -> ClusterGeometryConfig:
+    """Default-tuned config for the one-city + one-village-per-state
+    coverage below. dominant_angle_deg here is only the pre-OSM fallback -
+    generate_cluster_parcels() overwrites it with the real road bearing at
+    (center_lat, center_lng) when Overpass has data for the area.
+    """
+    # Deterministic per-cluster jitter (not random-seeded) so re-running
+    # the seed script doesn't reshuffle which clusters look "similar".
+    seed = sum(cluster_id.encode())
+    angle = seed % 180
+    if is_village:
+        return ClusterGeometryConfig(
+            cluster_id=cluster_id, state_code=state_code, district=district,
+            center_lng=center_lng, center_lat=center_lat,
+            parcel_count=40, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
+            envelope_sides=5, radius_meters=750, aspect_ratio=1.2,
+            min_parcel_area_sq_m=15000, max_parcel_area_sq_m=60000,
+            gap_probability=0.08, gap_meters=5,
+        )
+    return ClusterGeometryConfig(
+        cluster_id=cluster_id, state_code=state_code, district=district,
+        center_lng=center_lng, center_lat=center_lat,
+        parcel_count=100, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
+        envelope_sides=7, radius_meters=1050, aspect_ratio=1.5,
+        min_parcel_area_sq_m=10000, max_parcel_area_sq_m=45000,
+        gap_probability=0.1, gap_meters=6,
+    )
+
+
+# One city + one village per Indian state (28 states; Delhi/Chandigarh
+# above are the two union-territory pilots, kept as-is). City = state
+# capital (or largest metro, when the notional capital is a planned/low-OSM-
+# density city). Village = a real point offset from the capital rather than
+# a named settlement, since a specific village's exact coordinates aren't
+# reliably known here - real coordinates either way, resolve_road_angles()
+# reads whatever OSM road data actually exists at that point.
+_STATE_CAPITALS: list[tuple[str, str, float, float]] = [
+    ("AP", "Vijayawada", 80.6480, 16.5062),
+    ("AR", "Itanagar", 93.6053, 27.0844),
+    ("AS", "Guwahati", 91.7362, 26.1445),
+    ("BR", "Patna", 85.1376, 25.5941),
+    ("CG", "Raipur", 81.6296, 21.2514),
+    ("GA", "Panaji", 73.8278, 15.4909),
+    ("GJ", "Ahmedabad", 72.5714, 23.0225),
+    ("HR", "Gurugram", 77.0266, 28.4595),
+    ("HP", "Shimla", 77.1734, 31.1048),
+    ("JH", "Ranchi", 85.3096, 23.3441),
+    ("KL", "Thiruvananthapuram", 76.9366, 8.5241),
+    ("MP", "Bhopal", 77.4126, 23.2599),
+    ("MN", "Imphal", 93.9368, 24.8170),
+    ("ML", "Shillong", 91.8933, 25.5788),
+    ("MZ", "Aizawl", 92.7176, 23.7271),
+    ("NL", "Kohima", 94.1086, 25.6751),
+    ("OD", "Bhubaneswar", 85.8245, 20.2961),
+    ("PB", "Ludhiana", 75.8573, 30.9010),
+    ("RJ", "Jaipur", 75.7873, 26.9124),
+    ("SK", "Gangtok", 88.6065, 27.3389),
+    ("TG", "Hyderabad", 78.4867, 17.3850),
+    ("TR", "Agartala", 91.2868, 23.8315),
+    ("UP", "Lucknow", 80.9462, 26.8467),
+    ("UK", "Dehradun", 78.0322, 30.3165),
+    ("WB", "Kolkata", 88.3639, 22.5726),
+]
+
+# Village offset: ~28km from the capital at a per-state bearing (derived
+# from the state code so it's fixed, not random) - lands in real
+# countryside around most capitals without asserting a specific village name.
+def _village_point(lng: float, lat: float, state_code: str) -> tuple[float, float]:
+    bearing_deg = (sum(state_code.encode()) * 37) % 360
+    bearing_rad = math.radians(bearing_deg)
+    dx_m, dy_m = 28000 * math.sin(bearing_rad), 28000 * math.cos(bearing_rad)
+    lng_scale = 111320 * math.cos(math.radians(lat))
+    return lng + dx_m / lng_scale, lat + dy_m / 110540
+
+
+_AUTO_CLUSTER_CONFIGS: list[ClusterGeometryConfig] = []
+for _state_code, _city_name, _city_lng, _city_lat in _STATE_CAPITALS:
+    _AUTO_CLUSTER_CONFIGS.append(_auto_config(f"{_state_code}-{_city_name.upper()}-01", _state_code, _city_name, _city_lng, _city_lat, is_village=False))
+    _village_lng, _village_lat = _village_point(_city_lng, _city_lat, _state_code)
+    _AUTO_CLUSTER_CONFIGS.append(_auto_config(f"{_state_code}-VILLAGE-01", _state_code, f"{_city_name} Rural", _village_lng, _village_lat, is_village=True))
+
+# Villages for the three states that already have a hand-tuned city cluster below.
+for _state_code, _city_lng, _city_lat, _district in [("MH", 73.8567, 18.5204, "Pune"), ("TN", 80.2707, 13.0827, "Chennai"), ("KA", 77.5946, 12.9716, "Bangalore")]:
+    _village_lng, _village_lat = _village_point(_city_lng, _city_lat, _state_code)
+    _AUTO_CLUSTER_CONFIGS.append(_auto_config(f"{_state_code}-VILLAGE-01", _state_code, f"{_district} Rural", _village_lng, _village_lat, is_village=True))
+
+
+# Five hand-tuned clusters, each with a genuinely different orientation/envelope
 # shape/density/gap frequency rather than one template moved around.
 CLUSTER_CONFIGS: list[ClusterGeometryConfig] = [
     ClusterGeometryConfig(
@@ -99,6 +187,8 @@ CLUSTER_CONFIGS: list[ClusterGeometryConfig] = [
         gap_probability=0.1, gap_meters=5,
     ),
 ]
+
+CLUSTER_CONFIGS.extend(_AUTO_CLUSTER_CONFIGS)
 
 
 @dataclass
@@ -311,10 +401,16 @@ def generate_cluster_parcels(config: ClusterGeometryConfig) -> list[GeneratedPar
     *entire* cluster a bounded number of times before genuinely failing -
     regenerating is cheap and simpler than patching a single bad leaf.
     """
+    dominant, secondary = resolve_road_angles(
+        config.center_lat, config.center_lng, config.radius_meters,
+        config.dominant_angle_deg, config.secondary_angle_deg,
+    )
+    road_aware_config = replace(config, dominant_angle_deg=dominant, secondary_angle_deg=secondary)
+
     last_error: Exception | None = None
     for _ in range(_MAX_CLUSTER_ATTEMPTS):
         try:
-            return _attempt_generate_cluster_parcels(config)
+            return _attempt_generate_cluster_parcels(road_aware_config)
         except Exception as error:  # noqa: BLE001
             last_error = error
     raise RuntimeError(

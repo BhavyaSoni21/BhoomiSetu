@@ -70,6 +70,8 @@ class IdentifyFromDocumentResponse(CamelModel):
     extracted_text: str
     ocr_confidence: float
     candidates: list[ParcelOut]
+    authenticity_suspicious: bool
+    authenticity_reasons: list[str]
 
 
 class NotImplementedDetail(CamelModel):

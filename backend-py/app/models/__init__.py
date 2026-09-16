@@ -11,11 +11,11 @@ from app.models.department_record import (  # noqa: F401
     TaxRecord,
 )
 from app.models.governance import GovernanceAlert  # noqa: F401
-from app.models.historical_imagery import ClusterHistoricalSnapshot  # noqa: F401
 from app.models.land_records import StateALandRecord, StateBLandRecord  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.parcel import (  # noqa: F401
     CitizenParcel,
+    CropRecord,
     OwnershipHistoryRecord,
     Parcel,
     ParcelDocument,
@@ -32,4 +32,5 @@ from app.models.spatial import (  # noqa: F401
     ZoningOverlay,
 )
 from app.models.user import User  # noqa: F401
+from app.models.verification_evidence import VerificationEvidence  # noqa: F401
 from app.models.workflow import Workflow, WorkflowStep  # noqa: F401

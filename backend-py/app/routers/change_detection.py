@@ -10,13 +10,16 @@ reimplemented ad hoc per-route here.
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from pydantic import Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_roles
 from app.auth.roles import ALL_STAFF_ROLES
+from app.common.parcel_generation.cluster_generator import CLUSTER_CONFIGS
 from app.database import get_db
+from app.models.parcel import Parcel
 from app.schemas.base import CamelModel
 from app.services import earth_engine_service
 from app.services.change_detection_service import analyze
@@ -48,6 +51,84 @@ class SatelliteAnalysisIn(CamelModel):
     before_date: date
     after_date: date
     description: str | None = Field(default=None, max_length=200)
+
+
+class ClusterOptionOut(CamelModel):
+    cluster_id: str
+    state_code: str
+    district: str
+    type: str  # "city" | "village"
+    bounds: SatelliteBoundsIn
+
+
+@router.get("/clusters", response_model=list[ClusterOptionOut])
+def list_clusters(
+    db: Session = Depends(get_db),
+    _staff: object = Depends(require_roles(*ALL_STAFF_ROLES)),
+):
+    """Lets the Change Detection UI offer a state/village picker instead of
+    asking an officer to type raw lng/lat bounds by hand. Bounds come from
+    the real seeded parcel geometry (PostGIS extent), not reconstructed
+    from the generator config, so they're always tight around what's
+    actually in the DB; the friendly district/village name still comes
+    from CLUSTER_CONFIGS since that's not persisted anywhere on Parcel.
+    """
+    district_by_cluster = {c.cluster_id: c.district for c in CLUSTER_CONFIGS}
+    rows = (
+        db.query(
+            Parcel.cluster_id,
+            Parcel.state_code,
+            func.min(func.ST_XMin(Parcel.geometry)).label("min_lng"),
+            func.min(func.ST_YMin(Parcel.geometry)).label("min_lat"),
+            func.max(func.ST_XMax(Parcel.geometry)).label("max_lng"),
+            func.max(func.ST_YMax(Parcel.geometry)).label("max_lat"),
+        )
+        .filter(Parcel.cluster_id.isnot(None))
+        .group_by(Parcel.cluster_id, Parcel.state_code)
+        .order_by(Parcel.cluster_id)
+        .all()
+    )
+    return [
+        ClusterOptionOut(
+            cluster_id=row.cluster_id,
+            state_code=row.state_code,
+            district=district_by_cluster.get(row.cluster_id, row.cluster_id),
+            type="village" if "VILLAGE" in row.cluster_id else "city",
+            bounds=SatelliteBoundsIn(min_lng=row.min_lng, min_lat=row.min_lat, max_lng=row.max_lng, max_lat=row.max_lat),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/clusters/{cluster_id}/satellite-image")
+def get_cluster_satellite_image(
+    cluster_id: str,
+    for_date: Annotated[date, Query(alias="date")],
+    db: Session = Depends(get_db),
+    _staff: object = Depends(require_roles(*ALL_STAFF_ROLES)),
+):
+    """A real true-color satellite photo of one cluster's actual parcel
+    footprint for a given date - what Parcel 360's officer-facing
+    "Satellite Photo" toggle shows instead of the category-colored parcel
+    map (HistoricalMapView.tsx), reusing the same real-geometry bounds
+    computation as /clusters above, just scoped to one cluster.
+    """
+    row = (
+        db.query(
+            func.min(func.ST_XMin(Parcel.geometry)).label("min_lng"),
+            func.min(func.ST_YMin(Parcel.geometry)).label("min_lat"),
+            func.max(func.ST_XMax(Parcel.geometry)).label("max_lng"),
+            func.max(func.ST_YMax(Parcel.geometry)).label("max_lat"),
+        )
+        .filter(Parcel.cluster_id == cluster_id)
+        .one()
+    )
+    if row.min_lng is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No parcels found for cluster {cluster_id}")
+
+    bounds = GeoBounds(min_lng=row.min_lng, min_lat=row.min_lat, max_lng=row.max_lng, max_lat=row.max_lat)
+    png_bytes = earth_engine_service.get_true_color_visual_png(bounds, for_date)
+    return Response(content=png_bytes, media_type="image/png")
 
 
 @router.post("/analyze", response_model=ChangeAnalysisResultOut, status_code=status.HTTP_201_CREATED)

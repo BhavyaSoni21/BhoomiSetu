@@ -10,4 +10,5 @@ export interface GovernanceAlert {
   explanation: string;
   reason: string | null;
   createdAt: string;
+  department: string | null;
 }

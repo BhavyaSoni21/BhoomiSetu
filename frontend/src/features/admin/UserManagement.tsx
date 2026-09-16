@@ -6,10 +6,10 @@ import { Loader2, UserPlus, X, Trash2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ManagedUser } from '../../types/user';
 import { useAuthUser } from '../auth/auth';
-import { OFFICER_ROLES, ROLE_LABELS } from '../officer/officerAuth';
+import { OFFICER_ROLES, ROLE_LABELS, VERIFIER_ROLE } from '../officer/officerAuth';
 
-const ALL_ROLE_LABELS: Record<string, string> = { ...ROLE_LABELS, ADMIN: 'Admin' };
-const ALL_ROLES = [...OFFICER_ROLES, 'ADMIN'];
+const ALL_ROLE_LABELS: Record<string, string> = { ...ROLE_LABELS, ADMIN: 'Admin', [VERIFIER_ROLE]: 'Verifier' };
+const ALL_ROLES = [...OFFICER_ROLES, 'ADMIN', VERIFIER_ROLE];
 
 function formatDate(value: string): string {
   const date = new Date(value);
