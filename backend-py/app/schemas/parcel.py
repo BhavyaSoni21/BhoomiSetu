@@ -31,6 +31,9 @@ class ParcelOut(CamelModel):
     local_body_code: str
     geometry: str
     area_sq_m: float
+    status: str = "Registered"
+    local_id: str | None = None
+    verification_report: str | None = None
     created_at: datetime
     updated_at: datetime
 

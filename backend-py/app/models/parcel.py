@@ -88,6 +88,10 @@ class CitizenParcel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     citizen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     parcel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("parcels.id", ondelete="CASCADE"), unique=True)
+    status: Mapped[str] = mapped_column(String(30), default="Registered")  # Registered | Pending Verification | Rejected
+    local_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    verification_report: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class ParcelDocument(Base):

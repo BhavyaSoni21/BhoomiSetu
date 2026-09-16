@@ -10,15 +10,21 @@ own from the start, and each stub was wired for real once its module
 landed.
 """
 
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Polygon
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user_optional, require_roles
 from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
 from app.database import get_db
+from app.document_verification.verifier import dist_code, run_verification, vill_code
+from app.models.parcel import CitizenParcel, Parcel, ParcelIdentifier
 from app.models.user import User
+from app.models.workflow import Workflow
 from app.schemas.audit import AuditLogOut
 from app.schemas.interoperability import parcel_360_to_json
 from app.schemas.parcel import ParcelOut
@@ -37,6 +43,7 @@ from app.services import parcels_service as service
 from app.services import predictive_analytics_service
 from app.services import response_aggregator_service
 from app.services import workflows_service
+from app.services.workflows_service import CreateWorkflowInput
 
 router = APIRouter(prefix="/parcels", tags=["parcels"])
 
@@ -60,6 +67,150 @@ def search_parcels(
     db: Session = Depends(get_db),
 ):
     return service.search_parcels(db, ulpin, survey_number, plot_number, local_identifier, state, district, limit, offset)
+
+
+@router.post("/verify")
+async def verify_parcel(
+    document: UploadFile = File(...),
+    khate_kramank: str = Form(""),
+    owner_name: str = Form(""),
+    survey_number: str = Form(""),
+    village: str = Form(""),
+    taluka: str = Form(""),
+    district: str = Form(""),
+    mobile: str = Form(""),
+    ulpin: str | None = Form(None),
+    db: Session = Depends(get_db),
+    citizen: User = Depends(require_roles(CITIZEN_ROLE)),
+):
+    data = await document.read()
+    if len(data) > _MAX_IMAGE_BYTES * 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Document exceeds the 10MB size limit")
+
+    user_inputs = {
+        "khate_kramank": khate_kramank,
+        "owner_name": owner_name,
+        "survey_number": survey_number,
+        "village": village,
+        "taluka": taluka,
+        "district": district,
+        "mobile": mobile,
+        "ulpin": ulpin or "",
+    }
+
+    report = run_verification(data, document.filename or "document.pdf", user_inputs)
+    verdict = report["verdict"]
+    local_id = report["local_id"]
+
+    if verdict in ("VERIFIED", "PARTIAL MATCH"):
+        # Check if matching parcel exists or create
+        parcel = db.query(Parcel).filter(
+            (Parcel.canonical_parcel_id == local_id) |
+            (Parcel.identifiers.any(identifier_value=local_id)) |
+            (Parcel.identifiers.any(identifier_value=survey_number, identifier_type="SURVEY_NUMBER") if survey_number else False)
+        ).first()
+
+        if not parcel:
+            dist_c = dist_code(district)
+            vill_c = vill_code(village)
+            seed_hash = abs(hash(local_id)) % 1000
+            base_lng = 74.0 + (seed_hash % 50) * 0.02
+            base_lat = 19.0 + ((seed_hash // 50) % 50) * 0.02
+            geom = from_shape(
+                Polygon([
+                    (base_lng, base_lat),
+                    (base_lng + 0.0012, base_lat),
+                    (base_lng + 0.0012, base_lat + 0.0012),
+                    (base_lng, base_lat + 0.0012),
+                    (base_lng, base_lat),
+                ]),
+                srid=4326,
+            )
+            parcel = Parcel(
+                canonical_parcel_id=local_id,
+                ulpin=ulpin if ulpin and len(ulpin) >= 11 else None,
+                state_code="MH",
+                district_code=dist_c,
+                local_body_code=vill_c,
+                area_sq_m=1250.0,
+                geometry=geom,
+            )
+            db.add(parcel)
+            db.flush()
+
+            db.add(ParcelIdentifier(parcel_id=parcel.id, identifier_type="LOCAL_PARCEL_ID", identifier_value=local_id, source_state="MH", source_department="LAND_RECORDS"))
+            if survey_number:
+                db.add(ParcelIdentifier(parcel_id=parcel.id, identifier_type="SURVEY_NUMBER", identifier_value=survey_number, source_state="MH", source_department="LAND_RECORDS"))
+            if khate_kramank:
+                db.add(ParcelIdentifier(parcel_id=parcel.id, identifier_type="KHATE_KRAMANK", identifier_value=khate_kramank, source_state="MH", source_department="LAND_RECORDS"))
+            if ulpin:
+                db.add(ParcelIdentifier(parcel_id=parcel.id, identifier_type="ULPIN", identifier_value=ulpin, source_state="MH", source_department="LAND_RECORDS"))
+            db.flush()
+
+        parcel_status = "Registered" if verdict == "VERIFIED" else "Pending Verification"
+        citizen_link = db.query(CitizenParcel).filter_by(citizen_id=citizen.id, parcel_id=parcel.id).first()
+        if not citizen_link:
+            citizen_link = CitizenParcel(
+                citizen_id=citizen.id,
+                parcel_id=parcel.id,
+                status=parcel_status,
+                local_id=local_id,
+                verification_report=json.dumps(report),
+            )
+            db.add(citizen_link)
+        else:
+            citizen_link.status = parcel_status
+            citizen_link.local_id = local_id
+            citizen_link.verification_report = json.dumps(report)
+        db.flush()
+
+        # If PARTIAL MATCH, also file an automatic review workflow for officer queue
+        if verdict == "PARTIAL MATCH":
+            checks_list = [
+                {"field": f["field"], "expectedValue": f["user"], "status": "MATCHED" if f["match"] else "MISMATCH"}
+                for f in report["field_results"]
+            ]
+            precheck_payload = json.dumps({
+                "verdict": "PARTIAL_MATCH",
+                "match_percent": report["match_percent"],
+                "local_id": local_id,
+                "field_results": report["field_results"],
+                "checks": checks_list,
+            })
+            workflows_service.create(
+                db,
+                CreateWorkflowInput(
+                    parcel_id=str(parcel.id),
+                    workflow_type="DOCUMENT_VERIFICATION_REQUEST",
+                    created_by=owner_name or citizen.name,
+                    request_details=f"Document ownership verification for {local_id} (Match score: {report['match_percent']}%)",
+                    citizen_id=str(citizen.id),
+                    applicant_contact=mobile or citizen.mobile_number or citizen.email,
+                    applicant_address=citizen.address,
+                ),
+            )
+            recent_wf = db.query(Workflow).filter_by(parcel_id=str(parcel.id), citizen_id=str(citizen.id)).order_by(Workflow.created_at.desc()).first()
+            if recent_wf:
+                recent_wf.verification_precheck = precheck_payload
+                db.flush()
+
+        parcel.status = parcel_status
+        parcel.local_id = local_id
+        report["parcel"] = ParcelOut.model_validate(parcel).model_dump(by_alias=True)
+
+    report["localId"] = report.get("local_id")
+    report["matchPercent"] = report.get("match_percent")
+    report["matchedCount"] = report.get("matched_count")
+    report["totalFields"] = report.get("total_fields")
+    report["fieldResults"] = report.get("field_results")
+    report["documentCheck"] = report.get("document_check")
+
+    return report
+
+
+@router.get("/citizen/{citizen_id}/parcels", response_model=SearchParcelsResponse)
+def get_citizen_parcels(citizen_id: UUID, db: Session = Depends(get_db)):
+    return service.find_mine(db, str(citizen_id))
 
 
 @router.post("/identify-from-document", response_model=IdentifyFromDocumentResponse)

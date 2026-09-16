@@ -14,10 +14,13 @@ module.exports = {
         /* ── New design-token palette (Part B exact) — CSS variable backed for dark mode ── */
         brand: {
           900: 'var(--brand-900)',
+          800: '#14532D',
           700: 'var(--brand-700)',
           600: 'var(--brand-600)',
           300: 'var(--brand-300)',
         },
+        'surface-1': 'var(--surface-1)',
+        'surface-2': 'var(--surface-2)',
         action: {
           700: 'var(--action-700)',
           600: 'var(--action-600)',

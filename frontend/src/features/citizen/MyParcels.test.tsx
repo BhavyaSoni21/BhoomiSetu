@@ -7,20 +7,20 @@ import apiService from '../../services/apiService';
 import { AuthUser } from '../auth/auth';
 
 vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn() },
 }));
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 const officer: AuthUser = { id: 'o1', email: 'officer@test.gov.in', name: 'An Officer', role: 'LAND_RECORD_OFFICER' };
 
-function renderPanel(user: AuthUser | null) {
+function renderPanel(user: AuthUser | null, initialEntries = ['/citizen/parcels']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['auth-me'], user);
   return {
     client,
     ...render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
           <MyParcels />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -35,49 +35,81 @@ describe('MyParcels', () => {
 
   it('prompts to sign in when not authenticated, and never calls /parcels/mine', async () => {
     renderPanel(null);
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: /Sign in/i })).toHaveAttribute('href', '/login');
     expect(apiService.get).not.toHaveBeenCalled();
   });
 
-  it('prompts to sign in for a non-citizen (e.g. an officer viewing the citizen portal), without calling /parcels/mine', async () => {
+  it('prompts to sign in for a non-citizen without calling /parcels/mine', async () => {
     renderPanel(officer);
-    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Sign in/i })).toBeInTheDocument();
     expect(apiService.get).not.toHaveBeenCalled();
   });
 
-  it('shows a friendly empty state for a citizen with no linked parcels', async () => {
+  it('shows an empty state with Link Parcel CTA for a citizen with no linked parcels', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
     renderPanel(citizen);
 
-    expect(await screen.findByText(/No parcels are linked to your account yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/Link a Parcel to Get Started/i)).toBeInTheDocument();
     expect(apiService.get).toHaveBeenCalledWith('/parcels/mine');
   });
 
-  it("lists a citizen's linked parcels", async () => {
+  it('displays contextual banner when arriving from blocked complaint flow', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
+    renderPanel(citizen, ['/citizen/parcels?from=raise-request']);
+
+    expect(await screen.findByText(/Parcel Verification Required/i)).toBeInTheDocument();
+    expect(screen.getByText(/You need to verify and link a parcel before raising a request/i)).toBeInTheDocument();
+  });
+
+  it("lists a citizen's linked parcels with status badges", async () => {
     vi.mocked(apiService.get).mockResolvedValue({
       data: {
         total: 2,
         parcels: [
-          { id: 'p1234567-aaaa', canonicalParcelId: 'CAN10000', ulpin: 'ULPIN0001', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB1', areaSqM: 5000, geometry: '{}' },
-          { id: 'p2234567-bbbb', canonicalParcelId: 'CAN10001', ulpin: null, stateCode: 'TN', districtCode: 'CHE', localBodyCode: 'TNLB1', areaSqM: 3200, geometry: '{}' },
+          {
+            id: 'p1234567-aaaa',
+            canonicalParcelId: 'CAN10000',
+            localId: 'MH-AH-SH-588/2',
+            ulpin: 'ULPIN0001',
+            stateCode: 'MH',
+            districtCode: 'AH',
+            localBodyCode: 'SH',
+            areaSqM: 5000,
+            geometry: '{}',
+            status: 'Registered',
+          },
+          {
+            id: 'p2234567-bbbb',
+            canonicalParcelId: 'CAN10001',
+            localId: 'MH-AH-SH-102/3',
+            ulpin: null,
+            stateCode: 'MH',
+            districtCode: 'AH',
+            localBodyCode: 'SH',
+            areaSqM: 3200,
+            geometry: '{}',
+            status: 'Pending Verification',
+          },
         ],
       },
     });
     renderPanel(citizen);
 
-    expect(await screen.findByText(/2 parcels linked to your account/)).toBeInTheDocument();
-    expect(screen.getByText('ULPIN: ULPIN0001')).toBeInTheDocument();
-    expect(screen.getByText('No ULPIN')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(2);
+    expect(await screen.findByText(/MH-AH-SH-588\/2/)).toBeInTheDocument();
+    expect(screen.getAllByText(/MH-AH-SH-102\/3/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Pending Verification/i)).toBeInTheDocument();
+    expect(screen.getByText(/Raise Complaint \/ Request/i)).toBeInTheDocument();
   });
 
-  it('signing out clears the session and reverts to the sign-in prompt', async () => {
+  it('opens and closes the new parcel verification form on button click', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
     renderPanel(citizen);
 
-    await screen.findByText(/No parcels are linked/);
-    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    const newParcelBtn = await screen.findByRole('button', { name: /\+ New Parcel/i });
+    fireEvent.click(newParcelBtn);
 
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument());
+    expect(screen.getByText(/New Property Ownership Claim/i)).toBeInTheDocument();
+    expect(screen.getByText(/Find My Parcel/i)).toBeInTheDocument();
   });
 });

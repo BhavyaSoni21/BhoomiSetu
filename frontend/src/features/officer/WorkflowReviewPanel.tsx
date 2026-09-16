@@ -616,11 +616,52 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
 
           {precheck && (
             <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('officerPortal.automaticPrecheckLabel')}</h4>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">
+                  {t('officerPortal.automaticPrecheckLabel', 'OCR & Ownership Pre-Check')}
+                </h4>
+                {(precheck as any).match_percent !== undefined && (
+                  <span className="text-xs font-mono font-bold text-brand-900">
+                    Match: {(precheck as any).match_percent}%
+                  </span>
+                )}
+              </div>
               <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${PRECHECK_VERDICT_STYLES[precheck.verdict] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
                 {precheck.verdict.replace(/_/g, ' ')}
               </span>
-              {precheck.checks.length > 0 && (
+
+              {(precheck as any).field_results || (precheck as any).fieldResults ? (
+                <div className="mt-3 border-2 border-ink bg-surface overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b-2 border-ink bg-muted text-[10px] font-mono uppercase text-ink/70">
+                        <th className="py-2 px-3 font-bold">Field</th>
+                        <th className="py-2 px-3 font-bold">Entered Value</th>
+                        <th className="py-2 px-3 font-bold">Document Value</th>
+                        <th className="py-2 px-3 font-bold text-center">✓</th>
+                        <th className="py-2 px-3 font-bold text-right">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink/10">
+                      {((precheck as any).field_results || (precheck as any).fieldResults).map((r: any) => (
+                        <tr key={r.field} className="hover:bg-muted/30">
+                          <td className="py-2 px-3 font-medium capitalize">{r.label || r.field.replace(/_/g, ' ')}</td>
+                          <td className="py-2 px-3 font-mono">{r.user || '—'}</td>
+                          <td className="py-2 px-3 font-mono text-ink/70">{r.doc || '—'}</td>
+                          <td className="py-2 px-3 text-center">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${r.match ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary-strong'}`}>
+                              {r.match ? '✅' : '❌'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-semibold">
+                            {(r.score * 100).toFixed(0)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : precheck.checks && precheck.checks.length > 0 ? (
                 <div className="mt-2 space-y-1">
                   {precheck.checks.map((check) => (
                     <div key={check.field} className="flex items-center justify-between text-xs text-ink/70">
@@ -629,7 +670,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
