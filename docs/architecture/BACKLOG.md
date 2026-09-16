@@ -6,6 +6,29 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 ---
 
+## Priority order (as of 2026-09-16)
+
+Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architecture/FEATURES.md`/`FEATURE_TECH_MAP.md` (features 18, 26, 22, 31, 9, 30, and 10/16/30 respectively) — no longer listed below. Re-ranked 2026-09-16: item #11 turned out to already be fully wired in the actual code (`ParcelSearch.tsx` already calls `/multilingual/transliterate` for Roman-script queries under a non-English UI language) — the prior BACKLOG.md text describing it as "not started" was itself stale, caught while starting on it. Item #26's own scoped middle bullet ("governance alerts may not be department-scoped") turned out to be a false gap once built — this endpoint's own existing test suite (`test_governance.py::TestFindAll`) asserts every staff role sees every alert regardless of department, by design; a department field was added for a frontend badge, but the endpoint stays unscoped. Item #14 shipped as scoped — a bundled variable-weight Noto Sans Devanagari font (fetched from Google Fonts' own repo) covers Hindi, and the existing seed-time PNG generator was deliberately left in place (still used by the OCR-verification demo flow) rather than removed, narrower than the item's original "replace" framing but avoiding an unrelated, riskier removal. Also fixed an ordering bug from the previous ranking (#25 was listed *above* #14 despite #25's own text saying to do it *after* #14). Most actionable first:
+
+1. **#25 — Seed-time OCR regression (`extracted_text=None`).** One-line fix — the seeded document images #14 would have retired are still in place, so this one-line fix is still worth doing now rather than being subsumed.
+2. **#8 — `district` field on officer accounts.** Small, real prerequisite for jurisdiction-aware AI routing.
+3. **#3 / #4 — Admin-editable workflow pipelines / governance rules.** Both genuine schema+engine rewrites — the biggest lift on this list, do these once the smaller items are clear.
+4. **#1 — Admin session revoke UI + idle timeout.** Partially done (real server-side revocation on logout already ships); the admin-facing controls and timeout are what's left.
+5. **#13 — Frontend test suite's i18n test-mock gap.** Real, known, lower priority — doesn't block any feature from working, only test coverage.
+
+**Also found by the audit, not backlog-worthy:** `frontend/src/features/citizen/ComingSoonCard.tsx` and `frontend/src/features/officer/ComingSoonCard.tsx` are dead code — built but never rendered anywhere in the app. Not a functional gap, just cleanup opportunity; safe to delete whenever someone's touching that area, no dedicated pass needed for it alone.
+
+**Blocked on something outside this codebase, not actionable right now:**
+- **#2** — OAuth login (needs a registered external provider app).
+- **#7** — Bhuvan/ISRO GIS integration (needs a feasibility spike + provider access).
+- **#12** — Bhashini OCR/ALD (blocked on Bhashini's own account provisioning).
+
+**Deliberately deferred, no action needed:** #6 (address-based fuzzy search — no schema gap that needs filling yet).
+
+**Low priority, not yet confirmed as real asks** (#16–18, #20–24 — see the "Low priority" section below): revisit only if one is specifically requested.
+
+---
+
 ## 1. Admin session/timeout & token revocation
 
 **Status: partially done (2026-09-11) — real revocation exists, admin-facing controls and timeout don't.** JWTs still never expire (that no-auto-expiry UX is an unchanged, deliberate product decision) and a session still normally ends only when the frontend's own Logout button is clicked, but that click now actually ends it server-side: `User.tokenVersion` (`backend/src/users/user.entity.ts`) is embedded in every JWT and checked on every request (`JwtStrategy.validate()`), and `POST /auth/logout` bumps it — so a captured/replayed token stops working the moment the real user logs out, closing `docs/architecture/KNOWN_RISKS.md` HIGH-2. Still genuinely open: no admin-facing "revoke this specific user's session(s)" control, no idle/inactivity timeout, and no session table (tokenVersion is a single per-user counter, not a per-session record) — so this item stays here rather than moving to FEATURES.md.
@@ -54,36 +77,6 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 *Source: `docs/archive/CITIZEN_FEATURES_UPGRADE_PLAN.md` §6.*
 
-## 9. Frontend UI for satellite-sourced Change Detection
-
-**Status: backend done (2026-09-14), no way to trigger it from the app.** `POST /change-detection/analyze-satellite` (`app/services/earth_engine_service.py`) fetches real Sentinel-2 NDVI imagery from Google Earth Engine for given bounds/dates and runs it through the existing pixel-diff/governance-alert pipeline — but `ChangeDetectionPanel.tsx` (the only UI that calls this module) isn't mounted anywhere in the app (see `docs/architecture/FEATURES.md`'s Change Detection entry), and even if it were, it only has a form for the older manual-upload `/analyze` endpoint, not this one. Reachable today only via direct API call (curl, `/api/docs`). Needs either a new form (bounds + two dates, no file picker) added to that panel, or its own small officer-facing UI, before this is demoable without a terminal.
-
-*Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
-
-## 10. Remove `cluster_historical_snapshots` (superseded by live GEE imagery)
-
-**Status: not started, decided 2026-09-15 — reversal of the item-10 plan above.** Now that GEE is the live satellite source (item 9), the stored/seeded `ClusterHistoricalSnapshot` table is being dropped rather than upgraded to real imagery. Low-risk: `HistoricalMapView.tsx` already renders categorized parcels as map polygons and never calls the `/clusters/{id}/years/{year}/image` endpoint, so `list_clusters`/`get_parcels_for_year`/`compare` (pure `ParcelHistoricalState` category diffing, no pixels involved) are unaffected by the removal. Needs: delete `get_image()` route + `get_snapshot_image()` service fn, delete `app/models/historical_imagery.py` + its `models/__init__.py` import, delete `cluster_snapshot_generator.py` and its seed.py call site, an Alembic drop-table migration, and cleanup of the orphaned Supabase Storage objects (ops step).
-
-*Source: this session, 2026-09-15.*
-
-## 14. Generate the official parcel document PDF on demand instead of storing a rendered image
-
-**Status: not started, decided 2026-09-15.** `parcel_document_generator.py` renders a synthetic "Record of Rights" PNG at seed time and stores it via Supabase (`ParcelDocument.file_path`) — replace with a reportlab-rendered Form 7/12-style PDF generated per-request (`GET /parcels/{id}/documents/official-pdf?lang=en|hi`, straight to the HTTP response, nothing persisted), built from real `Parcel`/`OwnershipHistoryRecord`/workflow-approval rows instead of mock data. `parcel_documents` then only holds real citizen-**uploaded** evidence (the OCR-verification flow already uses it that way in `workflows_service.py`), not a seed-time rendered image. New deps: `reportlab`, `qrcode[pil]`; needs a bundled Devanagari `.ttf` for Hindi output rather than an `apt-get`-installed system font.
-
-*Source: this session, 2026-09-15.*
-
-## 15. OpenCV tamper/authenticity signal alongside OCR document verification
-
-**Status: not started, decided 2026-09-15.** `app/document_verification/ocr.py`'s pytesseract-based `extract_text()` stays as-is for field extraction/matching (`field_matcher.py` already matches against real DB values, not user-retyped input — no change needed there). Add a separate `check_authenticity()` in a new `app/document_verification/authenticity.py` (Laplacian sharpness / noise / edge-density heuristic, `opencv-python-headless`), called alongside OCR in the evidence-upload path (`routers/workflows.py`) and `parcels_service.identify_from_document()`. Surfaced to the reviewing officer as an extra flag next to the existing field MATCHED/MISMATCH checks — a soft signal for review, not a hard accept/reject gate, since the heuristic's thresholds are hand-tuned and unvalidated against real tampered documents.
-
-*Source: this session, 2026-09-15.*
-
-## 11. Bhashini SpeakerButton / MicButton / search transliteration
-
-**Status: backend ready, frontend not built (2026-09-15).** The Bhashini multilingual migration (`docs/architecture/BHASHINI_INTEGRATION.md`) shipped translation for all static UI text across 11 languages, but three pieces of its own scope are still open: a `SpeakerButton` component (TTS playback for status messages/notifications — `text_to_speech()` is tested and working backend-side), a `MicButton` component (ASR voice input for search/request forms — `speech_to_text()` is tested and working backend-side), and wiring `transliterate_text()` into parcel search so a Roman-script query still matches Devanagari/other-script records. None of the three need backend work, only frontend components/wiring.
-
-*Source: `docs/architecture/BHASHINI_INTEGRATION.md` §7.*
-
 ## 12. Bhashini OCR / ALD — blocked on account provisioning
 
 **Status: blocked, not a code problem.** Bhashini's OCR pipeline returns `"Requested pipeline does not exist with this submitter"` and ALD (Audio Language Detection) returns `"TaskType is not valid"` for this project's Bhashini account — both need a request to Bhashini's support/dashboard team to enable, or (for ALD) confirming the correct task type, before either can be built.
@@ -95,8 +88,6 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 **Status: partially patched (2026-09-15), real gap remains.** `useTranslation()` (`context/LanguageContext.tsx`) throws if no `<LanguageProvider>` wraps the component tree, and ~26 component test files never did — the old `react-i18next` setup didn't need one, since it used real English resource strings loaded via a side-effect import. A global mock added to `frontend/src/test/setup.ts` stops the outright crash (same pattern as the existing `ResizeObserver`/`matchMedia` stubs), but its `t(key)` fallback just returns the raw key, not real English copy — so tests asserting on literal UI text (e.g. `screen.getByLabelText('Email')`) still fail (~190 tests across files like `LoginPage.test.tsx`, `App.test.tsx`, `ParcelSearch.test.tsx`). Fixing this properly needs the test mock's `t()` to resolve real English strings (e.g. reading `backend-py/static/ui_strings_en.json`) instead of echoing the key, or updating each affected assertion — neither done yet.
 
 *Source: this session's i18n-removal validation work, 2026-09-15 — not previously scoped anywhere.*
-
-*Source: this session's Earth Engine integration work, 2026-09-14 — not previously scoped anywhere.*
 
 ---
 
@@ -116,10 +107,6 @@ Generate and display a unique QR code per parcel (e.g. on the official document 
 
 TextBee (`notifications/`) is wired for OTP delivery only. A broader outreach channel (e.g. notifying feature-phone users of a decision or alert by SMS) would reuse that same integration but needs its own trigger points and opt-in/consent model — distinct from item 5's "deliver existing in-app notifications via SMS/push/email," which is the closer match if this is really about workflow/alert delivery rather than open-ended outreach.
 
-## 19. Verifier role + GPS/photo/timestamp field evidence capture
-
-No `VERIFIER` role exists today (RBAC, feature 13, covers Citizen/Officer/Admin only). Physical site verification with tamper-proof, geotagged/timestamped photo evidence would need a new role, a new evidence-capture endpoint/table, and mobile-camera + GPS access on the frontend — a genuinely new subsystem, not an extension of an existing one.
-
 ## 20. Penalty for intentional false claims
 
 No penalty/enforcement mechanism exists. Would need a way to distinguish "intentionally false" from "genuine mistake" (manual officer judgment call, presumably) before any penalty logic could apply — policy question first, code second.
@@ -134,7 +121,7 @@ Nothing today compares a new workflow/complaint against existing or previously-r
 
 ## 23. Offline field verification with later sync
 
-No offline mode exists anywhere in the frontend. Depends on item 19 (verifier role/evidence capture) existing first — this would be that feature's offline-capable variant (local queue + sync-on-reconnect), not a standalone piece.
+No offline mode exists anywhere in the frontend. Depends on the Verifier role/field evidence capture (`docs/architecture/FEATURES.md` feature 30, done) — this would be that feature's offline-capable variant (local queue + sync-on-reconnect), not a standalone piece.
 
 ## 24. Onboarding tutorial tooltips
 
@@ -149,6 +136,8 @@ No step-by-step onboarding UI exists in any portal today. Pure frontend addition
 *Source: this session's NestJS-vs-backend-py parity audit, 2026-09-15.*
 
 **Not tracked as a gap, by design:** `backend-py` has no SQLite fallback (`postgis.py`/`geo-utils.ts`'s hand-rolled JS geometry math was deliberately not ported — Postgres+PostGIS only, per `PYTHON_MIGRATION_PLAN.md` §2's single-database constraint). Confirmed deliberate, not an oversight, and the project doesn't want SQLite support restored — noted here only so it isn't rediscovered and mistakenly re-flagged as a regression later.
+
+**Environment gap, not a product backlog item:** `pytesseract` (OCR — `app/document_verification/ocr.py`, used live by evidence uploads/`identify-from-document`/the automatic verification pre-check) needs the `tesseract` binary on PATH, which isn't installed on the primary dev machine used this session at all — confirmed 2026-09-16 (5 evidence-upload tests in `test_workflows.py` fail on `TesseractNotFoundError`). Not a code gap; whoever owns that machine needs to install Tesseract for OCR to actually run there.
 
 ---
 
