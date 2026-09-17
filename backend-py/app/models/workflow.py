@@ -15,6 +15,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+# Which workflow types genuinely need a Verifier's field visit, vs. a plain
+# desk request (e.g. ROR_COPY_REQUEST/CORRECTION_REQUEST) that never leaves
+# the office. Deterministic set over this app's fixed, known workflow types
+# (BACKLOG.md item 26) - no AI tiebreaker needed since none of the 5 real
+# types are ambiguous; add a classifier only if a genuinely ambiguous type
+# shows up later.
+FIELD_VERIFICATION_WORKFLOW_TYPES = {"LAND_CLAIM_REQUEST", "DISPUTE_FILING", "DOCUMENT_VERIFICATION_REQUEST"}
+
 
 class Workflow(Base):
     """A citizen service request, e.g. "request a copy of the RoR" or
@@ -49,6 +57,11 @@ class Workflow(Base):
     # type going forward.
     citizen_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # The Verifier assigned (by an Admin) to make the field visit for this
+    # workflow - same "string, not a real FK" convention as citizen_id
+    # above. Null until assigned; set once, not a history of reassignments.
+    assigned_verifier_id: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # Snapshotted from the citizen's profile at creation (never citizen-
     # entered) so the reviewing officer has everything needed to decide
     # without a separate profile lookup per request. created_by already
@@ -73,11 +86,22 @@ class Workflow(Base):
     evidence_file_path: Mapped[str | None] = mapped_column(String, nullable=True)
     evidence_mime_type: Mapped[str | None] = mapped_column(String, nullable=True)
     evidence_extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # OpenCV tamper/authenticity heuristic (BACKLOG.md item 15) - a soft
+    # signal shown next to the OCR field-match checks, not a hard gate.
+    # Reasons stored as a JSON-encoded list (Text column, same convention
+    # as verification_precheck) since it's read back as a whole, never
+    # queried by individual reason.
+    evidence_authenticity_suspicious: Mapped[bool | None] = mapped_column(nullable=True)
+    evidence_authenticity_reasons: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     steps: Mapped[list["WorkflowStep"]] = relationship(back_populates="workflow", cascade="all, delete-orphan", order_by="WorkflowStep.step_order")
+
+    @property
+    def requires_field_verification(self) -> bool:
+        return self.workflow_type in FIELD_VERIFICATION_WORKFLOW_TYPES
 
 
 class WorkflowStep(Base):

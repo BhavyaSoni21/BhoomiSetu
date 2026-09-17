@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import MapComponent from '../map/MapComponent';
 import ServiceRequestForm from './ServiceRequestForm';
@@ -66,7 +66,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 const Parcel360View: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, currentLang } = useTranslation();
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'overview', label: t('parcel360.tab.overview') },
     { key: 'landRecords', label: t('parcel360.tab.landRecords') },
@@ -134,6 +134,24 @@ const Parcel360View: React.FC = () => {
   const explainMutation = useMutation<AiExplanation, Error>(async () => {
     const response = await apiService.post(`/ai/parcels/${id}/explain`);
     return response.data;
+  });
+
+  // On-demand official Record of Rights PDF (BACKLOG.md item 14) - built
+  // fresh per request from real Parcel/OwnershipHistoryRecord rows, not a
+  // stored file, so it's fetched as a blob and handed to the browser as a
+  // download rather than linked directly (the route needs an auth header).
+  const downloadPdfMutation = useMutation<void, Error>(async () => {
+    const lang = currentLang === 'hi' ? 'hi' : 'en';
+    const response = await apiService.get(`/parcels/${id}/documents/official-pdf`, {
+      params: { lang },
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(response.data as Blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `record-of-rights-${id}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
   });
 
   // The 3 request buttons below (+ Verify Documents) are citizen actions for
@@ -262,6 +280,16 @@ const Parcel360View: React.FC = () => {
                 {t('citizenNav.verifyDocuments')}
               </button>
             </>
+          )}
+          {(isOwnParcel || isStaffViewer) && (
+            <button
+              onClick={() => downloadPdfMutation.mutate()}
+              disabled={downloadPdfMutation.isLoading}
+              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              {downloadPdfMutation.isLoading ? t('parcel360.downloadingOfficialDocument') : t('parcel360.downloadOfficialDocument')}
+            </button>
           )}
           <button
             className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"

@@ -38,3 +38,17 @@ def find_dispute_by_parcel(db: Session, parcel_id: str) -> DisputeRecord | None:
 
 def find_encumbrance_by_parcel(db: Session, parcel_id: str) -> EncumbranceRecord | None:
     return db.scalars(select(EncumbranceRecord).where(EncumbranceRecord.parcel_id == parcel_id)).first()
+
+
+# Department dashboard widgets (BACKLOG.md item 26 follow-up) - each
+# department's own "what needs my attention" list, not a per-parcel lookup.
+def find_overdue_tax(db: Session) -> list[TaxRecord]:
+    return list(db.scalars(select(TaxRecord).where(TaxRecord.tax_status == "OVERDUE")).all())
+
+
+def find_pending_building_permissions(db: Session) -> list[PlanningRecord]:
+    return list(db.scalars(select(PlanningRecord).where(PlanningRecord.building_permission_status == "PENDING")).all())
+
+
+def find_pending_registrations(db: Session) -> list[RegistrationRecord]:
+    return list(db.scalars(select(RegistrationRecord).where(RegistrationRecord.registration_status == "PENDING")).all())

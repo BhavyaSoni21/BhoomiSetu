@@ -49,6 +49,11 @@ backend-py/*.db
 backend-py/*.sqlite
 backend-py/*.sqlite-*
 
+# OSM road-bearing lookups cached by scripts/seed.py's cluster generator -
+# regenerates automatically (queries Overpass on cache miss), not something
+# to commit.
+backend-py/scripts/.osm_road_bearing_cache.json
+
 # Python tooling caches and coverage output
 .pytest_cache/
 .coverage

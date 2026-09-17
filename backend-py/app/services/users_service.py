@@ -5,8 +5,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.roles import ALL_STAFF_ROLES
+from app.auth.roles import ALL_STAFF_ROLES, VERIFIER_ROLE
 from app.models.user import User
+
+# Staff-managed roles: officers/admin plus Verifier - Verifier accounts are
+# still admin-created/managed like any other staff account, just not part
+# of ALL_STAFF_ROLES (which specifically means "can review/approve a
+# workflow step").
+_MANAGED_ROLES = [*ALL_STAFF_ROLES, VERIFIER_ROLE]
 
 
 def find_by_email(db: Session, email: str) -> User | None:
@@ -23,11 +29,11 @@ def find_by_id(db: Session, user_id: UUID) -> User | None:
 
 def find_all(db: Session) -> list[User]:
     """Staff only - this backs the Admin Portal's "User Management" list
-    (officer/admin account administration), which citizen accounts were
-    never part of. Without this filter, citizen sign-in accounts would
+    (officer/admin/verifier account administration), which citizen accounts
+    were never part of. Without this filter, citizen sign-in accounts would
     silently spill into this admin-only staff list.
     """
-    return list(db.scalars(select(User).where(User.role.in_(ALL_STAFF_ROLES)).order_by(User.created_at.desc())).all())
+    return list(db.scalars(select(User).where(User.role.in_(_MANAGED_ROLES)).order_by(User.created_at.desc())).all())
 
 
 def create(db: Session, *, email: str | None, password_hash: str, name: str, role: str, email_verified: bool = False, mobile_number: str | None = None, mobile_verified: bool = False) -> User:

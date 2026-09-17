@@ -149,7 +149,7 @@ const AdminWorkflowOversightPage: React.FC = () => {
                         {workflow.currentStatus}
                       </span>
                     </div>
-                    <p className="text-xs text-ink/60 mt-0.5">{t('adminPortal.parcelLabel', { id: workflow.parcelId })}</p>
+                    <p className="text-xs text-ink/60 mt-0.5">{workflow.parcelId}</p>
                     {pendingDepartments.length > 0 && (
                       <p className="text-xs text-secondary-strong mt-1">
                         {t('adminPortal.pendingDepartmentsLabel', { departments: pendingDepartments.map((d) => d.replace(/_/g, ' ')).join(', ') })}

@@ -17,6 +17,7 @@ import {
   X,
   FileCheck,
   Building,
+  Trash2,
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { VerificationResult, ParcelSummary } from '../../types/parcel';
@@ -48,6 +49,29 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
 
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
 
+  const extractMutation = useMutation<{ fields: Record<string, string | string[] | null> }, Error, File>(async (selectedFile) => {
+    const formData = new FormData();
+    formData.append('document', selectedFile);
+    const response = await apiService.post('/parcels/extract-document', formData, {
+      headers: { 'Content-Type': undefined },
+    });
+    return response.data;
+  }, {
+    onSuccess: (data) => {
+      setFormFields((previous) => {
+        const next = { ...previous };
+        (Object.keys(next) as Array<keyof typeof next>).forEach((field) => {
+          const extracted = data.fields[field];
+          const value = Array.isArray(extracted) ? extracted[0] : extracted;
+          if (typeof value === 'string' && value.trim()) {
+            next[field] = value.trim();
+          }
+        });
+        return next;
+      });
+    },
+  });
+
   const verifyMutation = useMutation<VerificationResult, Error, void>(async () => {
     if (!file) throw new Error('Please select a document file');
     const formData = new FormData();
@@ -76,6 +100,20 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
     },
   });
 
+  const deletePendingMutation = useMutation(
+    async (parcelId: string) => {
+      await apiService.delete(`/parcels/mine/${parcelId}`);
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['my-parcels']);
+        queryClient.invalidateQueries(['my-workflows']);
+        setVerificationResult(null);
+        verifyMutation.reset();
+      },
+    }
+  );
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -91,13 +129,20 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+      handleFileSelected(e.dataTransfer.files[0]);
     }
+  };
+
+  const handleFileSelected = (selectedFile: File) => {
+    setFile(selectedFile);
+    setVerificationResult(null);
+    extractMutation.reset();
+    extractMutation.mutate(selectedFile);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      handleFileSelected(e.target.files[0]);
     }
   };
 
@@ -322,14 +367,36 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
 
             {/* Actions for Retry / Continue */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gov-border">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gov-border text-xs font-heading font-bold text-text-heading bg-white dark:bg-surface-2 hover:bg-surface-2 transition shadow-xs"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{t('parcelVerification.retryCta', 'Edit Details & Try Again')}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gov-border text-xs font-heading font-bold text-text-heading bg-white dark:bg-surface-2 hover:bg-surface-2 transition shadow-xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{t('parcelVerification.retryCta', 'Edit Details & Try Again')}</span>
+                </button>
+
+                {verificationResult.verdict === 'PARTIAL MATCH' && verificationResult.parcel?.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(t('parcelVerification.confirmDiscard', 'Discard this pending claim? This will cancel the officer review.'))) {
+                        deletePendingMutation.mutate(verificationResult.parcel!.id);
+                      }
+                    }}
+                    disabled={deletePendingMutation.isLoading}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-heading font-semibold hover:bg-red-100 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {deletePendingMutation.isLoading
+                        ? t('common.deleting', 'Discarding...')
+                        : t('parcelVerification.discardPendingCta', 'Discard / Delete Claim')}
+                    </span>
+                  </button>
+                )}
+              </div>
 
               {onCancel && (
                 <button
@@ -395,6 +462,7 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                       onClick={(e) => {
                         e.stopPropagation();
                         setFile(null);
+                        extractMutation.reset();
                       }}
                       className="ml-4 p-1 rounded-full text-text-muted hover:text-red-600 hover:bg-surface-2 transition"
                     >
@@ -420,7 +488,13 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
 
               <div className="flex flex-wrap items-center justify-between gap-2 mt-2 px-1">
                 <p className="text-[11px] text-text-muted">
-                  Tip: Use a PDF with digital text layer for instantaneous 100% OCR matching.
+                  {extractMutation.isLoading
+                    ? 'Reading document fields...'
+                    : extractMutation.isSuccess
+                    ? 'Fields extracted. Review the autofilled values before verifying.'
+                    : extractMutation.isError
+                    ? 'Could not read this document. You can still enter the details manually.'
+                    : 'Upload a PDF or clear image to autofill the land-record fields.'}
                 </p>
                 <a
                   href="/sample_verified_712.pdf"
@@ -433,6 +507,13 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                 </a>
               </div>
             </div>
+
+            {extractMutation.isError && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Document extraction failed. Please check the file and review the fields manually.</span>
+              </div>
+            )}
 
             {/* Part 2: Typed Fields */}
             <div>

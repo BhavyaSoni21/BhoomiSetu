@@ -41,6 +41,12 @@ const RaiseRequestPage: React.FC = () => {
     (p) => p.status === 'Pending Verification'
   );
 
+  useEffect(() => {
+    if (!isLoading && data && registeredParcels.length === 0) {
+      navigate('/citizen/parcels?from=raise-request', { replace: true });
+    }
+  }, [data, isLoading, navigate, registeredParcels.length]);
+
   // Auto-select if passed via search param
   useEffect(() => {
     const urlParcelId = searchParams.get('parcelId');

@@ -38,6 +38,23 @@ class ReopenWorkflowStep(CamelModel):
     message: str = Field(min_length=1)
 
 
+class AssignVerifier(CamelModel):
+    verifier_id: UUID
+
+
+class FieldEvidenceOut(CamelModel):
+    id: UUID
+    workflow_id: UUID
+    verifier_id: str
+    photo_file_name: str
+    mime_type: str
+    latitude: float
+    longitude: float
+    captured_at: datetime
+    notes: str | None
+    created_at: datetime
+
+
 class WorkflowStepOut(CamelModel):
     id: UUID
     step_order: int
@@ -59,6 +76,8 @@ class WorkflowOut(CamelModel):
     last_remarks: str | None
     routing_notes: str | None
     citizen_id: str | None
+    assigned_verifier_id: str | None
+    requires_field_verification: bool
     applicant_contact: str | None
     applicant_address: str | None
     verification_precheck: str | None
@@ -66,6 +85,8 @@ class WorkflowOut(CamelModel):
     evidence_file_path: str | None
     evidence_mime_type: str | None
     evidence_extracted_text: str | None
+    evidence_authenticity_suspicious: bool | None
+    evidence_authenticity_reasons: str | None  # JSON-encoded list[str], same convention as verification_precheck
     created_at: datetime
     updated_at: datetime
     steps: list[WorkflowStepOut]

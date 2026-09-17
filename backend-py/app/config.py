@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     port: int = 8000
     cors_origin: str = ""
     environment: str = ""
+    # Canonical citizen-facing site URL - used to build real deep links (the
+    # official document PDF's QR code) rather than an opaque parcel id.
+    # Defaults to the Vite dev server's own default port.
+    frontend_url: str = "http://localhost:5173"
 
     jwt_secret: str = "change_this_in_production"
 

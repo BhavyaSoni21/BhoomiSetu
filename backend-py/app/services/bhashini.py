@@ -396,6 +396,10 @@ async def transliterate_text(
             if response.status_code == 200:
                 data = response.json()
                 output_text = data.get("pipelineResponse", [{}])[0].get("output", [{}])[0].get("target", text)
+                if isinstance(output_text, list) and len(output_text) > 0:
+                    output_text = output_text[0]
+                elif not isinstance(output_text, str):
+                    output_text = str(output_text)
                 logger.info(f"Transliterated: {len(text)} chars")
                 return TransliterationResult(
                     transliterated_text=output_text,
@@ -561,8 +565,10 @@ async def speech_to_text(
             {
                 "taskType": "asr",
                 "config": {
-                    "language": {"sourceLanguage": language, "targetLanguage": language},
-                    "serviceId": service_id
+                    "language": {"sourceLanguage": language},
+                    "serviceId": service_id,
+                    "audioFormat": "wav",
+                    "samplingRate": 16000
                 }
             }
         ],
@@ -586,7 +592,12 @@ async def speech_to_text(
             
             if response.status_code == 200:
                 data = response.json()
-                transcript = data.get("pipelineResponse", [{}])[0].get("output", [{}])[0].get("target", "")
+                # ASR output is returned in 'source', unlike translation which uses 'target'
+                transcript = data.get("pipelineResponse", [{}])[0].get("output", [{}])[0].get("source", "")
+                if not transcript:
+                     # Fallback just in case some models return target
+                     transcript = data.get("pipelineResponse", [{}])[0].get("output", [{}])[0].get("target", "")
+                     
                 logger.info(f"Transcribed audio: {len(transcript)} chars for {language}")
                 return ASRResult(transcribed_text=transcript)
             else:

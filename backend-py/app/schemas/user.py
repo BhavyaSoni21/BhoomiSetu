@@ -8,10 +8,15 @@ from uuid import UUID
 
 from pydantic import EmailStr, Field, field_validator
 
-from app.auth.roles import ALL_STAFF_ROLES
+from app.auth.roles import ALL_STAFF_ROLES, VERIFIER_ROLE
 from app.schemas.base import CamelModel
 
 _PASSWORD_COMPLEXITY = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$")
+# Roles an admin may create/reassign a staff account to through this
+# schema - staff roles plus the Verifier role (which isn't "staff" in the
+# ALL_STAFF_ROLES/department-review sense, but is still an admin-created
+# account, unlike CITIZEN self-registration).
+_ASSIGNABLE_ROLES = [*ALL_STAFF_ROLES, VERIFIER_ROLE]
 
 
 class PublicUserOut(CamelModel):
@@ -51,8 +56,8 @@ class CreateUser(CamelModel):
     @field_validator("role")
     @classmethod
     def _check_role(cls, value: str) -> str:
-        if value not in ALL_STAFF_ROLES:
-            raise ValueError(f"role must be one of {ALL_STAFF_ROLES}")
+        if value not in _ASSIGNABLE_ROLES:
+            raise ValueError(f"role must be one of {_ASSIGNABLE_ROLES}")
         return value
 
 
@@ -62,6 +67,6 @@ class UpdateUserRole(CamelModel):
     @field_validator("role")
     @classmethod
     def _check_role(cls, value: str) -> str:
-        if value not in ALL_STAFF_ROLES:
-            raise ValueError(f"role must be one of {ALL_STAFF_ROLES}")
+        if value not in _ASSIGNABLE_ROLES:
+            raise ValueError(f"role must be one of {_ASSIGNABLE_ROLES}")
         return value

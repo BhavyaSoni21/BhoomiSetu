@@ -17,6 +17,7 @@ const DEMO_OFFICER_EMAILS: Record<(typeof OFFICER_ROLES)[number], string> = {
   ENCUMBRANCE_OFFICER:   'encumbrance.officer@bhoomisetu.gov.in',
 };
 const DEMO_ADMIN_EMAIL = 'admin@bhoomisetu.gov.in';
+const DEMO_VERIFIER_EMAILS = ['verifier1@bhoomisetu.gov.in', 'verifier2@bhoomisetu.gov.in'];
 
 type LoginMethod = 'EMAIL' | 'MOBILE';
 
@@ -49,8 +50,9 @@ const LoginPage: React.FC = () => {
         method === 'EMAIL' ? { email, password } : { mobileNumber, password },
       );
       const dest =
-        user.role === 'ADMIN'   ? '/admin'   :
-        user.role === 'CITIZEN' ? '/citizen' : '/officer';
+        user.role === 'ADMIN'    ? '/admin'    :
+        user.role === 'CITIZEN'  ? '/citizen'  :
+        user.role === 'VERIFIER' ? '/verifier' : '/officer';
       navigate(dest);
     } catch (err) {
       setError(
@@ -487,6 +489,29 @@ const LoginPage: React.FC = () => {
                         >
                           {ROLE_LABELS[role]?.replace(/ Officer$/, '')}
                         </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Verifiers */}
+                <div className="space-y-1.5">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {t('authPage.demoVerifiersLabel')}
+                  </p>
+                  <div className="space-y-1">
+                    {DEMO_VERIFIER_EMAILS.map((email) => (
+                      <button
+                        key={email}
+                        type="button"
+                        onClick={() => fillDemo(email)}
+                        className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
+                        style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
+                      >
+                        {email}
                       </button>
                     ))}
                   </div>

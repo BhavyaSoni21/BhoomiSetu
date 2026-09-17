@@ -7,6 +7,8 @@ import apiService from '../../services/apiService';
 import { AiQueryResponse } from '../../types/aiQuery';
 import { ParcelSummary } from '../../types/parcel';
 import { useTranslation } from '../../context/LanguageContext';
+import MicButton from '../../components/MicButton';
+import SpeakerButton from '../../components/SpeakerButton';
 
 interface ChatMessage {
   id: string;
@@ -99,7 +101,14 @@ const AskAiWidget: React.FC = () => {
   // the position itself changes) plus whether it ever crossed the
   // move threshold, so the button's onClick can tell a real click from the
   // pointerup that ends a drag and skip toggling open/closed for the latter.
-  const dragRef = useRef<{ target: 'button' | 'panel'; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const dragRef = useRef<{
+    target: 'button' | 'panel';
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    panelOrigin?: Position;
+  } | null>(null);
   const draggedRef = useRef(false);
 
   const mutation = useMutation<AiQueryResponse, Error, string>(async (q) => {
@@ -130,7 +139,16 @@ const AskAiWidget: React.FC = () => {
   const startDrag = (target: 'button' | 'panel') => (e: React.PointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return; // left mouse button (or touch/pen) only
     const origin = target === 'button' ? buttonPos : (panelPos ?? defaultPanelPos(buttonPos));
-    dragRef.current = { target, startX: e.clientX, startY: e.clientY, originX: origin.x, originY: origin.y };
+    dragRef.current = {
+      target,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: origin.x,
+      originY: origin.y,
+      // Keep the open panel anchored to the icon by moving both from their
+      // original positions with the same pointer delta.
+      panelOrigin: target === 'button' && isOpen ? panelPos ?? defaultPanelPos(buttonPos) : undefined,
+    };
     draggedRef.current = false;
     // Guard rather than assume setPointerCapture exists - not every
     // environment implements it (notably jsdom in tests); dragging still
@@ -151,8 +169,12 @@ const AskAiWidget: React.FC = () => {
     if (!draggedRef.current) return;
 
     const next = { x: drag.originX + dx, y: drag.originY + dy };
-    if (drag.target === 'button') setButtonPos(clampButtonPos(next));
-    else setPanelPos(clampPanelPos(next));
+    if (drag.target === 'button') {
+      setButtonPos(clampButtonPos(next));
+      if (drag.panelOrigin) setPanelPos(clampPanelPos({ x: drag.panelOrigin.x + dx, y: drag.panelOrigin.y + dy }));
+    } else {
+      setPanelPos(clampPanelPos(next));
+    }
   };
 
   const endDrag = () => {
@@ -265,7 +287,12 @@ const AskAiWidget: React.FC = () => {
                         : 'bg-muted text-ink border-ink/10'
                   }`}
                 >
-                  <p>{message.text}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="flex-1">{message.text}</p>
+                    {message.role === 'assistant' && !message.isError && (
+                      <SpeakerButton text={message.text} className="shrink-0 -mt-0.5 -mr-1" />
+                    )}
+                  </div>
                   {message.results && message.results.length > 0 && (
                     <div className="mt-2 space-y-1.5 border-t-2 border-ink/10 pt-2">
                       <p className="text-xs font-bold uppercase tracking-wide text-ink/50">{t('askAiWidget.parcelsMatched', { count: message.results.length })}</p>
@@ -298,13 +325,16 @@ const AskAiWidget: React.FC = () => {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t-2 border-ink/15 p-3">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t-2 border-ink/15 p-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t('askAiWidget.inputPlaceholder')}
               className="flex-1 border-2 border-ink bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
+            />
+            <MicButton
+              onResult={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
             />
             <button
               type="submit"
@@ -321,20 +351,26 @@ const AskAiWidget: React.FC = () => {
       <button
         style={{ left: buttonPos.x, top: buttonPos.y }}
         onClick={handleButtonClick}
-        onPointerDown={startDrag('button')}
-        onPointerMove={onDragMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
         aria-label={isOpen ? t('askAiWidget.closeAskAi') : t('askAiWidget.openAskAi')}
-        className={`fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md overflow-hidden ${
+        className={`fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md overflow-hidden ${
           isDraggingButton ? 'cursor-grabbing' : 'cursor-grab transition-transform hover:scale-105'
         }`}
       >
         {isOpen ? (
           <X className="h-6 w-6" aria-hidden="true" />
         ) : (
-          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} className="h-full w-full object-cover" />
+          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} draggable={false} className="h-full w-full pointer-events-none select-none object-cover" />
         )}
+        {/* Transparent drag layer prevents the browser from dragging the image itself. */}
+        <span
+          aria-hidden="true"
+          data-testid="ask-ai-drag-handle"
+          onPointerDown={startDrag('button')}
+          onPointerMove={onDragMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className={`absolute inset-0 z-10 touch-none bg-transparent ${isDraggingButton ? 'cursor-grabbing' : 'cursor-grab'}`}
+        />
       </button>
     </>
   );

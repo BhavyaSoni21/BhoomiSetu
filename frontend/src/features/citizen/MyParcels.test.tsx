@@ -7,7 +7,7 @@ import apiService from '../../services/apiService';
 import { AuthUser } from '../auth/auth';
 
 vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
@@ -111,5 +111,44 @@ describe('MyParcels', () => {
 
     expect(screen.getByText(/New Property Ownership Claim/i)).toBeInTheDocument();
     expect(screen.getByText(/Find My Parcel/i)).toBeInTheDocument();
+  });
+
+  it('allows citizen to delete a pending parcel submission with confirmation modal', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({
+      data: {
+        total: 1,
+        parcels: [
+          {
+            id: 'p2234567-bbbb',
+            canonicalParcelId: 'CAN10001',
+            localId: 'MH-AH-SH-102/3',
+            ulpin: null,
+            stateCode: 'MH',
+            districtCode: 'AH',
+            localBodyCode: 'SH',
+            areaSqM: 3200,
+            geometry: '{}',
+            status: 'Pending Verification',
+          },
+        ],
+      },
+    });
+    vi.mocked(apiService.delete).mockResolvedValue({ data: { success: true } });
+
+    renderPanel(citizen);
+
+    const elements = await screen.findAllByText(/MH-AH-SH-102\/3/);
+    expect(elements.length).toBeGreaterThanOrEqual(1);
+
+    const deleteBtn = screen.getAllByRole('button', { name: /Delete (Pending )?Submission/i })[0];
+    fireEvent.click(deleteBtn);
+
+    expect(screen.getByText(/Delete Pending Submission\?/i)).toBeInTheDocument();
+    const confirmBtn = screen.getByRole('button', { name: /Yes, Delete Submission/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(apiService.delete).toHaveBeenCalledWith('/parcels/mine/p2234567-bbbb');
+    });
   });
 });

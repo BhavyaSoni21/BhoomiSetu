@@ -1,15 +1,41 @@
 import React from 'react';
 import { Clock, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ProfileCard } from './ProfileCard';
+import apiService from '../../../services/apiService';
+import { AuditLogEntry } from '../../../types/auditLog';
+
+// "Approved officer access" -> "Workflow Step Approved" - the same
+// underscore-to-title-case treatment AnalyticsDashboard.tsx's
+// formatEnumLabel uses for other backend enum values.
+function formatAction(action: string): string {
+  return action
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 export const AdminActivitySummary: React.FC = () => {
-  const adminEvents = [
-    { id: '1', action: 'Approved officer access', timestamp: '11 Sep 2026, 09:16 AM' },
-    { id: '2', action: 'Updated role permissions', timestamp: '10 Sep 2026, 03:42 PM' },
-    { id: '3', action: 'Added new officer account', timestamp: '09 Sep 2026, 11:20 AM' },
-    { id: '4', action: 'Updated GIS configuration', timestamp: '08 Sep 2026, 05:14 PM' },
-  ];
+  // GET /audit is admin-only - safe to call unconditionally here since this
+  // card is only ever rendered on the admin dashboard (RoleDashboard.tsx).
+  const { data: entries = [], isLoading } = useQuery<AuditLogEntry[]>(['admin-recent-activity'], async () => {
+    const response = await apiService.get('/audit', { params: { limit: 4 } });
+    return response.data;
+  });
+  const adminEvents = entries.map((entry) => ({
+    id: entry.id,
+    action: formatAction(entry.action),
+    timestamp: formatTimestamp(entry.createdAt),
+  }));
 
   return (
     <ProfileCard
@@ -17,6 +43,8 @@ export const AdminActivitySummary: React.FC = () => {
       title="RECENT ADMINISTRATIVE ACTIVITY"
     >
       <div className="space-y-3">
+        {isLoading && <p className="text-xs text-text-muted">Loading...</p>}
+        {!isLoading && adminEvents.length === 0 && <p className="text-xs text-text-muted">No activity recorded yet.</p>}
         {adminEvents.map((item) => (
           <div
             key={item.id}

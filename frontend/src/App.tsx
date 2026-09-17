@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import CitizenPortal from './pages/CitizenPortal';
 import OfficerPortal from './pages/OfficerPortal';
 import AdminPortal from './pages/AdminPortal';
+import VerifierPortal from './pages/VerifierPortal';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AboutPage from './pages/AboutPage';
@@ -20,7 +21,7 @@ import { useAuthUser, useLogout } from './features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS } from './features/officer/officerAuth';
 import AskAiWidget from './features/ai/AskAiWidget';
 import { useTheme } from './theme/theme';
-import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS } from './navConfig';
+import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS, VERIFIER_NAV_ITEMS } from './navConfig';
 import SvgIndianEmblem from './components/IndianEmblem';
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -46,12 +47,14 @@ function navItemsFor(role: string | undefined): NavItem[] {
   if (!role) return [home, about, { to: '/features', labelKey: 'nav.features' }];
   if (role === 'CITIZEN') return [home, about, ...CITIZEN_NAV_ITEMS];
   if (role === 'ADMIN') return ADMIN_NAV_ITEMS;
+  if (role === 'VERIFIER') return VERIFIER_NAV_ITEMS;
   return OFFICER_NAV_ITEMS;
 }
 
 function portalPathForRole(role: string): string {
   if (role === 'ADMIN') return '/admin';
   if (role === 'CITIZEN') return '/citizen';
+  if (role === 'VERIFIER') return '/verifier';
   return '/officer';
 }
 
@@ -376,6 +379,14 @@ function AppShell() {
             element={
               <RequireAuth roles={['ADMIN']}>
                 <AdminPortal />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/verifier/*"
+            element={
+              <RequireAuth roles={['VERIFIER']}>
+                <VerifierPortal />
               </RequireAuth>
             }
           />

@@ -209,15 +209,25 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const [basemap, setBasemap] = useState<Basemap>('street');
 
+  // Current map viewport as "minLng,minLat,maxLng,maxLat", kept in sync via
+  // the 'moveend' listener registered in the map-init effect below. Gates
+  // the base parcels query so it never fires with no bbox at all - with
+  // 3,800+ demo parcels across 58 clusters nationwide, an unscoped fetch
+  // means shipping the whole country to every page load (see
+  // docs/architecture strategy notes on viewport-based loading).
+  const [viewBbox, setViewBbox] = useState<string | null>(null);
+
   // Base "search results" layer: only fetch our own copy of every parcel
   // when the caller hasn't handed us a (possibly search-filtered) list.
+  // Scoped to the current viewport (+ a generous cap) rather than fetching
+  // every parcel in the database on every load/pan/zoom.
   const { data: fetchedParcels = [], isLoading, error } = useQuery<ParcelSummary[]>(
-    ['parcels'],
+    ['parcels', viewBbox],
     async () => {
-      const response = await apiService.get('/gis/parcels');
+      const response = await apiService.get('/gis/parcels', { params: { bbox: viewBbox, limit: 1000 } });
       return response.data.parcels;
     },
-    { enabled: parcelsProp === undefined },
+    { enabled: parcelsProp === undefined && viewBbox !== null },
   );
   const parcels = parcelsProp ?? fetchedParcels;
   const showLoading = parcelsProp === undefined && isLoading;
@@ -437,6 +447,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       mapReadyRef.current = true;
       setMapReady(true);
+
+      const updateBbox = () => {
+        const bounds = map.getBounds();
+        setViewBbox(`${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`);
+      };
+      updateBbox();
+      map.on('moveend', updateBbox);
     };
 
     if (map.isStyleLoaded()) {

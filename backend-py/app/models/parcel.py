@@ -134,6 +134,35 @@ class OwnershipHistoryRecord(Base):
     transaction_type: Mapped[str] = mapped_column(String(20))  # ORIGINAL | SALE | GIFT | INHERITANCE | PARTITION
     transaction_date: Mapped[date] = mapped_column()
     document_reference: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # The village-record account/holding number this ownership entry is
+    # filed under (Form 7's "Khata No.") - a real Indian land-record concept
+    # with no prior column here; added for the official document PDF
+    # (BACKLOG.md item 14 follow-up). Nullable: older/synthetic rows never
+    # had one assigned, same convention as document_reference above.
+    khata_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+
+class CropRecord(Base):
+    """A parcel's crop register (Form 12's "Register of Crops") - only
+    ever seeded for AGRICULTURAL-land-use parcels (see PlanningRecord),
+    since a residential/commercial parcel genuinely has no crop history.
+    Multiple rows per parcel (one per year/season), added for the official
+    document PDF (BACKLOG.md item 14 follow-up).
+    """
+
+    __tablename__ = "crop_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    agricultural_year: Mapped[str] = mapped_column(String(10))  # e.g. "2024-25"
+    season: Mapped[str] = mapped_column(String(20))  # KHARIF | RABI | SUMMER
+    crop_type: Mapped[str] = mapped_column(String(30))  # FOOD_CROP | CASH_CROP | HORTICULTURE
+    crop_name: Mapped[str] = mapped_column(String(60))
+    irrigated_area_sq_m: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    unirrigated_area_sq_m: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    irrigation_source: Mapped[str | None] = mapped_column(String(30), nullable=True)  # WELL | CANAL | BOREWELL | RAINFED
+    uncultivable_area_sq_m: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    remark: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 
 class ParcelHistoricalState(Base):

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RaiseRequestPage from './RaiseRequestPage';
 import apiService from '../../services/apiService';
@@ -11,6 +11,11 @@ vi.mock('../../services/apiService', () => ({
 }));
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
 
 const parcelOne = {
   id: 'p1',
@@ -43,6 +48,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
+          <LocationProbe />
         <RaiseRequestPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -62,6 +68,7 @@ describe('RaiseRequestPage', () => {
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
     expect(screen.getByText(/Link a Parcel to Get Started/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Select Verified Parcel/i)).not.toBeInTheDocument();
+    expect(await screen.findByTestId('location')).toHaveTextContent('/citizen/parcels?from=raise-request');
   });
 
   it('blocks parcels with status Pending Verification from complaint selection', async () => {

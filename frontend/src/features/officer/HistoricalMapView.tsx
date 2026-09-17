@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Loader2, Satellite } from 'lucide-react';
 import { useCategorizedParcels } from './historicalImagery';
 import { ParcelCategory } from '../../types/historicalImagery';
 import { ParcelSummary } from '../../types/parcel';
 import MapComponent from '../map/MapComponent';
+import apiService from '../../services/apiService';
+import { useAuthUser } from '../auth/auth';
+import { OFFICER_ROLES } from './officerAuth';
 
 // Mirrors backend/src/common/parcel-generation/parcel-category.ts's
 // CATEGORY_COLORS/CATEGORY_LABELS - duplicated rather than shared, matching
@@ -75,6 +80,45 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
 
   const { data: categorizedParcels = [], isLoading, error } = useCategorizedParcels(clusterId, year);
 
+  // Real satellite photo view - officer-only (per the user's explicit "at
+  // least the officers"), fetched on demand rather than automatically on
+  // every year/cluster change to avoid burning Earth Engine quota on views
+  // nobody asked to see.
+  const { data: user } = useAuthUser();
+  const isOfficer = OFFICER_ROLES.includes(user?.role as (typeof OFFICER_ROLES)[number]);
+  const [viewMode, setViewMode] = useState<'map' | 'satellite'>('map');
+  const objectUrlRef = useRef<string | null>(null);
+  const [satelliteImageUrl, setSatelliteImageUrl] = useState<string | null>(null);
+
+  const satelliteQuery = useQuery(
+    ['cluster-satellite-image', clusterId, year],
+    async () => {
+      const response = await apiService.get(`/change-detection/clusters/${clusterId}/satellite-image`, {
+        params: { date: `${year}-01-01` },
+        responseType: 'blob',
+        timeout: 60000,
+      });
+      return response.data as Blob;
+    },
+    {
+      enabled: false,
+      onSuccess: (blob) => {
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setSatelliteImageUrl(url);
+      },
+    },
+  );
+
+  useEffect(() => {
+    setSatelliteImageUrl(null);
+  }, [clusterId, year]);
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
+
   const parcels: ParcelSummary[] = categorizedParcels.map((p) => ({
     id: p.id,
     canonicalParcelId: p.canonicalParcelId,
@@ -118,26 +162,79 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
             ))}
           </select>
         </div>
+        {isOfficer && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center border-2 border-ink">
+              <button
+                type="button"
+                onClick={() => setViewMode('map')}
+                className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+              >
+                Parcel Map
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('satellite')}
+                className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide border-l-2 border-ink ${viewMode === 'satellite' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+              >
+                Satellite Photo
+              </button>
+            </div>
+            {viewMode === 'satellite' && !satelliteImageUrl && (
+              <button
+                type="button"
+                onClick={() => satelliteQuery.refetch()}
+                disabled={satelliteQuery.isFetching}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink bg-secondary text-white text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
+              >
+                {satelliteQuery.isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Satellite className="w-3.5 h-3.5" aria-hidden="true" />}
+                {satelliteQuery.isFetching ? 'Loading...' : `Load ${year} satellite photo`}
+              </button>
+            )}
+          </div>
+        )}
         {actionSlot}
       </div>
 
-      {Boolean(error) && <p className="text-xs font-medium text-secondary-strong mb-2">Could not load this year's parcel data.</p>}
-      {!error &&
-        (isLoading ? (
-          <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex items-center justify-center text-ink/40 text-sm font-bold uppercase tracking-wide">
-            Loading {year}...
-          </div>
-        ) : (
-          <MapComponent
-            parcels={parcels}
-            parcelColors={parcelColors}
-            parcelLabels={parcelLabels}
-            fitToParcels
-            selectedParcelId={selectedParcelId}
-            onParcelClick={onParcelClick}
-            recenterSignal={recenterSignal}
+      {viewMode === 'satellite' && isOfficer ? (
+        satelliteImageUrl ? (
+          <img
+            src={satelliteImageUrl}
+            alt={`Satellite photo of cluster ${clusterId} near ${year}`}
+            className="w-full max-h-[500px] object-contain border-2 sm:border-4 border-ink bg-black"
           />
-        ))}
+        ) : (
+          <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex flex-col items-center justify-center gap-2 text-ink/40 text-sm font-bold uppercase tracking-wide text-center px-4">
+            {satelliteQuery.isError ? (
+              <span className="text-secondary-strong normal-case font-medium">
+                Could not load a real satellite photo for this area/date - it may not have cloud-free coverage.
+              </span>
+            ) : (
+              <span>Click "Load {year} satellite photo" above</span>
+            )}
+          </div>
+        )
+      ) : (
+        <>
+          {Boolean(error) && <p className="text-xs font-medium text-secondary-strong mb-2">Could not load this year's parcel data.</p>}
+          {!error &&
+            (isLoading ? (
+              <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex items-center justify-center text-ink/40 text-sm font-bold uppercase tracking-wide">
+                Loading {year}...
+              </div>
+            ) : (
+              <MapComponent
+                parcels={parcels}
+                parcelColors={parcelColors}
+                parcelLabels={parcelLabels}
+                fitToParcels
+                selectedParcelId={selectedParcelId}
+                onParcelClick={onParcelClick}
+                recenterSignal={recenterSignal}
+              />
+            ))}
+        </>
+      )}
     </div>
   );
 };

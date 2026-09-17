@@ -20,12 +20,10 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.common import supabase_storage
 from app.common.geometry_json import geometry_to_geojson
 from app.common.parcel_generation.parcel_category import CATEGORY_LABELS, CURRENT_YEAR, category_for
 from app.models.department_record import DisputeRecord, RestrictionRecord
 from app.models.governance import GovernanceAlert
-from app.models.historical_imagery import ClusterHistoricalSnapshot
 from app.models.parcel import Parcel, ParcelHistoricalState
 from app.services import narrative_service
 from app.services.narrative_service import ParcelChangeFact
@@ -33,6 +31,13 @@ from app.services.narrative_service import ParcelChangeFact
 # Bounds the LLM call's per-request latency regardless of how many parcels
 # a comparison actually affects.
 _MAX_LLM_NARRATIVE_PARCELS = 20
+
+# The demo snapshot archive is a fixed 2022-2026 arc (see parcel_category.
+# CURRENT_YEAR) - every cluster that has parcels has ParcelHistoricalState
+# rows for exactly these years, seeded up front rather than derived from
+# any stored image (satellite imagery now comes from Google Earth Engine,
+# not a seed-time rendered PNG per cluster/year).
+SNAPSHOT_YEARS = [2022, 2023, 2024, 2025, CURRENT_YEAR]
 
 
 @dataclass
@@ -71,18 +76,8 @@ class CategorizedParcel:
 
 
 def list_clusters(db: Session) -> list[dict[str, Any]]:
-    rows = db.query(ClusterHistoricalSnapshot).order_by(ClusterHistoricalSnapshot.cluster_id, ClusterHistoricalSnapshot.year).all()
-    by_cluster: dict[str, list[int]] = {}
-    for row in rows:
-        by_cluster.setdefault(row.cluster_id, []).append(row.year)
-    return [{"clusterId": cluster_id, "years": years} for cluster_id, years in by_cluster.items()]
-
-
-def get_snapshot_image(db: Session, cluster_id: str, year: int) -> bytes:
-    snapshot = db.query(ClusterHistoricalSnapshot).filter_by(cluster_id=cluster_id, year=year).first()
-    if not snapshot:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No snapshot for cluster {cluster_id}, year {year}")
-    return supabase_storage.download_from_storage(snapshot.image_path)
+    cluster_ids = [row[0] for row in db.query(Parcel.cluster_id).distinct().order_by(Parcel.cluster_id).all()]
+    return [{"clusterId": cluster_id, "years": SNAPSHOT_YEARS} for cluster_id in cluster_ids]
 
 
 def get_parcels_for_year(db: Session, cluster_id: str, year: int) -> list[CategorizedParcel]:
@@ -146,14 +141,9 @@ def compare(db: Session, cluster_id: str, from_year: int, to_year: int) -> Histo
             detail=f"Comparisons that generate governance alerts must run from {CURRENT_YEAR - 1} to {CURRENT_YEAR}.",
         )
 
-    from_snapshot = db.query(ClusterHistoricalSnapshot).filter_by(cluster_id=cluster_id, year=from_year).first()
-    to_snapshot = db.query(ClusterHistoricalSnapshot).filter_by(cluster_id=cluster_id, year=to_year).first()
-    if not from_snapshot or not to_snapshot:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Missing a snapshot for cluster {cluster_id} covering {from_year} and/or {to_year}")
-
     parcels = db.query(Parcel).filter_by(cluster_id=cluster_id).all()
     if not parcels:
-        return HistoricalComparisonResult(cluster_id=cluster_id, from_year=from_year, to_year=to_year, change_detected=False)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No cluster found: {cluster_id}")
     parcel_ids = [str(p.id) for p in parcels]
 
     historical_states = (

@@ -1,27 +1,24 @@
-"""Ported from backend/test/historical-imagery.e2e-spec.ts."""
+"""Ported from backend/test/historical-imagery.e2e-spec.ts.
 
-import io
+Historical imagery is now sourced live from Google Earth Engine, not a
+seed-time-rendered PNG per cluster/year (see docs/architecture/BACKLOG.md
+item 10) - ClusterHistoricalSnapshot and the /image route it backed are
+gone. list_clusters/get_parcels_for_year/compare are pure ParcelHistoricalState/
+DisputeRecord category diffing and only need real Parcel rows to exist.
+"""
+
 import json
 
 import pytest
 from geoalchemy2.shape import from_shape
-from PIL import Image
 from shapely.geometry import Polygon
 
 from app.common.parcel_generation.parcel_category import CURRENT_YEAR
 from app.models.department_record import DisputeRecord, RestrictionRecord
 from app.models.governance import GovernanceAlert
-from app.models.historical_imagery import ClusterHistoricalSnapshot
 from app.models.parcel import Parcel, ParcelHistoricalState
 from app.services import narrative_service
 from tests.helpers.auth import create_authenticated_user
-
-
-def make_flat_image() -> bytes:
-    img = Image.new("RGBA", (64, 64), (143, 174, 134, 255))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
 
 
 def square(min_lng: float, min_lat: float, size: float = 0.0006):
@@ -42,51 +39,28 @@ MAP_ONLY_CLUSTER_ID = "TEST-CLUSTER-02"
 
 
 @pytest.fixture
-def snapshots(db, tmp_path):
-    flat_image = make_flat_image()
-    bounds = json.dumps({"minLng": 73.849, "minLat": 18.519, "maxLng": 73.852, "maxLat": 18.522})
-    for year in (OLD_YEAR, PREVIOUS_YEAR, CURRENT_YEAR):
-        image_path = tmp_path / f"{CLUSTER_ID}-{year}.png"
-        image_path.write_bytes(flat_image)
-        db.add(ClusterHistoricalSnapshot(cluster_id=CLUSTER_ID, year=year, image_path=str(image_path), bounds=bounds))
+def cluster_with_parcel(db):
+    """A cluster's existence for list_clusters/compare is now just "does a
+    Parcel row for this cluster_id exist" - no separate snapshot table.
+    """
+    parcel = Parcel(canonical_parcel_id="HI-SEED", cluster_id=CLUSTER_ID, state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=100, geometry=square(73.849, 18.519))
+    db.add(parcel)
     db.flush()
+    return parcel
 
 
 class TestListClusters:
-    def test_lists_the_seeded_cluster_and_its_available_years(self, db, client, snapshots):
+    def test_lists_the_seeded_cluster_and_its_fixed_snapshot_years(self, db, client, cluster_with_parcel):
         _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
         res = client.get("/api/v1/historical-imagery/clusters", headers=headers)
         assert res.status_code == 200
         entry = next(c for c in res.json() if c["clusterId"] == CLUSTER_ID)
-        assert entry["years"] == [OLD_YEAR, PREVIOUS_YEAR, CURRENT_YEAR]
+        assert entry["years"] == [2022, 2023, 2024, 2025, CURRENT_YEAR]
 
-    def test_is_public(self, db, client, snapshots):
+    def test_is_public(self, db, client, cluster_with_parcel):
         _, _, citizen_headers = create_authenticated_user(db, "CITIZEN")
         assert client.get("/api/v1/historical-imagery/clusters", headers=citizen_headers).status_code == 200
         assert client.get("/api/v1/historical-imagery/clusters").status_code == 200
-
-
-class TestGetImage:
-    def test_serves_the_stored_png(self, db, client, snapshots):
-        _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
-        res = client.get(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/years/{OLD_YEAR}/image", headers=headers)
-        assert res.status_code == 200
-        assert res.headers["content-type"] == "image/png"
-        assert len(res.content) > 0
-
-    def test_returns_404_for_a_year_with_no_snapshot(self, db, client, snapshots):
-        _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
-        res = client.get(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/years/1999/image", headers=headers)
-        assert res.status_code == 404
-
-    def test_rejects_a_citizen_with_403(self, db, client, snapshots):
-        _, _, headers = create_authenticated_user(db, "CITIZEN")
-        res = client.get(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/years/{OLD_YEAR}/image", headers=headers)
-        assert res.status_code == 403
-
-    def test_rejects_an_unauthenticated_request_with_401(self, db, client, snapshots):
-        res = client.get(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/years/{OLD_YEAR}/image")
-        assert res.status_code == 401
 
 
 class TestGetParcelsForYear:
@@ -120,14 +94,14 @@ class TestGetParcelsForYear:
         old_res = client.get(f"/api/v1/historical-imagery/clusters/{MAP_ONLY_CLUSTER_ID}/years/{OLD_YEAR}/parcels", headers=headers)
         assert next(p for p in old_res.json() if p["canonicalParcelId"] == "HI-MAP-DISPUTE")["category"] == "NONE"
 
-    def test_is_public(self, db, client, snapshots):
+    def test_is_public(self, db, client, cluster_with_parcel):
         _, _, citizen_headers = create_authenticated_user(db, "CITIZEN")
         assert client.get(f"/api/v1/historical-imagery/clusters/{MAP_ONLY_CLUSTER_ID}/years/{CURRENT_YEAR}/parcels", headers=citizen_headers).status_code == 200
         assert client.get(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/years/{CURRENT_YEAR}/parcels").status_code == 200
 
 
 class TestCompare:
-    def test_detects_real_category_changes_and_creates_correctly_severed_alerts(self, db, client, snapshots, monkeypatch):
+    def test_detects_real_category_changes_and_creates_correctly_severed_alerts(self, db, client, cluster_with_parcel, monkeypatch):
         critical = Parcel(canonical_parcel_id="HI-CRITICAL-DISPUTE", cluster_id=CLUSTER_ID, state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=100, geometry=square(73.8501, 18.5201))
         high = Parcel(canonical_parcel_id="HI-HIGH-DISPUTE", cluster_id=CLUSTER_ID, state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=100, geometry=square(73.8502, 18.5202))
         new_restriction = Parcel(canonical_parcel_id="HI-NEW-RESTRICTION", cluster_id=CLUSTER_ID, state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=100, geometry=square(73.8503, 18.5203))
@@ -211,7 +185,7 @@ class TestCompare:
         assert captured_calls[0][1] == CURRENT_YEAR
         assert len(captured_calls[0][2]) == 4
 
-    def test_falls_back_to_real_facts_when_the_narrative_call_fails(self, db, client, snapshots, monkeypatch):
+    def test_falls_back_to_real_facts_when_the_narrative_call_fails(self, db, client, cluster_with_parcel, monkeypatch):
         parcel = Parcel(canonical_parcel_id="HI-FALLBACK", cluster_id=CLUSTER_ID, state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=100, geometry=square(73.86, 18.53))
         db.add(parcel)
         db.flush()
@@ -235,41 +209,40 @@ class TestCompare:
         assert "RESTRICTED" in row["narrative"]
         assert row["alertId"]
 
-    def test_returns_404_for_a_missing_snapshot_even_when_year_pair_is_valid(self, db, client):
-        # MAP_ONLY_CLUSTER_ID has real parcels but no ClusterHistoricalSnapshot
-        # rows at all.
+    def test_returns_404_for_an_unknown_cluster_even_when_year_pair_is_valid(self, db, client):
+        # MAP_ONLY_CLUSTER_ID has no Parcel rows in this test's isolated DB.
         _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
         res = client.post(f"/api/v1/historical-imagery/clusters/{MAP_ONLY_CLUSTER_ID}/compare", headers=headers, json={"fromYear": PREVIOUS_YEAR, "toYear": CURRENT_YEAR})
         assert res.status_code == 404
 
-    def test_rejects_a_citizen_with_403(self, db, client, snapshots):
+    def test_rejects_a_citizen_with_403(self, db, client, cluster_with_parcel):
         _, _, headers = create_authenticated_user(db, "CITIZEN")
         res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", headers=headers, json={"fromYear": PREVIOUS_YEAR, "toYear": CURRENT_YEAR})
         assert res.status_code == 403
 
-    def test_rejects_an_unauthenticated_request_with_401(self, db, client, snapshots):
+    def test_rejects_an_unauthenticated_request_with_401(self, db, client, cluster_with_parcel):
         res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", json={"fromYear": PREVIOUS_YEAR, "toYear": CURRENT_YEAR})
         assert res.status_code == 401
 
-    def test_rejects_a_malformed_body_with_400(self, db, client, snapshots):
+    def test_rejects_a_malformed_body_with_400(self, db, client, cluster_with_parcel):
         _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
         res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", headers=headers, json={"fromYear": "not-a-year", "toYear": CURRENT_YEAR})
         assert res.status_code == 400
 
     class TestYearPairRestriction:
-        def test_rejects_an_arbitrary_historical_pair_with_400(self, db, client, snapshots):
+        def test_rejects_an_arbitrary_historical_pair_with_400(self, db, client, cluster_with_parcel):
             _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
             res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", headers=headers, json={"fromYear": OLD_YEAR, "toYear": PREVIOUS_YEAR})
             assert res.status_code == 400
             assert str(PREVIOUS_YEAR) in res.json()["message"]
             assert str(CURRENT_YEAR) in res.json()["message"]
 
-        def test_rejects_the_reversed_pair_with_400(self, db, client, snapshots):
+        def test_rejects_the_reversed_pair_with_400(self, db, client, cluster_with_parcel):
             _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
             res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", headers=headers, json={"fromYear": CURRENT_YEAR, "toYear": PREVIOUS_YEAR})
             assert res.status_code == 400
 
-        def test_rejects_a_same_year_comparison_with_400(self, db, client, snapshots):
+        def test_rejects_a_same_year_comparison_with_400(self, db, client, cluster_with_parcel):
             _, _, headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
             res = client.post(f"/api/v1/historical-imagery/clusters/{CLUSTER_ID}/compare", headers=headers, json={"fromYear": CURRENT_YEAR, "toYear": CURRENT_YEAR})
             assert res.status_code == 400

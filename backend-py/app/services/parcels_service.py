@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.common import supabase_storage
 from app.common.geo_utils import polygon_distance_meters
 from app.common.geometry_json import geometry_to_geojson
+from app.common.parcel_generation.official_document_generator import render_official_document_pdf
+from app.document_verification.authenticity import check_authenticity
 from app.document_verification.field_matcher import text_contains_identifier
 from app.document_verification.ocr import extract_text
 from app.models.parcel import (
@@ -30,6 +32,8 @@ from app.models.parcel import (
     ParcelIdentifier,
     ParcelNeighbour,
 )
+from app.models.workflow import Workflow
+from app.services.land_record_pdf_service import build_land_record_pdf_data
 
 _DEFAULT_NEIGHBOUR_DISTANCE_M = 200
 _TOUCH_EPSILON_M = 3
@@ -67,6 +71,26 @@ def find_mine(db: Session, citizen_id: str) -> dict[str, Any]:
     return {"parcels": parcels, "total": len(parcels)}
 
 
+def delete_citizen_parcel(db: Session, citizen_id: str, parcel_id: str) -> bool:
+    """Unlinks a parcel from a citizen profile and dismisses pending verification workflows."""
+    link = db.query(CitizenParcel).filter_by(citizen_id=citizen_id, parcel_id=parcel_id).first()
+    if not link:
+        return False
+
+    # Also clean up / cancel any associated pending workflows for this citizen & parcel
+    workflows = db.query(Workflow).filter_by(parcel_id=parcel_id, citizen_id=citizen_id).all()
+    for wf in workflows:
+        if wf.workflow_type == "DOCUMENT_VERIFICATION_REQUEST":
+            db.delete(wf)
+        elif wf.status in ("IN_PROGRESS", "PENDING", "PENDING_REVIEW"):
+            wf.status = "REJECTED"
+            wf.comments = "Claim deleted/withdrawn by citizen"
+
+    db.delete(link)
+    db.commit()
+    return True
+
+
 def is_citizen_associated_with_parcel(db: Session, citizen_id: str, parcel_id: str) -> bool:
     return db.query(CitizenParcel).filter_by(citizen_id=citizen_id, parcel_id=parcel_id).first() is not None
 
@@ -92,11 +116,26 @@ def get_document_file(db: Session, parcel_id: str, doc_id: str) -> tuple[bytes, 
         return None
 
 
+def get_official_document_pdf(db: Session, parcel_id: str, lang: str) -> bytes | None:
+    """Form 7/12-style Record of Rights PDF, generated on demand from real
+    rows (BACKLOG.md item 14) - nothing persisted, no seed-time image. All
+    data assembly lives in land_record_pdf_service.build_land_record_pdf_data;
+    this is just the DB-lookup -> render hand-off.
+    """
+    parcel = db.get(Parcel, parcel_id)
+    if parcel is None:
+        return None
+    data = build_land_record_pdf_data(db, parcel)
+    return render_official_document_pdf(data, lang)
+
+
 @dataclass
 class IdentifyFromDocumentResult:
     extracted_text: str
     ocr_confidence: float
     candidates: list[Parcel]
+    authenticity_suspicious: bool = False
+    authenticity_reasons: list[str] | None = None
 
 
 def identify_from_document(db: Session, image_bytes: bytes) -> IdentifyFromDocumentResult:
@@ -105,8 +144,12 @@ def identify_from_document(db: Session, image_bytes: bytes) -> IdentifyFromDocum
     already know their ULPIN/survey number. Pure read - no persistence.
     """
     ocr = extract_text(image_bytes)
+    authenticity = check_authenticity(image_bytes)
     if not ocr.text.strip():
-        return IdentifyFromDocumentResult(extracted_text=ocr.text, ocr_confidence=ocr.confidence, candidates=[])
+        return IdentifyFromDocumentResult(
+            extracted_text=ocr.text, ocr_confidence=ocr.confidence, candidates=[],
+            authenticity_suspicious=authenticity.suspicious, authenticity_reasons=authenticity.reasons,
+        )
 
     matched_parcel_ids: set[str] = set()
 
@@ -125,7 +168,10 @@ def identify_from_document(db: Session, image_bytes: bytes) -> IdentifyFromDocum
         if matched_parcel_ids
         else []
     )
-    return IdentifyFromDocumentResult(extracted_text=ocr.text, ocr_confidence=ocr.confidence, candidates=candidates)
+    return IdentifyFromDocumentResult(
+        extracted_text=ocr.text, ocr_confidence=ocr.confidence, candidates=candidates,
+        authenticity_suspicious=authenticity.suspicious, authenticity_reasons=authenticity.reasons,
+    )
 
 
 def get_historical_states(db: Session, parcel_id: str, year: int | None = None) -> list[ParcelHistoricalState]:

@@ -16,6 +16,7 @@ import {
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 import BackButton from '../../components/BackButton';
+import SpeakerButton from '../../components/SpeakerButton';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -216,9 +217,12 @@ const RequestsPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="text-base font-heading font-bold text-text-heading mt-1">
-                      {WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')}
-                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <h3 className="text-base font-heading font-bold text-text-heading">
+                        {WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')}
+                      </h3>
+                      <SpeakerButton text={WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')} />
+                    </div>
 
                     <div className="flex items-center gap-4 text-xs text-text-secondary mt-1 font-mono">
                       <span>{t('requestsPage.parcelPrefix')} #{w.parcelId.substring(0, 8)}</span>
@@ -294,9 +298,12 @@ const RequestsPage: React.FC = () => {
                   <div className="pt-3 border-t border-gov-border space-y-3">
                     {w.requestDetails && (
                       <div>
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted mb-1">
-                          {t('citizenPortal.requestsYourRequestLabel')}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted">
+                            {t('citizenPortal.requestsYourRequestLabel')}
+                          </p>
+                          <SpeakerButton text={w.requestDetails} />
+                        </div>
                         <p className="text-xs text-text-secondary whitespace-pre-wrap">{w.requestDetails}</p>
                       </div>
                     )}
@@ -308,12 +315,15 @@ const RequestsPage: React.FC = () => {
                             <span className="text-xs font-bold text-text-heading">{step.department.replace(/_/g, ' ')}</span>
                             <span className="font-mono text-[10px] uppercase font-bold text-text-secondary">{step.status}</span>
                           </div>
-                          <p className="text-[11px] text-text-secondary mt-1.5">
-                            <span className="font-mono font-bold uppercase tracking-wide text-text-muted">
-                              {t('citizenPortal.requestsOfficerRemarksLabel')}:{' '}
-                            </span>
-                            {step.remarks || t('citizenPortal.requestsNoRemarksYet')}
-                          </p>
+                          <div className="mt-1.5 flex items-start justify-between gap-2">
+                            <p className="text-[11px] text-text-secondary">
+                              <span className="font-mono font-bold uppercase tracking-wide text-text-muted">
+                                {t('citizenPortal.requestsOfficerRemarksLabel')}:{' '}
+                              </span>
+                              {step.remarks || t('citizenPortal.requestsNoRemarksYet')}
+                            </p>
+                            {step.remarks && <SpeakerButton text={step.remarks} />}
+                          </div>
                           {step.completedAt && (
                             <p className="text-[10px] text-text-muted mt-1">
                               {t('citizenPortal.requestsDecidedOnLabel', { date: formatDateTime(step.completedAt) })}
@@ -325,9 +335,12 @@ const RequestsPage: React.FC = () => {
 
                     {w.lastRemarks && (
                       <div>
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted mb-1">
-                          {t('citizenPortal.requestsOverallNoteLabel')}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted">
+                            {t('citizenPortal.requestsOverallNoteLabel')}
+                          </p>
+                          <SpeakerButton text={w.lastRemarks} />
+                        </div>
                         <p className="text-xs text-text-secondary whitespace-pre-wrap">{w.lastRemarks}</p>
                       </div>
                     )}

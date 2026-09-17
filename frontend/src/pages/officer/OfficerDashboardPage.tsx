@@ -20,6 +20,114 @@ import { Workflow } from '../../types/workflow';
 import { useAuthUser } from '../../features/auth/auth';
 import { OfficerRole, ROLE_LABELS } from '../../features/officer/officerAuth';
 
+// Not every department has a governance-alert type that maps to it
+// (backend's governance_alerts_service.py's _ALERT_TYPE_DEPARTMENT only
+// covers LAND_RECORDS/RESTRICTION/TAX/DISPUTE) - showing the alerts card
+// for REGISTRATION/PLANNING/ENCUMBRANCE would just always read 0 and
+// mislead. BACKLOG.md item 26's DEPARTMENT_DASHBOARD_CONFIG.
+const DEPARTMENT_HAS_ALERTS: Record<string, boolean> = {
+  LAND_RECORDS: true,
+  RESTRICTION: true,
+  TAX: true,
+  DISPUTE: true,
+  REGISTRATION: false,
+  PLANNING: false,
+  ENCUMBRANCE: false,
+};
+
+// Endpoint + column config per department's own "what needs my attention"
+// widget - each reads a mock department record the officer's role already
+// owns (backend/app/routers/departments.py's new staff-gated list routes),
+// distinct from the generic pending-workflow queue below since these
+// departments (TAX, PLANNING, REGISTRATION) aren't tied to a workflow
+// pipeline at all.
+interface DepartmentWidgetConfig {
+  endpoint: string;
+  headingKey: string;
+  emptyKey: string;
+  columns: { key: string; labelKey: string; render: (row: any) => React.ReactNode }[];
+}
+
+const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
+  TAX: {
+    endpoint: '/tax/overdue',
+    headingKey: 'officerDashboard.overdueTaxHeading',
+    emptyKey: 'officerDashboard.overdueTaxEmpty',
+    columns: [
+      { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
+      { key: 'outstandingAmount', labelKey: 'officerDashboard.outstandingAmountLabel', render: (r) => `₹${Number(r.outstandingAmount).toLocaleString()}` },
+      { key: 'lastPaymentDate', labelKey: 'officerDashboard.lastPaymentDateLabel', render: (r) => r.lastPaymentDate ?? '—' },
+    ],
+  },
+  PLANNING: {
+    endpoint: '/planning/pending-permissions',
+    headingKey: 'officerDashboard.pendingPermissionsHeading',
+    emptyKey: 'officerDashboard.pendingPermissionsEmpty',
+    columns: [
+      { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
+      { key: 'landUse', labelKey: 'officerDashboard.landUseLabel', render: (r) => r.landUse.replace(/_/g, ' ') },
+      { key: 'zoningClassification', labelKey: 'officerDashboard.zoningLabel', render: (r) => r.zoningClassification },
+    ],
+  },
+  REGISTRATION: {
+    endpoint: '/registration/pending',
+    headingKey: 'officerDashboard.pendingRegistrationsHeading',
+    emptyKey: 'officerDashboard.pendingRegistrationsEmpty',
+    columns: [
+      { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
+      { key: 'lastTransactionType', labelKey: 'officerDashboard.transactionTypeLabel', render: (r) => r.lastTransactionType ?? '—' },
+      { key: 'lastTransactionDate', labelKey: 'officerDashboard.transactionDateLabel', render: (r) => r.lastTransactionDate ?? '—' },
+    ],
+  },
+};
+
+const DepartmentFocusWidget: React.FC<{ department: string }> = ({ department }) => {
+  const { t } = useTranslation();
+  const config = DEPARTMENT_WIDGETS[department];
+  const { data: rows = [], isLoading } = useQuery<any[]>(
+    ['department-focus', department],
+    async () => (await apiService.get(config.endpoint)).data,
+    { enabled: !!config },
+  );
+
+  if (!config) return null;
+
+  return (
+    <div className="gov-card p-6">
+      <h3 className="font-heading font-bold text-lg text-text-heading mb-5">{t(config.headingKey)}</h3>
+      {isLoading ? (
+        <div className="py-8 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+      ) : rows.length === 0 ? (
+        <div className="py-8 text-center rounded-xl bg-surface-2 border border-gov-border">
+          <CheckCircle2 className="w-8 h-8 mx-auto text-gov-success mb-2" />
+          <p className="text-sm font-semibold text-text-heading">{t(config.emptyKey)}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-gov-border text-text-muted uppercase font-mono text-[11px]">
+                {config.columns.map((col) => (
+                  <th key={col.key} className="pb-3 font-semibold">{t(col.labelKey)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gov-border">
+              {rows.map((row) => (
+                <tr key={row.id} className="hover:bg-surface-2/60 transition-colors">
+                  {config.columns.map((col) => (
+                    <td key={col.key} className="py-3 font-mono text-text-primary">{col.render(row)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function isToday(value: string | null): boolean {
   if (!value) return false;
   const date = new Date(value);
@@ -40,10 +148,16 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
     async () => (await apiService.get('/workflows', { params: { department } })).data,
   );
 
-  const { data: alerts = [] } = useQuery<any[]>(['governance-alerts', 'OPEN'], async () => {
-    const response = await apiService.get('/governance-alerts', { params: { status: 'OPEN' } });
-    return response.data;
-  });
+  const showAlertsCard = DEPARTMENT_HAS_ALERTS[department] ?? false;
+
+  const { data: alerts = [] } = useQuery<any[]>(
+    ['governance-alerts', 'OPEN'],
+    async () => {
+      const response = await apiService.get('/governance-alerts', { params: { status: 'OPEN' } });
+      return response.data;
+    },
+    { enabled: showAlertsCard },
+  );
 
   const myStepOf = (workflow: Workflow) => workflow.steps.find((s) => s.department === department);
   const pendingWorkflows = workflows.filter((w) => myStepOf(w)?.status === 'PENDING');
@@ -88,7 +202,7 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
       </div>
 
       {/* ── Key Operational Metrics ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${showAlertsCard ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -152,28 +266,30 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
           </span>
         </div>
 
-        <div className="gov-card p-5 transition hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('officerDashboard.openAlertsLabel')}
-            </span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-100 text-gov-error">
-              <ShieldAlert className="w-5 h-5" aria-hidden="true" />
+        {showAlertsCard && (
+          <div className="gov-card p-5 transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                {t('officerDashboard.openAlertsLabel')}
+              </span>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-100 text-gov-error">
+                <ShieldAlert className="w-5 h-5" aria-hidden="true" />
+              </div>
             </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-heading font-bold text-gov-error">
+                {alerts.length}
+              </span>
+              <span className="text-xs font-mono text-gov-error font-semibold">{t('officerDashboard.encroachmentOverlapsLabel')}</span>
+            </div>
+            <Link
+              to="/officer/alerts"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-gov-error hover:underline transition"
+            >
+              {t('officerDashboard.investigateAlertsLink')} <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-heading font-bold text-gov-error">
-              {alerts.length}
-            </span>
-            <span className="text-xs font-mono text-gov-error font-semibold">{t('officerDashboard.encroachmentOverlapsLabel')}</span>
-          </div>
-          <Link
-            to="/officer/alerts"
-            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-gov-error hover:underline transition"
-          >
-            {t('officerDashboard.investigateAlertsLink')} <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+        )}
       </div>
 
       {/* ── Action Queue Table ── */}
@@ -253,6 +369,8 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
           </div>
         )}
       </div>
+
+      {DEPARTMENT_WIDGETS[department] && <DepartmentFocusWidget department={department} />}
     </div>
   );
 };

@@ -12,6 +12,7 @@ from app.common.supabase_storage import download_from_storage
 from app.document_verification.field_matcher import text_contains_approx_number, text_contains_identifier, text_contains_name
 from app.models.parcel import CitizenParcel, Parcel, ParcelDocument
 from app.models.user import User
+from app.models.verification_evidence import VerificationEvidence
 from app.models.workflow import Workflow, WorkflowStep
 from app.services import notification_feed_service, request_routing_service
 from app.services.notification_feed_service import NotificationPayload
@@ -46,6 +47,7 @@ STEP_ALREADY_DECIDED = "STEP_ALREADY_DECIDED"
 STEP_NOT_DECIDED = "STEP_NOT_DECIDED"
 FORBIDDEN_WRONG_DEPARTMENT = "FORBIDDEN_WRONG_DEPARTMENT"
 CLAIM_CONFLICT = "CLAIM_CONFLICT"
+NOT_ASSIGNED_TO_YOU = "NOT_ASSIGNED_TO_YOU"
 
 
 def _pipeline_for(workflow_type: str) -> list[request_routing_service.PipelineStage]:
@@ -58,6 +60,19 @@ class WorkflowEvidenceInput:
     file_path: str
     mime_type: str
     extracted_text: str | None
+    authenticity_suspicious: bool = False
+    authenticity_reasons: list[str] | None = None
+
+
+@dataclass
+class FieldEvidenceInput:
+    file_name: str
+    file_path: str
+    mime_type: str
+    latitude: float
+    longitude: float
+    captured_at: datetime
+    notes: str | None
 
 
 @dataclass
@@ -138,6 +153,8 @@ def create(db: Session, dto: CreateWorkflowInput) -> Workflow | str:
         evidence_file_path=dto.evidence.file_path if dto.evidence else None,
         evidence_mime_type=dto.evidence.mime_type if dto.evidence else None,
         evidence_extracted_text=dto.evidence.extracted_text if dto.evidence else None,
+        evidence_authenticity_suspicious=dto.evidence.authenticity_suspicious if dto.evidence else None,
+        evidence_authenticity_reasons=json.dumps(dto.evidence.authenticity_reasons) if dto.evidence and dto.evidence.authenticity_reasons else None,
     )
     db.add(workflow)
     db.flush()
@@ -270,6 +287,58 @@ def find_by_parcel(db: Session, parcel_id: str) -> list[Workflow]:
     take, skip = resolve_pagination()
     stmt = _with_steps(select(Workflow).where(Workflow.parcel_id == parcel_id).order_by(Workflow.created_at.desc()).limit(take).offset(skip))
     return list(db.scalars(stmt).unique().all())
+
+
+def assign_verifier(db: Session, workflow_id: str, verifier_id: str) -> Workflow | str:
+    workflow = db.get(Workflow, workflow_id)
+    if workflow is None:
+        return WORKFLOW_NOT_FOUND
+    workflow.assigned_verifier_id = verifier_id
+    db.flush()
+    return workflow
+
+
+def find_assigned_to_verifier(db: Session, verifier_id: str) -> list[Workflow]:
+    take, skip = resolve_pagination()
+    stmt = _with_steps(
+        select(Workflow).where(Workflow.assigned_verifier_id == verifier_id).order_by(Workflow.created_at.desc()).limit(take).offset(skip)
+    )
+    return list(db.scalars(stmt).unique().all())
+
+
+def add_field_evidence(db: Session, workflow_id: str, verifier_id: str, evidence: FieldEvidenceInput) -> VerificationEvidence | str:
+    workflow = db.get(Workflow, workflow_id)
+    if workflow is None:
+        return WORKFLOW_NOT_FOUND
+    # A Verifier may only submit evidence for a case actually assigned to
+    # them - the one check standing between "authorized field verifier" and
+    # "anyone with a Verifier account can attach evidence to any request".
+    if workflow.assigned_verifier_id != verifier_id:
+        return NOT_ASSIGNED_TO_YOU
+
+    row = VerificationEvidence(
+        workflow_id=workflow_id, verifier_id=verifier_id,
+        photo_file_name=evidence.file_name, photo_file_path=evidence.file_path, mime_type=evidence.mime_type,
+        latitude=evidence.latitude, longitude=evidence.longitude, captured_at=evidence.captured_at, notes=evidence.notes,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def list_field_evidence(db: Session, workflow_id: str) -> list[VerificationEvidence]:
+    stmt = select(VerificationEvidence).where(VerificationEvidence.workflow_id == workflow_id).order_by(VerificationEvidence.captured_at.desc())
+    return list(db.scalars(stmt).all())
+
+
+def get_field_evidence_photo(db: Session, workflow_id: str, evidence_id: str) -> tuple[bytes, str] | None:
+    row = db.get(VerificationEvidence, evidence_id)
+    if row is None or str(row.workflow_id) != str(workflow_id):
+        return None
+    try:
+        return download_from_storage(row.photo_file_path), row.mime_type
+    except Exception:  # noqa: BLE001 - a missing/unreadable file means "no evidence available", not a 500
+        return None
 
 
 def update_status(db: Session, workflow_id: str, status: str, remarks: str | None) -> Workflow | None:

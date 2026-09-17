@@ -14,7 +14,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.auth.deps import require_roles
 from app.database import get_db
+from app.models.user import User
 from app.schemas.departments import (
     DisputeRecordOut,
     EncumbranceRecordOut,
@@ -28,6 +30,27 @@ from app.services import departments_service as service
 from app.services import land_records_lookup_service
 
 router = APIRouter(tags=["departments"])
+
+
+# Department dashboard widgets (BACKLOG.md item 26 follow-up) - unlike every
+# other route in this file, these ARE staff-gated: they're this app's own
+# officer dashboard reading its own mock data, not a stand-in for an
+# external system's public lookup. Registered before the per-parcel routes
+# below so a literal path segment like "overdue" is never swallowed as a
+# {parcel_id}.
+@router.get("/tax/overdue", response_model=list[TaxRecordOut])
+def list_overdue_tax(db: Session = Depends(get_db), _staff: User = Depends(require_roles("TAX_OFFICER", "ADMIN"))):
+    return service.find_overdue_tax(db)
+
+
+@router.get("/planning/pending-permissions", response_model=list[PlanningRecordOut])
+def list_pending_building_permissions(db: Session = Depends(get_db), _staff: User = Depends(require_roles("PLANNING_OFFICER", "ADMIN"))):
+    return service.find_pending_building_permissions(db)
+
+
+@router.get("/registration/pending", response_model=list[RegistrationRecordOut])
+def list_pending_registrations(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
+    return service.find_pending_registrations(db)
 
 
 @router.get("/land-records/{parcel_id}", response_model=LandRecordsLookupOut)

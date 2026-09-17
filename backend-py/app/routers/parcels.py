@@ -16,12 +16,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon
+from fastapi import Query
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user_optional, require_roles
 from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
 from app.database import get_db
-from app.document_verification.verifier import dist_code, run_verification, vill_code
+from app.document_verification.verifier import dist_code, extract, get_text_and_preview, run_verification, vill_code
 from app.models.parcel import CitizenParcel, Parcel, ParcelIdentifier
 from app.models.user import User
 from app.models.workflow import Workflow
@@ -208,6 +209,36 @@ async def verify_parcel(
     return report
 
 
+@router.post("/extract-document")
+async def extract_document(
+    document: UploadFile = File(...),
+    _citizen: User = Depends(require_roles(CITIZEN_ROLE)),
+):
+    """Extract land-record fields before verification so the form can be prefilled."""
+    filename = document.filename or "document"
+    is_pdf = filename.lower().endswith(".pdf")
+    content_type = document.content_type or ""
+    if not is_pdf and not content_type.startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a PDF or image")
+
+    data = await document.read()
+    if len(data) > _MAX_IMAGE_BYTES * 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Document exceeds the 10MB size limit")
+
+    raw_text, _ = get_text_and_preview(data, is_pdf)
+    if not raw_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No text could be extracted from this scan. Install/configure Tesseract OCR or upload a clearer document.",
+        )
+    fields = extract(raw_text)
+    return {
+        "extracted_text": raw_text[:4000],
+        "fields": fields,
+        "ocr_confidence": None,
+    }
+
+
 @router.get("/citizen/{citizen_id}/parcels", response_model=SearchParcelsResponse)
 def get_citizen_parcels(citizen_id: UUID, db: Session = Depends(get_db)):
     return service.find_mine(db, str(citizen_id))
@@ -228,12 +259,25 @@ async def identify_from_document(
     return IdentifyFromDocumentResponse(
         extracted_text=result.extracted_text, ocr_confidence=result.ocr_confidence,
         candidates=[ParcelOut.model_validate(p) for p in result.candidates],
+        authenticity_suspicious=result.authenticity_suspicious, authenticity_reasons=result.authenticity_reasons or [],
     )
 
 
 @router.get("/mine", response_model=SearchParcelsResponse)
 def get_my_parcels(db: Session = Depends(get_db), citizen: User = Depends(require_roles(CITIZEN_ROLE))):
     return service.find_mine(db, str(citizen.id))
+
+
+@router.delete("/mine/{id}")
+def delete_my_parcel_submission(
+    id: UUID,
+    db: Session = Depends(get_db),
+    citizen: User = Depends(require_roles(CITIZEN_ROLE)),
+):
+    success = service.delete_citizen_parcel(db, str(citizen.id), str(id))
+    if not success:
+        raise _not_found(id)
+    return {"success": True, "message": "Submission deleted successfully"}
 
 
 @router.get("/{id}", response_model=ParcelOut)
@@ -306,6 +350,24 @@ def get_documents(id: UUID, db: Session = Depends(get_db)):
     return service.get_documents(db, str(id))
 
 
+@router.get("/{id}/documents/official-pdf")
+def get_official_document_pdf(
+    id: UUID, lang: str = Query("en", pattern="^(en|hi)$"),
+    db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
+):
+    if not service.find_one(db, str(id)):
+        raise _not_found(id)
+    # Same access rule as the seed-time document file above - a citizen
+    # only sees it for a parcel actually linked to their account.
+    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
+    pdf_bytes = service.get_official_document_pdf(db, str(id), lang)
+    return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+# Registered above this route - "official-pdf" is a literal path segment,
+# not a doc_id UUID, so it must be matched before this {doc_id}: UUID
+# route or FastAPI would try (and fail) to parse it as one.
 @router.get("/{id}/documents/{doc_id}/file")
 def get_document_file(id: UUID, doc_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
     if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):

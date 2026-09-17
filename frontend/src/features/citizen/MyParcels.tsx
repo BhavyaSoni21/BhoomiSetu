@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
 import {
@@ -15,6 +15,7 @@ import {
   ExternalLink,
   ChevronRight,
   Info,
+  Trash2,
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser, useLogout } from '../auth/auth';
@@ -23,6 +24,7 @@ import ParcelVerificationFlow from './ParcelVerificationFlow';
 
 export const MyParcels: React.FC = () => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { data: user, isLoading: userLoading } = useAuthUser();
   const logout = useLogout();
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ export const MyParcels: React.FC = () => {
   const isCitizen = user?.role === 'CITIZEN';
 
   const [showNewParcelFlow, setShowNewParcelFlow] = useState(false);
+  const [parcelToDelete, setParcelToDelete] = useState<ParcelSummary | null>(null);
 
   // Check if citizen arrived here because they were blocked from Raise Complaint
   const isBlockedFromComplaint =
@@ -41,6 +44,22 @@ export const MyParcels: React.FC = () => {
     ['my-parcels'],
     async () => (await apiService.get('/parcels/mine')).data,
     { enabled: isCitizen },
+  );
+
+  const deleteSubmissionMutation = useMutation(
+    async (parcelId: string) => {
+      await apiService.delete(`/parcels/mine/${parcelId}`);
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['my-parcels']);
+        queryClient.invalidateQueries(['my-workflows']);
+        setParcelToDelete(null);
+      },
+      onError: () => {
+        alert(t('myParcels.deleteError', 'Failed to delete submission. Please try again.'));
+      },
+    }
   );
 
   if (userLoading) return null;
@@ -63,6 +82,49 @@ export const MyParcels: React.FC = () => {
                 'You need to verify and link a parcel before raising a request. Click "+ New Parcel" to get started.'
               )}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Pending Submission Modal */}
+      {parcelToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#0D261D] border-2 border-gov-border rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-heading font-bold text-base text-text-heading">
+                {t('myParcels.deleteModalTitle', 'Delete Pending Submission?')}
+              </h3>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              {t(
+                'myParcels.deleteModalDesc',
+                'Are you sure you want to remove the ownership submission for parcel {{localId}}? Any pending officer verification request for this document will be cancelled.',
+                { localId: parcelToDelete.localId || `#${parcelToDelete.id.substring(0, 8)}` }
+              )}
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setParcelToDelete(null)}
+                disabled={deleteSubmissionMutation.isLoading}
+                className="px-4 py-2 rounded-xl border border-gov-border text-xs font-semibold hover:bg-surface-2 transition"
+              >
+                {t('common.cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteSubmissionMutation.mutate(parcelToDelete.id)}
+                disabled={deleteSubmissionMutation.isLoading}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-heading font-bold shadow-xs transition"
+              >
+                {deleteSubmissionMutation.isLoading
+                  ? t('common.deleting', 'Deleting...')
+                  : t('myParcels.confirmDeleteBtn', 'Yes, Delete Submission')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -224,14 +286,24 @@ export const MyParcels: React.FC = () => {
 
                     {/* Pending Verification Notice */}
                     {isPending && (
-                      <div className="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                        <span>
-                          {t(
-                            'myParcels.pendingVerificationNotice',
-                            'This parcel was submitted with partial document match and is awaiting Land Records officer approval. Complaints cannot be raised until verified.'
-                          )}
-                        </span>
+                      <div className="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                          <span>
+                            {t(
+                              'myParcels.pendingVerificationNotice',
+                              'This parcel was submitted with partial document match and is awaiting Land Records officer approval.'
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setParcelToDelete(parcel)}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 font-semibold underline underline-offset-2 shrink-0 inline-flex items-center gap-1 text-[11px]"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>{t('myParcels.deletePendingLink', 'Delete Submission')}</span>
+                        </button>
                       </div>
                     )}
 
@@ -258,11 +330,11 @@ export const MyParcels: React.FC = () => {
                         ) : (
                           <button
                             type="button"
-                            disabled
-                            className="px-3 py-1.5 rounded-lg bg-surface-2 text-text-muted text-xs font-heading font-semibold border border-gov-border cursor-not-allowed opacity-60"
-                            title="Verification required before raising requests"
+                            onClick={() => setParcelToDelete(parcel)}
+                            className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-heading font-semibold border border-red-200 dark:border-red-800/60 inline-flex items-center gap-1.5 transition"
                           >
-                            {t('myParcels.lockedForComplaints', 'Complaints Locked')}
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{t('myParcels.deletePendingBtn', 'Delete Pending Submission')}</span>
                           </button>
                         )}
                       </div>

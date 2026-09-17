@@ -387,6 +387,41 @@ class TestGetDocuments:
         assert res.status_code == 404
 
 
+class TestGetOfficialDocumentPdf:
+    def test_serves_the_pdf_to_the_linked_citizen(self, db, client):
+        f = _base_fixtures(db)
+        res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf", headers=f["citizen_headers"])
+        assert res.status_code == 200
+        assert res.headers["content-type"] == "application/pdf"
+        assert res.content[:5] == b"%PDF-"
+
+    def test_serves_the_pdf_to_staff_regardless_of_association(self, db, client):
+        f = _base_fixtures(db)
+        _, _, officer_headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
+        res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf", headers=officer_headers)
+        assert res.status_code == 200
+
+    def test_supports_the_hindi_lang_param(self, db, client):
+        f = _base_fixtures(db)
+        res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf?lang=hi", headers=f["citizen_headers"])
+        assert res.status_code == 200
+        assert res.content[:5] == b"%PDF-"
+
+    def test_rejects_an_unassociated_citizen_with_403(self, db, client):
+        f = _base_fixtures(db)
+        res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf", headers=f["other_citizen_headers"])
+        assert res.status_code == 403
+
+    def test_rejects_an_unauthenticated_request_with_401(self, db, client):
+        f = _base_fixtures(db)
+        assert client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf").status_code == 401
+
+    def test_returns_404_for_an_unknown_parcel(self, db, client):
+        f = _base_fixtures(db)
+        res = client.get("/api/v1/parcels/00000000-0000-0000-0000-000000000000/documents/official-pdf", headers=f["citizen_headers"])
+        assert res.status_code == 404
+
+
 class TestGetHistory:
     def _seed(self, db):
         parcel = Parcel(canonical_parcel_id="CAN-HISTORY-1", state_code="MH", district_code="PUN", local_body_code="MHLB001", area_sq_m=500, geometry=square(73.9, 18.6))

@@ -709,3 +709,110 @@ class TestGetEvidence:
     def test_rejects_an_unauthenticated_request_with_401(self, db, client):
         _seed(db)
         assert client.get("/api/v1/workflows/00000000-0000-0000-0000-000000000000/evidence").status_code == 401
+
+
+class TestVerifierAssignmentAndFieldEvidence:
+    def test_admin_assigns_a_verifier_and_it_is_reflected_on_the_workflow(self, db, client):
+        s = _seed(db)
+        verifier, _, _ = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+
+        res = client.patch(f"/api/v1/workflows/{created['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+        assert res.status_code == 200
+        assert res.json()["assignedVerifierId"] == str(verifier.id)
+
+    def test_rejects_assignment_from_a_non_admin_officer_with_403(self, db, client):
+        s = _seed(db)
+        verifier, _, _ = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        res = client.patch(f"/api/v1/workflows/{created['id']}/assign-verifier", headers=s["land_records_headers"], json={"verifierId": str(verifier.id)})
+        assert res.status_code == 403
+
+    def test_assign_verifier_returns_404_for_an_unknown_workflow(self, db, client):
+        s = _seed(db)
+        verifier, _, _ = create_authenticated_user(db, "VERIFIER")
+        res = client.patch("/api/v1/workflows/00000000-0000-0000-0000-000000000000/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+        assert res.status_code == 404
+
+    def test_verifier_sees_only_workflows_assigned_to_them(self, db, client):
+        s = _seed(db)
+        verifier, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        other_verifier, _, other_verifier_headers = create_authenticated_user(db, "VERIFIER")
+        mine = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        not_mine = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["other_parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        client.patch(f"/api/v1/workflows/{mine['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+        client.patch(f"/api/v1/workflows/{not_mine['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(other_verifier.id)})
+
+        res = client.get("/api/v1/workflows/assigned-to-me", headers=verifier_headers)
+        assert res.status_code == 200
+        assert [w["id"] for w in res.json()] == [mine["id"]]
+
+        res_other = client.get("/api/v1/workflows/assigned-to-me", headers=other_verifier_headers)
+        assert [w["id"] for w in res_other.json()] == [not_mine["id"]]
+
+    def test_assigned_verifier_can_submit_field_evidence(self, db, client):
+        s = _seed(db)
+        verifier, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        client.patch(f"/api/v1/workflows/{created['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+
+        image = render_parcel_document_image(ParcelDocumentFields(owner_name="Field Visit", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED"))
+        res = client.post(
+            f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers,
+            data={"latitude": "18.5204", "longitude": "73.8567", "capturedAt": "2026-09-15T10:30:00Z", "notes": "Boundary matches records"},
+            files={"photo": ("visit.png", image, "image/png")},
+        )
+        assert res.status_code == 201
+        body = res.json()
+        assert body["latitude"] == 18.5204
+        assert body["longitude"] == 73.8567
+        assert body["notes"] == "Boundary matches records"
+
+        listed = client.get(f"/api/v1/workflows/{created['id']}/field-evidence", headers=s["admin_headers"])
+        assert listed.status_code == 200
+        assert len(listed.json()) == 1
+
+        photo = client.get(f"/api/v1/workflows/{created['id']}/field-evidence/{body['id']}/photo", headers=s["admin_headers"])
+        assert photo.status_code == 200
+        assert photo.headers["content-type"] == "image/png"
+
+    def test_rejects_field_evidence_for_a_workflow_not_assigned_to_this_verifier(self, db, client):
+        s = _seed(db)
+        _, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        # Never assigned to this verifier.
+        image = render_parcel_document_image(ParcelDocumentFields(owner_name="Field Visit", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED"))
+        res = client.post(
+            f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers,
+            data={"latitude": "18.5", "longitude": "73.8", "capturedAt": "2026-09-15T10:30:00Z"},
+            files={"photo": ("visit.png", image, "image/png")},
+        )
+        assert res.status_code == 403
+
+    def test_rejects_a_non_image_photo_with_400(self, db, client):
+        s = _seed(db)
+        verifier, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        client.patch(f"/api/v1/workflows/{created['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+
+        res = client.post(
+            f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers,
+            data={"latitude": "18.5", "longitude": "73.8", "capturedAt": "2026-09-15T10:30:00Z"},
+            files={"photo": ("visit.txt", b"not an image", "text/plain")},
+        )
+        assert res.status_code == 400
+
+    def test_rejects_an_officer_submitting_field_evidence_with_403(self, db, client):
+        s = _seed(db)
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        image = render_parcel_document_image(ParcelDocumentFields(owner_name="Field Visit", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED"))
+        res = client.post(
+            f"/api/v1/workflows/{created['id']}/field-evidence", headers=s["land_records_headers"],
+            data={"latitude": "18.5", "longitude": "73.8", "capturedAt": "2026-09-15T10:30:00Z"},
+            files={"photo": ("visit.png", image, "image/png")},
+        )
+        assert res.status_code == 403
+
+    def test_rejects_an_unauthenticated_assigned_to_me_request_with_401(self, db, client):
+        _seed(db)
+        assert client.get("/api/v1/workflows/assigned-to-me").status_code == 401
