@@ -127,4 +127,5 @@ def _notify_department_of_review(db: Session, alert: GovernanceAlert) -> None:
             parcel_id=alert.parcel_id,
             alert_id=str(alert.id),
         ),
+        deliver=True,
     )

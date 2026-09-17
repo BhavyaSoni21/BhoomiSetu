@@ -1,31 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { MapPinned, Layers, Compass, ShieldCheck } from 'lucide-react';
-import MapComponent from '../../features/map/MapComponent';
+import UnifiedMapWrapper from '../../features/map/UnifiedMapWrapper';
 import BackButton from '../../components/BackButton';
-import apiService from '../../services/apiService';
-import { ClusterOption } from '../../types/changeDetection';
+import { useAuthUser } from '../../features/auth/auth';
 
 const OfficerMapPage: React.FC = () => {
   const { t } = useTranslation();
-
-  // Loading every parcel nationwide (the map's default with no scoping)
-  // is slow and mostly useless - an officer only ever needs one cluster
-  // (city/village) at a time, so a cluster picker narrows both the
-  // viewport and the parcels fetched into it (see MapComponent's
-  // `focusBounds`).
-  const { data: clusters = [] } = useQuery<ClusterOption[]>(['change-detection-clusters'], async () => {
-    const response = await apiService.get('/change-detection/clusters');
-    return response.data;
-  });
-  const [clusterId, setClusterId] = useState<string | null>(null);
-  useEffect(() => {
-    if (clusters.length > 0 && !clusters.some((c) => c.clusterId === clusterId)) {
-      setClusterId(clusters[0].clusterId);
-    }
-  }, [clusters, clusterId]);
-  const selectedCluster = clusters.find((c) => c.clusterId === clusterId) ?? null;
+  const { data: authUser } = useAuthUser();
 
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
@@ -52,26 +34,14 @@ const OfficerMapPage: React.FC = () => {
       </div>
 
       <div className="gov-card p-5 overflow-hidden space-y-3">
-        <div>
-          <label htmlFor="officer-map-cluster-select" className="block text-xs font-mono font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
-            Cluster (city/village)
-          </label>
-          <select
-            id="officer-map-cluster-select"
-            value={clusterId ?? ''}
-            onChange={(event) => setClusterId(event.target.value)}
-            className="w-full sm:w-auto border border-gov-border rounded-xl px-3 py-2 text-sm font-semibold bg-white"
-          >
-            {clusters.map((c) => (
-              <option key={c.clusterId} value={c.clusterId}>
-                {c.district} · {c.clusterId}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="rounded-xl overflow-hidden border border-gov-border">
-          <MapComponent focusBounds={selectedCluster?.bounds ?? null} />
-        </div>
+        <UnifiedMapWrapper
+          showClusterDropdown
+          showYearSelector
+          showLayerPanel
+          userRole={authUser?.role}
+          className="rounded-xl border border-gov-border"
+          height="h-[500px]"
+        />
       </div>
     </div>
   );

@@ -35,7 +35,7 @@ from app.models.department_record import (
     RestrictionRecord,
     TaxRecord,
 )
-from app.models.governance import GovernanceAlert
+from app.models.governance import GovernanceAlert, GovernanceRule
 from app.models.land_records import StateALandRecord, StateBLandRecord
 from app.models.parcel import (
     CitizenParcel,
@@ -263,6 +263,84 @@ def compute_neighbour_rows(entries: list[ClusterParcelEntry], ref_lat: float) ->
 
 def _polygon(ring: Ring) -> Polygon:
     return from_shape(Polygon(ring), srid=4326)
+
+
+def _seed_governance_rules(db) -> None:
+    """Seed default governance rules that replicate the previous hardcoded behavior.
+
+    These rules can be modified by admins via the admin API.
+    """
+    from app.models.governance import GovernanceRule
+    import json
+
+    # Check if rules already exist
+    existing = db.query(GovernanceRule).count()
+    if existing > 0:
+        print(f"Governance rules already seeded ({existing} rules), skipping")
+        return
+
+    default_rules = [
+        # RESTRICTION_ZONE_OVERLAP - triggers when parcel intersects a restriction zone
+        GovernanceRule(
+            alert_type="RESTRICTION_ZONE_OVERLAP",
+            name="Restriction Zone Overlap Detection",
+            description="Creates an alert when a parcel intersects any admin-defined restriction zone (flood, environmental, protected area)",
+            condition_config=json.dumps({"intersects": True}),
+            default_severity="MEDIUM",
+            explanation_template="This parcel intersects an admin-defined restriction zone ({zone_name}). Any land-use change or construction request here should be reviewed against the zone's regulations before approval.",
+            is_active=True,
+            department="RESTRICTION",
+        ),
+        # UNAUTHORIZED_CHANGE_DETECTED - triggers on significant imagery changes
+        GovernanceRule(
+            alert_type="UNAUTHORIZED_CHANGE_DETECTED",
+            name="Unauthorized Change Detection (Imagery Comparison)",
+            description="Creates an alert when before/after imagery comparison detects physical changes above threshold",
+            condition_config=json.dumps({"min_pixel_ratio": 0.01}),
+            default_severity="HIGH",
+            explanation_template="Comparison of before/after imagery flagged a physical change ({changed_pixel_ratio:.1%} of analyzed area) affecting this parcel that is not yet reflected in official land records. Recommend officer review.",
+            is_active=True,
+            department="LAND_RECORDS",
+        ),
+        # RESTRICTION_DETECTED - triggers when parcel becomes restricted in historical comparison
+        GovernanceRule(
+            alert_type="RESTRICTION_DETECTED",
+            name="Restriction Detected (Historical Imagery)",
+            description="Creates an alert when a parcel's restriction status changes to RESTRICTED in year-over-year comparison",
+            condition_config=json.dumps({"categories": ["RESTRICTED"]}),
+            default_severity="MEDIUM",
+            explanation_template="This parcel's recorded restriction status became RESTRICTED in {to_year}.",
+            is_active=True,
+            department="RESTRICTION",
+        ),
+        # DISPUTE_DETECTED - triggers when parcel has dispute category in historical comparison
+        GovernanceRule(
+            alert_type="DISPUTE_DETECTED",
+            name="Dispute Detected (Historical Imagery)",
+            description="Creates an alert when a parcel shows a dispute category in year-over-year comparison",
+            condition_config=json.dumps({"categories": ["DISPUTE_OWNERSHIP", "DISPUTE_BOUNDARY", "DISPUTE_INHERITANCE", "DISPUTE_ENCROACHMENT"]}),
+            default_severity="HIGH",
+            explanation_template="Dispute record on file: {to_category_display}, status {dispute_status}.",
+            is_active=True,
+            department="DISPUTE",
+        ),
+        # TAX_OVERDUE - triggers when tax is overdue
+        GovernanceRule(
+            alert_type="TAX_OVERDUE",
+            name="Tax Overdue Detection",
+            description="Creates an alert when a parcel has overdue property tax above threshold",
+            condition_config=json.dumps({"min_overdue_amount": 100}),
+            default_severity="LOW",
+            explanation_template="Outstanding property tax of {overdue_amount} is overdue.",
+            is_active=True,
+            department="TAX",
+        ),
+    ]
+
+    for rule in default_rules:
+        db.add(rule)
+    db.flush()
+    print(f"Seeded {len(default_rules)} default governance rules")
 
 
 def seed_database() -> None:
@@ -825,6 +903,9 @@ def seed_database() -> None:
         db.flush()
         print("Saved 8 demo user accounts (1 admin + 7 officer roles, password: Demo@123)")
         print(f"Saved {len(verifiers)} demo verifier accounts (password: Demo@123)")
+
+        # Seed default governance rules (BACKLOG.md #4 - admin-editable governance rules)
+        _seed_governance_rules(db)
 
         # Optional citizen sign-in: each demo citizen account gets linked to
         # a random 0-5 parcels for the "My Parcels" dashboard, weighted so

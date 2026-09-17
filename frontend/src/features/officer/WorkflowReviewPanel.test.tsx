@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import WorkflowReviewPanel from './WorkflowReviewPanel';
 import apiService from '../../services/apiService';
-
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
-}));
+import { testQueryClient } from '../../test/setup';
 
 // jsdom has no real Blob-URL implementation - AuthenticatedDocumentImage
 // already degrades gracefully without this (shows "Image unavailable"), but
@@ -17,13 +14,44 @@ global.URL.revokeObjectURL = vi.fn();
 
 // MemoryRouter wraps every render now - the "View Parcel" link needs a
 // Router context regardless of whether a given test cares about it.
-function renderWithClient(ui: React.ReactElement) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderWithClient(ui: React.ReactElement, workflow = pendingWorkflow) {
+  const { QueryClient } = require('@tanstack/react-query');
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  // Prime cache for this test's workflow
+  client.setQueryData(['workflow', 'wf1'], workflow);
+  client.setQueryData(['parcel-documents', 'p1'], []);
+  client.setQueryData(['parcel-360-for-review', 'p1'], null);
+  client.setQueryData(['admin-users'], []);
+  client.setQueryData(['field-evidence', 'wf1'], []);
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>{ui}</MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+// Pre-populate query cache for the default workflow to avoid loading state
+function primeWorkflowCache(workflow = pendingWorkflow) {
+  testQueryClient.setQueryData(['workflow', 'wf1'], workflow);
+  testQueryClient.setQueryData(['parcel-documents', 'p1'], []);
+  testQueryClient.setQueryData(['parcel-360-for-review', 'p1'], null);
+  testQueryClient.setQueryData(['admin-users'], []);
+  testQueryClient.setQueryData(['field-evidence', 'wf1'], []);
+}
+
+// Helper to create a mockImplementation that returns different data per URL
+function createApiMock(overrides: Record<string, unknown> = {}) {
+  return vi.fn(async (url: string) => {
+    if (overrides[url]) return overrides[url];
+    if (url === '/workflows/wf1') return { data: pendingWorkflow };
+    if (url.includes('/documents')) return { data: [] };
+    if (url.includes('/360')) return { data: null };
+    if (url === '/users' || url === '/admin/users') return { data: [] };
+    if (url.includes('/field-evidence')) return { data: [] };
+    return { data: [] };
+  });
 }
 
 const pendingWorkflow = {
@@ -48,10 +76,15 @@ describe('WorkflowReviewPanel', () => {
     vi.mocked(apiService.get).mockReset();
     vi.mocked(apiService.patch).mockReset();
     vi.mocked(apiService.post).mockReset();
+    // Default implementation for all endpoints
+    vi.mocked(apiService.get).mockImplementation(createApiMock());
+    vi.mocked(apiService.patch).mockResolvedValue({ data: {} });
+    vi.mocked(apiService.post).mockResolvedValue({ data: {} });
+    // Prime cache to avoid loading state
+    primeWorkflowCache();
   });
 
   it('shows workflow details and steps', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     expect(await screen.findByText('ROR COPY REQUEST')).toBeInTheDocument();
@@ -61,7 +94,6 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('shows the Approve/Reject form when the officer\'s own step is pending', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
@@ -69,7 +101,6 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('disables Approve/Reject until remarks are typed, and enables them once typed', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     const approveButton = await screen.findByRole('button', { name: 'Approve' });
@@ -87,11 +118,10 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('submits an approve action with remarks to the correct step', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     vi.mocked(apiService.patch).mockResolvedValue({
       data: { ...pendingWorkflow, currentStatus: 'IN_PROGRESS', steps: pendingWorkflow.steps.map((s) => (s.id === 's1' ? { ...s, status: 'APPROVED' } : s)) },
     });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, pendingWorkflow);
 
     await screen.findByRole('button', { name: 'Approve' });
     fireEvent.change(screen.getByLabelText('Remarks (required)'), { target: { value: 'Looks correct' } });
@@ -107,25 +137,25 @@ describe('WorkflowReviewPanel', () => {
       ...pendingWorkflow,
       steps: pendingWorkflow.steps.map((s) => (s.department === 'LAND_RECORDS' ? { ...s, status: 'APPROVED', completedAt: '2026-01-01T00:00:00Z' } : s)),
     };
-    vi.mocked(apiService.get).mockResolvedValue({ data: decided });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    vi.mocked(apiService.get).mockImplementation(createApiMock({ '/workflows/wf1': { data: decided } }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, decided);
 
     expect(await screen.findByText('Your department has already decided this step.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
   });
 
   it('shows a message when no step in the workflow belongs to this department', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="TAX" />);
 
     expect(await screen.findByText('No step in this workflow is assigned to your department.')).toBeInTheDocument();
   });
 
   it('shows applicant contact/address snapshotted on the workflow', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({
-      data: { ...pendingWorkflow, createdBy: 'Jane Citizen', applicantContact: 'jane@example.com', applicantAddress: '12 MG Road, Pune' },
-    });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    const workflowWithContact = { ...pendingWorkflow, createdBy: 'Jane Citizen', applicantContact: 'jane@example.com', applicantAddress: '12 MG Road, Pune' };
+    vi.mocked(apiService.get).mockImplementation(createApiMock({
+      '/workflows/wf1': { data: workflowWithContact },
+    }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, workflowWithContact);
 
     expect(await screen.findByText('Jane Citizen')).toBeInTheDocument();
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
@@ -133,7 +163,6 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('does not show the land property papers / pre-check section for an ordinary workflow type', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
     await screen.findByText('ROR COPY REQUEST');
@@ -152,13 +181,11 @@ describe('WorkflowReviewPanel', () => {
         ],
       }),
     };
-    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-      if (url.includes('/documents')) {
-        return { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'UNREGISTERED', createdAt: '' }] };
-      }
-      return { data: claimWorkflow };
-    });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    vi.mocked(apiService.get).mockImplementation(createApiMock({
+      '/workflows/wf1': { data: claimWorkflow },
+      '/parcels/p1/documents': { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'UNREGISTERED', createdAt: '' }] },
+    }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, claimWorkflow);
 
     expect(await screen.findByText('UNREGISTERED')).toBeInTheDocument();
     expect(screen.getByText('Land Property Papers')).toBeInTheDocument();
@@ -168,24 +195,24 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('shows "no document on file" for a DOCUMENT_VERIFICATION_REQUEST with nothing stored yet', async () => {
-    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-      if (url.includes('/documents')) return { data: [] };
-      return { data: { ...pendingWorkflow, workflowType: 'DOCUMENT_VERIFICATION_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'NO_DOCUMENT_ON_FILE', checks: [] }) } };
-    });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    const dvWorkflow = { ...pendingWorkflow, workflowType: 'DOCUMENT_VERIFICATION_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'NO_DOCUMENT_ON_FILE', checks: [] }) };
+    vi.mocked(apiService.get).mockImplementation(createApiMock({
+      '/workflows/wf1': { data: dvWorkflow },
+      '/parcels/p1/documents': { data: [] },
+    }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, dvWorkflow);
 
     expect(await screen.findByText('No document is on file for this parcel.')).toBeInTheDocument();
     expect(screen.getByText('NO DOCUMENT ON FILE')).toBeInTheDocument();
   });
 
   it('clicking a document thumbnail opens the full-screen zoom viewer', async () => {
-    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-      if (url.includes('/documents')) {
-        return { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'REGISTERED', createdAt: '' }] };
-      }
-      return { data: { ...pendingWorkflow, workflowType: 'LAND_CLAIM_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'MATCHED', checks: [] }) } };
-    });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    const zoomWorkflow = { ...pendingWorkflow, workflowType: 'LAND_CLAIM_REQUEST', verificationPrecheck: JSON.stringify({ verdict: 'MATCHED', checks: [] }) };
+    vi.mocked(apiService.get).mockImplementation(createApiMock({
+      '/workflows/wf1': { data: zoomWorkflow },
+      '/parcels/p1/documents': { data: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'REGISTERED', createdAt: '' }] },
+    }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, zoomWorkflow);
 
     const zoomButton = await screen.findByRole('button', { name: 'Zoom into ROR_COPY' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -197,10 +224,11 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('shows Submitted Evidence for a workflow carrying evidence, even for an ordinary workflow type', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({
-      data: { ...pendingWorkflow, workflowType: 'DISPUTE_FILING', evidenceFileName: 'evidence.png', evidenceMimeType: 'image/png' },
-    });
-    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
+    const evidenceWorkflow = { ...pendingWorkflow, workflowType: 'DISPUTE_FILING', evidenceFileName: 'evidence.png', evidenceMimeType: 'image/png' };
+    vi.mocked(apiService.get).mockImplementation(createApiMock({
+      '/workflows/wf1': { data: evidenceWorkflow },
+    }));
+    renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />, evidenceWorkflow);
 
     expect(await screen.findByText('Submitted Evidence')).toBeInTheDocument();
     await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows/wf1/evidence', { responseType: 'blob' }));
@@ -209,7 +237,6 @@ describe('WorkflowReviewPanel', () => {
   });
 
   it('shows an error message when the patch fails', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
     vi.mocked(apiService.patch).mockRejectedValue(new Error('network error'));
     renderWithClient(<WorkflowReviewPanel workflowId="wf1" officerDepartment="LAND_RECORDS" />);
 
@@ -222,7 +249,6 @@ describe('WorkflowReviewPanel', () => {
 
   describe('admin oversight mode (no officerDepartment)', () => {
     it('defaults to monitoring: shows Alert Officer/Decide Myself, not Approve/Reject directly, for every pending step', async () => {
-      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
       await screen.findByText('ROR COPY REQUEST');
@@ -242,15 +268,14 @@ describe('WorkflowReviewPanel', () => {
           s.department === 'LAND_RECORDS' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
         ),
       };
-      vi.mocked(apiService.get).mockResolvedValue({ data: partiallyDecided });
-      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
+      vi.mocked(apiService.get).mockImplementation(createApiMock({ '/workflows/wf1': { data: partiallyDecided } }));
+      renderWithClient(<WorkflowReviewPanel workflowId="wf1" />, partiallyDecided);
 
       await screen.findByText('ROR COPY REQUEST');
       expect(screen.getAllByRole('button', { name: 'Alert Officer' })).toHaveLength(2);
     });
 
     it('Decide Myself reveals the Approve/Reject form and submits to the correct step id', async () => {
-      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
       vi.mocked(apiService.patch).mockResolvedValue({ data: pendingWorkflow });
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
@@ -270,7 +295,6 @@ describe('WorkflowReviewPanel', () => {
     });
 
     it('Alert Officer sends an escalation without approving/rejecting anything', async () => {
-      vi.mocked(apiService.get).mockResolvedValue({ data: pendingWorkflow });
       vi.mocked(apiService.post).mockResolvedValue({ data: pendingWorkflow });
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
@@ -297,7 +321,7 @@ describe('WorkflowReviewPanel', () => {
         ...pendingWorkflow,
         steps: pendingWorkflow.steps.map((s) => ({ ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' })),
       };
-      vi.mocked(apiService.get).mockResolvedValue({ data: allDecided });
+      vi.mocked(apiService.get).mockImplementation(createApiMock({ '/workflows/wf1': { data: allDecided } }));
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
       await screen.findByText('ROR COPY REQUEST');
@@ -312,7 +336,7 @@ describe('WorkflowReviewPanel', () => {
           s.department === 'LAND_RECORDS' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
         ),
       };
-      vi.mocked(apiService.get).mockResolvedValue({ data: partiallyDecided });
+      vi.mocked(apiService.get).mockImplementation(createApiMock({ '/workflows/wf1': { data: partiallyDecided } }));
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 
       await screen.findByText('ROR COPY REQUEST');
@@ -327,7 +351,7 @@ describe('WorkflowReviewPanel', () => {
           s.department === 'REGISTRATION' ? { ...s, status: 'APPROVED', action: 'APPROVE', completedAt: '2026-01-01T00:00:00Z' } : s,
         ),
       };
-      vi.mocked(apiService.get).mockResolvedValue({ data: decided });
+      vi.mocked(apiService.get).mockImplementation(createApiMock({ '/workflows/wf1': { data: decided } }));
       vi.mocked(apiService.post).mockResolvedValue({ data: decided });
       renderWithClient(<WorkflowReviewPanel workflowId="wf1" />);
 

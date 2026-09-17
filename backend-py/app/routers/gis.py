@@ -9,6 +9,7 @@ a conditional fallback.
 """
 
 from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -86,3 +87,63 @@ def get_parcel_restrictions(id: UUID, db: Session = Depends(get_db)):
     # Placeholder, matching the TS service exactly - this would typically
     # query a restrictions table or service.
     return []
+
+
+@router.get("/clusters-hierarchical")
+def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    """
+    Returns clusters grouped hierarchically: State -> District -> City/Village (Cluster).
+    Each cluster includes its bounds for map viewport fitting.
+    Used by the unified map's hierarchical dropdown selector.
+    """
+    rows = (
+        db.query(
+            Parcel.cluster_id,
+            Parcel.state_code,
+            Parcel.district_code,
+            func.min(func.ST_XMin(Parcel.geometry)).label("min_lng"),
+            func.min(func.ST_YMin(Parcel.geometry)).label("min_lat"),
+            func.max(func.ST_XMax(Parcel.geometry)).label("max_lng"),
+            func.max(func.ST_YMax(Parcel.geometry)).label("max_lat"),
+        )
+        .filter(Parcel.cluster_id.isnot(None))
+        .group_by(Parcel.cluster_id, Parcel.state_code, Parcel.district_code)
+        .order_by(Parcel.state_code, Parcel.district_code, Parcel.cluster_id)
+        .all()
+    )
+
+    # Build hierarchy: state -> district -> clusters
+    state_map: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        cluster_id, state_code, district_code, min_lng, min_lat, max_lng, max_lat = row
+        if state_code not in state_map:
+            state_map[state_code] = {"stateCode": state_code, "districts": {}}
+        state = state_map[state_code]
+        if district_code not in state["districts"]:
+            state["districts"][district_code] = {"districtCode": district_code, "clusters": []}
+        district = state["districts"][district_code]
+        district["clusters"].append({
+            "clusterId": cluster_id,
+            "bounds": {
+                "minLng": min_lng,
+                "minLat": min_lat,
+                "maxLng": max_lng,
+                "maxLat": max_lat,
+            },
+        })
+
+    # Convert to list format expected by frontend
+    result = []
+    for state_code, state_data in state_map.items():
+        districts_list = []
+        for district_code, district_data in state_data["districts"].items():
+            districts_list.append({
+                "districtCode": district_data["districtCode"],
+                "clusters": district_data["clusters"],
+            })
+        result.append({
+            "stateCode": state_data["stateCode"],
+            "districts": districts_list,
+        })
+
+    return result

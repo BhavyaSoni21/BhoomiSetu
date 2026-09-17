@@ -18,12 +18,14 @@ class NotificationPayload:
     alert_id: str | None = None
 
 
-def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload) -> None:
+def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload, *, deliver: bool = False) -> None:
     """Callers (WorkflowsService, GovernanceAlertsService) resolve their own
     recipient user ids - this module deliberately doesn't know about roles
     or departments, keeping it a pure leaf. One row per recipient, so each
     officer's read state is independent even when several hold the same
     role.
+
+    If deliver=True, also attempts SMS/email delivery via notification_delivery_service.
     """
     if not user_ids:
         return
@@ -37,6 +39,11 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload)
         ]
     )
     db.flush()
+
+    if deliver:
+        # Import here to avoid circular dependency
+        from app.services.notification_delivery_service import deliver_notification
+        deliver_notification(db, user_ids, payload)
 
 
 def find_mine(db: Session, user_id: str) -> list[Notification]:

@@ -13,6 +13,7 @@ from app.rate_limit import limiter
 from app.routers import (
     admin,
     admin_pipeline_config,
+    admin_governance_rules,
     ai,
     analytics,
     audit,
@@ -126,6 +127,7 @@ app.include_router(ai.router, prefix="/api/v1")
 app.include_router(multilingual.router)
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(admin_pipeline_config.router, prefix="/api/v1")
+app.include_router(admin_governance_rules.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")

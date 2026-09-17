@@ -53,14 +53,10 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { useTranslation } from '../context/LanguageContext';
-import { useQuery } from '@tanstack/react-query';
 import ParcelSearchModal from '../components/landing/ParcelSearchModal';
 import { SchemesMarquee } from '../components/landing/SchemesMarquee';
 import { GOVT_SCHEMES } from '../data/govtSchemes';
 import { useTheme } from '../theme/theme';
-import apiService from '../services/apiService';
-import MapComponent from '../features/map/MapComponent';
-import { ParcelSummary } from '../types/parcel';
 import { useAuthUser } from '../features/auth/auth';
 
 export const BhoomiSetuLanding: React.FC = () => {
@@ -77,13 +73,6 @@ export const BhoomiSetuLanding: React.FC = () => {
   const [tickerIndex, setTickerIndex] = useState(0);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-
-  // Real Pune cluster data for the "Live GIS Preview" section
-  const { data: puneParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
-    ['landing-pune-cluster'],
-    async () => (await apiService.get('/parcels', { params: { state: 'MH', district: 'PUN', limit: 500 } })).data,
-  );
-  const puneParcels = puneParcelsData?.parcels ?? [];
 
   // Ticker rotation
   const tickerItems = [
@@ -303,12 +292,16 @@ export const BhoomiSetuLanding: React.FC = () => {
                     <span className="text-[11px] font-mono text-[var(--text-muted)]">{t('landing.liveGisPreview.location')}</span>
                   </div>
                   <div className="h-56 bg-[var(--surface-2)] relative">
-                    <MapComponent parcels={puneParcels} fitToParcels showLayerPanel={false} />
+                    <img
+                      src="/Parcel-example.png"
+                      alt={t('landing.liveGisPreview.altText', 'Cadastral parcel map preview showing land boundaries and boundaries')}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="px-4 py-2 bg-[var(--surface-2)] border-t border-[var(--border)] flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)] font-mono">
                       <MapPin className="w-3 h-3 text-[var(--action-700)]" />
-                      <span>{t('landing.liveGisPreview.parcelsCount', { count: puneParcels.length })}</span>
+                      <span>{t('landing.liveGisPreview.parcelsCount', { count: 220 })}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[var(--bhashini-accent)] font-semibold text-[10px] border border-emerald-300">{t('landing.liveGisPreview.liveDataBadge')}</span>
                   </div>

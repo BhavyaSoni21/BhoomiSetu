@@ -20,8 +20,8 @@ from shapely.geometry import shape
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.governance import GovernanceAlert
 from app.models.parcel import Parcel
+from app.services.governance_rules_service import evaluate_rules_and_create_alerts
 
 
 def geojson_to_geometry(geojson: dict[str, Any]) -> WKBElement:
@@ -66,23 +66,22 @@ def create_overlap_alerts(db: Session, parcel_ids: list[str], previous_parcel_id
     """One GovernanceAlert per newly-affected parcel. "Newly" matters on
     update - a parcel already in previous_parcel_ids already has (or had)
     its alert, so re-flagging it would just spam duplicate OPEN alerts.
+
+    Uses admin-editable governance rules instead of hardcoded logic.
     """
     previous = set(previous_parcel_ids or [])
     newly_affected = [pid for pid in parcel_ids if pid not in previous]
     if not newly_affected:
         return
-    db.add_all(
-        [
-            GovernanceAlert(
-                parcel_id=parcel_id,
-                alert_type="RESTRICTION_ZONE_OVERLAP",
-                severity="MEDIUM",
-                source="RESTRICTION_MONITOR",
-                explanation=(
-                    "This parcel intersects an admin-defined restriction zone. Any land-use change or "
-                    "construction request here should be reviewed against the zone's regulations before approval."
-                ),
-            )
-            for parcel_id in newly_affected
-        ]
-    )
+
+    for parcel_id in newly_affected:
+        evaluate_rules_and_create_alerts(
+            db,
+            alert_type="RESTRICTION_ZONE_OVERLAP",
+            parcel_id=parcel_id,
+            context={
+                "intersects": True,
+                "parcel_id": parcel_id,
+                "zone_name": "admin-defined restriction zone",
+            },
+        )

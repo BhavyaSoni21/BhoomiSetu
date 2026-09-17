@@ -26,6 +26,7 @@ from app.models.department_record import DisputeRecord, RestrictionRecord
 from app.models.governance import GovernanceAlert
 from app.models.parcel import Parcel, ParcelHistoricalState
 from app.services import narrative_service
+from app.services.governance_rules_service import evaluate_rules_and_create_alerts
 from app.services.narrative_service import ParcelChangeFact
 
 # Bounds the LLM call's per-request latency regardless of how many parcels
@@ -212,26 +213,32 @@ def compare(db: Session, cluster_id: str, from_year: int, to_year: int) -> Histo
     has_current_restriction = {r.parcel_id: r.has_restriction for r in restriction_records}
 
     narrative_by_parcel_id: dict[str, str] = {}
-    alerts_to_save: list[GovernanceAlert] = []
+    alert_id_by_parcel_id: dict[str, str] = {}
+
     for a in affected:
         pid = str(a["parcel"].id)
         narrative = narratives.get(display_id(a["parcel"]), facts[pid])
         narrative_by_parcel_id[pid] = narrative
-        if a["to_category"] != "NONE":
-            is_dispute = a["to_category"].startswith("DISPUTE_")
-            severity = ("CRITICAL" if has_current_restriction.get(pid) else "HIGH") if is_dispute else "MEDIUM"
-            alert = GovernanceAlert(
-                parcel_id=pid,
-                alert_type="DISPUTE_DETECTED" if is_dispute else "RESTRICTION_DETECTED",
-                severity=severity, source="HISTORICAL_IMAGERY", status="OPEN", explanation=narrative,
-            )
-            alerts_to_save.append(alert)
 
-    alert_id_by_parcel_id: dict[str, str] = {}
-    if alerts_to_save:
-        db.add_all(alerts_to_save)
-        db.flush()
-        alert_id_by_parcel_id = {alert.parcel_id: str(alert.id) for alert in alerts_to_save}
+        # Determine alert type based on category change
+        is_dispute = a["to_category"].startswith("DISPUTE_")
+        alert_type = "DISPUTE_DETECTED" if is_dispute else "RESTRICTION_DETECTED"
+
+        # Use governance rules to create alerts (admin-editable)
+        created_alerts = evaluate_rules_and_create_alerts(
+            db,
+            alert_type=alert_type,
+            parcel_id=pid,
+            context={
+                "from_category": a["from_category"],
+                "to_category": a["to_category"],
+                "has_current_restriction": has_current_restriction.get(pid, False),
+                "parcel_id": pid,
+                "narrative": narrative,
+            },
+        )
+        if created_alerts:
+            alert_id_by_parcel_id[pid] = str(created_alerts[0].id)
 
     affected_parcels = [
         AffectedParcelResult(

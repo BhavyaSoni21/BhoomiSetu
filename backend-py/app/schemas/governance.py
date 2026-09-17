@@ -1,5 +1,7 @@
 """Ported from backend/src/governance/governance-alert.entity.ts +
 dto/governance-alert.dto.ts.
+
+Also includes admin-editable GovernanceRule configuration (BACKLOG.md #4).
 """
 
 from datetime import datetime
@@ -33,3 +35,38 @@ class UpdateGovernanceAlertStatus(CamelModel):
     # always record why - enforced here (400 without one), not just
     # hidden/disabled in the UI.
     reason: str = Field(min_length=1)
+
+
+class GovernanceRuleOut(CamelModel):
+    id: UUID
+    alert_type: str
+    name: str
+    description: str
+    condition_config: str  # JSON string
+    default_severity: str
+    explanation_template: str
+    is_active: bool
+    department: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreateGovernanceRule(CamelModel):
+    alert_type: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=100)
+    description: str = Field(min_length=1)
+    condition_config: str = Field(min_length=1)  # JSON string
+    default_severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "MEDIUM"
+    explanation_template: str = Field(min_length=1)
+    is_active: bool = True
+    department: str | None = None
+
+
+class UpdateGovernanceRule(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, min_length=1)
+    condition_config: str | None = Field(default=None, min_length=1)
+    default_severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] | None = None
+    explanation_template: str | None = Field(default=None, min_length=1)
+    is_active: bool | None = None
+    department: str | None = None

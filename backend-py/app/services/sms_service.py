@@ -17,6 +17,9 @@ Module-level functions, not a class - matching this codebase's
 established convention for external-API wrappers (groq_service,
 gemini_service, narrative_service), so tests can monkeypatch
 send_otp/verify_otp directly.
+
+Also provides generic send_sms for notification delivery (workflows,
+governance alerts).
 """
 
 import random
@@ -78,6 +81,26 @@ def send_otp(mobile_number: str) -> SmsOtpResult:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"SMS delivery failed (TextBee HTTP {response.status_code})")
 
     return SmsOtpResult(code_hash=code_hash, expires_at=expires_at, sent_at=sent_at)
+
+
+# Generic SMS send for notification delivery (workflows, governance alerts, etc.)
+# Returns True on success, False on failure (logs error but doesn't raise).
+def send_sms(mobile_number: str, message: str) -> bool:
+    settings = get_settings()
+    if not is_configured():
+        return False
+
+    try:
+        response = httpx.post(
+            _TEXTBEE_API_URL,
+            headers={"x-api-key": settings.textbee_api_key, "Content-Type": "application/json"},
+            json={"deviceId": settings.textbee_device_id, "simSubscriptionId": int(settings.textbee_sim_subscription_id), "recipients": [mobile_number], "message": message},
+            timeout=10.0,
+        )
+    except httpx.HTTPError:
+        return False
+
+    return response.status_code < 400
 
 
 # Pure local verification - no network call needed since we own the hash.

@@ -182,6 +182,7 @@ def _notify_assigned_officers(db: Session, workflow: Workflow, pipeline: list[re
     notification_feed_service.notify_users(
         db, [str(officer.id) for officer in officers],
         NotificationPayload(type="WORKFLOW_ASSIGNED", title=f"New {workflow.workflow_type.replace('_', ' ').lower()} request", message=message, parcel_id=workflow.parcel_id, workflow_id=str(workflow.id)),
+        deliver=True,
     )
 
 
@@ -458,6 +459,7 @@ def escalate_step(db: Session, workflow_id: str, step_id: str, message: str) -> 
             title=f"Admin flagged this {_strip_request_suffix(workflow.workflow_type)} request for urgent review",
             message=message, parcel_id=workflow.parcel_id, workflow_id=str(workflow.id),
         ),
+        deliver=True,
     )
     return find_one(db, workflow_id)
 
@@ -505,6 +507,7 @@ def reopen_step(db: Session, workflow_id: str, step_id: str, message: str) -> Wo
             title=f"Admin sent this {_strip_request_suffix(workflow.workflow_type)} request back for re-review",
             message=message, parcel_id=workflow.parcel_id, workflow_id=str(workflow.id),
         ),
+        deliver=True,
     )
     return find_one(db, workflow_id)
 
@@ -528,4 +531,5 @@ def _notify_citizen_of_step_decision(db: Session, workflow: Workflow, step: Work
     notification_feed_service.notify_users(
         db, [workflow.citizen_id],
         NotificationPayload(type="WORKFLOW_STEP_APPROVED" if step.action == "APPROVE" else "WORKFLOW_STEP_REJECTED", title=f"Your request was {verb}", message=message, parcel_id=workflow.parcel_id, workflow_id=str(workflow.id)),
+        deliver=True,
     )

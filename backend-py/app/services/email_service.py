@@ -10,6 +10,9 @@ call raises. Unlike sms_service, this only *sends* - the OTP code
 itself is generated, hashed, and checked by auth_service against the
 User row's own email_otp_code_hash/email_otp_expires_at, since SMTP has
 no server-side challenge/response verification.
+
+Also provides generic send_email for notification delivery (workflows,
+governance alerts, etc.).
 """
 
 import smtplib
@@ -56,3 +59,31 @@ def send_otp_email(to: str, code: str) -> None:
             server.sendmail(settings.mail_from, [to], message.as_string())
     except (smtplib.SMTPException, OSError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Email delivery failed ({error})") from error
+
+
+# Generic email send for notification delivery (workflows, governance alerts, etc.)
+# Returns True on success, False on failure (logs error but doesn't raise).
+def send_email(to: str, subject: str, body_text: str, body_html: str | None = None) -> bool:
+    settings = get_settings()
+    if not settings.mail_host:
+        return False
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = subject
+    message["From"] = settings.mail_from
+    message["To"] = to
+    message.attach(MIMEText(body_text, "plain"))
+    if body_html:
+        message.attach(MIMEText(body_html, "html"))
+
+    try:
+        with smtplib.SMTP_SSL(settings.mail_host, settings.mail_port, timeout=10) if settings.mail_secure else smtplib.SMTP(settings.mail_host, settings.mail_port, timeout=10) as server:
+            if not settings.mail_secure:
+                server.starttls()
+            if settings.mail_user:
+                server.login(settings.mail_user, settings.mail_password)
+            server.sendmail(settings.mail_from, [to], message.as_string())
+    except (smtplib.SMTPException, OSError):
+        return False
+
+    return True

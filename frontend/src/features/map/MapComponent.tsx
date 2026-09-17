@@ -75,9 +75,11 @@ const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', feature
 // rendered here as raster tiles) - "satellite-background" is a separate
 // free raster source (Esri World Imagery, no API key/registration needed,
 // unlike Google Maps/Earth Engine) toggled via the Street/Satellite
-// control below. Only one of the two 'background'/'satellite-background'
-// layers is visible at a time; both always exist in the style so toggling
-// is just a layout-visibility flip, not adding/removing sources.
+// control below. "terrain-background" adds a terrain/topographic layer
+// (OpenTopoMap, no API key needed) for elevation context. Only one of the
+// three 'background'/'satellite-background'/'terrain-background' layers is
+// visible at a time; all always exist in the style so toggling is just a
+// layout-visibility flip, not adding/removing sources.
 const BASE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -92,6 +94,12 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
       tileSize: 256,
       attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+    },
+    'terrain-background': {
+      type: 'raster',
+      tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '&copy; OpenTopoMap contributors',
     },
   },
   layers: [
@@ -110,10 +118,18 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       maxzoom: 19,
       layout: { visibility: 'none' },
     },
+    {
+      id: 'terrain-background',
+      type: 'raster',
+      source: 'terrain-background',
+      minzoom: 0,
+      maxzoom: 19,
+      layout: { visibility: 'none' },
+    },
   ],
 };
 
-type Basemap = 'street' | 'satellite';
+type Basemap = 'street' | 'satellite' | 'terrain';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({
@@ -630,13 +646,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [layerVisibility, mapReady]);
 
-  // Street/Satellite basemap toggle - only one of the two background
+  // Street/Satellite/Terrain basemap toggle - only one of the three background
   // raster layers is ever visible.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
     map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
+    map.setLayoutProperty('terrain-background', 'visibility', basemap === 'terrain' ? 'visible' : 'none');
   }, [basemap, mapReady]);
 
   return (
@@ -667,6 +684,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
             className={`px-2.5 py-1.5 font-bold uppercase tracking-wide border-l-2 border-ink ${basemap === 'satellite' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
           >
             {t('map.basemap.satellite')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasemap('terrain')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide border-l-2 border-ink ${basemap === 'terrain' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.terrain')}
           </button>
         </div>
       )}

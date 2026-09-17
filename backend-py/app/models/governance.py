@@ -42,3 +42,33 @@ class GovernanceAlert(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class GovernanceRule(Base):
+    """Admin-editable governance rule configuration.
+
+    Each rule defines a condition that, when met, creates a GovernanceAlert.
+    Rules are scoped by alert_type and can be enabled/disabled by admins.
+    """
+
+    __tablename__ = "governance_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_type: Mapped[str] = mapped_column(String(40), index=True)  # e.g., RESTRICTION_ZONE_OVERLAP
+    # Human-readable name for the admin UI
+    name: Mapped[str] = mapped_column(String(100))
+    # Description of what this rule checks
+    description: Mapped[str] = mapped_column(Text)
+    # JSON configuration for the rule's condition logic
+    condition_config: Mapped[str] = mapped_column(Text)  # JSON with rule-specific params
+    # Default severity when this rule triggers
+    default_severity: Mapped[str] = mapped_column(String(20), default="MEDIUM")  # LOW | MEDIUM | HIGH | CRITICAL
+    # Default explanation template (can use {placeholders})
+    explanation_template: Mapped[str] = mapped_column(Text)
+    # Whether this rule is active
+    is_active: Mapped[bool] = mapped_column(default=True)
+    # Department this rule belongs to (for routing notifications)
+    department: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

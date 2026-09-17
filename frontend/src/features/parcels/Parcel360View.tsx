@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { ArrowLeft, Download, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
-import MapComponent from '../map/MapComponent';
+import UnifiedMapWrapper from '../map/UnifiedMapWrapper';
 import ServiceRequestForm from './ServiceRequestForm';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
@@ -14,7 +14,6 @@ import { RiskScore } from '../../types/riskScore';
 import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
 import { useHistoricalClusters } from '../officer/historicalImagery';
-import HistoricalMapView from '../officer/HistoricalMapView';
 import HistoricalYearCompare from '../officer/HistoricalYearCompare';
 import { useTranslation } from '../../context/LanguageContext';
 
@@ -100,16 +99,6 @@ const Parcel360View: React.FC = () => {
     setRecenterSignal((n) => n + 1);
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  const locateButton = (
-    <button
-      type="button"
-      onClick={handleLocate}
-      className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0"
-    >
-      <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
-      {t('parcel360.locate')}
-    </button>
-  );
   // The two-year comparison used to navigate to /officer/historical-imagery
   // (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit "the
   // compare years data in the parcel 360 should also not redirect to
@@ -433,47 +422,45 @@ const Parcel360View: React.FC = () => {
                 {historicalCluster && ' ' + t('parcel360.mapDescHistorical')}
               </p>
               {historicalCluster ? (
-                <HistoricalMapView
+                <UnifiedMapWrapper
                   clusterId={historicalCluster.clusterId}
                   years={historicalCluster.years}
                   selectedParcelId={parcel360.parcel_id}
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
-                  actionSlot={locateButton}
                   recenterSignal={recenterSignal}
+                  showYearSelector
+                  historicalYears={historicalCluster.years}
+                  onYearChange={(year) => {}}
+                  showLayerPanel
+                  userRole={authUser?.role}
                 />
               ) : (
-                <>
-                  <div className="flex justify-end mb-3">{locateButton}</div>
-                  <MapComponent
-                    // Keep the selected parcel in the base layer as well as
-                    // the contextual highlight layer. This guarantees the
-                    // citizen view can render its boundary from the geometry
-                    // already returned by Parcel 360, even when no cluster
-                    // historical data is available.
-                    parcels={[{
-                      id: parcel360.parcel_id,
-                      canonicalParcelId: identifiers.ulpin,
-                      ulpin: identifiers.ulpin,
-                      stateCode: location.state,
-                      districtCode: location.district,
-                      localBodyCode: location.locality,
-                      areaSqM: spatial.area_sq_m,
-                      geometry: JSON.stringify(spatial.geometry),
-                    }]}
-                    selectedParcelId={parcel360.parcel_id}
-                    onParcelClick={(clickedId) => {
-                      if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
-                    }}
-                    // A citizen sees just a "View Zoning" toggle instead of the
-                    // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
-                    // follow-up, per the user's explicit "zoning layer addition
-                    // just the view option for citizens").
-                    visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
-                    recenterSignal={recenterSignal}
-                  />
-                </>
+                <UnifiedMapWrapper
+                  parcels={[{
+                    id: parcel360.parcel_id,
+                    canonicalParcelId: identifiers.ulpin,
+                    ulpin: identifiers.ulpin,
+                    stateCode: location.state,
+                    districtCode: location.district,
+                    localBodyCode: location.locality,
+                    areaSqM: spatial.area_sq_m,
+                    geometry: JSON.stringify(spatial.geometry),
+                  }]}
+                  selectedParcelId={parcel360.parcel_id}
+                  onParcelClick={(clickedId) => {
+                    if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
+                  }}
+                  // A citizen sees just a "View Zoning" toggle instead of the
+                  // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
+                  // follow-up, per the user's explicit "zoning layer addition
+                  // just the view option for citizens").
+                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
+                  recenterSignal={recenterSignal}
+                  showLayerPanel
+                  userRole={authUser?.role}
+                />
               )}
             </div>
           </div>

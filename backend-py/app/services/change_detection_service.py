@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.models.governance import GovernanceAlert
 from app.models.parcel import Parcel
 from app.models.spatial import ChangeDetectionEvent
+from app.services.governance_rules_service import evaluate_rules_and_create_alerts
 from app.services.image_diff import GeoBounds, diff_images, pixel_box_to_geo_box
 
 # Both images are resized to this regardless of their original resolution,
@@ -80,30 +81,21 @@ def analyze(db: Session, before: bytes, after: bytes, bounds: GeoBounds, descrip
     db.add(event)
     db.flush()
 
-    # GOVERNANCE ALERT: one per affected parcel, same alert_type/source
-    # convention seed.py already established for the simulated event, so
-    # both real and seeded alerts read identically to an officer.
-    severity = "HIGH" if diff.changed_pixel_ratio > 0.05 else "MEDIUM"
+    # GOVERNANCE ALERTS: use admin-editable rules instead of hardcoded logic
     alerts_created = 0
     if affected_parcel_ids:
-        db.add_all(
-            [
-                GovernanceAlert(
-                    parcel_id=parcel_id,
-                    alert_type="UNAUTHORIZED_CHANGE_DETECTED",
-                    severity=severity,
-                    source="CHANGE_DETECTION",
-                    status="OPEN",
-                    explanation=(
-                        f"Comparison of before/after imagery flagged a physical change ({diff.changed_pixel_ratio * 100:.1f}% of the "
-                        "analyzed area) affecting this parcel that is not yet reflected in official land records. Recommend officer review."
-                    ),
-                )
-                for parcel_id in affected_parcel_ids
-            ]
-        )
-        db.flush()
-        alerts_created = len(affected_parcel_ids)
+        for parcel_id in affected_parcel_ids:
+            created_alerts = evaluate_rules_and_create_alerts(
+                db,
+                alert_type="UNAUTHORIZED_CHANGE_DETECTED",
+                parcel_id=parcel_id,
+                context={
+                    "changed_pixel_ratio": diff.changed_pixel_ratio,
+                    "change_region": change_region,
+                    "parcel_id": parcel_id,
+                },
+            )
+            alerts_created += len(created_alerts)
 
     return ChangeAnalysisResult(
         change_detected=True, changed_pixel_ratio=diff.changed_pixel_ratio, change_region=change_region,
