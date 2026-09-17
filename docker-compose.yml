@@ -5,13 +5,7 @@
 # `ai-service` containers - none of that was ever real; every "department"
 # is a module inside the single backend service below.
 #
-# The original NestJS `backend/` service has been removed from this stack
-# (PYTHON_MIGRATION_PLAN.md §6-equivalent, done locally 2026-09-12 - no
-# real data existed in its `bhoomisetu` database, confirmed before doing
-# this, so there was nothing to migrate/merge, just a database to retire).
-# `backend/`'s source is still in the repo, out of the deploy path, for a
-# grace period per the plan's own §6 step 6 - not deleted outright.
-# `backend-py` is now the only backend this stack runs.
+# `backend-py` is the only backend this stack runs (Python 3.10, FastAPI, PostGIS/Supabase).
 
 services:
   frontend:
