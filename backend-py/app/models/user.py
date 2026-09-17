@@ -70,6 +70,10 @@ class User(Base):
     # whose embedded token_version doesn't match this current value.
     token_version: Mapped[int] = mapped_column(default=0)
 
+    # Last activity timestamp for idle timeout tracking.
+    # Updated on each authenticated request via middleware.
+    last_activity_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
     name: Mapped[str] = mapped_column(String)
     # ADMIN | LAND_RECORD_OFFICER | REGISTRATION_OFFICER | PLANNING_OFFICER |
     # DISPUTE_OFFICER | TAX_OFFICER | RESTRICTION_OFFICER |
@@ -82,5 +86,9 @@ class User(Base):
     address: Mapped[str | None] = mapped_column(String, nullable=True)
     government_id_number: Mapped[str | None] = mapped_column(String, nullable=True)
     occupation: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # District assignment for officers - used for jurisdiction-aware request routing.
+    # Nullable; only meaningful for staff roles (officers/admin/verifier).
+    district: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

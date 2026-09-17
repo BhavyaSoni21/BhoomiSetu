@@ -34,6 +34,7 @@ def create(dto: CreateUser, db: Session = Depends(get_db), admin: User = Depends
 
     created = service.create(
         db, email=dto.email, password_hash=hash_password(dto.password), name=dto.name, role=dto.role,
+        district=dto.district,
         # Admin-provisioned staff accounts are already trusted - no OTP
         # concept applies to them, so their email starts verified rather
         # than needing a step that doesn't exist in their flow.
@@ -41,7 +42,7 @@ def create(dto: CreateUser, db: Session = Depends(get_db), admin: User = Depends
     )
     audit_service.log(
         db, user_id=str(admin.id), user_role=admin.role, action="USER_CREATED", entity_type="USER",
-        entity_id=str(created.id), metadata={"email": created.email, "role": created.role},
+        entity_id=str(created.id), metadata={"email": created.email, "role": created.role, "district": created.district},
     )
     return created
 
@@ -57,6 +58,22 @@ def update_role(id: UUID, dto: UpdateUserRole, db: Session = Depends(get_db), ad
 
     audit_service.log(db, user_id=str(admin.id), user_role=admin.role, action="USER_ROLE_CHANGED", entity_type="USER", entity_id=str(id), metadata={"newRole": dto.role})
     return updated
+
+
+@router.post("/{id}/revoke-sessions", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_sessions(id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_roles("ADMIN"))):
+    if id == admin.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot revoke your own sessions")
+
+    user = service.find_by_id(db, id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found: {id}")
+
+    user.token_version += 1
+    db.flush()
+
+    audit_service.log(db, user_id=str(admin.id), user_role=admin.role, action="USER_SESSIONS_REVOKED", entity_type="USER", entity_id=str(id))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

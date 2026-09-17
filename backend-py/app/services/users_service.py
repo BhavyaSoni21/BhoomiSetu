@@ -36,8 +36,8 @@ def find_all(db: Session) -> list[User]:
     return list(db.scalars(select(User).where(User.role.in_(_MANAGED_ROLES)).order_by(User.created_at.desc())).all())
 
 
-def create(db: Session, *, email: str | None, password_hash: str, name: str, role: str, email_verified: bool = False, mobile_number: str | None = None, mobile_verified: bool = False) -> User:
-    user = User(email=email, mobile_number=mobile_number, email_verified=email_verified, mobile_verified=mobile_verified, password_hash=password_hash, name=name, role=role)
+def create(db: Session, *, email: str | None, password_hash: str, name: str, role: str, email_verified: bool = False, mobile_number: str | None = None, mobile_verified: bool = False, district: str | None = None) -> User:
+    user = User(email=email, mobile_number=mobile_number, email_verified=email_verified, mobile_verified=mobile_verified, password_hash=password_hash, name=name, role=role, district=district)
     db.add(user)
     db.flush()
     return user

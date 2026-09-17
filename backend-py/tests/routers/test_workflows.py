@@ -17,7 +17,7 @@ from shapely.geometry import Polygon
 from app.common.parcel_generation.parcel_document_generator import ParcelDocumentFields, render_parcel_document_image
 from app.models.parcel import CitizenParcel, Parcel, ParcelDocument
 from app.models.notification import Notification
-from app.models.workflow import Workflow, WorkflowStep
+from app.models.workflow import Workflow, WorkflowPipelineConfig, WorkflowStep
 from tests.helpers.auth import create_authenticated_user
 
 
@@ -32,6 +32,7 @@ def _clear(db):
     db.query(WorkflowStep).delete()
     db.query(Workflow).delete()
     db.query(Notification).delete()
+    db.query(WorkflowPipelineConfig).delete()
     db.flush()
 
 
@@ -63,7 +64,11 @@ def _seed(db):
 
 
 class TestCreate:
-    def test_creates_a_workflow_with_submitted_status_and_auto_generates_the_3_step_pipeline(self, db, client):
+    def test_creates_a_workflow_with_submitted_status_and_auto_generates_the_3_step_pipeline(self, db, client, monkeypatch):
+        # Force AI routing to fail so we test the deterministic fallback pipeline
+        import app.services.groq_service as groq_service
+        monkeypatch.setattr(groq_service, "complete_json", lambda *a, **kw: (_ for _ in ()).throw(Exception("AI unavailable")))
+
         s = _seed(db)
         res = client.post(
             "/api/v1/workflows", headers=s["citizen_headers"],
@@ -77,13 +82,13 @@ class TestCreate:
         assert [st["department"] for st in body["steps"]] == ["LAND_RECORDS", "REGISTRATION", "PLANNING"]
         assert all(st["status"] == "PENDING" for st in body["steps"])
         assert [st["stepOrder"] for st in body["steps"]] == [1, 2, 3]
-        # No GROQ_API_KEY in the test environment - request routing's AI
-        # call fails and falls back to the deterministic pipeline_for(),
-        # which is exactly what the assertions above confirm; routingNotes
-        # stays null since it's only ever set when the AI call succeeds.
+        # AI routing failed (monkeypatched), falls back to deterministic pipeline_for()
         assert body["routingNotes"] is None
 
-    def test_notifies_every_officer_holding_the_assigned_roles(self, db, client):
+    def test_notifies_every_officer_holding_the_assigned_roles(self, db, client, monkeypatch):
+        import app.services.groq_service as groq_service
+        monkeypatch.setattr(groq_service, "complete_json", lambda *a, **kw: (_ for _ in ()).throw(Exception("AI unavailable")))
+
         s = _seed(db)
         res = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"})
         assert res.status_code == 201

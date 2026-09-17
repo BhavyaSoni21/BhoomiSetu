@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "change_this_in_production"
 
+    # Idle timeout in minutes - sessions inactive for this long are considered
+    # expired even if token_version matches. 0 = disabled.
+    idle_timeout_minutes: int = 0
+
     groq_api_key: str = ""
     groq_model: str = "openai/gpt-oss-20b"
     gemini_api_key: str = ""

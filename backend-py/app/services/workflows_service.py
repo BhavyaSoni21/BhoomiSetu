@@ -14,29 +14,8 @@ from app.models.parcel import CitizenParcel, Parcel, ParcelDocument
 from app.models.user import User
 from app.models.verification_evidence import VerificationEvidence
 from app.models.workflow import Workflow, WorkflowStep
-from app.services import notification_feed_service, request_routing_service
+from app.services import notification_feed_service, pipeline_config_service, request_routing_service
 from app.services.notification_feed_service import NotificationPayload
-
-# The simulated review pipeline a workflow gets: CITIZEN REQUEST -> WORKFLOW
-# CREATED -> LAND RECORD REVIEW -> REGISTRATION REVIEW -> PLANNING REVIEW ->
-# OFFICER DECISION. Used as-is for every workflow_type except DISPUTE_FILING,
-# which gets its own single-step DISPUTE review instead. Any other/future
-# workflow_type falls back to DEFAULT_PIPELINE.
-_DEFAULT_PIPELINE = [
-    request_routing_service.PipelineStage("LAND_RECORDS", "LAND_RECORD_OFFICER"),
-    request_routing_service.PipelineStage("REGISTRATION", "REGISTRATION_OFFICER"),
-    request_routing_service.PipelineStage("PLANNING", "PLANNING_OFFICER"),
-]
-
-# LAND_CLAIM_REQUEST (a claim on a parcel the citizen isn't yet linked to)
-# and DOCUMENT_VERIFICATION_REQUEST (a check against papers already on file
-# for a parcel they ARE linked to) both route to Land Records and both get
-# the automatic OCR pre-check.
-_PIPELINES_BY_TYPE = {
-    "DISPUTE_FILING": [request_routing_service.PipelineStage("DISPUTE", "DISPUTE_OFFICER")],
-    "LAND_CLAIM_REQUEST": [request_routing_service.PipelineStage("LAND_RECORDS", "LAND_RECORD_OFFICER")],
-    "DOCUMENT_VERIFICATION_REQUEST": [request_routing_service.PipelineStage("LAND_RECORDS", "LAND_RECORD_OFFICER")],
-}
 
 VERIFICATION_WORKFLOW_TYPES = {"LAND_CLAIM_REQUEST", "DOCUMENT_VERIFICATION_REQUEST"}
 
@@ -50,8 +29,9 @@ CLAIM_CONFLICT = "CLAIM_CONFLICT"
 NOT_ASSIGNED_TO_YOU = "NOT_ASSIGNED_TO_YOU"
 
 
-def _pipeline_for(workflow_type: str) -> list[request_routing_service.PipelineStage]:
-    return _PIPELINES_BY_TYPE.get(workflow_type, _DEFAULT_PIPELINE)
+def _pipeline_for(db: Session, workflow_type: str) -> list[request_routing_service.PipelineStage]:
+    """Get pipeline stages from DB config, falling back to hardcoded defaults."""
+    return pipeline_config_service.get_pipeline_stages_for_workflow_type(db, workflow_type)
 
 
 @dataclass
@@ -127,7 +107,7 @@ def create(db: Session, dto: CreateWorkflowInput) -> Workflow | str:
     # AI-based routing is the primary mechanism when it returns a valid
     # result; the deterministic _pipeline_for() is the guaranteed fallback.
     routing = request_routing_service.suggest_pipeline(dto.workflow_type, dto.request_details)
-    pipeline = routing.pipeline if routing.pipeline else _pipeline_for(dto.workflow_type)
+    pipeline = routing.pipeline if routing.pipeline else _pipeline_for(db, dto.workflow_type)
 
     # Evidence's own OCR text is preferred (the citizen just submitted it
     # specifically for this request); an existing ParcelDocument is the
@@ -172,12 +152,24 @@ def create(db: Session, dto: CreateWorkflowInput) -> Workflow | str:
 
 # New-request notification - every officer holding one of the pipeline's
 # assigned roles gets their own notification row, not a shared broadcast.
+# Jurisdiction-aware: notifies officers in the same district as the parcel,
+# plus officers with no district assigned (central/unassigned officers).
 def _notify_assigned_officers(db: Session, workflow: Workflow, pipeline: list[request_routing_service.PipelineStage]) -> None:
     roles = list(dict.fromkeys(stage.assigned_role for stage in pipeline))
     if not roles:
         return
 
-    officers = list(db.scalars(select(User).where(User.role.in_(roles))).all())
+    parcel = db.get(Parcel, workflow.parcel_id)
+    if parcel is None:
+        return
+
+    # Include officers in the parcel's district AND officers with no district (central)
+    officers = list(db.scalars(
+        select(User).where(
+            User.role.in_(roles),
+            (User.district == parcel.district_code) | (User.district.is_(None))
+        )
+    ).all())
     if not officers:
         return
 
@@ -420,7 +412,7 @@ def review_step(db: Session, workflow_id: str, step_id: str, action: str, remark
 # Admin oversight "alert the officers" action: an Admin is not expected to
 # decide a pending step by default - this notifies whoever holds the
 # step's assigned_role to prioritize it, without touching step.status/
-# action at all.
+# action at all. Jurisdiction-aware: notifies officers in the parcel's district plus central officers.
 def escalate_step(db: Session, workflow_id: str, step_id: str, message: str) -> Workflow | str:
     workflow = db.get(Workflow, workflow_id)
     if workflow is None:
@@ -432,7 +424,17 @@ def escalate_step(db: Session, workflow_id: str, step_id: str, message: str) -> 
     if step.status != "PENDING":
         return STEP_ALREADY_DECIDED
 
-    officers = list(db.scalars(select(User).where(User.role == step.assigned_role)).all())
+    parcel = db.get(Parcel, workflow.parcel_id)
+    if parcel is None:
+        return find_one(db, workflow_id)
+
+    # Include officers in the parcel's district AND officers with no district (central)
+    officers = list(db.scalars(
+        select(User).where(
+            User.role == step.assigned_role,
+            (User.district == parcel.district_code) | (User.district.is_(None))
+        )
+    ).all())
     notification_feed_service.notify_users(
         db, [str(officer.id) for officer in officers],
         NotificationPayload(
@@ -447,7 +449,7 @@ def escalate_step(db: Session, workflow_id: str, step_id: str, message: str) -> 
 # Admin oversight "send back for re-review" action - the inverse of
 # review_step above: resets an already-decided step (APPROVED/REJECTED)
 # back to PENDING so the responsible officer has to look at it again and
-# decide fresh.
+# decide fresh. Jurisdiction-aware: notifies officers in the parcel's district plus central officers.
 def reopen_step(db: Session, workflow_id: str, step_id: str, message: str) -> Workflow | str:
     workflow = db.get(Workflow, workflow_id)
     if workflow is None:
@@ -469,7 +471,17 @@ def reopen_step(db: Session, workflow_id: str, step_id: str, message: str) -> Wo
     workflow.current_status = _recompute_workflow_status(all_steps)
     db.flush()
 
-    officers = list(db.scalars(select(User).where(User.role == step.assigned_role)).all())
+    parcel = db.get(Parcel, workflow.parcel_id)
+    if parcel is None:
+        return find_one(db, workflow_id)
+
+    # Include officers in the parcel's district AND officers with no district (central)
+    officers = list(db.scalars(
+        select(User).where(
+            User.role == step.assigned_role,
+            (User.district == parcel.district_code) | (User.district.is_(None))
+        )
+    ).all())
     notification_feed_service.notify_users(
         db, [str(officer.id) for officer in officers],
         NotificationPayload(

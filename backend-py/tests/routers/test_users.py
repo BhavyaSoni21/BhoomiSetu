@@ -64,6 +64,27 @@ class TestCreate:
         audit_entry = db.query(AuditLog).filter(AuditLog.action == "USER_CREATED", AuditLog.entity_id == res.json()["id"]).first()
         assert audit_entry is not None
 
+    def test_creates_officer_with_district_assignment(self, db, client):
+        s = _seed(db)
+        res = client.post(
+            "/api/v1/users", headers=s["admin_headers"],
+            json={"email": "district.officer@test.gov.in", "password": "SecurePass123", "name": "District Officer", "role": "LAND_RECORD_OFFICER", "district": "Pune"},
+        )
+        assert res.status_code == 201
+        assert res.json()["district"] == "Pune"
+
+        created_user = db.query(User).filter(User.email == "district.officer@test.gov.in").first()
+        assert created_user is not None
+        assert created_user.district == "Pune"
+
+    def test_rejects_district_for_citizen_role(self, db, client):
+        s = _seed(db)
+        res = client.post(
+            "/api/v1/users", headers=s["admin_headers"],
+            json={"email": "citizen@test.gov.in", "password": "SecurePass123", "name": "Citizen", "role": "CITIZEN", "district": "Pune"},
+        )
+        assert res.status_code == 400
+
     def test_rejects_a_duplicate_email_with_409(self, db, client):
         s = _seed(db)
         client.post("/api/v1/users", headers=s["admin_headers"], json={"email": "dup@test.gov.in", "password": "SecurePass123", "name": "First", "role": "PLANNING_OFFICER"})
@@ -139,4 +160,32 @@ class TestDelete:
     def test_returns_404_for_an_unknown_user(self, db, client):
         s = _seed(db)
         res = client.delete("/api/v1/users/00000000-0000-0000-0000-000000000000", headers=s["admin_headers"])
+        assert res.status_code == 404
+
+
+class TestRevokeSessions:
+    def test_revokes_user_sessions_and_logs_action(self, db, client):
+        s = _seed(db)
+        target = User(email="revoke-target@test.gov.in", password_hash="x", name="Revoke Target", role="PLANNING_OFFICER", token_version=5)
+        db.add(target)
+        db.flush()
+        target_id = target.id
+
+        res = client.post(f"/api/v1/users/{target_id}/revoke-sessions", headers=s["admin_headers"])
+        assert res.status_code == 204
+
+        refreshed = db.get(User, target_id)
+        assert refreshed.token_version == 6
+
+        audit_entry = db.query(AuditLog).filter(AuditLog.action == "USER_SESSIONS_REVOKED", AuditLog.entity_id == str(target_id)).first()
+        assert audit_entry is not None
+
+    def test_rejects_revoking_own_sessions_with_400(self, db, client):
+        s = _seed(db)
+        res = client.post(f"/api/v1/users/{s['admin'].id}/revoke-sessions", headers=s["admin_headers"])
+        assert res.status_code == 400
+
+    def test_returns_404_for_unknown_user(self, db, client):
+        s = _seed(db)
+        res = client.post("/api/v1/users/00000000-0000-0000-0000-000000000000/revoke-sessions", headers=s["admin_headers"])
         assert res.status_code == 404

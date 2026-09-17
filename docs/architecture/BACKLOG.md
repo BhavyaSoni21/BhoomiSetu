@@ -8,12 +8,11 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 ## Priority order (as of 2026-09-16)
 
-Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architecture/FEATURES.md`/`FEATURE_TECH_MAP.md` (features 18, 26, 22, 31, 9, 30, and 10/16/30 respectively) — no longer listed below. Re-ranked 2026-09-16: item #11 turned out to already be fully wired in the actual code (`ParcelSearch.tsx` already calls `/multilingual/transliterate` for Roman-script queries under a non-English UI language) — the prior BACKLOG.md text describing it as "not started" was itself stale, caught while starting on it. Item #26's own scoped middle bullet ("governance alerts may not be department-scoped") turned out to be a false gap once built — this endpoint's own existing test suite (`test_governance.py::TestFindAll`) asserts every staff role sees every alert regardless of department, by design; a department field was added for a frontend badge, but the endpoint stays unscoped. Item #14 shipped as scoped — a bundled variable-weight Noto Sans Devanagari font (fetched from Google Fonts' own repo) covers Hindi, and the existing seed-time PNG generator was deliberately left in place (still used by the OCR-verification demo flow) rather than removed, narrower than the item's original "replace" framing but avoiding an unrelated, riskier removal. Item #25 (seed-time OCR regression, `extracted_text=None`) is now fixed — `seed.py` calls the real `document_verification.ocr.extract_text()` on the rendered PNG, same as `seed.ts` did — and dropped from this list. Most actionable first:
+Items 1, 3, 8, 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architecture/FEATURES.md`/`FEATURE_TECH_MAP.md` (features 18, 26, 22, 31, 9, 30, and 10/16/30 respectively) — no longer listed below. Re-ranked 2026-09-17: item #1 (admin session revoke + idle timeout), #3 (admin-editable workflow pipelines with `WorkflowPipelineConfig` table + CRUD API), and #8 (district field on officers with jurisdiction-aware routing in `workflows_service.py`) are now implemented. Item #11 turned out to already be fully wired in the actual code (`ParcelSearch.tsx` already calls `/multilingual/transliterate` for Roman-script queries under a non-English UI language) — the prior BACKLOG.md text describing it as "not started" was itself stale, caught while starting on it. Item #26's own scoped middle bullet ("governance alerts may not be department-scoped") turned out to be a false gap once built — this endpoint's own existing test suite (`test_governance.py::TestFindAll`) asserts every staff role sees every alert regardless of department, by design; a department field was added for a frontend badge, but the endpoint stays unscoped. Item #14 shipped as scoped — a bundled variable-weight Noto Sans Devanagari font (fetched from Google Fonts' own repo) covers Hindi, and the existing seed-time PNG generator was deliberately left in place (still used by the OCR-verification demo flow) rather than removed, narrower than the item's original "replace" framing but avoiding an unrelated, riskier removal. Item #25 (seed-time OCR regression, `extracted_text=None`) is now fixed — `seed.py` calls the real `document_verification.ocr.extract_text()` on the rendered PNG, same as `seed.ts` did — and dropped from this list. Most actionable first:
 
-1. **#8 — `district` field on officer accounts.** Small, real prerequisite for jurisdiction-aware AI routing.
-2. **#3 / #4 — Admin-editable workflow pipelines / governance rules.** Both genuine schema+engine rewrites — the biggest lift on this list, do these once the smaller items are clear.
-3. **#1 — Admin session revoke UI + idle timeout.** Partially done (real server-side revocation on logout already ships); the admin-facing controls and timeout are what's left.
-4. **#13 — Frontend test suite's i18n test-mock gap.** Real, known, lower priority — doesn't block any feature from working, only test coverage.
+1. **#4 — Admin-editable governance rules.** Genuine schema+engine rewrite — the biggest lift on this list.
+2. **#13 — Frontend test suite's i18n test-mock gap.** Real, known, lower priority — doesn't block any feature from working, only test coverage.
+3. **#14 — Unified Map Feature Set.** Every map (officer, citizen, admin, verifier — not landing) needs: hierarchical State/District/City dropdown, Locate button, Satellite+Terrain toggle, Layer filters, Year selector for satellite (officer/admin), and map lock to selected cluster bounds. Affects 8+ map components.
 
 **Also found by the audit, not backlog-worthy:** `frontend/src/features/citizen/ComingSoonCard.tsx` and `frontend/src/features/officer/ComingSoonCard.tsx` are dead code — built but never rendered anywhere in the app. Not a functional gap, just cleanup opportunity; safe to delete whenever someone's touching that area, no dedicated pass needed for it alone.
 
@@ -30,7 +29,13 @@ Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architectur
 
 ## 1. Admin session/timeout & token revocation
 
-**Status: partially done (2026-09-11) — real revocation exists, admin-facing controls and timeout don't.** JWTs still never expire (that no-auto-expiry UX is an unchanged, deliberate product decision) and a session still normally ends only when the frontend's own Logout button is clicked, but that click now actually ends it server-side: `User.tokenVersion` (`backend/src/users/user.entity.ts`) is embedded in every JWT and checked on every request (`JwtStrategy.validate()`), and `POST /auth/logout` bumps it — so a captured/replayed token stops working the moment the real user logs out, closing `docs/architecture/KNOWN_RISKS.md` HIGH-2. Still genuinely open: no admin-facing "revoke this specific user's session(s)" control, no idle/inactivity timeout, and no session table (tokenVersion is a single per-user counter, not a per-session record) — so this item stays here rather than moving to FEATURES.md.
+**Status: done (2026-09-17).** 
+
+- ✅ `POST /api/v1/users/{id}/revoke-sessions` — admin can revoke a specific user's sessions by bumping `token_version` (audit-logged, self-revoke blocked)
+- ✅ `User.last_activity_at` column + `LastActivityMiddleware` — updated on each authenticated request
+- ✅ `idle_timeout_minutes` config + enforcement in `get_current_user()` — when > 0, reject tokens where `last_activity_at` is older than the threshold even if `token_version` matches
+
+JWTs never expire by design (session only ends on explicit logout or admin revoke). The idle timeout adds an *additional* expiration condition without changing the no-auto-expiry UX.
 
 *Source: `docs/archive/ADMIN_PANEL_ISSUES.md` (the one item-9 sub-item never picked up).*
 
@@ -42,7 +47,14 @@ Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architectur
 
 ## 3. Workflow Configuration (admin-editable review pipelines)
 
-**Status: not started — a genuine workflow-engine rewrite, not an additive feature.** Which departments review which `workflowType`, and in what order, is currently `workflows.service.ts`'s hardcoded `pipelineFor()`/`PIPELINES_BY_TYPE` map. Making this admin-editable needs a `WorkflowPipelineConfig` table (workflow type → ordered department/role steps) and `pipelineFor()` reading from it instead — the workflow engine's actual source of truth changes, not just a new settings page in front of it.
+**Status: done (2026-09-17).**
+
+- ✅ `WorkflowPipelineConfig` table (migration `8771cd30e6b0`) — workflow_type (unique), stages_json (JSON array), is_active, created_at/updated_at
+- ✅ `pipeline_config_service.py` — CRUD operations + `get_pipeline_stages_for_workflow_type()` that reads from DB with hardcoded fallback
+- ✅ Admin API at `/api/v1/admin/workflow-pipelines` — GET (list), POST (create), PATCH (update), DELETE (remove) — all audit-logged
+- ✅ `workflows_service.py` updated — `_pipeline_for(db, workflow_type)` now calls `pipeline_config_service.get_pipeline_stages_for_workflow_type()`
+- ✅ Hardcoded defaults preserved as fallback when no DB config exists
+- ✅ Tests: 12 pipeline config tests + existing workflow tests updated for fallback behavior
 
 *Source: `docs/archive/FRONTEND_UPGRADE_SPEC.md` §7.*
 
@@ -72,7 +84,13 @@ Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architectur
 
 ## 8. District field on officer accounts
 
-**Status: small, real prerequisite for jurisdiction-aware routing.** AI-based request routing (`docs/architecture/FEATURES.md` feature 28) currently routes by department only, not department *and* district — an officer in one district can be routed a request from another. Adding a `district` field to officer accounts is the missing piece to make routing genuinely jurisdiction-aware, not just department-aware.
+**Status: done (2026-09-17).** 
+
+- ✅ `User.district` column (nullable, String(40)) added via migration `557c0fbfd423`
+- ✅ `CreateUser` schema accepts optional `district` (validated: only for staff roles)
+- ✅ `PublicUserOut` schema returns `district` field
+- ✅ `POST /api/v1/users` accepts `district` on creation, audit-logged
+- ✅ Jurisdiction-aware routing in `workflows_service.py:_notify_assigned_officers()`, `escalate_step()`, `reopen_step()` — only notifies officers in the parcel's district
 
 *Source: `docs/archive/CITIZEN_FEATURES_UPGRADE_PLAN.md` §6.*
 
@@ -87,6 +105,43 @@ Items 9, 10, 11, 14, 15, 19, and 26 are done and have moved to `docs/architectur
 **Status: partially patched (2026-09-15), real gap remains.** `useTranslation()` (`context/LanguageContext.tsx`) throws if no `<LanguageProvider>` wraps the component tree, and ~26 component test files never did — the old `react-i18next` setup didn't need one, since it used real English resource strings loaded via a side-effect import. A global mock added to `frontend/src/test/setup.ts` stops the outright crash (same pattern as the existing `ResizeObserver`/`matchMedia` stubs), but its `t(key)` fallback just returns the raw key, not real English copy — so tests asserting on literal UI text (e.g. `screen.getByLabelText('Email')`) still fail (~190 tests across files like `LoginPage.test.tsx`, `App.test.tsx`, `ParcelSearch.test.tsx`). Fixing this properly needs the test mock's `t()` to resolve real English strings (e.g. reading `backend-py/static/ui_strings_en.json`) instead of echoing the key, or updating each affected assertion — neither done yet.
 
 *Source: this session's i18n-removal validation work, 2026-09-15 — not previously scoped anywhere.*
+
+---
+
+## 14. Unified Map Feature Set — Every Map (Except Landing) Must Have
+
+**Status: not started — new requirement from user (2026-09-17).** Currently, map capabilities are fragmented across 8+ map components with inconsistent features. The requirement: **every map** in the app (officer, citizen, admin, verifier — **not the Home/Landing page**) must have all five:
+
+1. **Hierarchical State → District → City/Village dropdown** showing the selected cluster — replaces ad-hoc cluster-only pickers.
+2. **"Locate" button** — pans/zooms to the currently selected parcel (Parcel 360 has this; OfficerMapPage, FindParcelsPage, AdminCombinedLayerMap, HistoricalMapView do not).
+3. **Satellite + Terrain toggle** — `MapComponent` has Street/Satellite; `AdminCombinedLayerMap` only has Street; `HistoricalMapView` has Parcel Map/Satellite Photo (officer-only); terrain source missing everywhere.
+4. **Layer filters (toggle panel)** — `MapComponent` has 10 layers; `AdminCombinedLayerMap` has 4; `AdminMapLayerAuthoringPage` has none on the map; others inconsistent.
+5. **Year selection for historical satellite images** — only `HistoricalMapView` has this (officer-only); must be available to **officers and admins** on all their maps.
+
+**Additional UX constraint:** When a cluster is selected via the dropdown, the map must **lock to that cluster's bounds** — zoom constrained to a sensible range (e.g. 12–18), pan sensitivity reduced, and the base parcels fetch scoped to that cluster (already done via `focusBounds` in `OfficerMapPage` → `MapComponent`).
+
+### Current Gap Matrix
+
+| Map / Page | State/District/City Dropdown | Locate | Satellite + Terrain | Layer Filters | Year Select (Officer/Admin) | Map Lock to Cluster |
+|------------|------------------------------|--------|---------------------|---------------|----------------------------|---------------------|
+| **Landing (HomePage)** | ❌ (fixed Pune) | ❌ | Street/Satellite only | ❌ (`showLayerPanel={false}`) | ❌ | ❌ |
+| **OfficerMapPage** | ✅ Cluster only | ❌ | Street/Satellite | ✅ 10 layers | ❌ | Partial (`focusBounds`) |
+| **FindParcelsPage (Citizen)** | ❌ | ❌ | Street/Satellite | ✅ 10 layers (citizen sees only zoning) | ❌ | ❌ |
+| **Parcel360View (All)** | ❌ | ✅ | Via HistoricalMapView (officer) | Via MapComponent | Via HistoricalMapView (officer) | ❌ |
+| **HistoricalMapView (Officer)** | ❌ | Via Parcel360 | Parcel Map / Satellite Photo | Via MapComponent | ✅ Year dropdown | Via `fitToParcels` |
+| **AdminCombinedLayerMap** | ❌ | ❌ | Street only | ✅ 4 layers | ❌ | ❌ |
+| **AdminMapLayerAuthoringPage** | ❌ | ❌ | Street only (via AdminCombinedLayerMap) | ❌ | ❌ | ❌ |
+| **Verifier AssignedVisitsPage** | No map | No map | No map | No map | No map | No map |
+
+### Implementation Approach
+
+- Create a **shared `UnifiedMapWrapper` component** that composes `MapComponent` + the new controls (dropdown, locate, basemap+terrain, year select) and enforces the cluster lock (viewport constraints via `maplibregl` `minZoom`/`maxZoom` + `dragPan`/`scrollZoom` sensitivity).
+- Replace `MapComponent` usage in `OfficerMapPage`, `FindParcelsPage`, `Parcel360View`, `AdminCombinedLayerMap`, `AdminMapLayerAuthoringPage` with the wrapper.
+- Add a map to `Verifier AssignedVisitsPage` (or link to Parcel 360 with the new map).
+- Backend: add `/gis/clusters` endpoint supporting hierarchical state→district→city query (extend existing `/change-detection/clusters`), and `/gis/satellite-image` with year param for terrain tiles (extend Esri or add new source).
+- Terrain: add a third raster source (e.g. Esri World Topo Map or OpenTopoMap) to `BASE_STYLE` alongside Street/Satellite.
+
+*Source: user requirement 2026-09-17.*
 
 ---
 
@@ -130,7 +185,7 @@ No step-by-step onboarding UI exists in any portal today. Pure frontend addition
 
 **Not tracked as a gap, by design:** `backend-py` has no SQLite fallback (`postgis.py`/`geo-utils.ts`'s hand-rolled JS geometry math was deliberately not ported — Postgres+PostGIS only, per `PYTHON_MIGRATION_PLAN.md` §2's single-database constraint). Confirmed deliberate, not an oversight, and the project doesn't want SQLite support restored — noted here only so it isn't rediscovered and mistakenly re-flagged as a regression later.
 
-**Environment gap, not a product backlog item:** `pytesseract` (OCR — `app/document_verification/ocr.py`, used live by evidence uploads/`identify-from-document`/the automatic verification pre-check) needs the `tesseract` binary on PATH, which isn't installed on the primary dev machine used this session at all — confirmed 2026-09-16 (5 evidence-upload tests in `test_workflows.py` fail on `TesseractNotFoundError`). Not a code gap; whoever owns that machine needs to install Tesseract for OCR to actually run there.
+**Environment gap, not a product backlog item:** `pytesseract` (OCR — `app/document_verification/ocr.py`, used live by evidence uploads/`identify-from-document`/the automatic verification pre-check) needs the `tesseract` binary on PATH, which isn't installed on the primary dev machine used this session at all — confirmed 2026-09-16 (5 evidence-upload tests in `test_workflows.py` fail on `TesseractNotFoundError`). Not a code gap; whoever owns that machine needs to install Tesseract for OCR to actually run there. Note: OpenCV (`cv2`) is used separately for document authenticity analysis (sharpness/blur/edge detection), not for OCR.
 
 ---
 

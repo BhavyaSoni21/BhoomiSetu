@@ -11,6 +11,36 @@ from pydantic import Field
 from app.schemas.base import CamelModel
 
 
+class PipelineStageConfig(CamelModel):
+    """Single stage in a workflow pipeline configuration."""
+    department: str = Field(max_length=30)
+    assigned_role: str = Field(max_length=40)
+    step_order: int
+
+
+class WorkflowPipelineConfigOut(CamelModel):
+    """Workflow pipeline configuration output."""
+    id: UUID
+    workflow_type: str
+    stages: list[PipelineStageConfig]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreateWorkflowPipelineConfig(CamelModel):
+    """Create a new workflow pipeline configuration."""
+    workflow_type: str = Field(max_length=40)
+    stages: list[PipelineStageConfig] = Field(min_length=1)
+    is_active: bool = True
+
+
+class UpdateWorkflowPipelineConfig(CamelModel):
+    """Update an existing workflow pipeline configuration."""
+    stages: list[PipelineStageConfig] | None = Field(default=None, min_length=1)
+    is_active: bool | None = None
+
+
 class CreateWorkflow(CamelModel):
     parcel_id: UUID
     workflow_type: str = Field(max_length=40)  # free-form, not a fixed enum

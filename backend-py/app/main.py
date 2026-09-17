@@ -8,10 +8,11 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.middleware import RequestIdMiddleware, register_exception_handlers
+from app.middleware import LastActivityMiddleware, RequestIdMiddleware, register_exception_handlers
 from app.rate_limit import limiter
 from app.routers import (
     admin,
+    admin_pipeline_config,
     ai,
     analytics,
     audit,
@@ -81,6 +82,7 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestIdMiddleware)
+app.add_middleware(LastActivityMiddleware)
 register_exception_handlers(app)
 
 # KNOWN_RISKS.md HIGH-1: app-wide 200/min/IP default (app.rate_limit.py),
@@ -123,6 +125,7 @@ app.include_router(governance.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1")
 app.include_router(multilingual.router)
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(admin_pipeline_config.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")

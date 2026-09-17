@@ -6,6 +6,7 @@ completed_at - a 'datetime'/'timestamp' driver-specific column in the TS
 entity - is always plain DateTime here.
 """
 
+import json
 import uuid
 from datetime import datetime
 
@@ -22,6 +23,42 @@ from app.database import Base
 # types are ambiguous; add a classifier only if a genuinely ambiguous type
 # shows up later.
 FIELD_VERIFICATION_WORKFLOW_TYPES = {"LAND_CLAIM_REQUEST", "DISPUTE_FILING", "DOCUMENT_VERIFICATION_REQUEST"}
+
+
+class WorkflowPipelineConfig(Base):
+    """Admin-editable review pipeline configuration per workflow type.
+    
+    Replaces the hardcoded _PIPELINES_BY_TYPE / _DEFAULT_PIPELINE in workflows_service.py.
+    Each config defines an ordered list of stages (department + assigned_role).
+    """
+
+    __tablename__ = "workflow_pipeline_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_type: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    # JSON array of {"department": str, "assigned_role": str, "step_order": int}
+    stages_json: Mapped[str] = mapped_column(Text, default="[]")
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    @property
+    def stages(self) -> list[dict]:
+        """Return parsed stages for API serialization."""
+        try:
+            return json.loads(self.stages_json)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def get_stages(self) -> list[dict]:
+        """Return parsed stages as list of dicts with department, assigned_role, step_order."""
+        return self.stages
+
+    def set_stages(self, stages: list[dict]) -> None:
+        """Set stages from list of dicts, ensuring step_order is sequential."""
+        for i, stage in enumerate(stages):
+            stage["step_order"] = i + 1
+        self.stages_json = json.dumps(stages)
 
 
 class Workflow(Base):

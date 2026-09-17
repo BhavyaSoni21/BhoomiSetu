@@ -34,6 +34,7 @@ class PublicUserOut(CamelModel):
     pending_mobile_number: str | None
     name: str
     role: str
+    district: str | None
     created_at: datetime
 
 
@@ -45,6 +46,9 @@ class CreateUser(CamelModel):
     password: str = Field(min_length=8)
     name: str
     role: str
+    # Optional district assignment for officers (staff roles).
+    # Only used for jurisdiction-aware routing.
+    district: str | None = None
 
     @field_validator("password")
     @classmethod
@@ -58,6 +62,13 @@ class CreateUser(CamelModel):
     def _check_role(cls, value: str) -> str:
         if value not in _ASSIGNABLE_ROLES:
             raise ValueError(f"role must be one of {_ASSIGNABLE_ROLES}")
+        return value
+
+    @field_validator("district")
+    @classmethod
+    def _check_district(cls, value: str | None, info) -> str | None:
+        if value is not None and info.data.get("role") not in _ASSIGNABLE_ROLES:
+            raise ValueError("district can only be set for staff roles")
         return value
 
 

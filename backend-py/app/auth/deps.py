@@ -14,6 +14,7 @@ backend/src/auth/jwt.strategy.ts + roles.guard.ts + current-user.decorator.ts),
 not the login/register/OTP endpoints themselves.
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -40,6 +41,16 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, get_settings().jwt_secret, algorithm=_ALGORITHM)
 
 
+def _check_idle_timeout(user: User) -> None:
+    """Enforce idle timeout if configured. 0 = disabled."""
+    settings = get_settings()
+    if settings.idle_timeout_minutes <= 0 or user.last_activity_at is None:
+        return
+    idle_seconds = (datetime.now(timezone.utc).replace(tzinfo=None) - user.last_activity_at).total_seconds()
+    if idle_seconds > settings.idle_timeout_minutes * 60:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired due to inactivity")
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     db: Session = Depends(get_db),
@@ -50,6 +61,7 @@ def get_current_user(
     happens to expire, and rejects a token whose embedded token_version
     doesn't match the user's current one (KNOWN_RISKS.md HIGH-2 - bumped on
     explicit logout so every outstanding copy of a token stops validating).
+    Also enforces idle timeout when configured.
     """
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
@@ -68,6 +80,9 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     if payload.get("tokenVersion", 0) != user.token_version:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    # Idle timeout check
+    _check_idle_timeout(user)
     return user
 
 
@@ -90,6 +105,12 @@ def get_current_user_optional(
     except (JWTError, KeyError, ValueError):
         return None
     if user is None or payload.get("tokenVersion", 0) != user.token_version:
+        return None
+
+    # Idle timeout check
+    try:
+        _check_idle_timeout(user)
+    except HTTPException:
         return None
     return user
 
