@@ -11,7 +11,7 @@ vi.mock('maplibre-gl', () => {
     public options: any;
     public layers: Record<string, any> = {};
     public sources: Record<string, any> = {};
-    private listeners: Record<string, Array<(...args: any[]) => void>> = {};
+    private listeners: Record<string, Function[]> = {};
 
     constructor(options: any) {
       this.options = options;
@@ -35,6 +35,12 @@ vi.mock('maplibre-gl', () => {
     });
     setFilter = vi.fn();
     fitBounds = vi.fn();
+    getBounds = vi.fn(() => ({
+      getWest: () => -1,
+      getSouth: () => -1,
+      getEast: () => 1,
+      getNorth: () => 1,
+    }));
     getSource = vi.fn((id: string) => this.sources[id]);
     isStyleLoaded = vi.fn(() => true);
     getCanvas = vi.fn(() => ({ style: {} }));
@@ -67,19 +73,18 @@ vi.mock('maplibre-gl', () => {
     }
   }
 
-  // maplibre-gl 6.x ships ESM-only with no default export (KNOWN_RISKS.md
-  // CRIT-1's upgrade) - MapComponent.tsx now does `import * as maplibregl`,
-  // so the mock's members need to be top-level named exports too, not
-  // nested under `default`.
-  return {
+  // MapComponent.tsx does `import * as maplibregl from 'maplibre-gl'` (a
+  // namespace import), which reads named exports off the module object
+  // directly - not nested under `default`. Exporting both shapes here
+  // covers that plus any `import maplibregl from 'maplibre-gl'` default-
+  // import usage elsewhere.
+  const named = {
     Map: MockMap,
     NavigationControl: MockNavigationControl,
     Popup: MockPopup,
     LngLatBounds: MockLngLatBounds,
-    // MapComponent.tsx also pulls in ./maplibreWorkerUrl.ts (the CRIT-1
-    // bundler worker-URL fix), which calls setWorkerUrl at import time.
-    setWorkerUrl: vi.fn(),
   };
+  return { ...named, default: named };
 });
 
 vi.mock('../../services/apiService', () => ({
@@ -201,7 +206,10 @@ describe('MapComponent', () => {
 
     renderWithClient(<MapComponent />);
 
-    expect(screen.getByText(/loading parcels/i)).toBeInTheDocument();
+    // The base parcels query only enables once the map has mounted and
+    // reported its initial viewport bbox (see MapComponent's viewBbox
+    // state), one tick after render rather than synchronously with it.
+    await waitFor(() => expect(screen.getByText(/loading parcels/i)).toBeInTheDocument());
     resolveParcels!({ data: { parcels: [] } });
     await waitFor(() => expect(screen.queryByText(/loading parcels/i)).not.toBeInTheDocument());
   });
@@ -211,7 +219,9 @@ describe('MapComponent', () => {
 
     renderWithClient(<MapComponent />);
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/gis/parcels'));
+    await waitFor(() =>
+      expect(apiService.get).toHaveBeenCalledWith('/gis/parcels', { params: { bbox: '-1,-1,1,1', limit: 1000 } }),
+    );
   });
 
   it('adds a parcels-source and parcels-layer once data arrives, parsing string geometry', async () => {

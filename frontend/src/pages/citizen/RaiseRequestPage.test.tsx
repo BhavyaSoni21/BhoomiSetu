@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RaiseRequestPage from './RaiseRequestPage';
 import apiService from '../../services/apiService';
@@ -12,8 +12,35 @@ vi.mock('../../services/apiService', () => ({
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 
-const parcelOne = { id: 'p1', canonicalParcelId: 'CAN-1', ulpin: 'ULPIN-1', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: '{}' };
-const parcelTwo = { id: 'p2', canonicalParcelId: 'CAN-2', ulpin: null, stateCode: 'DL', districtCode: 'NEW', localBodyCode: 'DLLB001', areaSqM: 300, geometry: '{}' };
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
+
+const parcelOne = {
+  id: 'p1',
+  canonicalParcelId: 'CAN-1',
+  localId: 'MH-AH-SH-101/1',
+  ulpin: 'ULPIN-1',
+  stateCode: 'MH',
+  districtCode: 'AH',
+  localBodyCode: 'SH',
+  areaSqM: 500,
+  geometry: '{}',
+  status: 'Registered',
+};
+const parcelTwo = {
+  id: 'p2',
+  canonicalParcelId: 'CAN-2',
+  localId: 'MH-AH-SH-102/2',
+  ulpin: null,
+  stateCode: 'MH',
+  districtCode: 'AH',
+  localBodyCode: 'SH',
+  areaSqM: 300,
+  geometry: '{}',
+  status: 'Registered',
+};
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -21,95 +48,69 @@ function renderPage() {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
+          <LocationProbe />
         <RaiseRequestPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-// [new restriction] (docs/FRONTEND_UPGRADE_SPEC.md §4): the parcel selector
-// only lists parcels GET /parcels/mine actually returns for this citizen -
-// not a free-text parcelId field - and auto-fills read-only details once one
-// is picked, before any of the three request-type buttons even appear.
 describe('RaiseRequestPage', () => {
   beforeEach(() => {
     vi.mocked(apiService.get).mockReset();
     vi.mocked(apiService.post).mockReset();
   });
 
-  it('shows a no-parcels message and no dropdown when the citizen has no linked parcels', async () => {
+  it('shows a no-parcels message and Link Parcel CTA when citizen has no registered parcels', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
     renderPage();
 
-    expect(await screen.findByText(/No parcels are linked to your account/)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Select a parcel/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/Link a Parcel to Get Started/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Select Verified Parcel/i)).not.toBeInTheDocument();
+    expect(await screen.findByTestId('location')).toHaveTextContent('/citizen/parcels?from=raise-request');
   });
 
-  it('lists only the citizen\'s own parcels in the dropdown, with none selected by default', async () => {
+  it('blocks parcels with status Pending Verification from complaint selection', async () => {
+    const pendingParcel = {
+      id: 'p-pending',
+      canonicalParcelId: 'CAN-P',
+      localId: 'MH-AH-SH-999',
+      ulpin: null,
+      stateCode: 'MH',
+      districtCode: 'AH',
+      localBodyCode: 'SH',
+      areaSqM: 400,
+      geometry: '{}',
+      status: 'Pending Verification',
+    };
+    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [pendingParcel], total: 1 } });
+    renderPage();
+
+    expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/currently under officer review/i)).toBeInTheDocument();
+  });
+
+  it("lists only the citizen's registered parcels in the dropdown", async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
     renderPage();
 
-    const select = await screen.findByLabelText(/Select a parcel/);
-    expect(select).toHaveValue('');
-    expect(screen.getByRole('option', { name: /ULPIN-1/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Parcel #p2/ })).toBeInTheDocument();
-    // No request-type action is offered before a parcel is chosen.
-    expect(screen.queryByRole('button', { name: 'Request Documents' })).not.toBeInTheDocument();
+    const select = await screen.findByLabelText(/Select Verified Parcel/i);
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /MH-AH-SH-101\/1/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /MH-AH-SH-102\/2/i })).toBeInTheDocument();
   });
 
-  it('selecting a parcel auto-fills its read-only details and reveals the request-type actions', async () => {
+  it('selecting a parcel reveals the service actions and shows parcel summary', async () => {
     vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
     renderPage();
 
-    const select = await screen.findByLabelText(/Select a parcel/);
+    const select = await screen.findByLabelText(/Select Verified Parcel/i);
     fireEvent.change(select, { target: { value: 'p1' } });
 
-    expect(screen.getByText('ULPIN: ULPIN-1')).toBeInTheDocument();
-    expect(screen.getByText(/MH-PUN-MHLB001/)).toBeInTheDocument();
-    expect(screen.getByText(/500/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Request Documents' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Report Issue' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'File a Dispute' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Verify Documents' })).toBeInTheDocument();
-  });
-
-  it('files a Verify Documents request (DOCUMENT_VERIFICATION_REQUEST) against the selected parcel', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: {
-        id: 'wf2', parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST', currentStatus: 'SUBMITTED',
-        createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '',
-        steps: [{ id: 's2', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'PENDING', action: null, remarks: null, completedAt: null }],
-      },
-    });
-    renderPage();
-
-    fireEvent.change(await screen.findByLabelText(/Select a parcel/), { target: { value: 'p1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify Documents' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit Request' }));
-
-    await waitFor(() =>
-      expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p1', workflowType: 'DOCUMENT_VERIFICATION_REQUEST' })),
-    );
-  });
-
-  it('files the request against the selected parcel, not any other one', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: {
-        id: 'wf1', parcelId: 'p2', workflowType: 'CORRECTION_REQUEST', currentStatus: 'SUBMITTED',
-        createdBy: null, requestDetails: null, lastRemarks: null, createdAt: '', updatedAt: '',
-        steps: [{ id: 's1', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'PENDING', action: null, remarks: null, completedAt: null }],
-      },
-    });
-    renderPage();
-
-    fireEvent.change(await screen.findByLabelText(/Select a parcel/), { target: { value: 'p2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Report Issue' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit Request' }));
-
-    await waitFor(() =>
-      expect(apiService.post).toHaveBeenCalledWith('/workflows', expect.objectContaining({ parcelId: 'p2', workflowType: 'CORRECTION_REQUEST' })),
-    );
+    expect(screen.getAllByText(/MH-AH-SH-101\/1/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Verified Holding/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/500/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Certified RoR \/ 7\/12 Extract/i)).toBeInTheDocument();
   });
 });

@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import '../map/maplibreWorkerUrl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { Plus } from 'lucide-react';
@@ -139,15 +138,9 @@ const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeom
       onChangeRef.current(feature ? feature.geometry : null);
     };
 
-    // mapbox-gl-draw fires these three custom events on the map's own
-    // emitter - not part of maplibre-gl's own MapEventType union (its .on()
-    // overloads only accept maplibre's own event names), so this narrow
-    // cast is needed for the same reason the addControl one above is: the
-    // two libraries' types were never written to know about each other.
-    const drawEvents = map as unknown as { on: (type: string, listener: () => void) => void };
-    drawEvents.on('draw.create', emitSingleShape);
-    drawEvents.on('draw.update', emitSingleShape);
-    drawEvents.on('draw.delete', emitSingleShape);
+    map.on('draw.create', emitSingleShape);
+    map.on('draw.update', emitSingleShape);
+    map.on('draw.delete', emitSingleShape);
 
     const setup = () => {
       if (initialGeometry) {

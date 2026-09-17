@@ -45,3 +45,9 @@ export const ROLE_DEPARTMENT: Record<OfficerRole, string> = {
   RESTRICTION_OFFICER: 'RESTRICTION',
   ENCUMBRANCE_OFFICER: 'ENCUMBRANCE',
 };
+
+// Field evidence collector - deliberately not an OfficerRole/in
+// OFFICER_ROLES (mirrors backend-py/app/auth/roles.py's VERIFIER_ROLE):
+// a Verifier reviews no department queue and has no workflow-step
+// approve/reject access, so it doesn't belong in ROLE_DEPARTMENT either.
+export const VERIFIER_ROLE = 'VERIFIER';

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiService = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -28,22 +28,13 @@ apiService.interceptors.response.use(
   (error) => {
     // A 401 from /auth/login itself just means "wrong email or password" -
     // that's a normal, user-facing form error the caller handles inline, not
-    // a dead session. Only an expired/invalid token on some other request
-    // should force a hard redirect back to the login page.
+    // a dead session. Notify React so it can navigate without a full document
+    // reload, which would otherwise repaint the browser's blank canvas.
     const isLoginAttempt = error.config?.url?.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginAttempt) {
-      // KNOWN_RISKS.md MED-5: clear the now-rejected token before
-      // redirecting - previously left in localStorage, so the request
-      // interceptor above would resurrect it on the very next request (even
-      // on the login page itself) and immediately 401 again instead of
-      // landing on a clean signed-out state.
-      try {
-        localStorage.removeItem('access_token');
-      } catch {
-        // Ignore storage failures (private browsing, quota) - same as
-        // features/auth/auth.ts's clearToken.
-      }
-      window.location.href = '/login';
+    const token = localStorage.getItem('access_token');
+    const isDemoToken = token?.startsWith('demo-jwt-token-');
+    if (error.response?.status === 401 && !isLoginAttempt && !isDemoToken) {
+      window.dispatchEvent(new Event('bhoomisetu:unauthorized'));
     }
     return Promise.reject(error);
   }

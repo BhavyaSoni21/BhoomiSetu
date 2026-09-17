@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import {
   MapPin,
   Inbox,
@@ -19,6 +19,7 @@ import { useAuthUser } from '../../features/auth/auth';
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
 import LandClaimPanel from '../../features/citizen/LandClaimPanel';
+import SpeakerButton from '../../components/SpeakerButton';
 
 const CitizenDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -60,6 +61,7 @@ const CitizenDashboardPage: React.FC = () => {
                 style={{ background: 'rgba(var(--action-500), 0.2)', color: 'var(--action-500)', border: '1px solid rgba(var(--action-500), 0.4)' }}
               >
                 <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                {/* SVAMITVA is a government scheme name — intentionally not translated */}
                 CITIZEN PORTAL · SVAMITVA VERIFIED
               </span>
               <span className="text-white/40 text-xs hidden sm:inline">|</span>
@@ -68,10 +70,10 @@ const CitizenDashboardPage: React.FC = () => {
               </span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">
-              Namaste, {user?.name || 'Citizen'}
+              {t('citizenDashboard.greetingPrefix')}, {user?.name || t('citizenDashboard.defaultCitizenName')}
             </h1>
             <p className="text-white/80 text-sm sm:text-base max-w-2xl leading-relaxed">
-              Welcome to your unified BhoomiSetu dashboard. Manage your agricultural and urban property records, track revenue department applications, and verify geospatial boundaries.
+              {t('citizenDashboard.welcomeDesc')}
             </p>
           </div>
         </div>
@@ -82,7 +84,7 @@ const CitizenDashboardPage: React.FC = () => {
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Registered Parcels
+              {t('citizenDashboard.registeredParcelsLabel')}
             </span>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-900/10 text-brand-900">
               <MapPin className="w-5 h-5" aria-hidden="true" />
@@ -92,20 +94,20 @@ const CitizenDashboardPage: React.FC = () => {
             <span className="text-3xl font-heading font-bold text-text-heading">
               {parcelsLoading ? '...' : parcelsData?.total ?? 0}
             </span>
-            <span className="text-xs font-mono text-gov-success font-semibold">Active Deeds</span>
+            <span className="text-xs font-mono text-gov-success font-semibold">{t('citizenDashboard.activeDeedsLabel')}</span>
           </div>
           <Link
             to="/citizen/parcels"
             className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
           >
-            View Land Holdings <ChevronRight className="w-3.5 h-3.5" />
+            {t('citizenDashboard.viewLandHoldingsLink')} <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Pending Actions
+              {t('citizenDashboard.pendingActionsLabel')}
             </span>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-action-500/15 text-action-700">
               <Clock className="w-5 h-5" aria-hidden="true" />
@@ -115,20 +117,20 @@ const CitizenDashboardPage: React.FC = () => {
             <span className="text-3xl font-heading font-bold text-text-heading">
               {workflowsLoading ? '...' : pendingCount}
             </span>
-            <span className="text-xs font-mono text-action-700 font-semibold">Under Review</span>
+            <span className="text-xs font-mono text-action-700 font-semibold">{t('citizenDashboard.underReviewLabel')}</span>
           </div>
           <Link
             to="/citizen/requests"
             className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-action-700 hover:text-action-600 transition"
           >
-            Track In-flight <ChevronRight className="w-3.5 h-3.5" />
+            {t('citizenDashboard.trackInFlightLink')} <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Approved Applications
+              {t('citizenDashboard.approvedApplicationsLabel')}
             </span>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-green-100 text-gov-success">
               <FileCheck2 className="w-5 h-5" aria-hidden="true" />
@@ -138,20 +140,20 @@ const CitizenDashboardPage: React.FC = () => {
             <span className="text-3xl font-heading font-bold text-text-heading">
               {workflowsLoading ? '...' : approvedCount}
             </span>
-            <span className="text-xs font-mono text-gov-success font-semibold">Certificates Issued</span>
+            <span className="text-xs font-mono text-gov-success font-semibold">{t('citizenDashboard.certificatesIssuedLabel')}</span>
           </div>
           <Link
             to="/citizen/requests"
             className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
           >
-            Download Orders <ChevronRight className="w-3.5 h-3.5" />
+            {t('citizenDashboard.downloadOrdersLink')} <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Department Feeds
+              {t('citizenDashboard.departmentFeedsLabel')}
             </span>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-900/10 text-brand-900">
               <ShieldCheck className="w-5 h-5" aria-hidden="true" />
@@ -159,10 +161,10 @@ const CitizenDashboardPage: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-heading font-bold text-text-heading">7 / 7</span>
-            <span className="text-xs font-mono text-gov-success font-semibold">Synchronized</span>
+            <span className="text-xs font-mono text-gov-success font-semibold">{t('citizenDashboard.synchronizedLabel')}</span>
           </div>
           <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
-            Revenue, Forest, Survey, Tax
+            {t('citizenDashboard.feedTypesLabel')}
           </span>
         </div>
       </div>
@@ -174,34 +176,34 @@ const CitizenDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="font-heading font-bold text-lg text-text-heading">
-                Recent Applications & Workflows
+                {t('citizenDashboard.recentApplicationsHeading')}
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                Track live status updates and assigned revenue officers
+                {t('citizenDashboard.recentApplicationsDesc')}
               </p>
             </div>
             <Link
               to="/citizen/requests"
               className="text-xs font-semibold text-brand-700 hover:underline inline-flex items-center gap-1"
             >
-              View All ({workflows.length}) <ChevronRight className="w-3.5 h-3.5" />
+              {t('citizenDashboard.viewAllLink')} ({workflows.length}) <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           {workflowsLoading ? (
-            <div className="py-12 text-center text-sm text-text-muted">Loading active workflows…</div>
+            <div className="py-12 text-center text-sm text-text-muted">{t('citizenDashboard.loadingWorkflows')}</div>
           ) : workflows.length === 0 ? (
             <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
               <Inbox className="w-8 h-8 mx-auto text-text-muted mb-2" />
-              <p className="text-sm font-semibold text-text-heading">No requests filed yet</p>
+              <p className="text-sm font-semibold text-text-heading">{t('citizenDashboard.noRequestsYetHeading')}</p>
               <p className="text-xs text-text-secondary mt-1 max-w-sm mx-auto">
-                Need to file a mutation, dispute or NOC verification? Click below to start.
+                {t('citizenDashboard.noRequestsYetDesc')}
               </p>
               <Link
                 to="/citizen/raise-request"
                 className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition"
               >
-                <PlusCircle className="w-3.5 h-3.5" /> Submit First Request
+                <PlusCircle className="w-3.5 h-3.5" /> {t('citizenDashboard.submitFirstRequestButton')}
               </Link>
             </div>
           ) : (
@@ -209,11 +211,11 @@ const CitizenDashboardPage: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-gov-border text-text-muted uppercase font-mono text-[11px]">
-                    <th className="pb-3 font-semibold">Application No</th>
-                    <th className="pb-3 font-semibold">Type</th>
-                    <th className="pb-3 font-semibold">Status</th>
-                    <th className="pb-3 font-semibold">Filed Date</th>
-                    <th className="pb-3 font-semibold text-right">Action</th>
+                    <th className="pb-3 font-semibold">{t('citizenDashboard.tableColAppNo')}</th>
+                    <th className="pb-3 font-semibold">{t('citizenDashboard.tableColType')}</th>
+                    <th className="pb-3 font-semibold">{t('citizenDashboard.tableColStatus')}</th>
+                    <th className="pb-3 font-semibold">{t('citizenDashboard.tableColFiledDate')}</th>
+                    <th className="pb-3 font-semibold text-right">{t('citizenDashboard.tableColAction')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gov-border">
@@ -226,7 +228,10 @@ const CitizenDashboardPage: React.FC = () => {
                           #{w.id.slice(0, 8)}
                         </td>
                         <td className="py-3 font-medium text-text-primary">
-                          {w.workflowType?.replace(/_/g, ' ')}
+                          <div className="flex items-center gap-1.5">
+                            <span>{w.workflowType?.replace(/_/g, ' ')}</span>
+                            {w.workflowType && <SpeakerButton text={w.workflowType.replace(/_/g, ' ')} />}
+                          </div>
                         </td>
                         <td className="py-3">
                           <span
@@ -242,14 +247,14 @@ const CitizenDashboardPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 text-text-secondary font-mono">
-                          {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : 'Recent'}
+                          {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : t('citizenDashboard.recentFallback')}
                         </td>
                         <td className="py-3 text-right">
                           <Link
                             to="/citizen/requests"
                             className="text-brand-700 hover:text-brand-900 font-semibold underline underline-offset-2"
                           >
-                            Details
+                            {t('citizenDashboard.detailsLink')}
                           </Link>
                         </td>
                       </tr>
@@ -267,20 +272,21 @@ const CitizenDashboardPage: React.FC = () => {
             <div className="flex items-center gap-2 text-action-700 mb-2">
               <Flag className="w-5 h-5 shrink-0" aria-hidden="true" />
               <h3 className="font-heading font-bold text-base text-text-heading">
+                {/* SVAMITVA is an official government scheme name — intentionally not translated */}
                 SVAMITVA Property Claim
               </h3>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
-              Have an ancestral property or village Abadi parcel not yet linked to your Aadhaar/phone? File a digital ownership claim for drone-survey verification.
+              {t('citizenDashboard.landClaimDesc')}
             </p>
 
             <div className="mt-4 p-3 rounded-xl bg-surface-2 border border-gov-border space-y-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-text-heading">
                 <ShieldCheck className="w-4 h-4 text-gov-success" />
-                <span>Legal Validity</span>
+                <span>{t('citizenDashboard.legalValidityHeading')}</span>
               </div>
               <p className="text-[11px] text-text-muted leading-relaxed">
-                Claims are reviewed by the Taluka Tehsildar with 30-day public notice per Land Revenue Code.
+                {t('citizenDashboard.legalValidityDesc')}
               </p>
             </div>
           </div>
@@ -296,7 +302,7 @@ const CitizenDashboardPage: React.FC = () => {
                 border: '1px solid var(--gov-border)',
               }}
             >
-              {showLandClaim ? 'Close Claim Assistant' : 'File a Land Claim'}
+              {showLandClaim ? t('citizenDashboard.closeClaimAssistantButton') : t('citizenDashboard.fileALandClaimButton')}
             </button>
           </div>
         </div>
@@ -307,13 +313,13 @@ const CitizenDashboardPage: React.FC = () => {
         <div className="gov-card p-6 border-2 border-brand-700 animate-fade-up">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading font-bold text-lg text-text-heading">
-              New Property Ownership Claim
+              {t('citizenDashboard.newClaimHeading')}
             </h3>
             <button
               onClick={() => setShowLandClaim(false)}
               className="text-xs font-semibold text-text-muted hover:text-text-heading"
             >
-              Cancel
+              {t('citizenDashboard.cancelButton')}
             </button>
           </div>
           <LandClaimPanel onSubmitted={() => setShowLandClaim(false)} />

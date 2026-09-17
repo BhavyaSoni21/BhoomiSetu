@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Search, Map as MapIcon, Layers, Info, Filter, Compass } from 'lucide-react';
 import ParcelSearch from '../../features/parcels/ParcelSearch';
-import MapComponent from '../../features/map/MapComponent';
+import UnifiedMapWrapper from '../../features/map/UnifiedMapWrapper';
 import { ParcelSummary } from '../../types/parcel';
 import BackButton from '../../components/BackButton';
 
@@ -121,10 +121,15 @@ const FindParcelsPage: React.FC = () => {
             </div>
 
             <div className="rounded-xl overflow-hidden border border-gov-border">
-              <MapComponent
+              <UnifiedMapWrapper
                 parcels={searchResults}
                 selectedParcelId={selectedParcelId}
                 onParcelClick={setSelectedParcelId}
+                showClusterDropdown
+                showLayerPanel
+                visibleLayerKeys={['zoning']}
+                className="rounded-xl border border-gov-border"
+                height="h-[500px]"
               />
             </div>
           </div>

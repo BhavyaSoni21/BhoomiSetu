@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X, CheckCircle2, AlertCircle, MapPin, ArrowRight, Loader2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface ParcelSearchModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ async function searchByAnyIdentifier(term: string): Promise<ParcelSummary[]> {
 
 export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<ParcelSummary[]>([]);
   const [selectedResult, setSelectedResult] = useState<ParcelSummary | null>(null);
@@ -66,14 +68,14 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
             </div>
             <div>
               <h3 id="modal-headline" className="font-heading font-bold text-base sm:text-lg text-white">
-                Cadastral Parcel Search
+                {t('landing.searchModal.title')}
               </h3>
-              <p className="text-xs text-white/70">Search canonical records by ULPIN or Survey Number</p>
+              <p className="text-xs text-white/70">{t('landing.searchModal.subtitle')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close search dialog"
+            aria-label={t('landing.searchModal.closeAriaLabel')}
             className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
           >
             <X className="w-5 h-5" />
@@ -85,7 +87,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
           {/* Search Input Form */}
           <form onSubmit={handleSearch} className="space-y-2">
             <label htmlFor="parcel-input" className="block text-xs font-semibold uppercase tracking-wider text-[#53635A] dark:text-white/70">
-              Enter 14-Digit ULPIN or Survey Number
+              {t('landing.searchModal.inputLabel')}
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -94,7 +96,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="e.g. MH-PUN-0042-2018 or Survey 142"
+                  placeholder={t('landing.searchModal.inputPlaceholder')}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 bg-white dark:bg-black/30 font-mono text-sm text-[#0F3D2E] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#166534] dark:focus:ring-[#F59E0B]"
                 />
                 <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -104,7 +106,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
                 disabled={isSearching || !searchTerm.trim()}
                 className="px-5 py-3 rounded-xl bg-[#0F3D2E] hover:bg-[#166534] text-white font-heading font-bold text-sm transition shadow-sm disabled:opacity-50"
               >
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Search'}
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : t('landing.searchModal.searchButton')}
               </button>
             </div>
           </form>
@@ -112,7 +114,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
           {/* Multiple matches - pick one */}
           {results.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-muted-foreground text-[#718078] dark:text-white/60">{results.length} matches:</span>
+              <span className="text-muted-foreground text-[#718078] dark:text-white/60">{t('landing.searchModal.matchesCount', { count: results.length })}</span>
               {results.map((p) => (
                 <button
                   key={p.id}
@@ -134,7 +136,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
           {searched && !isSearching && results.length === 0 && (
             <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 flex items-start gap-2.5 text-sm text-amber-900 dark:text-amber-200">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>No parcel found for "{searchTerm}". Try the exact ULPIN or survey number.</span>
+              <span>{t('landing.searchModal.noMatch', { term: searchTerm })}</span>
             </div>
           )}
 
@@ -157,17 +159,17 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
 
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#166534]/15 text-[#166534] dark:bg-[#166534]/40 dark:text-emerald-300 border border-[#166534]/30">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>On record</span>
+                  <span>{t('landing.searchModal.onRecordBadge')}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-black/10 dark:border-white/10 text-xs">
                 <div>
-                  <span className="text-[#718078] dark:text-white/60 block text-[10px] uppercase font-semibold">Extent</span>
+                  <span className="text-[#718078] dark:text-white/60 block text-[10px] uppercase font-semibold">{t('landing.searchModal.extentLabel')}</span>
                   <span className="font-mono font-bold text-[#34413A] dark:text-white">{selectedResult.areaSqM.toLocaleString()} m²</span>
                 </div>
                 <div>
-                  <span className="text-[#718078] dark:text-white/60 block text-[10px] uppercase font-semibold">Parcel ID</span>
+                  <span className="text-[#718078] dark:text-white/60 block text-[10px] uppercase font-semibold">{t('landing.searchModal.parcelIdLabel')}</span>
                   <span className="font-mono font-bold text-[#34413A] dark:text-white">#{selectedResult.id.substring(0, 8)}</span>
                 </div>
               </div>
@@ -181,7 +183,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F3D2E] hover:bg-[#166534] text-white text-xs font-semibold transition"
                 >
-                  <span>View 360° Profile</span>
+                  <span>{t('landing.searchModal.viewProfileCta')}</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -196,7 +198,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
             onClick={onClose}
             className="text-xs font-medium hover:underline text-[#34413A] dark:text-white"
           >
-            Close
+            {t('landing.searchModal.closeButton')}
           </button>
         </div>
       </div>

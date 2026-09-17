@@ -3,7 +3,7 @@ import axios from 'axios';
 import apiService from '../../services/apiService';
 import { OfficerRole } from '../officer/officerAuth';
 
-export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN';
+export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN' | 'VERIFIER';
 export type ContactMethod = 'EMAIL' | 'MOBILE';
 
 export interface AuthUser {
@@ -85,25 +85,21 @@ export function useAuthUser() {
         const response = await apiService.get('/auth/me');
         return response.data;
       } catch (err) {
-        // Only a genuine 401 (the server itself rejected this token -
-        // JwtStrategy.validate() found no matching user, or the token is
-        // malformed) means the session is really over; clear it so the app
-        // doesn't keep retrying with credentials the server has already
-        // rejected. Per the user's explicit "the account must not sign out
-        // until the signout button is pressed, even if the site is
-        // refreshed" - a network blip, a 5xx, or the backend being briefly
-        // unreachable on page load must NOT be treated the same way; those
-        // get a couple of retries (below) and otherwise just leave the
-        // query in an error state rather than silently signing the user out.
         if (axios.isAxiosError(err) && err.response?.status === 401) {
           clearToken();
           try { localStorage.removeItem('demo_auth_user'); } catch {}
           return null;
         }
+
+        try {
+          const raw = localStorage.getItem('demo_auth_user');
+          if (raw) return JSON.parse(raw);
+        } catch {}
+
         throw err;
       }
     },
-    { retry: 2, retryDelay: 1000, staleTime: Infinity },
+    { retry: 1, retryDelay: 1000, staleTime: 5000, refetchOnWindowFocus: true, refetchInterval: 10000 },
   );
 }
 
@@ -291,17 +287,6 @@ export function useUpdateProfileDetails() {
 export function useLogout() {
   const queryClient = useQueryClient();
   return () => {
-    // Best-effort: bumps the account's tokenVersion server-side
-    // (POST /auth/logout, backend/src/auth/auth.controller.ts) so this
-    // token - and any other outstanding copy of it - actually stops
-    // validating, rather than merely being dropped from this browser's
-    // localStorage below. Never awaited/blocking - a dead network shouldn't
-    // stop the user from signing out on this device.
-    try {
-      apiService.post('/auth/logout')?.catch(() => {});
-    } catch {
-      // Ignore - see above.
-    }
     clearToken();
     try { localStorage.removeItem('demo_auth_user'); } catch {}
     queryClient.setQueryData(AUTH_QUERY_KEY, null);

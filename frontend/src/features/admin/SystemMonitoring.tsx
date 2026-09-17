@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
 import { Users, LogIn, Clock, Activity } from 'lucide-react';
 import apiService from '../../services/apiService';

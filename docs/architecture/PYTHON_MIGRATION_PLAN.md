@@ -1,6 +1,6 @@
 # BhoomiSetu — Python Backend Migration Plan
 
-**Status: planned, not started.** This document records a committed decision, not an open option: the backend is moving from NestJS/TypeScript to Python/FastAPI. **The end state is zero NestJS in this codebase.** It exists so the *how* survives past this conversation — re-derive it from scratch later and you'll re-argue decisions (build order, schema/seed ownership, test-reuse mechanism, cutover runbook) that are already settled here.
+**Status: the build is done; only §6/§7 cutover-to-production remains.** See [`PYTHON_MIGRATION_PROGRESS.md`](PYTHON_MIGRATION_PROGRESS.md) for exactly how far execution has gotten — every module in §4's build order is ported and verified, CI is in place, `backend-py` is what the frontend actually talks to today. This document records a committed decision, not an open option: the backend is moving from NestJS/TypeScript to Python/FastAPI. **The end state is zero NestJS in this codebase.** It exists so the *how* survives past this conversation — re-derive it from scratch later and you'll re-argue decisions (build order, schema/seed ownership, test-reuse mechanism, cutover runbook) that are already settled here.
 
 **Confirmed constraints this plan is built around (2026-09-11):**
 - Single database — one Postgres+PostGIS instance, same as today. No split across multiple database technologies.

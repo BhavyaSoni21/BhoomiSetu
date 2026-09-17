@@ -159,10 +159,11 @@ describe('AskAiWidget', () => {
       renderWidget();
       const button = screen.getByRole('button', { name: 'Open Ask AI' });
       const before = { left: button.style.left, top: button.style.top };
+      const dragHandle = screen.getByTestId('ask-ai-drag-handle');
 
-      firePointer(button, 'pointerdown', { clientX: 500, clientY: 500 });
-      firePointer(button, 'pointermove', { clientX: 400, clientY: 350 });
-      firePointer(button, 'pointerup', { clientX: 400, clientY: 350 });
+      firePointer(dragHandle, 'pointerdown', { clientX: 500, clientY: 500 });
+      firePointer(dragHandle, 'pointermove', { clientX: 400, clientY: 350 });
+      firePointer(dragHandle, 'pointerup', { clientX: 400, clientY: 350 });
 
       expect(button.style.left).not.toBe(before.left);
       expect(button.style.top).not.toBe(before.top);
@@ -174,15 +175,35 @@ describe('AskAiWidget', () => {
       renderWidget();
       const button = screen.getByRole('button', { name: 'Open Ask AI' });
 
-      firePointer(button, 'pointerdown', { clientX: 500, clientY: 500 });
-      firePointer(button, 'pointerup', { clientX: 500, clientY: 500 });
+      const dragHandle = screen.getByTestId('ask-ai-drag-handle');
+      firePointer(dragHandle, 'pointerdown', { clientX: 500, clientY: 500 });
+      firePointer(dragHandle, 'pointerup', { clientX: 500, clientY: 500 });
       fireEvent.click(button);
 
       expect(screen.getByPlaceholderText('Ask a question...')).toBeInTheDocument();
     });
 
-    it('dragging the open panel by its header moves it without closing it', () => {
+    it('moves the open panel with the floating icon', () => {
       renderWidget();
+      openWidget();
+
+      const button = screen.getByRole('button', { name: 'Close Ask AI' });
+      const panel = screen.getByPlaceholderText('Ask a question...').closest('div.fixed') as HTMLElement;
+      const dragHandle = screen.getByTestId('ask-ai-drag-handle');
+      const before = { buttonLeft: button.style.left, buttonTop: button.style.top, panelLeft: panel.style.left, panelTop: panel.style.top };
+
+      firePointer(dragHandle, 'pointerdown', { clientX: 700, clientY: 500 });
+      firePointer(dragHandle, 'pointermove', { clientX: 650, clientY: 450 });
+      firePointer(dragHandle, 'pointerup', { clientX: 650, clientY: 450 });
+
+      expect(button.style.left).not.toBe(before.buttonLeft);
+      expect(button.style.top).not.toBe(before.buttonTop);
+      expect(panel.style.left).not.toBe(before.panelLeft);
+      expect(panel.style.top).not.toBe(before.panelTop);
+    });
+      renderWidget();
+    it('dragging the open panel by its header moves it without closing it', () => {
+
       openWidget();
       const header = screen.getByText('Ask AI').closest('div')!;
       const panel = screen.getByPlaceholderText('Ask a question...').closest('div.fixed') as HTMLElement;

@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '../../context/LanguageContext';
+import { useHistoricalClusters } from './historicalImagery';
+import UnifiedMapWrapper from '../map/UnifiedMapWrapper';
 import { useCategorizedParcels } from './historicalImagery';
 import { ParcelCategory } from '../../types/historicalImagery';
 import { ParcelSummary } from '../../types/parcel';
-import MapComponent from '../map/MapComponent';
+import { OFFICER_ROLES } from './officerAuth';
+import { useAuthUser } from '../auth/auth';
+import apiService from '../../services/apiService';
+import { useQuery } from '@tanstack/react-query';
+import { Loader2, Satellite } from 'lucide-react';
 
 // Mirrors backend/src/common/parcel-generation/parcel-category.ts's
 // CATEGORY_COLORS/CATEGORY_LABELS - duplicated rather than shared, matching
@@ -66,7 +73,14 @@ interface HistoricalMapViewProps {
 // exactly this reason. `fitToParcels` on MapComponent zooms to the cluster's
 // own bounds up front; if selectedParcelId is also given, MapComponent's own
 // contextual zoom takes over once that parcel's context loads.
-const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years, selectedParcelId, onParcelClick, actionSlot, recenterSignal }) => {
+const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
+  clusterId,
+  years,
+  selectedParcelId,
+  onParcelClick,
+  recenterSignal,
+}) => {
+  const { t } = useTranslation();
   const [year, setYear] = useState<number>(years[years.length - 1]);
   useEffect(() => {
     if (!years.includes(year)) setYear(years[years.length - 1]);
@@ -74,6 +88,45 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
   }, [clusterId, years]);
 
   const { data: categorizedParcels = [], isLoading, error } = useCategorizedParcels(clusterId, year);
+
+  // Real satellite photo view - officer-only (per the user's explicit "at
+  // least the officers"), fetched on demand rather than automatically on
+  // every year/cluster change to avoid burning Earth Engine quota on views
+  // nobody asked to see.
+  const { data: user } = useAuthUser();
+  const isOfficer = OFFICER_ROLES.includes(user?.role as (typeof OFFICER_ROLES)[number]);
+  const [viewMode, setViewMode] = useState<'map' | 'satellite'>('map');
+  const objectUrlRef = useRef<string | null>(null);
+  const [satelliteImageUrl, setSatelliteImageUrl] = useState<string | null>(null);
+
+  const satelliteQuery = useQuery(
+    ['cluster-satellite-image', clusterId, year],
+    async () => {
+      const response = await apiService.get(`/change-detection/clusters/${clusterId}/satellite-image`, {
+        params: { date: `${year}-01-01` },
+        responseType: 'blob',
+        timeout: 60000,
+      });
+      return response.data as Blob;
+    },
+    {
+      enabled: false,
+      onSuccess: (blob) => {
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setSatelliteImageUrl(url);
+      },
+    },
+  );
+
+  useEffect(() => {
+    setSatelliteImageUrl(null);
+  }, [clusterId, year]);
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
 
   const parcels: ParcelSummary[] = categorizedParcels.map((p) => ({
     id: p.id,
@@ -88,56 +141,104 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({ clusterId, years,
   const parcelColors = Object.fromEntries(categorizedParcels.map((p) => [p.id, CATEGORY_COLORS[p.category]]));
   const parcelLabels = Object.fromEntries(categorizedParcels.map((p) => [p.id, CATEGORY_LABELS[p.category]]));
 
+  // Custom layer panel content for historical imagery (category legend)
+  const showCustomLayerPanel = true;
+  const customLayerContent = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-bold uppercase tracking-widest text-ink/60">
+      {SNAPSHOT_LEGEND.map((entry) => (
+        <span key={entry.category} className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 border border-ink/30 shrink-0" style={{ backgroundColor: entry.color }} aria-hidden="true" />
+          {entry.label}
+        </span>
+      ))}
+      <span className="normal-case font-normal text-ink/40">(disputes only ever appear on the current year)</span>
+    </div>
+  );
+
+  // View mode toggle (Map / Satellite) - officer only
+  const actionSlot = isOfficer ? (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center border-2 border-ink">
+        <button
+          type="button"
+          onClick={() => setViewMode('map')}
+          className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+        >
+          Parcel Map
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('satellite')}
+          className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide border-l-2 border-ink ${viewMode === 'satellite' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+        >
+          Satellite Photo
+        </button>
+      </div>
+      {viewMode === 'satellite' && !satelliteImageUrl && (
+        <button
+          type="button"
+          onClick={() => satelliteQuery.refetch()}
+          disabled={satelliteQuery.isFetching}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink bg-secondary text-white text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
+        >
+          {satelliteQuery.isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Satellite className="w-3.5 h-3.5" aria-hidden="true" />}
+          {satelliteQuery.isFetching ? 'Loading...' : `Load ${year} satellite photo`}
+        </button>
+      )}
+    </div>
+  ) : undefined;
+
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-3">
-        {SNAPSHOT_LEGEND.map((entry) => (
-          <span key={entry.category} className="inline-flex items-center gap-1.5">
-            <span className="w-3 h-3 border border-ink/30 shrink-0" style={{ backgroundColor: entry.color }} aria-hidden="true" />
-            {entry.label}
-          </span>
-        ))}
-        <span className="normal-case font-normal text-ink/40">(disputes only ever appear on the current year)</span>
-      </div>
+    <div className="border-2 sm:border-4 border-ink">
+      {/* UnifiedMapWrapper handles the map view (parcel boundaries) */}
+{viewMode === 'map' && (
+        <UnifiedMapWrapper
+          parcels={parcels}
+          parcelColors={parcelColors}
+          parcelLabels={parcelLabels}
+          selectedParcelId={selectedParcelId}
+          onParcelClick={onParcelClick}
+          recenterSignal={recenterSignal}
+          showClusterDropdown={false} // Historical imagery has its own cluster selector outside
+          showYearSelector
+          historicalYears={years}
+          selectedYear={year}
+          onYearChange={setYear}
+          showLayerPanel={showCustomLayerPanel}
+          visibleLayerKeys={['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection']}
+          userRole={user?.role}
+          actionSlot={actionSlot}
+          height="h-[500px]"
+          focusBounds={null} // Don't auto-fit to cluster bounds - let MapComponent's fitToParcels handle it
+        />
+      )}
+      
+      {/* Satellite Photo View - officer only, on demand */}
+      {viewMode === 'satellite' && isOfficer && (
+        <>
+          {satelliteImageUrl ? (
+            <img
+              src={satelliteImageUrl}
+              alt={`Satellite photo of cluster ${clusterId} near ${year}`}
+              className="w-full max-h-[500px] object-contain border-2 sm:border-4 border-ink bg-black"
+            />
+          ) : (
+            <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex flex-col items-center justify-center gap-2 text-ink/40 text-sm font-bold uppercase tracking-wide text-center px-4">
+              {satelliteQuery.isError ? (
+                <span className="text-secondary-strong normal-case font-medium">
+                  Could not load a real satellite photo for this area/date - it may not have cloud-free coverage.
+                </span>
+              ) : (
+                <span>Click "Load {year} satellite photo" above</span>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
-        <div>
-          <label htmlFor={`historical-map-year-select-${clusterId}`} className="block text-[11px] font-bold uppercase tracking-widest text-ink/60 mb-1.5">
-            Map year
-          </label>
-          <select
-            id={`historical-map-year-select-${clusterId}`}
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
-            className="w-full sm:w-auto border-2 border-ink bg-surface px-3 py-2 text-sm font-bold text-ink"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        {actionSlot}
-      </div>
-
-      {Boolean(error) && <p className="text-xs font-medium text-secondary-strong mb-2">Could not load this year's parcel data.</p>}
-      {!error &&
-        (isLoading ? (
-          <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex items-center justify-center text-ink/40 text-sm font-bold uppercase tracking-wide">
-            Loading {year}...
-          </div>
-        ) : (
-          <MapComponent
-            parcels={parcels}
-            parcelColors={parcelColors}
-            parcelLabels={parcelLabels}
-            fitToParcels
-            selectedParcelId={selectedParcelId}
-            onParcelClick={onParcelClick}
-            recenterSignal={recenterSignal}
-          />
-        ))}
+      {/* View mode toggle and year selector in UnifiedMapWrapper's header area */}
+      {/* The year selector is handled by UnifiedMapWrapper's showYearSelector prop */}
+      {/* The view mode toggle is rendered as actionSlot */}
     </div>
   );
 };

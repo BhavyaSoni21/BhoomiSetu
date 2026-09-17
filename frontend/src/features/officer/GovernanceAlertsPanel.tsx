@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -149,7 +149,12 @@ const GovernanceAlertsPanel: React.FC = () => {
                 {t(STATUS_LABEL_KEYS[alert.status] ?? alert.status)}
               </span>
               <span className="font-bold text-sm uppercase tracking-wide text-ink">{alert.alertType.replace(/_/g, ' ')}</span>
-              <p className="text-xs text-ink/60 mt-0.5">{t('officerPortal.parcelLabel', { id: alert.parcelId })}</p>
+              {alert.department && (
+                <span className="inline-block border-2 border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ml-2 bg-muted text-ink">
+                  {alert.department.replace(/_/g, ' ')}
+                </span>
+              )}
+              <p className="text-xs text-ink/60 mt-0.5">{alert.parcelId}</p>
               <p className="text-sm text-ink/70 mt-1">{alert.explanation}</p>
             </div>
           </div>

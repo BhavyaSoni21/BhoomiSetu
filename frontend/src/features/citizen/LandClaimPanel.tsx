@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Paperclip, Search, Flag } from 'lucide-react';
 import apiService from '../../services/apiService';
 import ParcelSearch from '../parcels/ParcelSearch';
@@ -78,7 +78,7 @@ const LandClaimPanel: React.FC<LandClaimPanelProps> = ({ onSubmitted }) => {
       <ServiceRequestForm
         parcelId={confirmedParcel.id}
         workflowType="DISPUTE_FILING"
-        title="File a Dispute"
+        title={t('common.fileDispute')}
         initialFile={file}
         onClose={reset}
       />
@@ -86,7 +86,7 @@ const LandClaimPanel: React.FC<LandClaimPanelProps> = ({ onSubmitted }) => {
       <ServiceRequestForm
         parcelId={confirmedParcel.id}
         workflowType="LAND_CLAIM_REQUEST"
-        title="Claim This Parcel"
+        title={t('citizenPortal.landClaimClaimCta')}
         initialFile={file}
         onConflict={() => setDisputeMode(true)}
         onClose={reset}

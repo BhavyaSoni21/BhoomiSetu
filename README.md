@@ -10,7 +10,9 @@ BhoomiSetu is a GIS-based, parcel-centric land governance and interoperability p
 
 ```
 SIH_2026_BhoomiSetu/
-├── backend/                 # NestJS backend application
+├── backend-py/              # FastAPI/Python backend - the real, live backend (see below)
+├── backend/                 # Original NestJS backend - retired from the running stack,
+│                             # kept in-repo for a grace period (docs/architecture/PYTHON_MIGRATION_PLAN.md §6)
 ├── frontend/                # React frontend application
 ├── docs/                    # see Documentation below for what's in here
 ├── docker-compose.yml       # Docker Compose configuration (see Docker note below)
@@ -19,30 +21,36 @@ SIH_2026_BhoomiSetu/
 └── README.md                # This file
 ```
 
+**The backend was rewritten from NestJS/TypeScript to Python/FastAPI** (`docs/architecture/PYTHON_MIGRATION_PLAN.md` records why; `docs/architecture/PYTHON_MIGRATION_PROGRESS.md` records exactly how far). `backend-py` is what `frontend/` actually talks to today - every endpoint below is contract-identical to the original (same routes, request/response shapes, status codes), just implemented in Python now. `backend/` is only mentioned in some sections below where the original NestJS source is still the historical reference for *why* a decision was made - treat any `backend/src/...` path in this document as that kind of pointer, not as the live implementation.
+
 ## Technology Stack
 
-### Backend
-- **Runtime**: Node.js 22+
-- **Framework**: NestJS (TypeScript)
-- **Database**: SQLite for development, PostgreSQL + PostGIS for production (live-verified against a hosted Supabase instance - see Database below)
-- **ORM**: TypeORM
-- **Auth**: `@nestjs/jwt` + `passport-jwt` (JWT issuance/verification), `bcryptjs` (password hashing)
-- **File uploads**: `@nestjs/platform-express` (Multer) - imagery for Change Detection, document photos/scans for Document Verification
-- **OCR**: `tesseract.js` - local, in-process text extraction for Document Verification (no external API, no API key)
-- **Image processing**: `sharp` - decode/resize for Change Detection's pixel-diff pipeline
-- **Validation**: `class-validator` (HTTP request DTOs), `zod` (validating Groq's AI output before it's trusted - see Groq AI Endpoints below)
-- **AI**: Groq, via the OpenAI-compatible `openai` SDK (backend-only, never called from the frontend)
-- **API Documentation**: Swagger/OpenAPI (served at `/api`)
-- **Testing**: Jest + Supertest (e2e)
+### Backend (`backend-py`)
+- **Runtime**: Python 3.12
+- **Framework**: FastAPI + Uvicorn
+- **Database**: PostgreSQL 15+ with PostGIS only - no SQLite fallback (unlike the original NestJS backend's dual-driver setup); real spatial analysis needs real PostGIS
+- **ORM**: SQLAlchemy 2.0 + GeoAlchemy2 (real `Geometry` columns, not a GeoJSON-string workaround) + Alembic for migrations - `backend-py` owns its schema outright, generated from its own models, not inherited from the old TypeORM tables
+- **Validation**: Pydantic v2 (`CamelModel` base with a camelCase `alias_generator`, so the JSON wire contract matches the frontend exactly even though the Python side is idiomatically snake_case)
+- **Auth**: `python-jose` (JWT issuance/verification) + `bcrypt` (password hashing) - same payload shape (`sub`/`email`/`role`/`tokenVersion`) and session-revocation logic as the original
+- **GIS**: GeoPandas, Shapely, GDAL/rasterio - the actual reason for the rewrite (Tech.md's GIS/ML ambitions are materially deeper in Python's ecosystem than Node's)
+- **Satellite imagery**: Google Earth Engine (`earthengine-api`, service-account auth) - real Sentinel-2 NDVI composites for Change Detection's satellite-sourced analysis path (`POST /change-detection/analyze-satellite`, added 2026-09-14, see Change Detection below). Optional - unset `GEE_*` env vars just 503 that one endpoint, the original manual-upload `/analyze` endpoint is unaffected
+- **OCR**: `pytesseract` + the `tesseract-ocr` system binary
+- **Image processing**: Pillow (Change Detection's pixel-diff pipeline), `cairosvg` (synthetic cluster-snapshot/document image rendering)
+- **AI**: Groq (primary) → Gemini (fallback on rate-limit/failure), both via OpenAI-compatible SDKs; OpenRouter for Historical Imagery's narrative step - all backend-only, never called from the frontend
+- **Rate limiting**: `slowapi` (200 requests/minute/IP app-wide default, tighter per-route overrides on AI/login endpoints - same limits as the original)
+- **API Documentation**: FastAPI's built-in OpenAPI/Swagger UI (served at `/api/docs`, disabled in production)
+- **Testing**: pytest + FastAPI's `TestClient` (432 tests as of this writing) - every original Jest e2e spec ported 1:1, plus a second live-HTTP validation gate that runs the *original, unmodified* Jest specs against a running `backend-py` instance (`backend/test/live/*.live-spec.ts`) to prove contract parity, not just that the Python port believes it's correct
+
+*(Note: The codebase includes both backend implementations. The Python backend is the primary one; the NestJS backend is available as an alternative if needed.)*
 
 ### Frontend
 - **Framework**: React (TypeScript)
 - **Build Tool**: Vite
 - **Server State**: TanStack Query
-- **GIS Map**: MapLibre GL JS
+- **GIS Map**: MapLibre GL JS - Street (OpenStreetMap) and Satellite (Esri World Imagery, free, no API key) basemaps, toggleable per-map (added 2026-09-14)
 - **Styling**: Tailwind CSS - a Bauhaus-inspired design system (`docs/architecture/DESIGN_SYSTEM.md`): an earth-tone palette derived from the BhoomiSetu logo, exposed as semantic CSS-variable-backed tokens (`primary`/`secondary`/`accent`/`ink`/`surface`) so light/dark mode is a variable swap, not per-component `dark:` classes. A theme toggle persists the choice in `localStorage`
 - **Icons**: `lucide-react`
-- **Localization**: `i18next`/`react-i18next` - English/Hindi, persisted language choice, covering the nav, landing hero, parcel search, Citizen Portal panels, and the map's layer labels/popup
+- **Localization**: Custom `LanguageContext` (`frontend/src/context/LanguageContext.tsx`) backed by [Bhashini](https://bhashini.gov.in/) (Government of India multilingual AI) - 11 languages (English + 10 with full NMT/ASR/TTS coverage), static UI text served from `backend-py`'s pre-translated `ui_strings_<lang>.json` cache (no live API calls for static text), persisted language choice via `localStorage`. Replaces the earlier `i18next`/`react-i18next` setup - see `docs/architecture/BHASHINI_INTEGRATION.md`
 - **HTTP Client**: Axios
 - **Charts**: `recharts` (Admin Portal's analytics dashboard)
 - **Testing**: Vitest + React Testing Library
@@ -50,17 +58,21 @@ SIH_2026_BhoomiSetu/
 > `zustand`, `react-hook-form`, and `zod` are installed as dependencies but aren't wired into any frontend component yet.
 
 ### Database
-- **Dev**: SQLite (file-based, zero setup) - what `npm run start:dev`/`npm test` use out of the box
-- **Production**: PostgreSQL 16+ with PostGIS 3+ - live-verified end-to-end against a hosted [Supabase](https://supabase.com) Postgres+PostGIS instance (`docs/archive/FEATURE_AUDIT.md` §8 item 14). Supabase's *direct* connection host is IPv6-only and won't resolve from an IPv4-only environment - use its connection *pooler* host instead (see `backend/.env.example`)
-- **Spatial queries**: real `ST_Intersects`/`ST_Contains`/`ST_Distance`/`ST_DWithin`/`ST_Centroid` when connected to Postgres; the same operations (bbox filtering, point-in-polygon, polygon distance, spatial intersection) fall back to hand-rolled JS equivalents (`backend/src/common/geo-utils.ts`) on SQLite, since SQLite has no spatial extension. Which path runs is decided automatically from the actual connected TypeORM driver, not an env flag (`backend/src/common/postgis.ts`)
-- **Spatial data**: GeoJSON, stored as `text` in both modes (a native PostGIS `geometry` column was deliberately not adopted - every consumer already does `JSON.parse(row.geometry)`, and migrating the storage type would mean rewriting all of them for no behavioral gain)
+- **Always PostgreSQL 15+ with PostGIS** - `backend-py` has one database driver, no SQLite fallback. Two ways to point it at one:
+  - `docker-compose.yml`'s bundled `postgis` service (`postgis/postgis:15-3.3`, no published port - reached only over the internal Docker network), database `bhoomisetu_py`. This is what `docker compose up` gives you with zero extra setup.
+  - A real hosted Postgres+PostGIS instance - live-verified end-to-end against [Supabase](https://supabase.com) (`docs/archive/FEATURE_AUDIT.md` §8 item 14). Supabase's *direct* connection host is IPv6-only and won't resolve from an IPv4-only environment - use its connection *pooler* host instead (see `backend-py/.env.example` and `docs/reference/ENV_CONFIGURATION.md`)
+- **Schema ownership**: `backend-py` generates its schema from its own SQLAlchemy models via Alembic (`alembic upgrade head`) - it does not inherit or reuse the original NestJS backend's TypeORM-created tables. (An earlier interim state briefly ran `backend-py` against the *old* TypeORM tables with a runtime column-aliasing workaround for the camelCase/snake_case mismatch - that workaround was removed once the schema was regenerated from Alembic on 2026-09-13, see `PYTHON_MIGRATION_PROGRESS.md`.)
+- **Spatial queries**: real `ST_Intersects`/`ST_Contains`/`ST_Distance`/`ST_DWithin`/`ST_Centroid` via GeoAlchemy2/PostGIS, unconditionally - there's no non-PostGIS fallback path to branch on any more
+- **Spatial data**: real PostGIS `Geometry` columns (SRID 4326), not a GeoJSON-string column - converted to a GeoJSON dict at the API boundary (`app/common/geometry_json.py`)
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 22+ and npm
+- Docker + Docker Compose (recommended - GDAL, a hard dependency of `backend-py`'s GIS stack, is a system-level C library that's genuinely painful to install natively, especially on Windows; Docker was the project's own deliberate choice for this reason)
+- Node.js 22+ and npm (for the frontend, and if you'd rather run `backend-py` natively - only tested where GDAL is already available, e.g. via Homebrew/apt)
+- Python 3.12 (only needed for the native, non-Docker path)
 
-### Development Setup
+### Development Setup (Docker - recommended)
 
 1. **Clone the repository**
    ```bash
@@ -68,53 +80,78 @@ SIH_2026_BhoomiSetu/
    cd BhoomiSetu
    ```
 
-2. **Backend setup**
+2. **Configure `backend-py`'s secrets**
    ```bash
-   cd backend
-   npm install
-   cp .env.example .env   # defaults use SQLite, no edits needed for local dev
-   npm run seed            # populate ./data/dev.sqlite with 220 mock parcels + demo accounts
-   npm run start:dev       # start on http://localhost:3000
-   ```
-   The first request that runs OCR (Document Verification) downloads Tesseract's English language model (~5MB) into `backend/` and caches it there for subsequent runs - this is gitignored and regenerates automatically, not something to commit.
-
-3. **Frontend setup** (in a second terminal)
-   ```bash
-   cd frontend
-   npm install
-   npm run dev              # start on http://localhost:5173
+   cd backend-py
+   cp .env.example .env   # fill in real values for any AI/OTP/storage provider you want working;
+                           # everything else has a sane local default and degrades gracefully (503) if left blank
+   cd ..
    ```
 
-4. **Open the app**
+3. **Build and start everything**
+   ```bash
+   docker compose up --build
+   ```
+   This starts `postgis` (PostGIS, no published port), `backend-py` (FastAPI, port 8000), and `frontend` (nginx, port 5173) - see `docker-compose.yml`.
+
+4. **Seed the demo dataset**
+   ```bash
+   docker compose exec backend-py python -m scripts.seed   # 220 mock parcels + demo accounts
+   ```
+
+5. **Open the app**
    - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000/api/v1
-   - Swagger docs: http://localhost:3000/api
+   - Backend API: http://localhost:8000/api/v1
+   - Interactive API docs: http://localhost:8000/api/docs
 
-5. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/archive/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
-   - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other 4 officer accounts are listed on the sign-in page itself)
+6. **Sign in** - the public site (`/`, `/about`, `/features`) needs no account, but every actual tool (parcel search, the map, document verification, My Parcels, filing a service request) lives behind sign-in in the Citizen Portal now (docs/archive/FRONTEND_UPGRADE_SPEC.md §1/§4 - "no guest search, anywhere in the flow")
+   - Officer/Admin: `admin@bhoomisetu.gov.in` / `Demo@123` (the other officer accounts are listed on the sign-in page itself)
    - Citizen: `citizen1@example.com` through `citizen20@example.com`, password `Demo@123` for all - each is linked to a random 0-5 parcels (see Citizen Sign-In / My Parcels below)
+
+### Development Setup (native, without Docker)
+
+Only viable if GDAL/GEOS/PROJ are already installed on your machine (`gdal-config` on `PATH`) - if you hit a build error installing `geopandas`, use the Docker path above instead.
+
+```bash
+cd backend-py
+python -m venv .venv && source .venv/bin/activate   # .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+cp .env.example .env        # point DB_HOST/PORT/etc. at a real Postgres+PostGIS instance you control
+alembic upgrade head        # create the schema
+python -m scripts.seed      # populate demo data
+uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+# in a second terminal
+cd frontend
+npm install
+npm run dev              # start on http://localhost:5173, reads VITE_API_URL from frontend/.env.local (defaults to http://localhost:8000/api/v1)
+```
 
 ### Running Tests
 
 ```bash
-# Backend e2e tests (Jest + Supertest, isolated in-memory SQLite)
-cd backend
-npm test
+# Backend tests (pytest + FastAPI TestClient, against a real Postgres+PostGIS - no SQLite fallback)
+cd backend-py
+pytest
 
 # Frontend component tests (Vitest + React Testing Library)
 cd frontend
 npm test
 ```
 
-### Production / PostgreSQL
+### Production
 
-To run against PostgreSQL + PostGIS instead of SQLite, set `USE_SQLITE=false` and the `DB_*` variables in `backend/.env` (see `backend/.env.example` for both a local/docker-compose shape and a Supabase-pooler shape). No manual schema setup is needed beyond having the `postgis` extension available in your target database (`docker-compose.yml`'s `postgis/postgis` image, and Supabase, both already ship with it) - TypeORM's `synchronize: true` creates every table from the entity definitions automatically on backend startup. This path has been live-verified end-to-end (`docs/archive/FEATURE_AUDIT.md` §8 item 14) - real `ST_*` spatial queries, not a placeholder.
+`docker-compose.yml` is the reference deployment shape (frontend behind nginx, `backend-py`, PostGIS) - `docker compose up --build` builds and runs all three. Set `ENVIRONMENT=production` and a real, non-default `JWT_SECRET` in `backend-py/.env` before deploying - the app refuses to start otherwise (same discipline the original NestJS backend had). `GROQ_API_KEY` (or `GEMINI_API_KEY` as fallback) is needed for AI features to work; left unset, those endpoints just return 503 rather than crashing.
 
-`docker-compose.yml` runs the real three-service architecture (frontend behind nginx, the single backend, PostGIS) - `docker compose up --build` builds and runs all three, live-verified end-to-end on 2026-09-06 (`docs/archive/FEATURE_AUDIT.md` §8 item 6): the backend starts, connects to PostGIS, and serves the API; `docker compose exec backend npm run seed` populates the same 200-parcel demo dataset as every other environment. The compose file reads `GROQ_API_KEY`/`JWT_SECRET` from your shell environment. Set `GROQ_API_KEY` if you want AI working (it has no usable default - unset, those endpoints just 503). `JWT_SECRET` **must** be set in your shell before running `docker compose up` - the compose file sets `NODE_ENV=production` for the backend, and the backend refuses to start under `NODE_ENV=production` without a real `JWT_SECRET` (see `backend/.env.example` for details); `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` is a quick way to generate one.
+Turning this into a real production deployment (hosting target, managed database, file storage, domain/DNS, secrets/monitoring/backup) still needs infrastructure decisions only a project owner can make - see `docs/architecture/CUTOVER_AND_OPS_PLAN.md` for the full decision checklist and a ready-to-execute runbook once those decisions land.
 
 ## API Endpoints
 
-Implemented and covered by the backend test suite. Every endpoint is rate-limited (`@nestjs/throttler`, 200 requests/minute/IP by default, `X-RateLimit-*` response headers included) - see Groq AI Endpoints / Change Detection / Document Verification below for tighter overrides on the costlier endpoints.
+Implemented and covered by the backend test suite. Every endpoint is rate-limited (`slowapi`, 200 requests/minute/IP by default) - see Groq AI Endpoints / Change Detection / Document Verification below for tighter overrides on the costlier endpoints.
+
+**A note on the file paths below:** this section was originally written against the NestJS implementation and describes routes/behavior that are still accurate (contract parity is a deliberate migration goal, per `docs/architecture/PYTHON_MIGRATION_PLAN.md` §2) - but individual `backend/src/...` file references and any mention of a SQLite fallback describe that original implementation, not `backend-py` (which has no SQLite driver at all - see Database above). For the real, current file-by-file mapping, see `docs/architecture/PYTHON_MIGRATION_PROGRESS.md`, which documents exactly where each piece landed in `backend-py/app/`.
 
 ### GIS Endpoints
 - `GET /api/v1/gis/parcels` - Get parcels with optional filtering (`bbox`, `zoom`, `state`, `district`, `limit`, `offset`). The bbox filter runs a real `ST_Intersects` query against Postgres/PostGIS; on SQLite (no spatial extension) it's skipped with a console warning
@@ -248,13 +285,14 @@ Optional citizen accounts (`CITIZEN` role, reusing the JWT auth above) linked to
 Frontend: a floating "Ask AI" chat widget (`frontend/src/features/ai/AskAiWidget.tsx`) - a button that can be **dragged anywhere on screen**, opening a chat panel (also draggable, via its header) that persists its conversation while navigating between citizen-facing pages, since it's mounted once at the app-shell level rather than per-page. The user's own message renders immediately on submit, before the network round trip resolves. An "Explain with AI" button also appears on Parcel 360 and inside each governance alert's detail popout, both sharing one `AiExplanationCard` renderer with the widget.
 
 ### Change Detection
-`backend/src/change-detection/` (Tech.md #33) - built in Node/TypeScript rather than a separate Python/OpenCV service:
+`app/routers/change_detection.py` + `app/services/change_detection_service.py` (Tech.md #33; ported from `backend/src/change-detection/`):
 - `POST /api/v1/change-detection/analyze` - multipart fields `before`/`after` (images, 5MB cap each) plus `minLng`/`minLat`/`maxLng`/`maxLat` (the real geographic bounds the two images cover) and an optional `description`. Rate-limited to 30 requests/minute/IP
-- `sharp` decodes/resizes both images to a fixed grid; a hand-rolled pixel comparison (`image-diff.ts`) finds the bounding box of pixels that actually changed and maps it back to a real geographic region
-- Every seeded parcel is tested against that region - a real `ST_Contains`/`ST_Centroid` query on Postgres, a JS point-in-polygon test against each parcel's centroid on SQLite - genuine spatial intersection, not hand-picked
+- Pillow decodes/resizes both images to a fixed grid; a pixel comparison (`app/services/image_diff.py`) finds the bounding box of pixels that actually changed and maps it back to a real geographic region
+- Every parcel is tested against that region via a real `ST_Contains`/`ST_Centroid` PostGIS query - genuine spatial intersection, not hand-picked (no SQLite fallback path to keep any more, unlike the original)
 - A real `ChangeDetectionEvent` row and one `GovernanceAlert` per affected parcel are created, immediately visible in the Officer Portal and explainable via the AI endpoints above
+- `POST /api/v1/change-detection/analyze-satellite` (added 2026-09-14) - the same pipeline, but `before`/`after` are real Sentinel-2 satellite imagery fetched from Google Earth Engine (`app/services/earth_engine_service.py`, NDVI false-color composites) for a given `bounds`/`beforeDate`/`afterDate`, not an uploaded photo - no file upload needed. 503s if `GEE_SERVICE_ACCOUNT_EMAIL`/`GEE_SERVICE_ACCOUNT_KEY_PATH` aren't configured; the manual-upload endpoint above is unaffected either way. **Not yet reachable from any UI** (`docs/architecture/BACKLOG.md` item 9) - only via direct API call today.
 
-Frontend: `ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, and a result view linking affected parcels into Parcel 360) is not currently mounted anywhere in the app - it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per docs/archive/FRONTEND_UPGRADE_SPEC.md §8 (the feature's name overpromised real satellite-imagery analysis). Its on-demand replacement is Historical Imagery Comparison, below. The backend endpoint and `image-diff.ts` are untouched and still fully covered by `backend/test/change-detection.e2e-spec.ts`.
+Frontend: `ChangeDetectionPanel.tsx` (file pickers, a bounds form with a one-click "Use Pune cluster bounds" fill, and a result view linking affected parcels into Parcel 360) is not currently mounted anywhere in the app - it was previously an always-visible "Analyze Imagery" panel on the Officer Portal, removed from that portal's navigation 2026-09-09 per docs/archive/FRONTEND_UPGRADE_SPEC.md §8 (the feature's name overpromised real satellite-imagery analysis at the time - Earth Engine above narrows that gap for the automated path, though the gap the panel's removal was about - no UI at all - still stands, see `BACKLOG.md` item 9). Its on-demand replacement is Historical Imagery Comparison, below (still synthetic imagery, not Earth Engine - see `BACKLOG.md` item 10). The backend logic is untouched and still fully covered by `backend-py`'s test suite.
 
 ### Historical Imagery Comparison
 `backend/src/historical-imagery/` (docs/archive/FRONTEND_UPGRADE_SPEC.md §8) - the on-demand, staff-only replacement for Change Detection's always-on upload panel: instead of requiring a fresh upload every time, it compares two years of a cluster's own synthetic snapshot archive. Redesigned 2026-09-08 to drop pixel-diffing for a real per-parcel data comparison, after the pixel-diff version's aggregate-percentage output and single-paragraph AI description tested poorly ("looks like fetched from the dataset").
@@ -298,9 +336,11 @@ Also completed outside the phase numbering: **PostGIS run end-to-end** against a
 
 A later, dedicated **Admin/Officer Portal follow-up round** (2026-09-10, full detail in `docs/archive/ADMIN_PANEL_ISSUES.md`) turned three of that portal's remaining placeholder cards into real features - Workflow Oversight, Map Layer Authoring (with a drawing tool, an admin-only Admin Notes layer, and real spatial-overlap computation), and Officer Monitoring - plus a real 4-stage Governance Alert verification flow, mandatory review remarks, full Officer/Admin English/Hindi coverage, a richer Officer Profile, and role-aware notification deep-linking. See the Governance Alerts, Spatial Demo Layers, Admin Portal, and Officer Portal sections above for the as-built detail.
 
+Beyond the phase numbering above, the entire backend was subsequently **rewritten from NestJS/TypeScript to Python/FastAPI** (started 2026-09-11) - every module ported module-by-module with a dual test-validation gate (the ported pytest suite, plus the *original* Jest specs run against a live `backend-py` instance), CI added, and the frontend cut over to talk to `backend-py` exclusively (2026-09-12). See `docs/architecture/PYTHON_MIGRATION_PLAN.md` for why and how, and `docs/architecture/PYTHON_MIGRATION_PROGRESS.md` for the full module-by-module build log - only production cutover/ops decisions remain open.
+
 ## Mock Data
 
-`backend/seed.ts` generates exactly 220 mock parcels in five geographically real demo regions rather than scattering them randomly across India:
+`backend-py/scripts/seed.py` (ported 1:1 from the original `backend/seed.ts`) generates exactly 220 mock parcels in five geographically real demo regions rather than scattering them randomly across India:
 
 | Cluster | State | District | Parcels |
 |---|---|---|---|
@@ -317,21 +357,28 @@ A later, dedicated **Admin/Officer Portal follow-up round** (2026-09-10, full de
 - Every Pune/MH parcel gets a State A land record and every New Delhi/DL parcel gets a State B land record, with `areaHectares`/`landExtentSqft` derived from that parcel's real geometry area, and its state-schema identifier matching the same parcel's `parcel_identifiers` row.
 - Every parcel gets Registration/Planning/Tax/Restriction/Dispute/Encumbrance mock records; for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone. ~12% of parcels get a real dispute on file, ~17% get a real mortgage/lien/charge, and a representative ~50% get a 1-3-entry ownership history chain (the final entry matching the State A/B owner name where one exists).
 - **No `GovernanceAlert` rows are seeded** (removed 2026-09-10) - the flood zone, simulated change-detection event, and tax records above are still seeded normally for their own features, but a governance alert is only ever created by something that actually happens at runtime (see Governance Alerts below), never fabricated at seed time.
-- **Accounts**: 5 officer/admin demo accounts (1 per role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 220 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
+- **Accounts**: 8 officer/admin demo accounts (1 admin + 1 per officer role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 220 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
 
 ## Documentation
 
-`docs/` is split into two directories (reorganized 2026-09-11): current-state reference vs. historical record. Each has its own index README with a one-line description of every document in it - start there rather than this list, which only covers the highlights.
+`docs/` is split into three directories (reorganized 2026-09-11): current-state reference, historical record, and small standalone reference notes. Each of the first two has its own index README with a one-line description of every document in it - start there rather than this list, which only covers the highlights.
 
 **[`docs/architecture/`](docs/architecture/README.md) - what's actually built, right now:**
-- [`docs/architecture/FEATURES.md`](docs/architecture/FEATURES.md) - feature-by-feature index of everything currently built, with backend/frontend locations.
-- [`docs/architecture/FEATURE_TECH_MAP.md`](docs/architecture/FEATURE_TECH_MAP.md) - the same feature numbering, as a library/endpoint/file lookup table.
-- [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards, verified against the real codebase.
+- [`docs/architecture/PYTHON_MIGRATION_PLAN.md`](docs/architecture/PYTHON_MIGRATION_PLAN.md) - the committed decision and plan to move the backend from NestJS to Python/FastAPI: why, build order, cutover approach.
+- [`docs/architecture/PYTHON_MIGRATION_PROGRESS.md`](docs/architecture/PYTHON_MIGRATION_PROGRESS.md) - the module-by-module execution log against that plan - the authoritative source for exactly where each piece of `backend/src/...` landed in `backend-py/app/...`, and every real bug found/fixed along the way. Start here if a path or behavior described elsewhere in this README or in `FEATURES.md`/`SYSTEM_ARCHITECTURE.md` looks NestJS-specific.
+- [`docs/architecture/CUTOVER_AND_OPS_PLAN.md`](docs/architecture/CUTOVER_AND_OPS_PLAN.md) - the production cutover decision checklist and runbook, the one piece of the migration still open.
+- [`docs/architecture/FRONTEND_BACKEND_PY_CONNECTION_PLAN.md`](docs/architecture/FRONTEND_BACKEND_PY_CONNECTION_PLAN.md) - how the frontend and `docker-compose.yml` were pointed at `backend-py` instead of `backend` (done 2026-09-12), plus its smoke-test checklist.
+- [`docs/architecture/FEATURES.md`](docs/architecture/FEATURES.md) - feature-by-feature index of everything currently built. **Written against the original NestJS implementation** - file paths there are historical, not `backend-py`'s (see `PYTHON_MIGRATION_PROGRESS.md` above for current locations).
+- [`docs/architecture/FEATURE_TECH_MAP.md`](docs/architecture/FEATURE_TECH_MAP.md) - the same feature numbering, as a library/endpoint/file lookup table. Same NestJS-era caveat as `FEATURES.md`.
+- [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) - the SIH-required Standard Technical Document: API, interoperability, data-schema, architecture, GIS, security, UI/UX, color, and deployment standards. Still largely describes the original NestJS/TypeORM stack (e.g. its Database/Deployment sections) rather than `backend-py` - not yet re-verified against the post-migration codebase.
 - [`docs/architecture/DESIGN_SYSTEM.md`](docs/architecture/DESIGN_SYSTEM.md) - the portal Bauhaus visual system (color tokens, typography, dark mode) plus the public landing page's own separate literal-hex color system.
-- [`docs/architecture/KNOWN_RISKS.md`](docs/architecture/KNOWN_RISKS.md) - the most recent full-stack security/performance/reliability audit.
+- [`docs/architecture/KNOWN_RISKS.md`](docs/architecture/KNOWN_RISKS.md) - the most recent full-stack security/performance/reliability audit (predates the Python migration).
 - [`docs/architecture/BACKLOG.md`](docs/architecture/BACKLOG.md) - everything genuinely still open (Admin session/timeout, OAuth login, admin-editable Workflow Configuration/Governance Rules, and a handful of smaller deferred items), each sourced back to where it was originally scoped.
 
 **[`docs/archive/`](docs/archive/README.md) - historical planning documents and completed punch lists**, kept for their reasoning and dated history, not as a description of the system today: `ADMIN_PANEL_ISSUES.md`, `AUTH_VERIFICATION_UPGRADE.md`, `CITIZEN_FEATURES_UPGRADE_PLAN.md`, `FRONTEND_UPGRADE_SPEC.md`, `FEATURE_AUDIT.md`, `Plan.md`, `flow.md`.
+
+**`docs/reference/`** - standalone lookup notes, not part of either index above:
+- [`docs/reference/ENV_CONFIGURATION.md`](docs/reference/ENV_CONFIGURATION.md) - where `backend-py`'s real `.env` secrets actually live and how they got there (documentation only - nothing in the codebase reads this file itself).
 
 **Project origin (repo root, not moved):**
 - [`BHOOMISETU.md`](BHOOMISETU.md) - project vision and overview.

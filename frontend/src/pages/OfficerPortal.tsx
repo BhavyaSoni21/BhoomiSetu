@@ -9,6 +9,7 @@ import OfficerMapPage from './officer/OfficerMapPage';
 import OfficerNotificationsPage from './officer/OfficerNotificationsPage';
 import OfficerProfilePage from './officer/OfficerProfilePage';
 import HistoricalImageryPage from './officer/HistoricalImageryPage';
+import ChangeDetectionPage from './officer/ChangeDetectionPage';
 
 // Multi-page Officer Portal (docs/FRONTEND_UPGRADE_SPEC.md §5), mounted once
 // at /officer/* by App.tsx (already wrapped in RequireAuth roles={OFFICER_ROLES}
@@ -35,6 +36,7 @@ const OfficerPortal: React.FC = () => {
         <Route path="requests" element={<AssignedRequestsPage department={department} />} />
         <Route path="alerts" element={<GovernanceAlertsPage />} />
         <Route path="historical-imagery" element={<HistoricalImageryPage />} />
+        <Route path="change-detection" element={<ChangeDetectionPage />} />
         <Route path="map" element={<OfficerMapPage />} />
         {/* Documents merged into Assigned Requests 2026-09-10 (docs/ADMIN_PANEL_ISSUES.md
             follow-up, per the user's explicit "the documents should be the

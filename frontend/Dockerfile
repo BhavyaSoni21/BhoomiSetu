@@ -11,7 +11,7 @@ COPY . .
 # has to be a build ARG (compose passes it via `build.args`), not a plain
 # environment variable, which would only affect the container after the
 # static files already exist and do nothing.
-ARG VITE_API_URL=http://localhost:3000/api/v1
+ARG VITE_API_URL=http://localhost:8000/api/v1
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 

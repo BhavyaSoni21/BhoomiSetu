@@ -29,9 +29,17 @@ export const OFFICER_NAV_ITEMS: NavItem[] = [
   { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
   { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
   { to: '/officer/historical-imagery', labelKey: 'officerNav.historicalImagery' },
+  { to: '/officer/change-detection', labelKey: 'officerNav.changeDetection' },
   { to: '/officer/map', labelKey: 'officerNav.map' },
   { to: '/officer/notifications', iconOnly: true, iconName: 'Bell', labelKey: 'officerNav.notifications' },
   { to: '/officer/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'officerNav.profile' },
+];
+
+// Verifier Portal nav items - deliberately narrow (see VerifierPortal.tsx):
+// a Verifier collects field evidence, nothing else.
+export const VERIFIER_NAV_ITEMS: NavItem[] = [
+  { to: '/verifier', end: true, labelKey: 'verifierNav.dashboard' },
+  { to: '/verifier/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'verifierNav.profile' },
 ];
 
 // Admin Portal nav items.
@@ -42,4 +50,5 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/admin/workflows', labelKey: 'adminNav.workflows' },
   { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
   { to: '/admin/officer-monitoring', labelKey: 'adminNav.officerMonitoring' },
+  { to: '/admin/profile', iconOnly: true, iconName: 'UserCircle2', label: 'Profile' },
 ];

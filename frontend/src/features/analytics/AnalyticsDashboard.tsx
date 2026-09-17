@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { AnalyticsSummary, Distribution } from '../../types/analytics';
+import { useTranslation } from '../../context/LanguageContext';
 
 // ── Formatting helpers (presentation only - never touches the data itself) ──
 
@@ -236,6 +237,7 @@ const SeverityTiles: React.FC<{ data: Distribution[] }> = ({ data }) => {
 };
 
 const AnalyticsDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery<AnalyticsSummary>(['analytics-summary'], async () => {
     const response = await apiService.get('/analytics/summary');
     return response.data;
@@ -245,11 +247,11 @@ const AnalyticsDashboard: React.FC = () => {
     return (
       <div className="flex items-center gap-2 text-sm font-medium text-ink/60 py-3">
         <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-        Loading analytics...
+        {t('analyticsDashboard.loading')}
       </div>
     );
   }
-  if (error || !data) return <div className="text-sm font-medium text-ink/60 py-3">Error loading analytics</div>;
+  if (error || !data) return <div className="text-sm font-medium text-ink/60 py-3">{t('analyticsDashboard.error')}</div>;
 
   const workflowStatusOrdered = orderByStages(data.workflowStatusDistribution, ['SUBMITTED', 'IN_PROGRESS', 'APPROVED', 'REJECTED']);
   const disputeStatusOrdered = orderByStages(data.disputeCaseStatusDistribution, ['FILED', 'UNDER_REVIEW', 'RESOLVED', 'DISMISSED']);
@@ -262,24 +264,24 @@ const AnalyticsDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Top-level KPIs - the numbers an admin checks first. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={MapIcon} label="Total Parcels" value={data.totals.parcels} />
-        <KpiCard icon={Workflow} label="Total Workflows" value={data.totals.workflows} />
+        <KpiCard icon={MapIcon} label={t('analyticsDashboard.kpi.totalParcels')} value={data.totals.parcels} />
+        <KpiCard icon={Workflow} label={t('analyticsDashboard.kpi.totalWorkflows')} value={data.totals.workflows} />
         <KpiCard
           icon={AlertTriangle}
-          label="Open Alerts"
+          label={t('analyticsDashboard.kpi.openAlerts')}
           value={data.totals.openAlerts}
           tone={data.totals.openAlerts > 0 ? 'warn' : 'good'}
-          hint={data.totals.openAlerts === 0 ? 'All clear' : 'Awaiting review'}
+          hint={data.totals.openAlerts === 0 ? t('analyticsDashboard.kpi.allClear') : t('analyticsDashboard.kpi.awaitingReview')}
         />
-        <KpiCard icon={Gavel} label="Active Disputes" value={data.totals.activeDisputes} tone={data.totals.activeDisputes > 0 ? 'warn' : 'good'} />
+        <KpiCard icon={Gavel} label={t('analyticsDashboard.kpi.activeDisputes')} value={data.totals.activeDisputes} tone={data.totals.activeDisputes > 0 ? 'warn' : 'good'} />
       </div>
 
       {/* Main insight - the operational question this whole system tracks:
           are citizen requests actually moving through review, and how are
           they being decided. */}
       <CardShell
-        title="Workflow Pipeline"
-        subtitle="Where citizen requests currently stand, from submission to decision"
+        title={t('analyticsDashboard.charts.workflowPipeline.title')}
+        subtitle={t('analyticsDashboard.charts.workflowPipeline.subtitle')}
       >
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
           <div className="flex-1 min-w-0">
@@ -298,28 +300,28 @@ const AnalyticsDashboard: React.FC = () => {
       {/* Secondary analytics - compliance first (most actionable for an
           admin), then composition/ranking breakdowns. */}
       <div className="grid gap-5 md:grid-cols-2">
-        <CardShell title="Tax Compliance" subtitle="Share of parcels current on property tax">
+        <CardShell title={t('analyticsDashboard.charts.taxCompliance.title')} subtitle={t('analyticsDashboard.charts.taxCompliance.subtitle')}>
           <ComplianceDonut data={data.taxStatusDistribution} colors={TAX_STATUS_COLORS} goodKey="PAID" goodLabel="Paid" />
         </CardShell>
-        <CardShell title="Registration Compliance" subtitle="Share of parcels with a completed registration">
+        <CardShell title={t('analyticsDashboard.charts.registrationCompliance.title')} subtitle={t('analyticsDashboard.charts.registrationCompliance.subtitle')}>
           <ComplianceDonut data={data.registrationStatusDistribution} colors={REGISTRATION_STATUS_COLORS} goodKey="REGISTERED" goodLabel="Registered" />
         </CardShell>
 
-        <CardShell title="Dispute Resolution Progress" subtitle="Active vs. closed cases, by stage">
+        <CardShell title={t('analyticsDashboard.charts.disputeResolution.title')} subtitle={t('analyticsDashboard.charts.disputeResolution.subtitle')}>
           <RankedBarChart data={disputeStatusOrdered} colorFor={(key, i) => colorFor(key, DISPUTE_STATUS_COLORS, i)} />
         </CardShell>
-        <CardShell title="Governance Alerts by Stage" subtitle="Where open alerts are in the 4-stage review process">
+        <CardShell title={t('analyticsDashboard.charts.alertsByStage.title')} subtitle={t('analyticsDashboard.charts.alertsByStage.subtitle')}>
           <RankedBarChart data={alertStatusOrdered} colorFor={(key, i) => colorFor(key, ALERT_STATUS_COLORS, i)} formatLabel={(k) => ALERT_STATUS_LABELS[k] ?? formatEnumLabel(k)} />
         </CardShell>
 
-        <CardShell title="Land Use Breakdown" subtitle="Which purpose dominates across all parcels">
+        <CardShell title={t('analyticsDashboard.charts.landUse.title')} subtitle={t('analyticsDashboard.charts.landUse.subtitle')}>
           <RankedBarChart data={data.landUseDistribution} colorFor={(key, i) => colorFor(key, {}, i)} sort />
         </CardShell>
-        <CardShell title="Most Common Request Types" subtitle="What citizens are actually filing requests for">
+        <CardShell title={t('analyticsDashboard.charts.requestTypes.title')} subtitle={t('analyticsDashboard.charts.requestTypes.subtitle')}>
           <RankedBarChart data={data.workflowTypeDistribution} colorFor={(key, i) => colorFor(key, {}, i)} sort />
         </CardShell>
 
-        <CardShell title="Alerts by Severity" subtitle="How urgent the current alert mix is" className="md:col-span-2">
+        <CardShell title={t('analyticsDashboard.charts.alertsBySeverity.title')} subtitle={t('analyticsDashboard.charts.alertsBySeverity.subtitle')} className="md:col-span-2">
           <SeverityTiles data={data.alertSeverityDistribution} />
         </CardShell>
       </div>

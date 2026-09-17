@@ -1,12 +1,11 @@
 # Reflects the actual architecture (see docs/STANDARD_TECHNICAL_DOCUMENT.md
-# §1.1): one NestJS backend process, not a mesh of per-department services.
-# The previous version of this file sketched separate `land-records-api`,
+# §1.1): one backend process, not a mesh of per-department services. The
+# previous version of this file sketched separate `land-records-api`,
 # `registration-api`, `planning-api`, `tax-api`, `restriction-api`, and
 # `ai-service` containers - none of that was ever real; every "department"
-# is a module inside the single `backend` service below. That version also
-# set the frontend's VITE_API_URL to the internal Docker hostname
-# (`http://backend:3000`), which a browser on the host can never resolve -
-# fixed here by pointing it at the port actually published to the host.
+# is a module inside the single backend service below.
+#
+# `backend-py` is the only backend this stack runs (Python 3.10, FastAPI, PostGIS/Supabase).
 
 services:
   frontend:
@@ -16,30 +15,40 @@ services:
         # The browser (not the frontend container) calls this URL, so it
         # must be a host-reachable address - the port published below, not
         # the internal Docker service name.
-        VITE_API_URL: http://localhost:3000/api/v1
+        VITE_API_URL: http://localhost:8000/api/v1
     ports:
       - "5173:80"
     depends_on:
-      - backend
+      - backend-py
 
-  backend:
-    build: ./backend
+  backend-py:
+    build: ./backend-py
     ports:
-      - "3000:3000"
+      - "8000:8000"
+    # Bind-mounted so files this container generates itself - Alembic
+    # migrations, above all - land on the host and get committed, not lost
+    # in the container's throwaway writable layer on the next rebuild.
+    # Safe to mount the whole directory since pip installs to
+    # site-packages, not into /app.
+    volumes:
+      - ./backend-py:/app
+    # backend-py's own env file, not a repo-root one - JWT_SECRET, every
+    # AI/OTP/storage provider key (Groq/Gemini/OpenRouter/Supabase/
+    # TextBee/Mail), CORS_ORIGIN, etc. all live there (gitignored, never
+    # committed), following the exact shape of backend-py/.env.example.
+    # `environment:` below only overrides the handful of values that must
+    # match this compose file's own topology (the `postgis` service name,
+    # its fixed port/DB, and the CI/local-only rate-limit toggle) -
+    # `environment:` entries win over `env_file:` ones for the same key.
+    env_file:
+      - ./backend-py/.env
     environment:
-      - USE_SQLITE=false
       - DB_HOST=postgis
       - DB_PORT=5432
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
-      - DB_NAME=bhoomisetu
-      - JWT_SECRET=${JWT_SECRET:-change_this_in_production}
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}
-      - CORS_ORIGIN=${CORS_ORIGIN:-}
-      - NODE_ENV=production
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY:-}
+      - DB_NAME=bhoomisetu_py
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
     depends_on:
       - postgis
 
@@ -55,9 +64,19 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=bhoomisetu
+      # bhoomisetu_py is the only application database now that `backend`
+      # (and its own `bhoomisetu` database) is out of this stack - this is
+      # what a fresh volume creates automatically via postgres's own image.
+      - POSTGRES_DB=bhoomisetu_py
     volumes:
       - postgis_data:/var/lib/postgresql/data
+      # Only runs on a fresh volume (postgres's own image only executes
+      # docker-entrypoint-initdb.d/ once, at first init) - enables the
+      # PostGIS extension on POSTGRES_DB above (postgres's own image
+      # doesn't do this automatically). Delete the postgis_data volume to
+      # re-run it if backend-py's database needs to be recreated from
+      # scratch.
+      - ./backend-py/docker/init-bhoomisetu_py-db.sql:/docker-entrypoint-initdb.d/init-bhoomisetu_py-db.sql:ro
 
 volumes:
   postgis_data:

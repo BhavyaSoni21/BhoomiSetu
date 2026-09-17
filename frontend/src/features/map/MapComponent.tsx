@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import './maplibreWorkerUrl';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
@@ -27,6 +26,8 @@ interface MapComponentProps {
   showLayerPanel?: boolean;
   /** Bump this (e.g. ++) to re-fit the map to the selected parcel's cluster/context on demand - the contextual zoom below otherwise only runs once, when `context` itself first loads (React Query caches it), so a "Locate" button needs an explicit way to ask for it again even when nothing about the selection has actually changed. */
   recenterSignal?: number;
+  /** Pan/zoom to these bounds (e.g. a cluster picked from a dropdown) and, since the base parcels layer is itself bbox-scoped (see viewBbox below), this also confines the "load every parcel in view" fetch to that cluster instead of whatever the map happened to be showing before - the same nationwide-fetch problem `parcels`/`fitToParcels` solves for callers who already have their own parcel list. */
+  focusBounds?: { minLng: number; minLat: number; maxLng: number; maxLat: number } | null;
 }
 
 type LayerKey =
@@ -70,6 +71,15 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+// OpenStreetMap itself has no satellite imagery (it's a vector street map,
+// rendered here as raster tiles) - "satellite-background" is a separate
+// free raster source (Esri World Imagery, no API key/registration needed,
+// unlike Google Maps/Earth Engine) toggled via the Street/Satellite
+// control below. "terrain-background" adds a terrain/topographic layer
+// (OpenTopoMap, no API key needed) for elevation context. Only one of the
+// three 'background'/'satellite-background'/'terrain-background' layers is
+// visible at a time; all always exist in the style so toggling is just a
+// layout-visibility flip, not adding/removing sources.
 const BASE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -78,6 +88,18 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
       attribution: '&copy; OpenStreetMap contributors',
+    },
+    'satellite-background': {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+    },
+    'terrain-background': {
+      type: 'raster',
+      tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '&copy; OpenTopoMap contributors',
     },
   },
   layers: [
@@ -88,8 +110,26 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       minzoom: 0,
       maxzoom: 19,
     },
+    {
+      id: 'satellite-background',
+      type: 'raster',
+      source: 'satellite-background',
+      minzoom: 0,
+      maxzoom: 19,
+      layout: { visibility: 'none' },
+    },
+    {
+      id: 'terrain-background',
+      type: 'raster',
+      source: 'terrain-background',
+      minzoom: 0,
+      maxzoom: 19,
+      layout: { visibility: 'none' },
+    },
   ],
 };
+
+type Basemap = 'street' | 'satellite' | 'terrain';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({
@@ -150,6 +190,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   visibleLayerKeys,
   showLayerPanel = true,
   recenterSignal,
+  focusBounds,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -185,15 +226,27 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(DEFAULT_LAYER_VISIBILITY);
   const toggleLayer = (key: LayerKey) => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  const [basemap, setBasemap] = useState<Basemap>('street');
+
+  // Current map viewport as "minLng,minLat,maxLng,maxLat", kept in sync via
+  // the 'moveend' listener registered in the map-init effect below. Gates
+  // the base parcels query so it never fires with no bbox at all - with
+  // 3,800+ demo parcels across 58 clusters nationwide, an unscoped fetch
+  // means shipping the whole country to every page load (see
+  // docs/architecture strategy notes on viewport-based loading).
+  const [viewBbox, setViewBbox] = useState<string | null>(null);
+
   // Base "search results" layer: only fetch our own copy of every parcel
   // when the caller hasn't handed us a (possibly search-filtered) list.
+  // Scoped to the current viewport (+ a generous cap) rather than fetching
+  // every parcel in the database on every load/pan/zoom.
   const { data: fetchedParcels = [], isLoading, error } = useQuery<ParcelSummary[]>(
-    ['parcels'],
+    ['parcels', viewBbox],
     async () => {
-      const response = await apiService.get('/gis/parcels');
+      const response = await apiService.get('/gis/parcels', { params: { bbox: viewBbox, limit: 1000 } });
       return response.data.parcels;
     },
-    { enabled: parcelsProp === undefined },
+    { enabled: parcelsProp === undefined && viewBbox !== null },
   );
   const parcels = parcelsProp ?? fetchedParcels;
   const showLoading = parcelsProp === undefined && isLoading;
@@ -340,7 +393,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
         type: 'fill',
         source: 'cluster-source',
         layout: { visibility: DEFAULT_LAYER_VISIBILITY.cluster ? 'visible' : 'none' },
-        paint: { 'fill-color': '#64748b', 'fill-opacity': 0.25, 'fill-outline-color': '#334155' },
+        paint: { 'fill-color': '#64748b', 'fill-opacity': 0.18, 'fill-outline-color': '#334155' },
+      });
+      ensureLayer(map, 'cluster-source', {
+        id: 'cluster-boundary-layer',
+        type: 'line',
+        source: 'cluster-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.cluster ? 'visible' : 'none' },
+        paint: { 'line-color': '#334155', 'line-width': 2.5, 'line-opacity': 1 },
       });
 
       // Level 3 / 2 / 1: nearby, adjacent, selected - most prominent on top.
@@ -406,6 +466,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       mapReadyRef.current = true;
       setMapReady(true);
+
+      const updateBbox = () => {
+        const bounds = map.getBounds();
+        setViewBbox(`${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`);
+      };
+      updateBbox();
+      map.on('moveend', updateBbox);
     };
 
     if (map.isStyleLoaded()) {
@@ -453,6 +520,21 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady]);
 
+  // Fit to an explicitly-picked cluster's bounds (e.g. OfficerMapPage's
+  // cluster dropdown). This also narrows the base parcels fetch below to
+  // that cluster, since it's scoped to the current viewport bbox.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !focusBounds) return;
+    map.fitBounds(
+      [
+        [focusBounds.minLng, focusBounds.minLat],
+        [focusBounds.maxLng, focusBounds.maxLat],
+      ],
+      { padding: 60, maxZoom: 17 },
+    );
+  }, [focusBounds, mapReady]);
+
   // Same-district layer.
   useEffect(() => {
     const map = mapRef.current;
@@ -484,22 +566,22 @@ const MapComponent: React.FC<MapComponentProps> = ({
     const selectedFeature: GeoJSON.Feature = {
       type: 'Feature',
       properties: { id: context.selectedParcel.parcelId, canonicalParcelId: context.selectedParcel.canonicalParcelId },
-      geometry: context.selectedParcel.feature.geometry,
+      geometry: parseParcelGeometry(context.selectedParcel.feature.geometry),
     };
     const adjacentFeatures: GeoJSON.Feature[] = context.adjacentParcels.map((n) => ({
       type: 'Feature',
       properties: { id: n.parcelId, canonicalParcelId: n.canonicalParcelId, distanceMeters: n.distanceMeters },
-      geometry: n.feature.geometry,
+      geometry: parseParcelGeometry(n.feature.geometry),
     }));
     const nearbyFeatures: GeoJSON.Feature[] = context.nearbyParcels.map((n) => ({
       type: 'Feature',
       properties: { id: n.parcelId, canonicalParcelId: n.canonicalParcelId, distanceMeters: n.distanceMeters },
-      geometry: n.feature.geometry,
+      geometry: parseParcelGeometry(n.feature.geometry),
     }));
     const clusterFeatures: GeoJSON.Feature[] = context.clusterParcels.map((p) => ({
       type: 'Feature',
       properties: { id: p.parcelId, canonicalParcelId: p.canonicalParcelId },
-      geometry: p.feature.geometry,
+      geometry: parseParcelGeometry(p.feature.geometry),
     }));
 
     setSourceData(map, 'selected-source', { type: 'FeatureCollection', features: [selectedFeature] });
@@ -548,7 +630,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       selected: ['selected-layer'],
       adjacent: ['adjacent-layer'],
       nearby: ['nearby-layer'],
-      cluster: ['cluster-layer'],
+      cluster: ['cluster-layer', 'cluster-boundary-layer'],
       sameDistrict: ['district-layer'],
       zoning: ['zoning-layer'],
       restriction: ['restriction-layer'],
@@ -564,6 +646,16 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [layerVisibility, mapReady]);
 
+  // Street/Satellite/Terrain basemap toggle - only one of the three background
+  // raster layers is ever visible.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
+    map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
+    map.setLayoutProperty('terrain-background', 'visibility', basemap === 'terrain' ? 'visible' : 'none');
+  }, [basemap, mapReady]);
+
   return (
     <div className="relative h-[500px] w-full border-2 sm:border-4 border-ink">
       <div ref={containerRef} className="h-full w-full" />
@@ -575,6 +667,31 @@ const MapComponent: React.FC<MapComponentProps> = ({
       {showError && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface/85 text-secondary-strong font-bold uppercase tracking-wide text-sm">
           {t('map.errorLoading')}
+        </div>
+      )}
+      {showLayerPanel && (
+        <div className="absolute top-2 left-2 flex bg-surface border-2 border-ink shadow-hard-sm text-xs overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setBasemap('street')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide ${basemap === 'street' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.street')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasemap('satellite')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide border-l-2 border-ink ${basemap === 'satellite' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.satellite')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasemap('terrain')}
+            className={`px-2.5 py-1.5 font-bold uppercase tracking-wide border-l-2 border-ink ${basemap === 'terrain' ? 'bg-primary text-surface' : 'text-ink/70 hover:bg-ink/5'}`}
+          >
+            {t('map.basemap.terrain')}
+          </button>
         </div>
       )}
       {showLayerPanel && (

@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+coverage/
 
 # Vite's local dependency pre-bundling cache - regenerates automatically,
 # not something to commit.
@@ -15,6 +16,9 @@ frontend/.vite/
 .env.*
 *.env
 .env.local
+# backend/.env.example survives this via a historical force-add; this
+# negation does the same for backend-py's without needing another one.
+!backend-py/.env.example
 
 # Logs
 *.log
@@ -22,6 +26,41 @@ frontend/.vite/
 # Data
 backend/data/*.sqlite
 backend/data/*.sqlite-journal
+
+# Google Cloud / Earth Engine service-account key files - real credentials,
+# never committed regardless of where under the repo they're saved. Covers
+# both a manually-chosen name and Cloud Console's own default download name
+# (<project-id>-<key-id>.json, e.g. bhoomisetu-508519-98e51431e29a.json).
+*service-account*.json
+*serviceaccount*.json
+client_secret_*.json
+backend-py/bhoomisetu-*.json
+
+# backend-py (Python)
+*.py[cod]
+*$py.class
+backend-py/__pycache__/
+backend-py/**/__pycache__/
+backend-py/.venv/
+backend-py/venv/
+backend-py/.pytest_cache/
+backend-py/uploads/
+backend-py/*.db
+backend-py/*.sqlite
+backend-py/*.sqlite-*
+
+# OSM road-bearing lookups cached by scripts/seed.py's cluster generator -
+# regenerates automatically (queries Overpass on cache miss), not something
+# to commit.
+backend-py/scripts/.osm_road_bearing_cache.json
+
+# Python tooling caches and coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # tesseract.js downloads and caches its language model into the working
 # directory on first OCR call (docs/FEATURE_AUDIT.md's Document Verification
@@ -41,4 +80,11 @@ backend/uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Test artifacts
+test*.pdf
+backend-py/_img.png
+
+# Graphify cache
+graphify-out/cache/
 

@@ -1,11 +1,14 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { MapPinned, Layers, Compass, ShieldCheck } from 'lucide-react';
-import MapComponent from '../../features/map/MapComponent';
+import UnifiedMapWrapper from '../../features/map/UnifiedMapWrapper';
 import BackButton from '../../components/BackButton';
+import { useAuthUser } from '../../features/auth/auth';
 
 const OfficerMapPage: React.FC = () => {
   const { t } = useTranslation();
+  const { data: authUser } = useAuthUser();
+
   return (
     <div className="space-y-6 animate-fade-up max-w-7xl">
       <BackButton />
@@ -30,10 +33,15 @@ const OfficerMapPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="gov-card p-5 overflow-hidden">
-        <div className="rounded-xl overflow-hidden border border-gov-border">
-          <MapComponent />
-        </div>
+      <div className="gov-card p-5 overflow-hidden space-y-3">
+        <UnifiedMapWrapper
+          showClusterDropdown
+          showYearSelector
+          showLayerPanel
+          userRole={authUser?.role}
+          className="rounded-xl border border-gov-border"
+          height="h-[500px]"
+        />
       </div>
     </div>
   );

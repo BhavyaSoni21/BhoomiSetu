@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import {
   Inbox,
   Send,
@@ -16,13 +16,7 @@ import {
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 import BackButton from '../../components/BackButton';
-
-const WORKFLOW_TYPE_LABELS: Record<string, string> = {
-  ROR_COPY_REQUEST: 'Certified RoR / 7-12 Extract',
-  CORRECTION_REQUEST: 'Record Correction Request',
-  DISPUTE_FILING: 'Land Dispute & Boundary Grievance',
-  DOCUMENT_VERIFICATION_REQUEST: 'Document & Encumbrance Verification',
-};
+import SpeakerButton from '../../components/SpeakerButton';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -57,6 +51,14 @@ const RequestsPage: React.FC = () => {
     });
   };
 
+  // Workflow type display labels — kept as a lookup map; values translated via t()
+  const WORKFLOW_TYPE_LABELS: Record<string, string> = {
+    ROR_COPY_REQUEST: t('requestsPage.workflowType.rorCopyRequest'),
+    CORRECTION_REQUEST: t('requestsPage.workflowType.correctionRequest'),
+    DISPUTE_FILING: t('requestsPage.workflowType.disputeFiling'),
+    DOCUMENT_VERIFICATION_REQUEST: t('requestsPage.workflowType.documentVerification'),
+  };
+
   const { data: workflows = [], isLoading, error } = useQuery<Workflow[]>(
     ['my-workflows'],
     async () => (await apiService.get('/workflows/mine')).data,
@@ -82,13 +84,13 @@ const RequestsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-action-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">
             <Clock className="w-4 h-4" />
-            <span>Workflow Lifecycle Management</span>
+            <span>{t('requestsPage.pageSubtitle')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-heading">
             {t('citizenPortal.requestsHeading', 'My Applications')}
           </h1>
           <p className="text-xs sm:text-sm text-text-secondary mt-1">
-            Track multi-department review pipelines, officer remarks, and certified digital outputs.
+            {t('requestsPage.pageDesc')}
           </p>
         </div>
 
@@ -98,7 +100,7 @@ const RequestsPage: React.FC = () => {
           style={{ background: 'var(--action-600)' }}
         >
           <Send className="w-3.5 h-3.5" />
-          File New Request
+          {t('requestsPage.fileNewRequestButton')}
         </Link>
       </div>
 
@@ -113,7 +115,7 @@ const RequestsPage: React.FC = () => {
               : 'gov-card hover:border-brand-700'
           }`}
         >
-          <span className="text-[11px] font-mono uppercase block opacity-80">Total Filed</span>
+          <span className="text-[11px] font-mono uppercase block opacity-80">{t('requestsPage.filterTotalFiled')}</span>
           <span className="text-2xl font-heading font-bold">{workflows.length}</span>
         </button>
 
@@ -126,7 +128,7 @@ const RequestsPage: React.FC = () => {
               : 'gov-card hover:border-amber-500'
           }`}
         >
-          <span className="text-[11px] font-mono uppercase block opacity-80">Under Review</span>
+          <span className="text-[11px] font-mono uppercase block opacity-80">{t('requestsPage.filterUnderReview')}</span>
           <span className="text-2xl font-heading font-bold text-action-700">
             {pendingCount}
           </span>
@@ -141,7 +143,7 @@ const RequestsPage: React.FC = () => {
               : 'gov-card hover:border-green-600'
           }`}
         >
-          <span className="text-[11px] font-mono uppercase block opacity-80">Approved</span>
+          <span className="text-[11px] font-mono uppercase block opacity-80">{t('requestsPage.filterApproved')}</span>
           <span className="text-2xl font-heading font-bold text-gov-success">
             {approvedCount}
           </span>
@@ -156,7 +158,7 @@ const RequestsPage: React.FC = () => {
               : 'gov-card hover:border-red-600'
           }`}
         >
-          <span className="text-[11px] font-mono uppercase block opacity-80">Rejected</span>
+          <span className="text-[11px] font-mono uppercase block opacity-80">{t('requestsPage.filterRejected')}</span>
           <span className="text-2xl font-heading font-bold text-gov-error">
             {rejectedCount}
           </span>
@@ -165,19 +167,19 @@ const RequestsPage: React.FC = () => {
 
       {/* Workflow Items List */}
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-text-muted">Loading your requests…</div>
+        <div className="py-12 text-center text-sm text-text-muted">{t('requestsPage.loadingRequests')}</div>
       ) : error ? (
         <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm border border-red-200">
-          Error retrieving workflow status.
+          {t('requestsPage.errorLoadingRequests')}
         </div>
       ) : filtered.length === 0 ? (
         <div className="gov-card p-12 text-center bg-surface-2 border border-gov-border">
           <Inbox className="w-10 h-10 mx-auto text-text-muted mb-3" />
           <h3 className="font-heading font-bold text-base text-text-heading">
-            No applications match this filter
+            {t('requestsPage.noMatchHeading')}
           </h3>
           <p className="text-xs text-text-secondary mt-1">
-            Switch tabs or submit a new revenue department application.
+            {t('requestsPage.noMatchDesc')}
           </p>
         </div>
       ) : (
@@ -197,7 +199,7 @@ const RequestsPage: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-semibold text-text-muted">
-                        APPLICATION #{w.id.substring(0, 8)}
+                        {t('requestsPage.applicationPrefix')} #{w.id.substring(0, 8)}
                       </span>
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold ${
@@ -215,12 +217,15 @@ const RequestsPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="text-base font-heading font-bold text-text-heading mt-1">
-                      {WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')}
-                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <h3 className="text-base font-heading font-bold text-text-heading">
+                        {WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')}
+                      </h3>
+                      <SpeakerButton text={WORKFLOW_TYPE_LABELS[w.workflowType] || w.workflowType.replace(/_/g, ' ')} />
+                    </div>
 
                     <div className="flex items-center gap-4 text-xs text-text-secondary mt-1 font-mono">
-                      <span>Parcel: #{w.parcelId.substring(0, 8)}</span>
+                      <span>{t('requestsPage.parcelPrefix')} #{w.parcelId.substring(0, 8)}</span>
                       <span>·</span>
                       <span className="inline-flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> {formatDate(w.createdAt)}
@@ -232,7 +237,7 @@ const RequestsPage: React.FC = () => {
                     to={`/parcels/${w.parcelId}`}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
                   >
-                    View Parcel 360° <ChevronRight className="w-3.5 h-3.5" />
+                    {t('requestsPage.viewParcel360Link')} <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
@@ -240,7 +245,7 @@ const RequestsPage: React.FC = () => {
                 {w.steps && w.steps.length > 0 && (
                   <div className="pt-3 border-t border-gov-border">
                     <p className="text-[11px] font-mono uppercase tracking-wider text-text-muted mb-2 font-semibold">
-                      Department Interoperability Reviews ({w.steps.length} checkpoints)
+                      {t('requestsPage.deptReviewsLabel')} ({w.steps.length} {t('requestsPage.checkpointsLabel')})
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       {w.steps.map((step) => {
@@ -293,9 +298,12 @@ const RequestsPage: React.FC = () => {
                   <div className="pt-3 border-t border-gov-border space-y-3">
                     {w.requestDetails && (
                       <div>
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted mb-1">
-                          {t('citizenPortal.requestsYourRequestLabel')}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted">
+                            {t('citizenPortal.requestsYourRequestLabel')}
+                          </p>
+                          <SpeakerButton text={w.requestDetails} />
+                        </div>
                         <p className="text-xs text-text-secondary whitespace-pre-wrap">{w.requestDetails}</p>
                       </div>
                     )}
@@ -307,12 +315,15 @@ const RequestsPage: React.FC = () => {
                             <span className="text-xs font-bold text-text-heading">{step.department.replace(/_/g, ' ')}</span>
                             <span className="font-mono text-[10px] uppercase font-bold text-text-secondary">{step.status}</span>
                           </div>
-                          <p className="text-[11px] text-text-secondary mt-1.5">
-                            <span className="font-mono font-bold uppercase tracking-wide text-text-muted">
-                              {t('citizenPortal.requestsOfficerRemarksLabel')}:{' '}
-                            </span>
-                            {step.remarks || t('citizenPortal.requestsNoRemarksYet')}
-                          </p>
+                          <div className="mt-1.5 flex items-start justify-between gap-2">
+                            <p className="text-[11px] text-text-secondary">
+                              <span className="font-mono font-bold uppercase tracking-wide text-text-muted">
+                                {t('citizenPortal.requestsOfficerRemarksLabel')}:{' '}
+                              </span>
+                              {step.remarks || t('citizenPortal.requestsNoRemarksYet')}
+                            </p>
+                            {step.remarks && <SpeakerButton text={step.remarks} />}
+                          </div>
                           {step.completedAt && (
                             <p className="text-[10px] text-text-muted mt-1">
                               {t('citizenPortal.requestsDecidedOnLabel', { date: formatDateTime(step.completedAt) })}
@@ -324,9 +335,12 @@ const RequestsPage: React.FC = () => {
 
                     {w.lastRemarks && (
                       <div>
-                        <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted mb-1">
-                          {t('citizenPortal.requestsOverallNoteLabel')}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-[10px] font-mono font-bold uppercase tracking-wide text-text-muted">
+                            {t('citizenPortal.requestsOverallNoteLabel')}
+                          </p>
+                          <SpeakerButton text={w.lastRemarks} />
+                        </div>
                         <p className="text-xs text-text-secondary whitespace-pre-wrap">{w.lastRemarks}</p>
                       </div>
                     )}

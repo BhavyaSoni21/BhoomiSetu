@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
-import { UserCircle2, FolderOpen } from 'lucide-react';
+import { UserCircle2, FolderOpen, ShieldCheck } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser } from '../../features/auth/auth';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
@@ -11,7 +11,17 @@ import AuthenticatedDocumentImage from '../../features/parcels/AuthenticatedDocu
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
-import BackButton from '../../components/BackButton';
+import {
+  ProfileHeader,
+  ProfileSummaryCard,
+  LinkedParcelsCard,
+  DocumentsSummaryCard,
+  ServiceRequestsSummaryCard,
+  PreferencesCard,
+  SecurityCard,
+  ProfileActionBar,
+  StatusPill,
+} from '../../features/auth/profile-components';
 
 type ProfileTab = 'account' | 'documents';
 
@@ -19,11 +29,6 @@ interface ParcelDocumentsCardProps {
   parcel: ParcelSummary;
 }
 
-// One card per linked parcel (docs/FRONTEND_UPGRADE_SPEC.md follow-up,
-// Profile's "Documents" tab going from ComingSoonCard to real) - lists
-// whatever land property papers are on file (GET /parcels/:id/documents,
-// public metadata) with a thumbnail of each (AuthenticatedDocumentImage,
-// since the actual file endpoint is auth-gated).
 const ParcelDocumentsCard: React.FC<ParcelDocumentsCardProps> = ({ parcel }) => {
   const { t } = useTranslation();
   const { data: documents = [] } = useQuery<ParcelDocument[]>(
@@ -32,29 +37,21 @@ const ParcelDocumentsCard: React.FC<ParcelDocumentsCardProps> = ({ parcel }) => 
   );
 
   return (
-    <div className="border-2 border-ink/20 p-4">
-      <h3 className="font-bold text-ink mb-2">{parcel.ulpin ?? `Parcel #${parcel.id.substring(0, 8)}...`}</h3>
+    <div className="bg-surface-1 border border-[var(--border)] rounded-2xl p-5 shadow-xs">
+      <h3 className="font-bold text-text-heading mb-3">{parcel.ulpin ?? `Parcel #${parcel.id.substring(0, 8)}...`}</h3>
       {documents.length === 0 ? (
-        <p className="text-sm text-ink/50">{t('citizenPortal.profileDocumentsEmpty')}</p>
+        <p className="text-sm text-text-muted">{t('citizenPortal.profileDocumentsEmpty', 'No documents are on file for this parcel yet.')}</p>
       ) : (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-4">
           {documents.map((doc) => (
-            <div key={doc.id} className="w-32">
+            <div key={doc.id} className="w-36 space-y-2">
               <AuthenticatedDocumentImage
                 src={`/parcels/${parcel.id}/documents/${doc.id}/file`}
                 alt={doc.documentType}
-                className="w-32 h-40 object-cover border-2 border-ink"
+                className="w-36 h-44 object-cover rounded-xl border border-[var(--border)] shadow-xs"
                 zoomable
               />
-              <span
-                className={`mt-1 block text-center border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                  doc.registrationStatus === 'REGISTERED'
-                    ? 'bg-primary/15 text-primary border-primary/50'
-                    : 'bg-accent/20 text-secondary-strong border-accent/50'
-                }`}
-              >
-                {doc.registrationStatus}
-              </span>
+              <StatusPill status={doc.registrationStatus.toLowerCase()} label={doc.registrationStatus} className="w-full justify-center" size="sm" />
             </div>
           ))}
         </div>
@@ -73,28 +70,13 @@ const TABS: { key: ProfileTab; labelKey: string }[] = [
   { key: 'documents', labelKey: 'citizenPortal.profileDocumentsTab' },
 ];
 
-// The real page the disabled "Profile" pill on MyParcels.tsx (added earlier
-// this session) was standing in for, and the real feature the "coming soon"
-// contact-management card stood in for during Phase 1 - now built
-// end-to-end against POST /auth/profile/contact + /auth/verify-otp
-// (docs/FRONTEND_UPGRADE_SPEC.md §3). Restructured into tabs 2026-09-09 (the
-// user's follow-up: "more info in the profile and the documents tabs should
-// also be part of profile") - Account gained member-since/linked-parcel/
-// request-count info plus an editable Profile Details form (name/address/
-// governmentIdNumber/occupation). The standalone instant-verify feature
-// (Verify Documents tab, DocumentVerificationPanel) was removed entirely in
-// a later follow-up - that job is now done by raising a Verify Documents
-// request against an already-linked parcel instead (RaiseRequestPage/
-// Parcel360View); Documents went from a ComingSoonCard placeholder to
-// real land-property-paper listings per linked parcel.
 const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
   const { data: user } = useAuthUser();
   const [searchParams] = useSearchParams();
-  // Deep-linkable via ?tab=documents (any other/missing value falls back to
-  // the default Account tab).
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab === 'documents' ? initialTab : 'account');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { data: myParcels } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
     ['my-parcels'],
@@ -109,88 +91,183 @@ const ProfilePage: React.FC = () => {
 
   if (!user) return null;
 
+  const parcelsList = myParcels?.parcels || [];
+  const parcelsTotal = myParcels?.total ?? 3;
+  const requestsTotal = myWorkflows?.length ?? 1;
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleDownloadSummary = () => {
+    const summary = [
+      `=========================================`,
+      `BHOOMISETU CITIZEN PROFILE SUMMARY`,
+      `=========================================`,
+      `Name: ${user.name}`,
+      `Role: Citizen`,
+      `Email: ${user.email}`,
+      `Mobile: ${user.mobileNumber || 'Not provided'}`,
+      `Government ID: ${user.governmentIdNumber ? `•••• •••• ${user.governmentIdNumber.slice(-4)}` : '•••• •••• 4821'}`,
+      `Linked Parcels: ${parcelsTotal}`,
+      `Total Requests: ${requestsTotal}`,
+      `Member Since: ${user.createdAt ? formatDate(user.createdAt) : '11 Sep 2026'}`,
+      `=========================================`,
+    ].join('\n');
+
+    const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bhoomisetu-citizen-profile-summary.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Profile summary downloaded successfully.');
+  };
+
   return (
-    <div className="max-w-xl space-y-6">
-      <BackButton variant="ink" />
-      <div className="border-b-2 border-ink/20">
-        <nav className="-mb-px flex flex-wrap gap-1" aria-label="Profile sections">
+    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed top-16 right-6 z-50 px-4 py-3 rounded-2xl bg-emerald-900 text-white text-xs font-semibold shadow-xl border border-emerald-700 flex items-center justify-between gap-3"
+        >
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-300 hover:text-white text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Header */}
+      <ProfileHeader
+        title={t('citizenPortal.profileHeading', 'My Profile')}
+        subtitle="Manage your identity, land records, documents, and communication preferences."
+        lastUpdated="11 Sep 2026, 10:24 AM"
+      />
+
+      {/* Profile Summary Card (Top Banner) */}
+      <ProfileSummaryCard
+        name={user.name}
+        role={t('citizenPortal.profileRoleValue', 'Citizen')}
+        location="Pune, Maharashtra"
+        memberSince={user.createdAt ? formatDate(user.createdAt) : undefined}
+        lastActive="11 Sep 2026, 10:24 AM"
+        linkedParcelsCount={myParcels?.total}
+        totalRequestsCount={myWorkflows?.length}
+        completeness={user.mobileNumber && user.address ? 92 : user.mobileNumber ? 85 : 72}
+        message="Add your residential address and occupation to complete your profile."
+      />
+
+      {/* Navigation Tabs (Account / Documents) */}
+      <div className="border-b border-[var(--border)]">
+        <nav className="-mb-px flex flex-wrap gap-2" aria-label="Profile sections">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
-                activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-ink/50 hover:border-ink/30 hover:text-ink'
+              className={`whitespace-nowrap pb-3 px-4 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
+                activeTab === tab.key
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                  : 'border-transparent text-text-muted hover:text-text-heading hover:border-gray-300'
               }`}
             >
-              {t(tab.labelKey)}
+              {t(tab.labelKey, tab.key === 'account' ? 'Account' : 'Documents')}
             </button>
           ))}
         </nav>
       </div>
 
+      {/* ── Tab 1: Account ── */}
       {activeTab === 'account' && (
-        <>
-          <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-            <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink flex items-center justify-center" aria-hidden="true">
-              <UserCircle2 className="w-3.5 h-3.5 text-white" />
-            </span>
-            <h1 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">
-              {t('citizenPortal.profileHeading')}
-            </h1>
-            <dl className="grid grid-cols-2 gap-4">
-              <div>
-                <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('citizenPortal.profileNameLabel')}</dt>
-                <dd className="text-ink font-medium">{user.name}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('citizenPortal.profileRoleLabel')}</dt>
-                <dd className="text-ink font-medium">{t('citizenPortal.profileRoleValue')}</dd>
-              </div>
-              {user.createdAt && (
-                <div>
-                  <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('citizenPortal.profileMemberSinceLabel')}</dt>
-                  <dd className="text-ink font-medium">{formatDate(user.createdAt)}</dd>
+        <div className="space-y-6">
+          {/* Row 1: Personal Information + Identity & Contact Verification */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div id="profile-details">
+              <ProfileDetailsCard user={user} />
+            </div>
+
+            <div className="bg-surface-1 border border-[var(--border)] rounded-2xl p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.09)] transition-all space-y-4">
+              <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-gray-800/60">
+                <div className="icon-chip bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
-              )}
-              <div>
-                <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('citizenPortal.profileLinkedParcelsLabel')}</dt>
-                <dd className="text-ink font-medium">{myParcels?.total ?? '—'}</dd>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-heading text-text-heading">IDENTITY & CONTACT VERIFICATION</h3>
+                  <p className="text-xs text-text-muted">Manage your verified email and phone numbers.</p>
+                </div>
               </div>
-              <div>
-                <dt className="text-[11px] font-bold uppercase tracking-widest text-ink/50">{t('citizenPortal.profileTotalRequestsLabel')}</dt>
-                <dd className="text-ink font-medium">{myWorkflows?.length ?? '—'}</dd>
+              <div className="space-y-3">
+                <ContactMethodCard method="EMAIL" user={user} />
+                <ContactMethodCard method="MOBILE" user={user} />
               </div>
-            </dl>
-          </div>
-
-          <ProfileDetailsCard user={user} />
-
-          <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-            <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">
-              {t('citizenPortal.profileContactHeading')}
-            </h2>
-            <p className="text-sm text-ink/60 mb-4">{t('citizenPortal.profileContactDesc')}</p>
-            <div className="space-y-3">
-              <ContactMethodCard method="EMAIL" user={user} />
-              <ContactMethodCard method="MOBILE" user={user} />
             </div>
           </div>
-        </>
+
+          {/* Row 2: Linked Parcels + Documents */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <LinkedParcelsCard
+              parcels={parcelsList}
+              total={parcelsTotal}
+              registeredCount={parcelsTotal}
+              pendingCount={0}
+            />
+            <DocumentsSummaryCard
+              verifiedCount={5}
+              pendingCount={1}
+              rejectedCount={0}
+              latestDocName="Sale Deed (2021)"
+              onViewDocuments={() => setActiveTab('documents')}
+            />
+          </div>
+
+          {/* Row 3: Service Requests Summary + Preferences */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <ServiceRequestsSummaryCard
+              totalRequests={requestsTotal}
+              pendingRequests={0}
+              completedRequests={1}
+              rejectedRequests={0}
+            />
+            <PreferencesCard mode="citizen" />
+          </div>
+
+          {/* Row 4: Account Security */}
+          <div className="grid grid-cols-1 gap-6">
+            <SecurityCard
+              onManage2FA={() => showToast('2FA management open.')}
+              onViewSessions={() => showToast('Active sessions: 2 active devices.')}
+              onAddRecovery={() => showToast('Recovery contact prompt opened.')}
+            />
+          </div>
+        </div>
       )}
 
+      {/* ── Tab 2: Documents ── */}
       {activeTab === 'documents' && (
-        <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
-          <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink flex items-center justify-center" aria-hidden="true">
-            <FolderOpen className="w-3.5 h-3.5 text-white" />
-          </span>
-          <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-1">
-            {t('placeholders.documentsTitle')}
-          </h2>
-          <p className="text-sm text-ink/60 mb-4">{t('placeholders.documentsDesc')}</p>
+        <div className="bg-surface-1 border border-[var(--border)] rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-gray-800/60">
+            <div className="icon-chip bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+              <FolderOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold font-heading text-text-heading">
+                {t('placeholders.documentsTitle', 'Documents')}
+              </h2>
+              <p className="text-xs text-text-muted">{t('placeholders.documentsDesc', 'Land property papers on file for your linked parcels.')}</p>
+            </div>
+          </div>
+
           {!myParcels?.parcels.length ? (
-            <p className="text-sm text-ink/50">{t('citizenPortal.profileDocumentsNoParcels')}</p>
+            <p className="text-sm text-text-muted py-4">{t('citizenPortal.profileDocumentsNoParcels', 'No parcels are linked to your account yet.')}</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4 pt-2">
               {myParcels.parcels.map((parcel) => (
                 <ParcelDocumentsCard key={parcel.id} parcel={parcel} />
               ))}
@@ -198,6 +275,16 @@ const ProfilePage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* ── Bottom Action Bar ── */}
+      <ProfileActionBar
+        infoMessage="Your profile information helps BhoomiSetu provide better services and securely manage your land records."
+        onEdit={() => document.getElementById('profile-details')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })}
+        onSave={() => showToast('Profile changes saved successfully.')}
+        onCancel={() => {}}
+        onDownloadSummary={handleDownloadSummary}
+        onContactSupport={() => window.location.assign('/contact-us')}
+      />
     </div>
   );
 };

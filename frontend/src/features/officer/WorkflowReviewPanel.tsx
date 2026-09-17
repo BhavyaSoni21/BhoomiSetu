@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw, MapPin, UserCheck } from 'lucide-react';
 import apiService from '../../services/apiService';
-import { Workflow, WorkflowStep, VerificationPrecheck } from '../../types/workflow';
+import { Workflow, WorkflowStep, VerificationPrecheck, FieldEvidence } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 import { Parcel360Response } from '../../types/parcel360';
+import { ManagedUser } from '../../types/user';
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
+import MicButton from '../../components/MicButton';
 
 interface WorkflowReviewPanelProps {
   workflowId: string;
@@ -77,17 +79,18 @@ function DepartmentRecordField({ label, value }: { label: string; value: React.R
 }
 
 function DepartmentRecordFields({ department, departments }: { department: string; departments: Parcel360Response['departments'] }) {
+  const { t } = useTranslation();
   switch (department) {
     case 'LAND_RECORDS': {
       const record = departments.landRecords;
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Source Schema" value={record.sourceSchema} />
-          <DepartmentRecordField label="Source Identifier" value={record.sourceIdentifier} />
-          <DepartmentRecordField label="Owner Name" value={record.ownerName} />
-          <DepartmentRecordField label="Area" value={`${record.areaSqM.toLocaleString()} m²`} />
-          <DepartmentRecordField label="Locality" value={record.locality} />
+          <DepartmentRecordField label={t('parcel360.field.sourceSchema')} value={record.sourceSchema} />
+          <DepartmentRecordField label={t('parcel360.field.sourceIdentifier')} value={record.sourceIdentifier} />
+          <DepartmentRecordField label={t('parcel360.field.ownerName')} value={record.ownerName} />
+          <DepartmentRecordField label={t('parcel360.area')} value={`${record.areaSqM.toLocaleString()} m²`} />
+          <DepartmentRecordField label={t('parcel360.field.locality')} value={record.locality} />
         </>
       );
     }
@@ -96,11 +99,11 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Status" value={record.registrationStatus} />
-          <DepartmentRecordField label="Registration Number" value={record.registrationNumber || 'N/A'} />
-          <DepartmentRecordField label="Registration Date" value={formatDate(record.registrationDate)} />
-          <DepartmentRecordField label="Last Transaction" value={record.lastTransactionType || 'N/A'} />
-          <DepartmentRecordField label="Last Transaction Date" value={formatDate(record.lastTransactionDate)} />
+          <DepartmentRecordField label={t('verificationCard.status')} value={record.registrationStatus} />
+          <DepartmentRecordField label={t('parcel360.field.registrationNumber')} value={record.registrationNumber || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.registrationDate')} value={formatDate(record.registrationDate)} />
+          <DepartmentRecordField label={t('parcel360.field.lastTransaction')} value={record.lastTransactionType || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.lastTransactionDate')} value={formatDate(record.lastTransactionDate)} />
         </>
       );
     }
@@ -109,10 +112,10 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Land Use" value={record.landUse} />
-          <DepartmentRecordField label="Zoning Classification" value={record.zoningClassification} />
-          <DepartmentRecordField label="Master Plan Reference" value={record.masterPlanReference} />
-          <DepartmentRecordField label="Building Permission" value={record.buildingPermissionStatus} />
+          <DepartmentRecordField label={t('parcel360.field.landUse')} value={record.landUse} />
+          <DepartmentRecordField label={t('parcel360.field.zoningClassification')} value={record.zoningClassification} />
+          <DepartmentRecordField label={t('parcel360.field.masterPlanReference')} value={record.masterPlanReference} />
+          <DepartmentRecordField label={t('parcel360.field.buildingPermission')} value={record.buildingPermissionStatus} />
         </>
       );
     }
@@ -121,11 +124,11 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Assessed Value" value={formatCurrency(record.assessedValue)} />
-          <DepartmentRecordField label="Annual Tax" value={formatCurrency(record.annualTaxAmount)} />
-          <DepartmentRecordField label="Tax Status" value={record.taxStatus} />
-          <DepartmentRecordField label="Outstanding Amount" value={formatCurrency(record.outstandingAmount)} />
-          <DepartmentRecordField label="Last Payment Date" value={formatDate(record.lastPaymentDate)} />
+          <DepartmentRecordField label={t('parcel360.field.assessedValue')} value={formatCurrency(record.assessedValue)} />
+          <DepartmentRecordField label={t('parcel360.field.annualTax')} value={formatCurrency(record.annualTaxAmount)} />
+          <DepartmentRecordField label={t('parcel360.field.taxStatus')} value={record.taxStatus} />
+          <DepartmentRecordField label={t('parcel360.field.outstandingAmount')} value={formatCurrency(record.outstandingAmount)} />
+          <DepartmentRecordField label={t('parcel360.field.lastPaymentDate')} value={formatDate(record.lastPaymentDate)} />
         </>
       );
     }
@@ -134,12 +137,12 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Restriction" value={record.hasRestriction ? 'Yes' : 'No'} />
+          <DepartmentRecordField label={t('parcel360.field.hasRestriction')} value={record.hasRestriction ? t('common.yes') : t('common.no')} />
           {record.hasRestriction && (
             <>
-              <DepartmentRecordField label="Restriction Type" value={record.restrictionType || 'N/A'} />
-              <DepartmentRecordField label="Details" value={record.restrictionDetails || 'N/A'} />
-              <DepartmentRecordField label="Imposing Authority" value={record.imposingAuthority || 'N/A'} />
+              <DepartmentRecordField label={t('parcel360.field.restrictionType')} value={record.restrictionType || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.details')} value={record.restrictionDetails || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.imposingAuthority')} value={record.imposingAuthority || t('common.notApplicable')} />
             </>
           )}
         </>
@@ -150,10 +153,10 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Active Dispute" value={record.hasActiveDispute ? 'Yes' : 'No'} />
-          <DepartmentRecordField label="Dispute Type" value={record.disputeType || 'N/A'} />
-          <DepartmentRecordField label="Case Status" value={record.caseStatus || 'N/A'} />
-          <DepartmentRecordField label="Filing Date" value={formatDate(record.filingDate)} />
+          <DepartmentRecordField label={t('parcel360.field.hasActiveDispute')} value={record.hasActiveDispute ? t('common.yes') : t('common.no')} />
+          <DepartmentRecordField label={t('parcel360.field.disputeType')} value={record.disputeType || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.caseStatus')} value={record.caseStatus || t('common.notApplicable')} />
+          <DepartmentRecordField label={t('parcel360.field.filingDate')} value={formatDate(record.filingDate)} />
         </>
       );
     }
@@ -162,12 +165,12 @@ function DepartmentRecordFields({ department, departments }: { department: strin
       if (!record) return null;
       return (
         <>
-          <DepartmentRecordField label="Has Encumbrance" value={record.hasEncumbrance ? 'Yes' : 'No'} />
+          <DepartmentRecordField label={t('parcel360.field.hasEncumbrance')} value={record.hasEncumbrance ? t('common.yes') : t('common.no')} />
           {record.hasEncumbrance && (
             <>
-              <DepartmentRecordField label="Encumbrance Type" value={record.encumbranceType || 'N/A'} />
-              <DepartmentRecordField label="Lender Name" value={record.lenderName || 'N/A'} />
-              <DepartmentRecordField label="Instrument Reference" value={record.instrumentReference || 'N/A'} />
+              <DepartmentRecordField label={t('parcel360.field.encumbranceType')} value={record.encumbranceType || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.lenderName')} value={record.lenderName || t('common.notApplicable')} />
+              <DepartmentRecordField label={t('parcel360.field.instrumentReference')} value={record.instrumentReference || t('common.notApplicable')} />
             </>
           )}
         </>
@@ -224,9 +227,14 @@ const StepReviewForm: React.FC<StepReviewFormProps> = ({ workflowId, step }) => 
 
   return (
     <div>
-      <label htmlFor={remarksId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.remarksRequiredLabel')}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={remarksId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.remarksRequiredLabel')}
+        </label>
+        <MicButton
+          onResult={(text) => setRemarks((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={remarksId}
         value={remarks}
@@ -312,9 +320,14 @@ const EscalateStepForm: React.FC<EscalateStepFormProps> = ({ workflowId, step, o
 
   return (
     <div className="mt-2 border-2 border-accent/60 bg-accent/10 p-3">
-      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.escalateMessageLabel', { role: roleLabel })}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.escalateMessageLabel', { role: roleLabel })}
+        </label>
+        <MicButton
+          onResult={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={fieldId}
         value={message}
@@ -446,9 +459,14 @@ const ReopenStepForm: React.FC<ReopenStepFormProps> = ({ workflowId, step, onCan
 
   return (
     <div className="mt-2 border-2 border-secondary/60 bg-secondary/10 p-3">
-      <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-        {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-widest text-ink">
+          {t('officerPortal.reopenMessageLabel', { role: roleLabel })}
+        </label>
+        <MicButton
+          onResult={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+        />
+      </div>
       <textarea
         id={fieldId}
         value={message}
@@ -518,6 +536,92 @@ const AdminDecidedStepRow: React.FC<AdminDecidedStepRowProps> = ({ workflowId, s
         )}
       </div>
       {mode === 'reopen' && <ReopenStepForm workflowId={workflowId} step={step} onCancel={() => setMode('idle')} />}
+    </div>
+  );
+};
+
+// Admin-only (PATCH /workflows/{id}/assign-verifier requires ADMIN) - hands
+// this workflow off to an Authorized Field Verifier for a site visit.
+// Reuses the same admin-users listing UserManagement.tsx is built on
+// (GET /users), filtered client-side to just the VERIFIER role rather than
+// adding a new lower-privilege listing endpoint.
+const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: string | null; requiresFieldVerification: boolean }> = ({
+  workflowId,
+  assignedVerifierId,
+  requiresFieldVerification,
+}) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { data: users = [] } = useQuery<ManagedUser[]>(['admin-users'], async () => (await apiService.get('/users')).data);
+  const verifiers = users.filter((u) => u.role === 'VERIFIER');
+
+  const assignMutation = useMutation(
+    async (verifierId: string) => (await apiService.patch(`/workflows/${workflowId}/assign-verifier`, { verifierId })).data as Workflow,
+    { onSuccess: () => queryClient.invalidateQueries(['workflow', workflowId]) },
+  );
+
+  const assignedVerifier = verifiers.find((v) => v.id === assignedVerifierId);
+
+  return (
+    <div className="border-t-4 border-ink pt-4">
+      <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5 flex items-center gap-1.5">
+        <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('officerPortal.assignVerifierLabel')}
+      </h4>
+      {!requiresFieldVerification && !assignedVerifier && (
+        <p className="text-xs text-ink/50 mb-1.5">{t('officerPortal.verificationNotTypicallyNeeded')}</p>
+      )}
+      {assignedVerifier && <p className="text-sm text-ink mb-1.5">{t('officerPortal.currentlyAssignedTo', { name: assignedVerifier.name })}</p>}
+      <select
+        value={assignedVerifierId ?? ''}
+        onChange={(e) => e.target.value && assignMutation.mutate(e.target.value)}
+        disabled={assignMutation.isLoading || verifiers.length === 0}
+        className="w-full px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+      >
+        <option value="" disabled>
+          {verifiers.length === 0 ? t('officerPortal.noVerifiersAvailable') : t('officerPortal.selectVerifierPlaceholder')}
+        </option>
+        {verifiers.map((v) => (
+          <option key={v.id} value={v.id}>{v.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
+// Every field-visit evidence item a Verifier has submitted for this
+// workflow - photo, GPS, who captured it and when. Shown to staff before a
+// review decision is made (docs/SIH26014_Hidden_Insights_Strategy.md §3-4).
+const FieldEvidenceSection: React.FC<{ workflowId: string }> = ({ workflowId }) => {
+  const { t } = useTranslation();
+  const { data: evidence = [] } = useQuery<FieldEvidence[]>(
+    ['field-evidence', workflowId],
+    async () => (await apiService.get(`/workflows/${workflowId}/field-evidence`)).data,
+  );
+
+  if (evidence.length === 0) return null;
+
+  return (
+    <div className="border-t-4 border-ink pt-4">
+      <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5 flex items-center gap-1.5">
+        <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('officerPortal.fieldEvidenceLabel')}
+      </h4>
+      <div className="flex flex-wrap gap-3">
+        {evidence.map((item) => (
+          <div key={item.id} className="w-32">
+            <AuthenticatedDocumentImage
+              src={`/workflows/${workflowId}/field-evidence/${item.id}/photo`}
+              alt={t('officerPortal.fieldEvidenceAlt')}
+              className="w-32 h-40 object-cover border-2 border-ink"
+              zoomable
+            />
+            <p className="mt-1 text-[10px] font-mono text-ink/70">{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</p>
+            <p className="text-[10px] text-ink/50">{formatDate(item.capturedAt)}</p>
+            {item.notes && <p className="text-[10px] text-ink/60 italic mt-0.5">&quot;{item.notes}&quot;</p>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -610,16 +714,73 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                   zoomable
                 />
               </div>
+              {workflow.evidenceAuthenticitySuspicious && (
+                <div className="mt-2 inline-flex items-start gap-1.5 border-2 border-secondary-strong bg-secondary/10 px-2 py-1.5 max-w-xs">
+                  <AlertTriangle className="w-3.5 h-3.5 text-secondary-strong shrink-0 mt-0.5" aria-hidden="true" />
+                  <span className="text-[11px] text-ink/80">
+                    {t('officerPortal.authenticitySuspiciousLabel')}
+                    {(() => {
+                      try {
+                        const reasons = workflow.evidenceAuthenticityReasons ? (JSON.parse(workflow.evidenceAuthenticityReasons) as string[]) : [];
+                        return reasons.length > 0 ? ` (${reasons.join(', ').replace(/_/g, ' ').toLowerCase()})` : '';
+                      } catch {
+                        return '';
+                      }
+                    })()}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
           {precheck && (
             <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('officerPortal.automaticPrecheckLabel')}</h4>
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70">
+                  {t('officerPortal.automaticPrecheckLabel', 'OCR & Ownership Pre-Check')}
+                </h4>
+                {(precheck as any).match_percent !== undefined && (
+                  <span className="text-xs font-mono font-bold text-brand-900">
+                    Match: {(precheck as any).match_percent}%
+                  </span>
+                )}
+              </div>
               <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${PRECHECK_VERDICT_STYLES[precheck.verdict] ?? 'bg-muted text-ink/70 border-ink/20'}`}>
                 {precheck.verdict.replace(/_/g, ' ')}
               </span>
-              {precheck.checks.length > 0 && (
+
+              {(precheck as any).field_results || (precheck as any).fieldResults ? (
+                <div className="mt-3 border-2 border-ink bg-surface overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b-2 border-ink bg-muted text-[10px] font-mono uppercase text-ink/70">
+                        <th className="py-2 px-3 font-bold">Field</th>
+                        <th className="py-2 px-3 font-bold">Entered Value</th>
+                        <th className="py-2 px-3 font-bold">Document Value</th>
+                        <th className="py-2 px-3 font-bold text-center">✓</th>
+                        <th className="py-2 px-3 font-bold text-right">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink/10">
+                      {((precheck as any).field_results || (precheck as any).fieldResults).map((r: any) => (
+                        <tr key={r.field} className="hover:bg-muted/30">
+                          <td className="py-2 px-3 font-medium capitalize">{r.label || r.field.replace(/_/g, ' ')}</td>
+                          <td className="py-2 px-3 font-mono">{r.user || '—'}</td>
+                          <td className="py-2 px-3 font-mono text-ink/70">{r.doc || '—'}</td>
+                          <td className="py-2 px-3 text-center">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${r.match ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary-strong'}`}>
+                              {r.match ? '✅' : '❌'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-semibold">
+                            {(r.score * 100).toFixed(0)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : precheck.checks && precheck.checks.length > 0 ? (
                 <div className="mt-2 space-y-1">
                   {precheck.checks.map((check) => (
                     <div key={check.field} className="flex items-center justify-between text-xs text-ink/70">
@@ -628,7 +789,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -637,7 +798,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
       <div>
         <h3 className="text-lg font-black uppercase tracking-tight font-display text-ink">{workflow.workflowType.replace(/_/g, ' ')}</h3>
         <p className="text-sm text-ink/60 flex items-center gap-1.5 flex-wrap">
-          {t('officerPortal.parcelLabel', { id: workflow.parcelId })}
+          {workflow.parcelId}
           {/* Notifications stopped auto-opening Parcel 360 (docs/ADMIN_PANEL_ISSUES.md
               follow-up), so this is now the direct path from a request's
               review back to its parcel's full detail view - still fully
@@ -655,6 +816,15 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
         </span>
         {workflow.requestDetails && <p className="text-sm text-ink/70 mt-2 italic">&quot;{workflow.requestDetails}&quot;</p>}
       </div>
+
+      {isAdminMode && (
+        <AssignVerifierControl
+          workflowId={workflowId}
+          assignedVerifierId={workflow.assignedVerifierId}
+          requiresFieldVerification={workflow.requiresFieldVerification}
+        />
+      )}
+      <FieldEvidenceSection workflowId={workflowId} />
 
       {/* Scoped to the reviewing officer's own department only (never the
           other 6 departments' records) - the case review panel's job is

@@ -2,10 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { Bot, Send, X } from 'lucide-react';
+import { Send, X } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { AiQueryResponse } from '../../types/aiQuery';
 import { ParcelSummary } from '../../types/parcel';
+import { useTranslation } from '../../context/LanguageContext';
+import MicButton from '../../components/MicButton';
+import SpeakerButton from '../../components/SpeakerButton';
 
 interface ChatMessage {
   id: string;
@@ -19,8 +22,6 @@ interface Position {
   x: number;
   y: number;
 }
-
-const SUGGESTIONS = ['How do I search for a parcel?', 'Parcels with overdue tax'];
 
 // Matches the button's h-14/w-14 and the panel's w-96/h-[32rem] Tailwind
 // classes - kept as plain numbers here since dragging needs to clamp
@@ -80,6 +81,8 @@ function defaultPanelPos(buttonPos: Position): Position {
 // move/up events to the dragged element even once the cursor leaves its
 // bounds, with no window-level listener bookkeeping needed.
 const AskAiWidget: React.FC = () => {
+  const { t } = useTranslation();
+  const SUGGESTIONS = [t('askAiWidget.suggestion1'), t('askAiWidget.suggestion2')];
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -98,7 +101,14 @@ const AskAiWidget: React.FC = () => {
   // the position itself changes) plus whether it ever crossed the
   // move threshold, so the button's onClick can tell a real click from the
   // pointerup that ends a drag and skip toggling open/closed for the latter.
-  const dragRef = useRef<{ target: 'button' | 'panel'; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const dragRef = useRef<{
+    target: 'button' | 'panel';
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    panelOrigin?: Position;
+  } | null>(null);
   const draggedRef = useRef(false);
 
   const mutation = useMutation<AiQueryResponse, Error, string>(async (q) => {
@@ -129,7 +139,16 @@ const AskAiWidget: React.FC = () => {
   const startDrag = (target: 'button' | 'panel') => (e: React.PointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return; // left mouse button (or touch/pen) only
     const origin = target === 'button' ? buttonPos : (panelPos ?? defaultPanelPos(buttonPos));
-    dragRef.current = { target, startX: e.clientX, startY: e.clientY, originX: origin.x, originY: origin.y };
+    dragRef.current = {
+      target,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: origin.x,
+      originY: origin.y,
+      // Keep the open panel anchored to the icon by moving both from their
+      // original positions with the same pointer delta.
+      panelOrigin: target === 'button' && isOpen ? panelPos ?? defaultPanelPos(buttonPos) : undefined,
+    };
     draggedRef.current = false;
     // Guard rather than assume setPointerCapture exists - not every
     // environment implements it (notably jsdom in tests); dragging still
@@ -150,8 +169,12 @@ const AskAiWidget: React.FC = () => {
     if (!draggedRef.current) return;
 
     const next = { x: drag.originX + dx, y: drag.originY + dy };
-    if (drag.target === 'button') setButtonPos(clampButtonPos(next));
-    else setPanelPos(clampPanelPos(next));
+    if (drag.target === 'button') {
+      setButtonPos(clampButtonPos(next));
+      if (drag.panelOrigin) setPanelPos(clampPanelPos({ x: drag.panelOrigin.x + dx, y: drag.panelOrigin.y + dy }));
+    } else {
+      setPanelPos(clampPanelPos(next));
+    }
   };
 
   const endDrag = () => {
@@ -191,8 +214,8 @@ const AskAiWidget: React.FC = () => {
       onError: (error) => {
         const text =
           axios.isAxiosError(error) && error.response?.status === 503
-            ? 'AI is not configured on this server.'
-            : "Sorry, I couldn't process that. Try rephrasing your question.";
+            ? t('askAiWidget.notConfigured')
+            : t('askAiWidget.processError');
         setMessages((prev) => [...prev, { id: newId(), role: 'assistant', text, isError: true }]);
       },
     });
@@ -219,11 +242,14 @@ const AskAiWidget: React.FC = () => {
             onPointerCancel={endDrag}
             className={`flex touch-none items-center justify-between bg-primary border-b-2 sm:border-b-4 border-ink px-4 py-3 ${isDraggingPanel ? 'cursor-grabbing' : 'cursor-grab'}`}
           >
-            <h3 className="text-sm font-black uppercase tracking-wide font-display text-white select-none">Ask AI</h3>
+            <div className="flex items-center gap-2">
+              <img src="/chatbot-lady-icon.png" alt="" className="w-6 h-6 rounded-full border border-white/50 object-cover" />
+              <h3 className="text-sm font-black uppercase tracking-wide font-display text-white select-none">{t('askAiWidget.heading')}</h3>
+            </div>
             <button
               onClick={() => setIsOpen(false)}
               onPointerDown={(e) => e.stopPropagation()}
-              aria-label="Close Ask AI panel"
+              aria-label={t('askAiWidget.closePanel')}
               className="text-white/80 hover:text-white leading-none"
             >
               <X className="w-5 h-5" aria-hidden="true" />
@@ -234,8 +260,7 @@ const AskAiWidget: React.FC = () => {
             {messages.length === 0 && (
               <div className="text-sm text-ink/60 space-y-3">
                 <p>
-                  Ask about parcel data ("parcels with overdue tax in Pune") or how to use the site ("how do I file a
-                  dispute").
+                  {t('askAiWidget.intro')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTIONS.map((suggestion) => (
@@ -262,27 +287,32 @@ const AskAiWidget: React.FC = () => {
                         : 'bg-muted text-ink border-ink/10'
                   }`}
                 >
-                  <p>{message.text}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="flex-1">{message.text}</p>
+                    {message.role === 'assistant' && !message.isError && (
+                      <SpeakerButton text={message.text} className="shrink-0 -mt-0.5 -mr-1" />
+                    )}
+                  </div>
                   {message.results && message.results.length > 0 && (
                     <div className="mt-2 space-y-1.5 border-t-2 border-ink/10 pt-2">
-                      <p className="text-xs font-bold uppercase tracking-wide text-ink/50">{message.results.length} parcel(s) matched</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-ink/50">{t('askAiWidget.parcelsMatched', { count: message.results.length })}</p>
                       {message.results.slice(0, 5).map((parcel) => (
                         <div key={parcel.id} className="flex items-center justify-between gap-2 text-xs">
                           <span className="text-ink/70">
-                            Parcel #{parcel.id.substring(0, 8)}... ({parcel.stateCode}-{parcel.districtCode})
+                            {t('myParcels.parcelHash', { id: parcel.id.substring(0, 8) })} ({parcel.stateCode}-{parcel.districtCode})
                           </span>
                           <button
                             onClick={() => navigate(`/parcels/${parcel.id}`)}
                             className="shrink-0 border-2 border-ink bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-primary-strong transition"
                           >
-                            View
+                            {t('myParcels.view')}
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
                   {message.results && message.results.length === 0 && (
-                    <p className="mt-1 text-xs text-ink/50">No matching parcels found.</p>
+                    <p className="mt-1 text-xs text-ink/50">{t('askAiWidget.noMatches')}</p>
                   )}
                 </div>
               </div>
@@ -290,18 +320,21 @@ const AskAiWidget: React.FC = () => {
 
             {mutation.isLoading && (
               <div className="flex justify-start">
-                <div className="border-2 border-ink/10 bg-muted px-3 py-2 text-sm text-ink/50">Thinking...</div>
+                <div className="border-2 border-ink/10 bg-muted px-3 py-2 text-sm text-ink/50">{t('askAiWidget.thinking')}</div>
               </div>
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t-2 border-ink/15 p-3">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t-2 border-ink/15 p-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
+              placeholder={t('askAiWidget.inputPlaceholder')}
               className="flex-1 border-2 border-ink bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary"
+            />
+            <MicButton
+              onResult={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))}
             />
             <button
               type="submit"
@@ -309,7 +342,7 @@ const AskAiWidget: React.FC = () => {
               className="inline-flex items-center gap-1.5 border-2 border-ink bg-primary px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-white hover:bg-primary-strong transition disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" aria-hidden="true" />
-              Send
+              {t('askAiWidget.send')}
             </button>
           </form>
         </div>
@@ -318,16 +351,26 @@ const AskAiWidget: React.FC = () => {
       <button
         style={{ left: buttonPos.x, top: buttonPos.y }}
         onClick={handleButtonClick}
-        onPointerDown={startDrag('button')}
-        onPointerMove={onDragMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        aria-label={isOpen ? 'Close Ask AI' : 'Open Ask AI'}
-        className={`fixed z-50 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md ${
+        aria-label={isOpen ? t('askAiWidget.closeAskAi') : t('askAiWidget.openAskAi')}
+        className={`fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white border-2 border-ink shadow-hard-md overflow-hidden ${
           isDraggingButton ? 'cursor-grabbing' : 'cursor-grab transition-transform hover:scale-105'
         }`}
       >
-        {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Bot className="h-6 w-6" aria-hidden="true" />}
+        {isOpen ? (
+          <X className="h-6 w-6" aria-hidden="true" />
+        ) : (
+          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} draggable={false} className="h-full w-full pointer-events-none select-none object-cover" />
+        )}
+        {/* Transparent drag layer prevents the browser from dragging the image itself. */}
+        <span
+          aria-hidden="true"
+          data-testid="ask-ai-drag-handle"
+          onPointerDown={startDrag('button')}
+          onPointerMove={onDragMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className={`absolute inset-0 z-10 touch-none bg-transparent ${isDraggingButton ? 'cursor-grabbing' : 'cursor-grab'}`}
+        />
       </button>
     </>
   );

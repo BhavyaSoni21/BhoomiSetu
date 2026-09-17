@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import {
   FileText,
   Flag,
@@ -12,6 +13,8 @@ import {
   Clock,
   ArrowRight,
   CheckCircle2,
+  Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
@@ -20,6 +23,8 @@ import BackButton from '../../components/BackButton';
 
 const RaiseRequestPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedParcelId, setSelectedParcelId] = useState<string>('');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
 
@@ -28,38 +33,62 @@ const RaiseRequestPage: React.FC = () => {
     async () => (await apiService.get('/parcels/mine')).data,
   );
 
-  const selectedParcel = data?.parcels.find((p) => p.id === selectedParcelId) ?? null;
+  const allParcels = data?.parcels ?? [];
+  const registeredParcels = allParcels.filter(
+    (p) => p.status === 'Registered' || (!p.status && true)
+  );
+  const pendingParcels = allParcels.filter(
+    (p) => p.status === 'Pending Verification'
+  );
+
+  useEffect(() => {
+    if (!isLoading && data && registeredParcels.length === 0) {
+      navigate('/citizen/parcels?from=raise-request', { replace: true });
+    }
+  }, [data, isLoading, navigate, registeredParcels.length]);
+
+  // Auto-select if passed via search param
+  useEffect(() => {
+    const urlParcelId = searchParams.get('parcelId');
+    if (urlParcelId && registeredParcels.some((p) => p.id === urlParcelId)) {
+      setSelectedParcelId(urlParcelId);
+    } else if (registeredParcels.length === 1 && !selectedParcelId) {
+      setSelectedParcelId(registeredParcels[0].id);
+    }
+  }, [searchParams, registeredParcels]);
+
+  const selectedParcel = registeredParcels.find((p) => p.id === selectedParcelId) ?? null;
 
   const services = [
     {
       type: 'ROR_COPY_REQUEST',
-      title: 'Certified RoR / 7-12 Extract',
-      desc: 'Official digitally signed Record of Rights copy with government QR authentication code.',
-      sla: '2 Working Days',
+      title: t('raiseRequestPage.service.rorTitle', 'Certified RoR / 7/12 Extract'),
+      desc: t('raiseRequestPage.service.rorDesc', 'Request an digitally signed copy of your land Record of Rights extract.'),
+      sla: t('raiseRequestPage.service.rorSla', '2 Business Days'),
       Icon: FileText,
       accent: 'brand',
     },
     {
       type: 'CORRECTION_REQUEST',
-      title: 'Record Name / Area Correction',
-      desc: 'Rectification of clerical or spelling errors in land owner names, survey extents, or remarks.',
-      sla: '7 Working Days',
+      title: t('raiseRequestPage.service.correctionTitle', 'Record Correction / Mutation Request'),
+      desc: t('raiseRequestPage.service.correctionDesc', 'Submit boundary, spelling, or title entry correction requests.'),
+      sla: t('raiseRequestPage.service.correctionSla', '7 Business Days'),
       Icon: Flag,
       accent: 'amber',
     },
     {
       type: 'DISPUTE_FILING',
-      title: 'Formal Land Dispute Filing',
-      desc: 'Initiate legal review for boundary overlap, partition grievances, or illegal encroachment.',
-      sla: '30 Days Statutory SLA',
+      title: t('raiseRequestPage.service.disputeTitle', 'Boundary Dispute / Encumbrance Grievance'),
+      desc: t('raiseRequestPage.service.disputeDesc', 'File formal complaints against encroaching or conflicting claims.'),
+      sla: t('raiseRequestPage.service.disputeSla', '15 Business Days'),
       Icon: MessageSquareWarning,
       accent: 'red',
     },
     {
       type: 'DOCUMENT_VERIFICATION_REQUEST',
-      title: 'Encumbrance & Document Verification',
-      desc: 'Verification of the ownership documents currently on file for this parcel.',
-      sla: 'Instant / 24 Hours',
+      title: t('raiseRequestPage.service.verificationTitle', 'Document Re-Verification Request'),
+      desc: t('raiseRequestPage.service.verificationDesc', 'Request official survey re-verification of property deeds.'),
+      sla: t('raiseRequestPage.service.verificationSla', '5 Business Days'),
       Icon: ShieldCheck,
       accent: 'brand',
     },
@@ -77,46 +106,91 @@ const RaiseRequestPage: React.FC = () => {
       )}
 
       <BackButton />
+      
       {/* Header */}
       <div className="pb-4 border-b border-gov-border">
         <div className="flex items-center gap-2 text-action-700 text-xs font-mono font-semibold uppercase tracking-wider mb-1">
           <Send className="w-4 h-4" />
-          <span>Citizen Revenue Portal · Application Submission</span>
+          <span>{t('raiseRequestPage.pageSubtitle', 'Grievance Redressal & Citizen Requests')}</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-heading">
-          {t('citizenPortal.raiseRequestHeading', 'Raise Service Request')}
+          {t('citizenPortal.raiseRequestHeading', 'Raise Service Request / Complaint')}
         </h1>
         <p className="text-xs sm:text-sm text-text-secondary mt-1">
-          Select one of your registered land parcels to initiate a revenue workflow with guaranteed officer SLA.
+          {t('raiseRequestPage.pageDesc', 'File formal land administration requests, corrections, or disputes.')}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-text-muted">Loading your registered parcels…</div>
-      ) : data?.total === 0 ? (
-        <div className="gov-card p-8 text-center bg-surface-2 border border-gov-border">
-          <MapPin className="w-10 h-10 mx-auto text-text-muted mb-3" />
-          <h3 className="font-heading font-bold text-base text-text-heading">
-            No registered parcels on your profile
-          </h3>
-          <p className="text-xs text-text-secondary mt-1 max-w-md mx-auto">
-            You can search public cadastre parcels or file an ownership claim under SVAMITVA to link your agricultural or residential land.
-          </p>
+        <div className="py-12 text-center text-sm text-text-muted">
+          {t('raiseRequestPage.loadingParcels', 'Loading your land holdings...')}
+        </div>
+      ) : registeredParcels.length === 0 ? (
+        /* Empty State / Gate: No Registered Parcels */
+        <div className="gov-card p-8 sm:p-10 text-center bg-surface-2 border-2 border-gov-border shadow-hard-sm space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 dark:bg-amber-950/40 text-amber-700 flex items-center justify-center border border-amber-300 dark:border-amber-800">
+            <MapPin className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="font-heading font-bold text-lg text-text-heading">
+              {t('raiseRequestPage.noParcelsHeading', 'No registered parcels on your profile')}
+            </h3>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              {t(
+                'raiseRequestPage.noParcelsDesc',
+                'A citizen can only raise complaints or requests against parcels linked and verified on their profile. Please link a parcel to unlock the request form.'
+              )}
+            </p>
+          </div>
+
+          {pendingParcels.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-xs text-amber-800 dark:text-amber-300 max-w-md mx-auto flex items-center justify-center gap-2">
+              <Clock className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>
+                {t(
+                  'raiseRequestPage.pendingParcelsNotice',
+                  'You have {{count}} parcel(s) currently under officer review.',
+                  { count: pendingParcels.length }
+                )}
+              </span>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => navigate('/citizen/parcels?from=raise-request')}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs uppercase tracking-wider shadow-hard-sm transition active:scale-98"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t('raiseRequestPage.linkParcelButton', 'Link a Parcel to Get Started')}</span>
+            </button>
+          </div>
         </div>
       ) : (
+        /* Normal Request Flow */
         <div className="space-y-6">
           {/* Step 1: Parcel Selection */}
           <div className="gov-card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-6 h-6 rounded-full bg-brand-900 text-white text-xs font-bold flex items-center justify-center font-mono">
-                1
-              </span>
-              <label
-                htmlFor="raiseRequestParcelSelect"
-                className="text-sm font-heading font-bold text-text-heading"
-              >
-                Select Target Land Parcel
-              </label>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-brand-900 text-white text-xs font-bold flex items-center justify-center font-mono">
+                  1
+                </span>
+                <label
+                  htmlFor="raiseRequestParcelSelect"
+                  className="text-sm font-heading font-bold text-text-heading"
+                >
+                  {t('raiseRequestPage.selectParcelLabel', 'Select Verified Parcel')}
+                </label>
+              </div>
+
+              {pendingParcels.length > 0 && (
+                <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300">
+                  {pendingParcels.length} pending review
+                </span>
+              )}
             </div>
 
             <select
@@ -125,10 +199,10 @@ const RaiseRequestPage: React.FC = () => {
               onChange={(e) => setSelectedParcelId(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gov-border bg-surface-1 text-text-heading font-mono text-sm focus:outline-none focus:border-brand-700"
             >
-              <option value="">-- Choose a parcel to apply against --</option>
-              {data?.parcels.map((parcel) => (
+              <option value="">{t('raiseRequestPage.parcelSelectPlaceholder', '-- Select a registered parcel --')}</option>
+              {registeredParcels.map((parcel) => (
                 <option key={parcel.id} value={parcel.id}>
-                  {parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : `Parcel #${parcel.id.substring(0, 8)}`} — {parcel.stateCode}-{parcel.districtCode} ({parcel.areaSqM.toLocaleString()} m²)
+                  {parcel.localId || (parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : `Parcel #${parcel.id.substring(0, 8)}`)} — {parcel.stateCode}-{parcel.districtCode} ({parcel.areaSqM.toLocaleString()} m²)
                 </option>
               ))}
             </select>
@@ -140,18 +214,18 @@ const RaiseRequestPage: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-bold text-brand-900">
-                        {selectedParcel.ulpin || `ID: ${selectedParcel.id.substring(0, 10)}`}
+                        {selectedParcel.localId || selectedParcel.ulpin || `ID: ${selectedParcel.id.substring(0, 10)}`}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-green-100 text-green-800">
-                        Active Holding
+                        {t('raiseRequestPage.activeHoldingBadge', 'Verified Holding')}
                       </span>
                     </div>
                     <p className="text-xs text-text-secondary mt-1">
-                      Region: <span className="font-semibold text-text-heading">{selectedParcel.stateCode} / District {selectedParcel.districtCode}</span> · Sub-division: <span className="font-mono">{selectedParcel.localBodyCode}</span>
+                      {t('raiseRequestPage.regionLabel', 'Region')}: <span className="font-semibold text-text-heading">{selectedParcel.stateCode} / District {selectedParcel.districtCode}</span> · Locality: <span className="font-mono">{selectedParcel.localBodyCode}</span>
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-mono text-text-muted">Total Registered Area</span>
+                    <span className="text-xs font-mono text-text-muted">{t('raiseRequestPage.totalRegisteredAreaLabel', 'Registered Area')}</span>
                     <p className="text-base font-heading font-bold text-brand-900">
                       {selectedParcel.areaSqM.toLocaleString()} m²
                     </p>
@@ -170,10 +244,10 @@ const RaiseRequestPage: React.FC = () => {
                 </span>
                 <div>
                   <h2 className="text-sm font-heading font-bold text-text-heading">
-                    Select Revenue Service
+                    {t('raiseRequestPage.selectServiceHeading', 'Select Service Request or Grievance Type')}
                   </h2>
                   <p className="text-xs text-text-secondary">
-                    Choose the type of request to file. Your application will be routed to the jurisdiction officer.
+                    {t('raiseRequestPage.selectServiceDesc', 'Choose the official workflow pipeline for this land record')}
                   </p>
                 </div>
               </div>
@@ -213,7 +287,7 @@ const RaiseRequestPage: React.FC = () => {
                             background: s.accent === 'amber' ? 'var(--action-600)' : 'var(--brand-900)',
                           }}
                         >
-                          <span>Apply Now</span>
+                          <span>{t('raiseRequestPage.applyNowButton', 'Continue to Request Form')}</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       </div>

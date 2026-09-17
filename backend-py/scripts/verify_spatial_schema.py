@@ -1,0 +1,6 @@
+from app.database import engine
+
+with engine.connect() as c:
+    print('types=', c.exec_driver_sql("select table_name,column_name,data_type,udt_name from information_schema.columns where table_schema='public' and ((table_name,column_name) in (('parcels','geometry'),('zoning_overlays','geometry'),('restriction_zones','geometry'),('infrastructure_features','geometry'),('admin_map_notes','geometry'),('change_detection_events','geometry'),('zoning_overlays','parcelIds'),('restriction_zones','affectedParcelIds'),('change_detection_events','affectedParcelIds'))) order by table_name,column_name").all())
+    print('counts=', c.exec_driver_sql("select (select count(*) from parcels),(select count(*) from zoning_overlays),(select count(*) from restriction_zones),(select count(*) from infrastructure_features),(select count(*) from change_detection_events)").all())
+    print('valid=', c.exec_driver_sql("select (select count(*) from parcels where geometry is not null and st_isvalid(geometry)), (select count(*) from zoning_overlays where geometry is not null and st_isvalid(geometry)), (select count(*) from restriction_zones where geometry is not null and st_isvalid(geometry)), (select count(*) from infrastructure_features where geometry is not null and st_isvalid(geometry))").all())

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import { Users, BarChart3, ShieldAlert, ShieldCheck, Activity, Database, Server } from 'lucide-react';
 import AnalyticsDashboard from '../../features/analytics/AnalyticsDashboard';
 import TopRiskParcels from '../../features/analytics/TopRiskParcels';

@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../context/LanguageContext';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import '../map/maplibreWorkerUrl';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { SpatialFeatureCollection } from '../../types/spatial';
