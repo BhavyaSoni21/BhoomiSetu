@@ -26,6 +26,8 @@ interface MapComponentProps {
   showLayerPanel?: boolean;
   /** Bump this (e.g. ++) to re-fit the map to the selected parcel's cluster/context on demand - the contextual zoom below otherwise only runs once, when `context` itself first loads (React Query caches it), so a "Locate" button needs an explicit way to ask for it again even when nothing about the selection has actually changed. */
   recenterSignal?: number;
+  /** Pan/zoom to these bounds (e.g. a cluster picked from a dropdown) and, since the base parcels layer is itself bbox-scoped (see viewBbox below), this also confines the "load every parcel in view" fetch to that cluster instead of whatever the map happened to be showing before - the same nationwide-fetch problem `parcels`/`fitToParcels` solves for callers who already have their own parcel list. */
+  focusBounds?: { minLng: number; minLat: number; maxLng: number; maxLat: number } | null;
 }
 
 type LayerKey =
@@ -172,6 +174,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   visibleLayerKeys,
   showLayerPanel = true,
   recenterSignal,
+  focusBounds,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -500,6 +503,21 @@ const MapComponent: React.FC<MapComponentProps> = ({
       if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
     }
   }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady]);
+
+  // Fit to an explicitly-picked cluster's bounds (e.g. OfficerMapPage's
+  // cluster dropdown). This also narrows the base parcels fetch below to
+  // that cluster, since it's scoped to the current viewport bbox.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !focusBounds) return;
+    map.fitBounds(
+      [
+        [focusBounds.minLng, focusBounds.minLat],
+        [focusBounds.maxLng, focusBounds.maxLat],
+      ],
+      { padding: 60, maxZoom: 17 },
+    );
+  }, [focusBounds, mapReady]);
 
   // Same-district layer.
   useEffect(() => {

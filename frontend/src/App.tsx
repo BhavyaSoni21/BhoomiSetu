@@ -1,21 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation, SupportedLanguage } from './context/LanguageContext';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock } from 'lucide-react';
-import Parcel360View from './features/parcels/Parcel360View';
-import HomePage from './pages/HomePage';
-import CitizenPortal from './pages/CitizenPortal';
-import OfficerPortal from './pages/OfficerPortal';
-import AdminPortal from './pages/AdminPortal';
-import VerifierPortal from './pages/VerifierPortal';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import AboutPage from './pages/AboutPage';
-import FeaturesPage from './pages/FeaturesPage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsOfUsePage from './pages/TermsOfUsePage';
-import ContactUsPage from './pages/ContactUsPage';
 import Footer from './components/Footer';
+
+// Route-level code splitting - each page (and everything it only itself
+// imports, e.g. maplibre-gl via Parcel360View/CitizenPortal's map views) now
+// ships in its own chunk instead of every page's code loading on every route.
+const Parcel360View = lazy(() => import('./features/parcels/Parcel360View'));
+const HomePage = lazy(() => import('./pages/HomePage'));
+const CitizenPortal = lazy(() => import('./pages/CitizenPortal'));
+const OfficerPortal = lazy(() => import('./pages/OfficerPortal'));
+const AdminPortal = lazy(() => import('./pages/AdminPortal'));
+const VerifierPortal = lazy(() => import('./pages/VerifierPortal'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsOfUsePage = lazy(() => import('./pages/TermsOfUsePage'));
+const ContactUsPage = lazy(() => import('./pages/ContactUsPage'));
 import RequireAuth from './features/auth/RequireAuth';
 import { useAuthUser, useLogout } from './features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS } from './features/officer/officerAuth';
@@ -351,6 +355,7 @@ function AppShell() {
 
       {/* ── Main Content Area with GIGW ID ── */}
       <main id="main-content" className="flex-1 min-h-0">
+        <Suspense fallback={<div className="flex items-center justify-center py-24 text-[var(--text-secondary)]">Loading…</div>}>
         <Routes>
           <Route
             path="/"
@@ -406,6 +411,7 @@ function AppShell() {
             }
           />
         </Routes>
+        </Suspense>
       </main>
 
       {/* ── Official Site Footer ── */}

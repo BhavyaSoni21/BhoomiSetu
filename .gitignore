@@ -81,3 +81,10 @@ backend/uploads/
 .DS_Store
 Thumbs.db
 
+# Test artifacts
+test*.pdf
+backend-py/_img.png
+
+# Graphify cache
+graphify-out/cache/
+

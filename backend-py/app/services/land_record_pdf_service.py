@@ -11,7 +11,9 @@ from datetime import date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.common.land_record_adapters import adapt_land_records_result
 from app.common.parcel_generation.cluster_generator import CLUSTER_CONFIGS
+from app.services import land_records_lookup_service
 from app.config import get_settings
 from app.models.department_record import RegistrationRecord, TaxRecord
 from app.models.parcel import CropRecord, OwnershipHistoryRecord, Parcel, ParcelIdentifier
@@ -177,6 +179,23 @@ def build_land_record_pdf_data(db: Session, parcel: Parcel) -> LandRecordPDFData
     ownership_history = (
         db.query(OwnershipHistoryRecord).filter_by(parcel_id=str(parcel.id)).order_by(OwnershipHistoryRecord.transaction_date.asc()).all()
     )
+
+    # Fallback: if no ownership history, try to get current owner from land records
+    if not ownership_history:
+        land_records_result = land_records_lookup_service.find_by_parcel_id(db, str(parcel.id))
+        if land_records_result and land_records_result != land_records_lookup_service.PARCEL_NOT_FOUND:
+            adapted = adapt_land_records_result(land_records_result)
+            # Create a synthetic ownership row with current owner from land records
+            ownership_history = [
+                type('SyntheticOwnershipRecord', (), {
+                    'khata_number': None,
+                    'owner_name': adapted.owner_name,
+                    'transaction_type': 'CURRENT',
+                    'transaction_date': datetime.now().date(),
+                    'document_reference': None,
+                })()
+            ]
+
     ownership_rows = [
         OwnershipRow(
             khata_number=row.khata_number,

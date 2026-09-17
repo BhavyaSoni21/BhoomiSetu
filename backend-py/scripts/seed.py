@@ -5,11 +5,9 @@ records, demo accounts) against backend-py's own database
 (bhoomisetu_py), using the shared parcel-generation/common package ported
 earlier. Run inside the backend-py container: `python -m scripts.seed`.
 
-Real OCR (backend/src/document-verification/ocr.ts) is deliberately NOT
-ported here - PYTHON_MIGRATION_PLAN.md §3 schedules it "with ParcelsModule
-(built first of its two consumers)", not now. Parcel documents below get
-`extracted_text=None` instead of a real OCR pass; this script will be
-updated to call the real port once ParcelsModule lands.
+Parcel documents below run the same real OCR pass as backend/seed.ts did
+(`document_verification.ocr.extract_text`, ParcelsModule's own OCR port -
+BACKLOG.md item 25).
 """
 
 import bcrypt
@@ -25,6 +23,7 @@ from app.common.geo_utils import point_in_ring, polygon_distance_meters
 from app.common.parcel_generation.cluster_generator import CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generate_cluster_parcels
 from app.common.parcel_generation.parcel_category import CURRENT_YEAR
 from app.common.parcel_generation.parcel_document_generator import ParcelDocumentFields, render_parcel_document_image
+from app.document_verification.ocr import extract_text
 from app.common.supabase_storage import ensure_storage_bucket_exists, upload_to_storage
 from app.database import SessionLocal
 from app.models.admin import Department
@@ -1023,7 +1022,7 @@ def seed_database() -> None:
                     file_name=file_name,
                     file_path=file_path,
                     mime_type="image/png",
-                    extracted_text=None,
+                    extracted_text=extract_text(png).text,
                     registration_status=registration_status,
                 )
             )

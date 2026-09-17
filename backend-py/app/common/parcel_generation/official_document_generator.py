@@ -23,6 +23,27 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 
 from app.services.land_record_pdf_service import LandRecordPDFData
 
+# Full display name per state_code (CLUSTER_CONFIGS's own set of 30 codes -
+# see cluster_generator.py) - the subtitle/emblem below are state-specific
+# rather than hardcoded to Maharashtra, but the exact rule number/year per
+# state's own land revenue rules isn't modelled anywhere in this codebase,
+# so the citation names the real state without asserting a specific rule
+# number for states this project hasn't verified one for.
+_STATE_NAMES: dict[str, str] = {
+    "AP": "Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": "Assam", "BR": "Bihar",
+    "CG": "Chhattisgarh", "CH": "Chandigarh", "DL": "Delhi", "GA": "Goa", "GJ": "Gujarat",
+    "HP": "Himachal Pradesh", "HR": "Haryana", "JH": "Jharkhand", "KA": "Karnataka",
+    "KL": "Kerala", "MH": "Maharashtra", "ML": "Meghalaya", "MN": "Manipur",
+    "MP": "Madhya Pradesh", "MZ": "Mizoram", "NL": "Nagaland", "OD": "Odisha",
+    "PB": "Punjab", "RJ": "Rajasthan", "SK": "Sikkim", "TG": "Telangana", "TN": "Tamil Nadu",
+    "TR": "Tripura", "UK": "Uttarakhand", "UP": "Uttar Pradesh", "WB": "West Bengal",
+}
+
+
+def _state_name(state_code: str) -> str:
+    return _STATE_NAMES.get(state_code, state_code)
+
+
 _FONT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "static" / "fonts" / "NotoSansDevanagari-Regular.ttf"
 _DEV_FONT = "NotoSansDevanagari"
 _font_registered = False
@@ -47,8 +68,8 @@ def _fonts_for(lang: str) -> tuple[str, str]:
 
 
 _TRANSACTION_TYPE_LABELS = {
-    "en": {"ORIGINAL": "Original Grant", "SALE": "Sale", "GIFT": "Gift", "INHERITANCE": "Inheritance", "PARTITION": "Partition"},
-    "hi": {"ORIGINAL": "मूळ नोंद", "SALE": "विक्री", "GIFT": "देणगी", "INHERITANCE": "वारसा हक्क", "PARTITION": "वाटणी"},
+    "en": {"ORIGINAL": "Original Grant", "SALE": "Sale", "GIFT": "Gift", "INHERITANCE": "Inheritance", "PARTITION": "Partition", "CURRENT": "Current Owner"},
+    "hi": {"ORIGINAL": "मूळ नोंद", "SALE": "विक्री", "GIFT": "देणगी", "INHERITANCE": "वारसा हक्क", "PARTITION": "वाटणी", "CURRENT": "वर्तमान मालक"},
 }
 _SEASON_LABELS = {
     "en": {"KHARIF": "Kharif", "RABI": "Rabi", "SUMMER": "Summer"},
@@ -69,7 +90,7 @@ _L = {
         "village": "Village", "pu_id": "PU-ID", "taluka": "Taluka", "district": "District",
         "survey_no": "Survey No. & Sub-Division",
         "main_title": "VILLAGE FORM SEVEN (Record of Rights)",
-        "subtitle": "[Prepared under the applicable state Land Revenue Records & Registers (Preparation & Maintenance) Rules]",
+        "subtitle": "[Prepared under the {state} Land Revenue Records & Registers (Preparation & Maintenance) Rules]",
         "tenure": "Land Tenure Type", "occupant_class": "Occupant Class - {cls}",
         "col_khata": "Khata\nNo.", "col_name": "Occupant's Name", "col_area": "Area",
         "col_assess": "Assessment", "col_vfund": "Village\nFund", "col_other_no": "Other\nNo.",
@@ -78,7 +99,7 @@ _L = {
         "mutation_line": "Latest Mutation No.: {mno}   Dated: {mdt}",
         "notice": "NOTICE: The information displayed here cannot be used for any government or legal purpose.",
         "form12_title": "VILLAGE FORM TWELVE (Register of Crops)",
-        "form12_subtitle": "[Prepared under the applicable state Land Revenue Records & Registers (Preparation & Maintenance) Rules]",
+        "form12_subtitle": "[Prepared under the {state} Land Revenue Records & Registers (Preparation & Maintenance) Rules]",
         "col_year": "Year", "col_season": "Season", "col_khata2": "Khata\nNo.",
         "col_ctype": "Crop\nType", "col_cname": "Crop\nName",
         "col_irr": "Irrigated", "col_unirr": "Un-\nirrigated", "col_source": "Irrigation\nSource",
@@ -98,7 +119,7 @@ _L = {
         "village": "गाव", "pu_id": "पी.यू.-आयडी", "taluka": "तालुका", "district": "जिल्हा",
         "survey_no": "भूमापन क्रमांक व उपविभाग",
         "main_title": "गाव नमुना सात (अधिकार अभिलेख पत्रक)",
-        "subtitle": "[संबंधित राज्याच्या जमीन महसूल अधिकार अभिलेख आणि नोंदवही नियमांन्वये तयार]",
+        "subtitle": "[{state} राज्याच्या जमीन महसूल अधिकार अभिलेख आणि नोंदवही नियमांन्वये तयार]",
         "tenure": "भू-धारणा पध्दती", "occupant_class": "भोगवटादार वर्ग - {cls}",
         "col_khata": "खाते\nक्र.", "col_name": "भोगवटादाराचे नाव", "col_area": "क्षेत्र",
         "col_assess": "आकारणी", "col_vfund": "गा.\nख.", "col_other_no": "इतर\nक्र.",
@@ -107,7 +128,7 @@ _L = {
         "mutation_line": "अंतिम फेरफार क्र.: {mno}   दिनांक: {mdt}",
         "notice": "सूचना: या ठिकाणी दर्शविलेली माहिती ही कोणत्याही शासकीय अथवा कायदेशीर बाबीसाठी वापरता येणार नाही.",
         "form12_title": "गाव नमुना बारा (पिकांची नोंदवही)",
-        "form12_subtitle": "[संबंधित राज्याच्या जमीन महसूल अधिकार अभिलेख आणि नोंदवही नियमांन्वये तयार]",
+        "form12_subtitle": "[{state} राज्याच्या जमीन महसूल अधिकार अभिलेख आणि नोंदवही नियमांन्वये तयार]",
         "col_year": "वर्ष", "col_season": "हंगाम", "col_khata2": "खाते\nक्र.",
         "col_ctype": "पिकाचा\nप्रकार", "col_cname": "पिकाचे\nनाव",
         "col_irr": "जल सिंचित", "col_unirr": "अजल\nसिंचित", "col_source": "जल सिंचनाचे\nसाधन",
@@ -127,6 +148,19 @@ _L = {
 
 def _fmt_date(value) -> str:
     return value.strftime("%d/%m/%Y") if value else "-"
+
+
+_SQM_PER_HECTARE = 10000
+_SQM_PER_ARE = 100
+
+
+def _fmt_area(area_sq_m: float) -> str:
+    """Hectare.Are.SqM notation (e.g. "0.27.00") - how a real Form 7/12
+    extract shows area, not raw square metres."""
+    total = round(area_sq_m)
+    hectares, remainder = divmod(total, _SQM_PER_HECTARE)
+    ares, sq_m = divmod(remainder, _SQM_PER_ARE)
+    return f"{hectares}.{ares:02d}.{sq_m:02d}"
 
 
 def _para(text, font: str, size: float = 7, bold: bool = False, bold_font: str | None = None, align=TA_CENTER) -> Paragraph:
@@ -169,8 +203,8 @@ def _build_form7_table(data: LandRecordPDFData, lang: str, font: str, font_b: st
             rows.append([
                 _para(row.khata_number or t["not_available"], font, 7),
                 _para(name_line, font, 7, align=TA_LEFT),
-                _para(f"{row.area_sq_m:,.0f} sqm", font, 7),
-                _para(f"{row.assessment:,.0f}" if row.assessment is not None else t["not_available"], font, 7),
+                _para(_fmt_area(row.area_sq_m), font, 7),
+                _para(f"{row.assessment:,.2f}" if row.assessment is not None else t["not_available"], font, 7),
                 _para(row.village_fund or t["not_available"], font, 7),
                 _para(row.other_number or t["not_available"], font, 7),
                 _para(row.other_rights or t["not_available"], font, 7, align=TA_LEFT),
@@ -205,10 +239,10 @@ def _build_form12_table(data: LandRecordPDFData, lang: str, font: str, font_b: s
                 _para(row.khata_number or t["not_available"], font, 6.5),
                 _para(crop_type_labels.get(row.crop_type, row.crop_type), font, 6.5),
                 _para(row.crop_name, font, 6.5),
-                _para(f"{row.irrigated_area_sq_m:,.0f}", font, 6.5),
-                _para(f"{row.unirrigated_area_sq_m:,.0f}", font, 6.5),
+                _para(_fmt_area(row.irrigated_area_sq_m), font, 6.5),
+                _para(_fmt_area(row.unirrigated_area_sq_m), font, 6.5),
                 _para(irr_labels.get(row.irrigation_source, t["not_available"]) if row.irrigation_source else t["not_available"], font, 6.5),
-                _para(f"{row.uncultivable_area_sq_m:,.0f}", font, 6.5),
+                _para(_fmt_area(row.uncultivable_area_sq_m), font, 6.5),
                 _para(row.remark or t["not_available"], font, 6.5),
             ])
 
@@ -245,7 +279,7 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     # ---- Top row: emblem box (left) + report date + QR (right) ----
     c.setFont(font, 7)
     c.rect(margin, y - 42, 42, 42)
-    c.drawCentredString(margin + 21, y - 24, "BS")
+    c.drawCentredString(margin + 21, y - 24, f"Go{p.state_code}")
 
     c.drawRightString(width - margin, y - 8, f"{t['report_date']}: {_fmt_date(data.generated_at.date())}")
     qr_reader = _qr_image(p.parcel_url)
@@ -273,7 +307,7 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     c.drawCentredString(width / 2, y, t["main_title"])
     y -= 13
     c.setFont(font, 7)
-    c.drawCentredString(width / 2, y, t["subtitle"])
+    c.drawCentredString(width / 2, y, t["subtitle"].format(state=_state_name(p.state_code)))
     y -= 16
 
     # ---- Village info block ----
@@ -317,7 +351,7 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     c.drawCentredString(width / 2, y, t["form12_title"])
     y -= 12
     c.setFont(font, 7)
-    c.drawCentredString(width / 2, y, t["form12_subtitle"])
+    c.drawCentredString(width / 2, y, t["form12_subtitle"].format(state=_state_name(p.state_code)))
     y -= 14
 
     c.setFont(font, 8)
@@ -339,7 +373,7 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     c.drawCentredString(width / 2, y, t["notice"])
     y -= 14
 
-    c.setFont(font, 6.5)
+    c.setFont(font, 6.5)    
     c.drawCentredString(width / 2, y, t["auto_note"])
     y -= 9
     c.drawCentredString(width / 2, y, f"{t['generated_on']}: {data.generated_at.strftime('%d/%m/%Y %H:%M:%S')}")

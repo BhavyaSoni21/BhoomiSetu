@@ -76,7 +76,10 @@ class CategorizedParcel:
 
 
 def list_clusters(db: Session) -> list[dict[str, Any]]:
-    cluster_ids = [row[0] for row in db.query(Parcel.cluster_id).distinct().order_by(Parcel.cluster_id).all()]
+    cluster_ids = [
+        row[0]
+        for row in db.query(Parcel.cluster_id).filter(Parcel.cluster_id.isnot(None)).distinct().order_by(Parcel.cluster_id).all()
+    ]
     return [{"clusterId": cluster_id, "years": SNAPSHOT_YEARS} for cluster_id in cluster_ids]
 
 
