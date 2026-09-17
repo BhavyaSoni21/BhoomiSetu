@@ -32,6 +32,7 @@ from app.models.parcel import (
     ParcelIdentifier,
     ParcelNeighbour,
 )
+from app.models.workflow import Workflow
 from app.services.land_record_pdf_service import build_land_record_pdf_data
 
 _DEFAULT_NEIGHBOUR_DISTANCE_M = 200
@@ -53,13 +54,41 @@ def _to_parcel_feature(parcel: Parcel) -> dict[str, Any]:
 
 
 def find_mine(db: Session, citizen_id: str) -> dict[str, Any]:
-    # CitizenParcel has no `parcel` relationship() (plain citizen_id/
-    # parcel_id FK columns only, see app/models/parcel.py) - one query for
-    # the links, one for the parcels themselves.
     links = db.query(CitizenParcel).filter_by(citizen_id=citizen_id).all()
+    link_by_parcel_id = {str(link.parcel_id): link for link in links}
     parcel_ids = [link.parcel_id for link in links]
     parcels = db.query(Parcel).options(joinedload(Parcel.identifiers)).filter(Parcel.id.in_(parcel_ids)).all() if parcel_ids else []
+    for parcel in parcels:
+        link = link_by_parcel_id.get(str(parcel.id))
+        if link:
+            parcel.status = getattr(link, "status", None) or "Registered"
+            parcel.local_id = getattr(link, "local_id", None)
+            parcel.verification_report = getattr(link, "verification_report", None)
+        else:
+            parcel.status = "Registered"
+            parcel.local_id = None
+            parcel.verification_report = None
     return {"parcels": parcels, "total": len(parcels)}
+
+
+def delete_citizen_parcel(db: Session, citizen_id: str, parcel_id: str) -> bool:
+    """Unlinks a parcel from a citizen profile and dismisses pending verification workflows."""
+    link = db.query(CitizenParcel).filter_by(citizen_id=citizen_id, parcel_id=parcel_id).first()
+    if not link:
+        return False
+
+    # Also clean up / cancel any associated pending workflows for this citizen & parcel
+    workflows = db.query(Workflow).filter_by(parcel_id=parcel_id, citizen_id=citizen_id).all()
+    for wf in workflows:
+        if wf.workflow_type == "DOCUMENT_VERIFICATION_REQUEST":
+            db.delete(wf)
+        elif wf.status in ("IN_PROGRESS", "PENDING", "PENDING_REVIEW"):
+            wf.status = "REJECTED"
+            wf.comments = "Claim deleted/withdrawn by citizen"
+
+    db.delete(link)
+    db.commit()
+    return True
 
 
 def is_citizen_associated_with_parcel(db: Session, citizen_id: str, parcel_id: str) -> bool:

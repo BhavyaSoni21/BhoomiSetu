@@ -55,6 +55,8 @@ import {
 import { useTranslation } from '../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
 import ParcelSearchModal from '../components/landing/ParcelSearchModal';
+import { SchemesMarquee } from '../components/landing/SchemesMarquee';
+import { GOVT_SCHEMES } from '../data/govtSchemes';
 import { useTheme } from '../theme/theme';
 import apiService from '../services/apiService';
 import MapComponent from '../features/map/MapComponent';
@@ -250,6 +252,11 @@ export const BhoomiSetuLanding: React.FC = () => {
               </div>
             </div>
         </section>
+
+        {/* ========================================================================= */}
+        {/* 04B. GOVERNMENT SCHEMES MARQUEE (AUTO-SCROLLING TICKER)                  */}
+        {/* ========================================================================= */}
+        <SchemesMarquee schemes={GOVT_SCHEMES} />
 
         {/* ========================================================================= */}
         {/* 05. FEATURE CARDS GRID & LIVE GIS PREVIEW                                 */}

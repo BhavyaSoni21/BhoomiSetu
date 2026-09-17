@@ -393,8 +393,15 @@ def review_step(db: Session, workflow_id: str, step_id: str, action: str, remark
     # whole workflow is APPROVED, which for these two single-step
     # pipelines means exactly this step.
     if action == "APPROVE" and workflow.current_status == "APPROVED":
-        if workflow.workflow_type == "LAND_CLAIM_REQUEST" and workflow.citizen_id:
-            db.add(CitizenParcel(citizen_id=workflow.citizen_id, parcel_id=workflow.parcel_id))
+        if workflow.workflow_type in ("LAND_CLAIM_REQUEST", "DOCUMENT_VERIFICATION_REQUEST") and workflow.citizen_id:
+            citizen_link = db.scalars(select(CitizenParcel).where(
+                CitizenParcel.citizen_id == workflow.citizen_id,
+                CitizenParcel.parcel_id == workflow.parcel_id,
+            )).first()
+            if citizen_link:
+                citizen_link.status = "Registered"
+            else:
+                db.add(CitizenParcel(citizen_id=workflow.citizen_id, parcel_id=workflow.parcel_id, status="Registered"))
             db.flush()
         if workflow.workflow_type in VERIFICATION_WORKFLOW_TYPES:
             fresh_evidence = (
@@ -403,6 +410,15 @@ def review_step(db: Session, workflow_id: str, step_id: str, action: str, remark
                 else None
             )
             _mark_parcel_document_registered(db, workflow.parcel_id, fresh_evidence)
+    elif action == "REJECT":
+        if workflow.workflow_type in ("LAND_CLAIM_REQUEST", "DOCUMENT_VERIFICATION_REQUEST") and workflow.citizen_id:
+            citizen_link = db.scalars(select(CitizenParcel).where(
+                CitizenParcel.citizen_id == workflow.citizen_id,
+                CitizenParcel.parcel_id == workflow.parcel_id,
+            )).first()
+            if citizen_link:
+                citizen_link.status = "Rejected"
+                db.flush()
 
     _notify_citizen_of_step_decision(db, workflow, step)
 

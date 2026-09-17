@@ -1,9 +1,11 @@
 import io
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from app.document_verification.authenticity import check_authenticity
+from app.document_verification.ocr import extract_text
 
 
 def _png_bytes(array: np.ndarray) -> bytes:
@@ -26,6 +28,24 @@ def test_a_sharp_textured_image_is_not_flagged():
     result = check_authenticity(_png_bytes(checkerboard))
     assert not result.suspicious
     assert result.reasons == []
+
+
+def test_extract_text_returns_empty_result_when_tesseract_is_missing(monkeypatch):
+    import pytesseract
+
+    def _raise_missing(*args, **kwargs):
+        raise pytesseract.TesseractNotFoundError()
+
+    monkeypatch.setattr(pytesseract, "image_to_data", _raise_missing)
+    monkeypatch.setattr(pytesseract, "image_to_string", _raise_missing)
+
+    image = Image.new("RGB", (100, 100), color=(255, 255, 255))
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    result = extract_text(buffer.getvalue())
+    assert result.text == ""
+    assert result.confidence == 0.0
 
 
 if __name__ == "__main__":
