@@ -340,24 +340,29 @@ Beyond the phase numbering above, the entire backend was subsequently **rewritte
 
 ## Mock Data
 
-`backend-py/scripts/seed.py` (ported 1:1 from the original `backend/seed.ts`) generates exactly 220 mock parcels in five geographically real demo regions rather than scattering them randomly across India:
+`backend-py/scripts/seed.py` (ported 1:1 from the original `backend/seed.ts`, then enhanced 2026-09-18 with road-snapping and standard Indian residential plot sizes) generates **~6,120 parcels** across 58 clusters in 30 districts rather than scattering them randomly across India:
 
 | Cluster | State | District | Parcels |
 |---|---|---|---|
-| Pune | MH | Pune | 100 (primary GIS demo cluster) |
-| Chennai | TN | Chennai | 40 |
-| Bangalore | KA | Bangalore | 40 |
-| New Delhi | DL | New Delhi | 20 |
-| Chandigarh | CH | Chandigarh | 20 (added 2026-09-09 - Chandigarh and Tamil Nadu are the two actual pilot locations named in the official "Land Stack" problem statement) |
+| Pune | MH | Pune | 150 (primary GIS demo cluster) |
+| Chennai | TN | Chennai | 80 |
+| Bangalore | KA | Bangalore | 80 |
+| New Delhi | DL | New Delhi | 50 |
+| Chandigarh | CH | Chandigarh | 50 (Chandigarh and Tamil Nadu are the two actual pilot locations named in the official "Land Stack" problem statement) |
+| + 53 auto-generated clusters (28 states × city + village) | | | 5,710 |
 
-- **Irregular, topology-aware subdivision** (`backend/src/common/parcel-generation/`), not a uniform grid: each cluster gets its own irregular convex envelope (a jittered-ellipse point cloud reduced to its convex hull, oriented along a per-cluster "dominant road angle" so no two clusters look alike), recursively split into that cluster's parcel count via randomly-angled cuts. Most splits share an exact boundary (so adjacent parcels are built from the literal same coordinates); some leave a small real gap instead. Leaves range from triangles to heptagons, with genuinely varied sizes - the greedy "always split the largest piece" strategy alone produces that variance, with a compactness guard against paper-thin sliver shapes.
+- **Irregular, topology-aware subdivision with road-snapping** (`backend-py/app/common/parcel_generation/`), not a uniform grid: each cluster gets its own irregular convex envelope (a jittered-ellipse point cloud reduced to its convex hull, oriented along a per-cluster **dominant road angle from local OSM PBF roads**), recursively split into that cluster's parcel count via randomly-angled cuts. Parcel boundaries are **snapped to nearby road edges** (30m radius) so parcels align with real streets.
+- **Standard Indian residential plot sizes**: Small 600-1,000 sq ft (55-93 sq m), Medium 1,200-1,500 sq ft (111-139 sq m, 30×40/30×50 ft), Large 2,400+ sq ft (223+ sq m, 40×60 ft) - distribution: 45% small, 35% medium, 20% large. Regional units: Guntha (1,089 sq ft, Maharashtra/Karnataka), Cent (435.6 sq ft, South), Ground (2,400 sq ft, Tamil Nadu).
+- Most splits share an exact boundary (so adjacent parcels are built from the literal same coordinates); some leave a small real gap instead. Leaves range from triangles to heptagons, with genuinely varied sizes - the greedy "always split the largest piece" strategy alone produces that variance, with a compactness guard against paper-thin sliver shapes.
 - Every parcel carries a `clusterId` (e.g. `MH-PUNE-01`), and explicit `TOUCHING`/`NEARBY` relationships are precomputed at seed time in a `parcel_neighbours` table from real geometric distance between every pair of parcels in a cluster (an exact shared edge measures 0 → `TOUCHING`; an intentional small gap measures a few metres → `NEARBY`) - the same convention the live PostGIS `ST_Distance`/`ST_DWithin` queries use.
 - Identifier types are state-differentiated: Maharashtra favors Survey Number/ULPIN, Tamil Nadu Survey Number/Subdivision Number, Karnataka Survey Number/Hissa Number, Delhi Plot Number/Property Number - every parcel in every state also gets a Local Parcel ID.
 - The Pune cluster additionally seeds: 3 zoning overlays (residential/commercial/agricultural, latitude-banded across Pune's actual generated extent), a flood restriction zone, 4 infrastructure features (road, water line, 2 electricity points), and a simulated change-detection event - each zone is anchored to a real generated parcel's position and sized until it captures a plausible parcel count, then resolved with a real point-in-polygon test - not hand-picked coordinates.
 - Every Pune/MH parcel gets a State A land record and every New Delhi/DL parcel gets a State B land record, with `areaHectares`/`landExtentSqft` derived from that parcel's real geometry area, and its state-schema identifier matching the same parcel's `parcel_identifiers` row.
 - Every parcel gets Registration/Planning/Tax/Restriction/Dispute/Encumbrance mock records; for Pune, Planning's land use matches the zoning overlay the parcel actually falls in and Restriction's flood flag matches the flood zone. ~12% of parcels get a real dispute on file, ~17% get a real mortgage/lien/charge, and a representative ~50% get a 1-3-entry ownership history chain (the final entry matching the State A/B owner name where one exists).
 - **No `GovernanceAlert` rows are seeded** (removed 2026-09-10) - the flood zone, simulated change-detection event, and tax records above are still seeded normally for their own features, but a governance alert is only ever created by something that actually happens at runtime (see Governance Alerts below), never fabricated at seed time.
-- **Accounts**: 8 officer/admin demo accounts (1 admin + 1 per officer role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the 220 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
+- **Terrain profiles**: Pre-computed `ParcelTerrainProfile` for all parcels via batch spatial joins (elevation, slope, land cover, road proximity, building density, flood risk, constraints) - refreshed via `POST /api/v1/jobs` after terrain ingestion.
+- **Accounts**: 8 officer/admin demo accounts (1 admin + 1 per officer role) and 20 citizen demo accounts, all password `Demo@123`. Each citizen is linked to a random 0-5 of the ~6,120 parcels via a weighted pick (peaked at 1-2, both 0 and 5 rarest), walking a shuffled parcel list so no parcel is ever linked to two citizens.
+- **Local OSM roads**: 313,927 highways extracted from Geofabrik India PBF files (6 zones, Sep 2026) via `scripts/extract_osm_roads.py` (single-pass pyosmium) into `road_networks` table - used for dominant road angle, parcel envelope orientation, road-snapping, and terrain profile road proximity.
 
 ## Documentation
 

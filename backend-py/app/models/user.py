@@ -87,8 +87,7 @@ class User(Base):
     government_id_number: Mapped[str | None] = mapped_column(String, nullable=True)
     occupation: Mapped[str | None] = mapped_column(String, nullable=True)
 
-<<<<<<< HEAD
-    # District assignment for officers - used for jurisdiction-aware request routing.
+# District assignment for officers - used for jurisdiction-aware request routing.
     # Nullable; only meaningful for staff roles (officers/admin/verifier).
     district: Mapped[str | None] = mapped_column(String(40), nullable=True)
 

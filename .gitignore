@@ -90,3 +90,11 @@ graphify-out/cache/
 
 #maps pbf
 map/
+
+# Temporary check/debug scripts
+backend-py/check_*.py
+backend-py/delete_osm_pbf.py
+
+# Temporary auth page files in root
+auth_login_page.tsx
+auth_register_page.tsx

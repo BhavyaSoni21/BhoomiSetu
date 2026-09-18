@@ -75,7 +75,7 @@ def build_google_auth_url(redirect_after_login: str = "/") -> str:
     """
     settings = get_settings()
 
-    if not settings.google_client_id:
+    if not settings.google_oauth_client_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google OAuth is not configured"
@@ -86,8 +86,8 @@ def build_google_auth_url(redirect_after_login: str = "/") -> str:
     _cleanup_expired_states()
 
     params = {
-        "client_id": settings.google_client_id,
-        "redirect_uri": settings.google_redirect_uri,
+        "client_id": settings.google_oauth_client_id,
+        "redirect_uri": settings.google_oauth_redirect_uri or f"{settings.frontend_url}/auth/callback",
         "response_type": "code",
         "scope": "openid email profile",
         "state": state,
@@ -112,7 +112,7 @@ async def exchange_code_for_tokens(code: str) -> dict:
     """
     settings = get_settings()
 
-    if not settings.google_client_id or not settings.google_client_secret:
+    if not settings.google_oauth_client_id or not settings.google_oauth_client_secret:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google OAuth is not configured"
@@ -123,9 +123,9 @@ async def exchange_code_for_tokens(code: str) -> dict:
             _GOOGLE_TOKEN_URL,
             data={
                 "code": code,
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "redirect_uri": settings.google_redirect_uri,
+                "client_id": settings.google_oauth_client_id,
+                "client_secret": settings.google_oauth_client_secret,
+                "redirect_uri": settings.google_oauth_redirect_uri or f"{settings.frontend_url}/auth/callback",
                 "grant_type": "authorization_code",
             },
             timeout=10.0,

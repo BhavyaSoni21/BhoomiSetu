@@ -54,9 +54,9 @@ class Settings(BaseSettings):
     # Credentials from Google Cloud Console > APIs & Services > Credentials.
     # Authorized redirect URI must be set to: <FRONTEND_URL>/auth/callback
     # (e.g. http://localhost:5173/auth/callback for local dev)
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:5173/auth/callback"
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_uri: str = "http://localhost:5173/auth/callback"
 
     # Google Earth Engine - real Sentinel-2 imagery for Change Detection's
     # satellite-sourced analysis path (app/services/earth_engine_service.py).
