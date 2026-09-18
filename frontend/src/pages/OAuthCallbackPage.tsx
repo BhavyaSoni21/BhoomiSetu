@@ -15,6 +15,8 @@ const OAuthCallbackPage: React.FC = () => {
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
 
+  const hasMutated = React.useRef(false);
+
   useEffect(() => {
     if (error) {
       // OAuth error from Google (user denied, invalid request, etc.)
@@ -30,23 +32,26 @@ const OAuthCallbackPage: React.FC = () => {
 
     if (code && state) {
       // Valid callback - exchange code for token
-      googleCallbackMutation.mutate({ code, state }, {
-        onSuccess: (user) => {
-          const dest =
-            user.role === 'ADMIN' ? '/admin' :
-            user.role === 'CITIZEN' ? '/citizen' : '/officer';
-          navigate(dest, { replace: true });
-        },
-        onError: (err) => {
-          console.error('Google OAuth callback failed:', err);
-          navigate('/login', {
-            state: {
-              oauthError: t('authPage.googleCallbackFailed'),
-            },
-            replace: true,
-          });
-        },
-      });
+      if (!hasMutated.current) {
+        hasMutated.current = true;
+        googleCallbackMutation.mutate({ code, state }, {
+          onSuccess: (user) => {
+            const dest =
+              user.role === 'ADMIN' ? '/admin' :
+              user.role === 'CITIZEN' ? '/citizen' : '/officer';
+            navigate(dest, { replace: true });
+          },
+          onError: (err) => {
+            console.error('Google OAuth callback failed:', err);
+            navigate('/login', {
+              state: {
+                oauthError: t('authPage.googleCallbackFailed'),
+              },
+              replace: true,
+            });
+          },
+        });
+      }
     } else {
       // Invalid callback - missing code or state
       navigate('/login', {
@@ -56,7 +61,7 @@ const OAuthCallbackPage: React.FC = () => {
         replace: true,
       });
     }
-  }, [code, state, error, errorDescription, googleCallbackMutation, navigate, t]);
+  }, [code, state, error, errorDescription, navigate, t]);
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex items-center justify-center px-4" style={{ background: 'var(--page-bg)' }}>
