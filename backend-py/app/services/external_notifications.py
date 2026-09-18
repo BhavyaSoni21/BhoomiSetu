@@ -101,3 +101,4 @@ def send_citizen_alert(user: User, message_en: str) -> None:
         daemon=True
     )
     thread.start()
+
