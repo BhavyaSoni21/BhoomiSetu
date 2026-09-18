@@ -40,9 +40,14 @@ JWTs never expire by design (session only ends on explicit logout or admin revok
 
 ## 2. OAuth-based login (Google/etc.) as an additional method
 
-**Status: blocked — needs external provider registration.** Email/mobile+password is the only login path today. Adding OAuth needs a real app registered with a provider (client ID/secret, redirect URIs), which isn't something that can be scoped or built without that account access. No code work possible until deploying party provides credentials.
+**Status: done (2026-09-18).** Google OAuth implemented in auth branch merge:
 
-*Source: `docs/archive/FEATURE_AUDIT.md` §6/§8 item 15, `docs/architecture/SYSTEM_ARCHITECTURE.md` §9.3.*
+- ✅ Google OAuth 2.0 flow in `backend-py/app/services/oauth_service.py`
+- ✅ `POST /api/v1/auth/oauth/google` — exchanges Google ID token for BhoomiSetu JWT
+- ✅ Frontend: "Continue with Google" button on Login/Register pages
+- ✅ User model extended with `oauth_provider`, `oauth_subject`, `preferred_language` fields
+- ✅ Bilingual notifications via Bhashini (English + user's preferred language)
+- ✅ Seeded demo accounts still work (password-based fallback)
 
 ## 3. Workflow Configuration (admin-editable review pipelines)
 
