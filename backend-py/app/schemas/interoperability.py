@@ -11,6 +11,7 @@ one conversion honest about the contract split rather than inventing a
 third shape.
 """
 
+from decimal import Decimal
 from typing import Any
 
 from app.common.land_record_adapters import AdaptedLandRecord
@@ -25,10 +26,21 @@ from app.schemas.departments import (
 from app.schemas.land_records import StateALandRecordOut, StateBLandRecordOut
 
 
+def _convert_decimals(obj: Any) -> Any:
+    """Recursively convert Decimal to float for JSON serialization."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _convert_decimals(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_decimals(v) for v in obj]
+    return obj
+
+
 def _dump(schema, record) -> dict[str, Any] | None:
     if record is None:
         return None
-    return schema.model_validate(record).model_dump(mode="json", by_alias=True)
+    return _convert_decimals(schema.model_validate(record).model_dump(mode="json", by_alias=True))
 
 
 def _land_record_out(adapted: AdaptedLandRecord | None) -> dict[str, Any] | None:
@@ -47,7 +59,7 @@ def _land_record_out(adapted: AdaptedLandRecord | None) -> dict[str, Any] | None
 
 def parcel_360_to_json(result: dict[str, Any]) -> dict[str, Any]:
     departments = result["departments"]
-    return {
+    return _convert_decimals({
         "parcel_id": result["parcel_id"],
         "identifiers": result["identifiers"],
         "location": result["location"],
@@ -63,4 +75,4 @@ def parcel_360_to_json(result: dict[str, Any]) -> dict[str, Any]:
             "dispute": _dump(DisputeRecordOut, departments["dispute"]),
             "encumbrance": _dump(EncumbranceRecordOut, departments["encumbrance"]),
         },
-    }
+    })
