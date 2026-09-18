@@ -29,6 +29,10 @@ export interface AuthUser {
   address?: string | null;
   governmentIdNumber?: string | null;
   occupation?: string | null;
+  // Google OAuth fields
+  googleId?: string | null;
+  googlePicture?: string | null;
+  googleEmailVerified?: boolean;
 }
 
 // apiService's request interceptor already looks for a token under this
@@ -291,4 +295,39 @@ export function useLogout() {
     try { localStorage.removeItem('demo_auth_user'); } catch {}
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
   };
+}
+
+// Google OAuth 2.0 hooks
+// These initiate and handle the complete OAuth flow: authorization -> callback -> session
+
+export interface GoogleAuthUrlResponse {
+  authUrl: string;
+}
+
+export function useGoogleAuthUrl() {
+  return useMutation<GoogleAuthUrlResponse, Error, { redirectAfterLogin?: string }>(
+    async (params) => {
+      const redirectAfterLogin = params.redirectAfterLogin || '/';
+      const response = await apiService.get('/auth/google/login', {
+        params: { redirect_after_login: redirectAfterLogin },
+      });
+      return response.data;
+    }
+  );
+}
+
+export function useGoogleCallback() {
+  const queryClient = useQueryClient();
+  return useMutation<AuthUser, Error, { code: string; state: string }>(
+    async (params) => {
+      const response = await apiService.get('/auth/google/callback', {
+        params: { code: params.code, state: params.state },
+      });
+      setToken(response.data.accessToken);
+      return response.data.user;
+    },
+    {
+      onSuccess: (user) => queryClient.setQueryData(AUTH_QUERY_KEY, user),
+    },
+  );
 }

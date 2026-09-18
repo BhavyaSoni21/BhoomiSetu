@@ -7,7 +7,7 @@ default, matching the original's @Throttle({ default: { limit: 20,
 ttl: 60000 } }).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user, require_roles
@@ -21,6 +21,7 @@ from app.schemas.auth import (
     LoginRequest,
     LoginResultOut,
     MessageOut,
+    OAuthLoginResponse,
     PendingRegistrationResultOut,
     ProfileDetailsRequest,
     RegisterRequest,
@@ -31,6 +32,10 @@ from app.schemas.auth import (
 )
 from app.services import audit_service
 from app.services import auth_service as service
+from app.services import oauth_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -130,3 +135,49 @@ def logout(db: Session = Depends(get_db), user: User = Depends(get_current_user)
     service.logout(db, user)
     audit_service.log(db, user_id=str(user.id), user_role=user.role, action="AUTH_LOGOUT", entity_type="USER", entity_id=str(user.id))
     return {"message": "Logged out"}
+
+
+# Google OAuth 2.0 endpoints
+# These are public (no authentication required) - they initiate and complete
+# the OAuth flow. The callback endpoint validates the state parameter for
+# CSRF protection and exchanges the authorization code for user identity.
+
+@router.get("/google/login", response_model=OAuthLoginResponse)
+def google_login(redirect_after_login: str = Query(default="/", description="Where to redirect after successful login")):
+    """Initiate Google OAuth 2.0 authorization flow.
+
+    Returns the Google authorization URL that the frontend should redirect to.
+    The redirect_after_login parameter is stored in the OAuth state and used
+    to redirect the user after successful authentication.
+    """
+    auth_url = oauth_service.build_google_auth_url(redirect_after_login)
+    return {"auth_url": auth_url}
+
+
+@router.get("/google/callback", response_model=LoginResultOut)
+def google_callback(code: str = Query(..., description="Authorization code from Google"),
+                    state: str = Query(..., description="CSRF state parameter"),
+                    db: Session = Depends(get_db)):
+    """Handle Google OAuth 2.0 callback.
+
+    Exchanges the authorization code for tokens, fetches user info from Google,
+    finds or creates the user, and returns a JWT access token.
+    """
+    try:
+        login_result, redirect_after_login = oauth_service.authenticate_google_user(db, code, state)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Google OAuth callback error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication failed. Please try again."
+        )
+
+    user: User = login_result["user"]
+    audit_service.log(
+        db, user_id=str(user.id), user_role=user.role, action="AUTH_GOOGLE_LOGIN",
+        entity_type="USER", entity_id=str(user.id),
+        metadata={"is_new_user": user.created_at is not None}
+    )
+    return login_result

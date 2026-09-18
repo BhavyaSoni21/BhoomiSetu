@@ -130,6 +130,10 @@ class AuthPublicUserOut(CamelModel):
     government_id_number: str | None
     occupation: str | None
     created_at: datetime
+    # Google OAuth fields
+    google_id: str | None = None
+    google_picture: str | None = None
+    google_email_verified: bool = False
 
 
 class LoginResultOut(CamelModel):
@@ -145,3 +149,8 @@ class PendingRegistrationResultOut(CamelModel):
 
 class MessageOut(CamelModel):
     message: str
+
+
+class OAuthLoginResponse(CamelModel):
+    """Response for the Google OAuth login initiation endpoint."""
+    auth_url: str

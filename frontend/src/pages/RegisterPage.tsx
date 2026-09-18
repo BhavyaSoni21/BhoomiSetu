@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
+import { Eye, EyeOff, Mail, Phone, UserPlus, AlertCircle, CheckCircle2, Globe, Chrome } from 'lucide-react';
 import { useTranslation, SupportedLanguage } from '../context/LanguageContext';
-import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod } from '../features/auth/auth';
+import { useRegister, useVerifyRegistrationOtp, useResendRegistrationOtp, ContactMethod, useGoogleAuthUrl } from '../features/auth/auth';
 import OtpEntryForm from '../features/auth/OtpEntryForm';
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -58,6 +58,7 @@ const RegisterPage: React.FC = () => {
   const registerMutation = useRegister();
   const verifyRegistrationOtpMutation = useVerifyRegistrationOtp();
   const resendRegistrationOtpMutation = useResendRegistrationOtp();
+  const googleAuthUrlMutation = useGoogleAuthUrl();
   const { t, currentLang, setLanguage } = useTranslation();
 
   const [step, setStep]                   = useState<'form' | 'otp'>('form');
@@ -71,6 +72,7 @@ const RegisterPage: React.FC = () => {
   const [showPwd, setShowPwd]             = useState(false);
   const [showConfirm, setShowConfirm]     = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const target = method === 'EMAIL' ? email : mobileNumber;
 
@@ -83,6 +85,23 @@ const RegisterPage: React.FC = () => {
     if (/[^A-Za-z0-9]/.test(password)) s++;
     return s;
   })();
+
+  const handleGoogleLogin = async () => {
+    setValidationError(null);
+    setGoogleLoading(true);
+    try {
+      const { authUrl } = await googleAuthUrlMutation.mutateAsync({ redirectAfterLogin: '/' });
+      // Redirect to Google OAuth authorization page
+      window.location.href = authUrl;
+    } catch (err) {
+      setGoogleLoading(false);
+      setValidationError(
+        axios.isAxiosError(err) && err.response?.status === 500
+          ? t('authPage.googleOauthNotConfigured')
+          : t('authPage.googleOauthError'),
+      );
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,6 +424,44 @@ const RegisterPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Divider with "or continue with" */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                <span className="bg-[var(--surface-1)] px-3">{t('authPage.orContinueWith')}</span>
+              </div>
+            </div>
+
+            {/* Google OAuth button */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={googleLoading || registerMutation.isLoading}
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-[4px] font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border shadow-xs"
+              style={{
+                background: 'var(--surface-1)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {googleLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  {t('authPage.continueWithGoogleLoading')}
+                </>
+              ) : (
+                <>
+                  <Chrome className="w-4 h-4" aria-hidden="true" />
+                  {t('authPage.continueWithGoogle')}
+                </>
+              )}
+            </button>
 
             {/* Errors */}
             {(validationError || submitErrorMessage) && (

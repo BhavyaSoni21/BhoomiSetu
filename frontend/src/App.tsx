@@ -9,6 +9,7 @@ import OfficerPortal from './pages/OfficerPortal';
 import AdminPortal from './pages/AdminPortal';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AboutPage from './pages/AboutPage';
 import FeaturesPage from './pages/FeaturesPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
@@ -381,6 +382,7 @@ function AppShell() {
           />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

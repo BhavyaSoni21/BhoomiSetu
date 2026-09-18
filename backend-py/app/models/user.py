@@ -83,4 +83,11 @@ class User(Base):
     government_id_number: Mapped[str | None] = mapped_column(String, nullable=True)
     occupation: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Google OAuth 2.0 fields - nullable for existing accounts and
+    # non-Google sign-ins. google_id is unique to prevent duplicate
+    # Google accounts mapping to the same BhoomiSetu user.
+    google_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    google_picture: Mapped[str | None] = mapped_column(String, nullable=True)
+    google_email_verified: Mapped[bool] = mapped_column(default=False)
+
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
