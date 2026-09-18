@@ -2,11 +2,10 @@
 
 Topology-aware irregular cadastral-subdivision generator. Each cluster gets
 its own irregular convex envelope (an urban-block-shaped footprint,
-oriented along a per-cluster "dominant road angle" - no real road layer
-exists to read, so this is a configured stand-in), which is then
-recursively split into `parcel_count` irregular leaf polygons - triangles
-through hexagons, varied sizes, mostly exact shared edges with an
-occasional small gap.
+oriented along a per-cluster "dominant road angle" from local OSM PBF roads),
+which is then recursively split into `parcel_count` irregular leaf polygons -
+triangles through hexagons, varied sizes, mostly exact shared edges with an
+occasional small gap. Parcel boundaries are snapped to nearby road edges.
 """
 
 import math
@@ -33,6 +32,28 @@ from .geometry import (
 Point = tuple[float, float]  # lng/lat
 Ring = list[Point]  # lng/lat, closed (first == last)
 
+# Standard residential plot sizes (India/Konkan/Maharashtra)
+# Small: 600-1,000 sq ft = 55-93 sq m
+# Medium: 1,200-1,500 sq ft = 111-139 sq m (30x40, 30x50 ft)
+# Large: 2,400+ sq ft = 223+ sq m (40x60 ft)
+# Guntha (Maharashtra/Karnataka): 1,089 sq ft = 101 sq m
+# Cent (South): 435.6 sq ft = 40 sq m
+# Ground (Tamil Nadu): 2,400 sq ft = 223 sq m
+
+PLOT_SIZE_SMALL_MIN = 55    # sq m (600 sq ft)
+PLOT_SIZE_SMALL_MAX = 93    # sq m (1,000 sq ft)
+PLOT_SIZE_MEDIUM_MIN = 111  # sq m (1,200 sq ft)
+PLOT_SIZE_MEDIUM_MAX = 139  # sq m (1,500 sq ft)
+PLOT_SIZE_LARGE_MIN = 223   # sq m (2,400 sq ft)
+PLOT_SIZE_LARGE_MAX = 372   # sq m (4,000 sq ft)
+
+# Plot size distribution weights (more small/medium, fewer large)
+PLOT_SIZE_DISTRIBUTION = [
+    (PLOT_SIZE_SMALL_MIN, PLOT_SIZE_SMALL_MAX, 0.45),   # 45% small
+    (PLOT_SIZE_MEDIUM_MIN, PLOT_SIZE_MEDIUM_MAX, 0.35), # 35% medium
+    (PLOT_SIZE_LARGE_MIN, PLOT_SIZE_LARGE_MAX, 0.20),   # 20% large
+]
+
 
 @dataclass
 class ClusterGeometryConfig:
@@ -43,7 +64,7 @@ class ClusterGeometryConfig:
     center_lat: float
     parcel_count: int
     # Degrees, 0 = due east, 90 = due north. Stands in for "local road
-    # direction" - no real road geometry is available to this seed script.
+    # direction" - resolved from local OSM PBF roads at runtime.
     dominant_angle_deg: float
     # Roughly dominant+90, independently jittered so cross-cuts aren't a
     # perfect right angle - what keeps the subdivision from reading as a grid.
@@ -56,40 +77,61 @@ class ClusterGeometryConfig:
     radius_meters: float
     # >1 elongates the envelope along the dominant axis.
     aspect_ratio: float
+    # Standard plot size range for this cluster (sq m)
     min_parcel_area_sq_m: float
     max_parcel_area_sq_m: float
     # Fraction of internal splits that get a small real gap instead of an
     # exact shared edge.
     gap_probability: float
     gap_meters: float
+    # Enable snapping parcel boundaries to road edges
+    snap_to_roads: bool = True
+    # Search radius for road snapping (meters)
+    snap_radius_meters: float = 30
+
+
+def _sample_plot_area() -> float:
+    """Sample a plot area from standard residential size distribution."""
+    roll = random.random()
+    cumulative = 0.0
+    for min_a, max_a, weight in PLOT_SIZE_DISTRIBUTION:
+        cumulative += weight
+        if roll <= cumulative:
+            return random.uniform(min_a, max_a)
+    # Fallback
+    return random.uniform(PLOT_SIZE_SMALL_MIN, PLOT_SIZE_MEDIUM_MAX)
 
 
 def _auto_config(cluster_id: str, state_code: str, district: str, center_lng: float, center_lat: float, *, is_village: bool) -> ClusterGeometryConfig:
     """Default-tuned config for the one-city + one-village-per-state
     coverage below. dominant_angle_deg here is only the pre-OSM fallback -
     generate_cluster_parcels() overwrites it with the real road bearing at
-    (center_lat, center_lng) when Overpass has data for the area.
+    (center_lat, center_lng) when local PBF roads exist for the area.
     """
     # Deterministic per-cluster jitter (not random-seeded) so re-running
     # the seed script doesn't reshuffle which clusters look "similar".
     seed = sum(cluster_id.encode())
     angle = seed % 180
     if is_village:
+        # Village: 70 parcels * ~100 sq m avg = 7000 sq m => r = sqrt(7000/pi) ≈ 47m, use 55m for buffer
         return ClusterGeometryConfig(
             cluster_id=cluster_id, state_code=state_code, district=district,
             center_lng=center_lng, center_lat=center_lat,
-            parcel_count=40, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
-            envelope_sides=5, radius_meters=750, aspect_ratio=1.2,
-            min_parcel_area_sq_m=15000, max_parcel_area_sq_m=60000,
+            parcel_count=70, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
+            envelope_sides=5, radius_meters=55, aspect_ratio=1.15,
+            min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_MEDIUM_MAX,
             gap_probability=0.08, gap_meters=5,
+            snap_to_roads=True, snap_radius_meters=30,
         )
+    # City: 150 parcels * ~200 sq m avg = 30000 sq m => r = sqrt(30000/pi) ≈ 98m
     return ClusterGeometryConfig(
         cluster_id=cluster_id, state_code=state_code, district=district,
         center_lng=center_lng, center_lat=center_lat,
-        parcel_count=100, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
-        envelope_sides=7, radius_meters=1050, aspect_ratio=1.5,
-        min_parcel_area_sq_m=10000, max_parcel_area_sq_m=45000,
+        parcel_count=150, dominant_angle_deg=angle, secondary_angle_deg=(angle + 90) % 180,
+        envelope_sides=7, radius_meters=100, aspect_ratio=1.5,
+        min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_LARGE_MAX,
         gap_probability=0.1, gap_meters=6,
+        snap_to_roads=True, snap_radius_meters=30,
     )
 
 
@@ -153,38 +195,44 @@ for _state_code, _city_lng, _city_lat, _district in [("MH", 73.8567, 18.5204, "P
 
 # Five hand-tuned clusters, each with a genuinely different orientation/envelope
 # shape/density/gap frequency rather than one template moved around.
+# Radius calculated as sqrt(parcel_count * avg_area / pi) for target parcel sizes
 CLUSTER_CONFIGS: list[ClusterGeometryConfig] = [
     ClusterGeometryConfig(
         cluster_id="MH-PUNE-01", state_code="MH", district="Pune", center_lng=73.8567, center_lat=18.5204,
-        parcel_count=100, dominant_angle_deg=22, secondary_angle_deg=118, envelope_sides=7,
-        radius_meters=1050, aspect_ratio=1.55, min_parcel_area_sq_m=11000, max_parcel_area_sq_m=46000,
+        parcel_count=150, dominant_angle_deg=22, secondary_angle_deg=118, envelope_sides=7,
+        radius_meters=100, aspect_ratio=1.55, min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_LARGE_MAX,
         gap_probability=0.12, gap_meters=6,
+        snap_to_roads=True, snap_radius_meters=30,
     ),
     ClusterGeometryConfig(
         cluster_id="TN-CHENNAI-01", state_code="TN", district="Chennai", center_lng=80.2707, center_lat=13.0827,
-        parcel_count=40, dominant_angle_deg=97, secondary_angle_deg=4, envelope_sides=5,
-        radius_meters=680, aspect_ratio=1.35, min_parcel_area_sq_m=10000, max_parcel_area_sq_m=40000,
+        parcel_count=80, dominant_angle_deg=97, secondary_angle_deg=4, envelope_sides=5,
+        radius_meters=55, aspect_ratio=1.35, min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_MEDIUM_MAX,
         gap_probability=0.08, gap_meters=5,
+        snap_to_roads=True, snap_radius_meters=30,
     ),
     ClusterGeometryConfig(
         cluster_id="KA-BANGALORE-01", state_code="KA", district="Bangalore", center_lng=77.5946, center_lat=12.9716,
-        parcel_count=40, dominant_angle_deg=58, secondary_angle_deg=152, envelope_sides=6,
-        radius_meters=680, aspect_ratio=1.7, min_parcel_area_sq_m=9000, max_parcel_area_sq_m=42000,
+        parcel_count=80, dominant_angle_deg=58, secondary_angle_deg=152, envelope_sides=6,
+        radius_meters=55, aspect_ratio=1.7, min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_MEDIUM_MAX,
         gap_probability=0.16, gap_meters=7,
+        snap_to_roads=True, snap_radius_meters=30,
     ),
     ClusterGeometryConfig(
         cluster_id="DL-NEWDELHI-01", state_code="DL", district="New Delhi", center_lng=77.209, center_lat=28.6139,
-        parcel_count=20, dominant_angle_deg=-18, secondary_angle_deg=71, envelope_sides=4,
-        radius_meters=480, aspect_ratio=1.2, min_parcel_area_sq_m=12000, max_parcel_area_sq_m=44000,
+        parcel_count=50, dominant_angle_deg=-18, secondary_angle_deg=71, envelope_sides=4,
+        radius_meters=45, aspect_ratio=1.2, min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_MEDIUM_MAX,
         gap_probability=0.1, gap_meters=5,
+        snap_to_roads=True, snap_radius_meters=30,
     ),
     # Chandigarh: one of the two real pilot locations named in the fuller
     # "Land Stack" text - previously absent from the seed dataset entirely.
     ClusterGeometryConfig(
         cluster_id="CH-CHANDIGARH-01", state_code="CH", district="Chandigarh", center_lng=76.7794, center_lat=30.7333,
-        parcel_count=20, dominant_angle_deg=45, secondary_angle_deg=135, envelope_sides=4,
-        radius_meters=460, aspect_ratio=1.05, min_parcel_area_sq_m=10000, max_parcel_area_sq_m=38000,
+        parcel_count=50, dominant_angle_deg=45, secondary_angle_deg=135, envelope_sides=4,
+        radius_meters=45, aspect_ratio=1.05, min_parcel_area_sq_m=PLOT_SIZE_SMALL_MIN, max_parcel_area_sq_m=PLOT_SIZE_MEDIUM_MAX,
         gap_probability=0.1, gap_meters=5,
+        snap_to_roads=True, snap_radius_meters=30,
     ),
 ]
 
@@ -236,13 +284,13 @@ def _build_envelope(config: ClusterGeometryConfig) -> LocalRing:
 # parent's area, NOR narrower than MIN_PARCEL_WIDTH_METERS in its thinnest
 # direction.
 _MIN_SPLIT_RATIO = 0.22
-_MIN_PARCEL_WIDTH_METERS = 22
+_MIN_PARCEL_WIDTH_METERS = 5  # Standard residential plots can be as narrow as 5m (e.g., 5x11m = 55 sq m)
 _MAX_SPLIT_ATTEMPTS = 14
 
 # Bounding width against sqrt(area) bounds the aspect ratio directly
-# regardless of the parcel's absolute scale: 0.42 caps the long:short side
-# ratio at roughly 6:1 for a rectangle-like shape.
-_MIN_COMPACTNESS = 0.42
+# regardless of the parcel's absolute scale: 0.35 caps the long:short side
+# ratio at roughly 8:1 for a rectangle-like shape.
+_MIN_COMPACTNESS = 0.3
 
 
 def _is_reasonably_compact(ring: LocalRing) -> bool:
@@ -370,7 +418,149 @@ def _to_generated_parcel(local_ring: LocalRing, config: ClusterGeometryConfig) -
     return GeneratedParcel(ring=closed, area_sq_m=area_sq_m, centroid=centroid)
 
 
-_MAX_CLUSTER_ATTEMPTS = 5
+def _snap_parcels_to_roads(parcels: list[GeneratedParcel], config: ClusterGeometryConfig) -> list[GeneratedParcel]:
+    """Snap parcel boundaries to nearby road edges from local OSM PBF data.
+
+    For each parcel, finds nearby roads within snap_radius_meters and
+    adjusts parcel vertices to align with road edges where close.
+    """
+    if not config.snap_to_roads:
+        return parcels
+
+    from app.database import SessionLocal
+    from app.models.terrain import RoadNetwork
+    from sqlalchemy import select, func
+
+    db = SessionLocal()
+    try:
+        # Convert snap radius to degrees
+        lat_deg_per_m = 1.0 / 110540
+        lng_deg_per_m = 1.0 / (111320 * math.cos(math.radians(config.center_lat)))
+        radius_deg_lat = config.snap_radius_meters * lat_deg_per_m
+        radius_deg_lng = config.snap_radius_meters * lng_deg_per_m
+
+        # Query roads in the cluster's bounding box
+        stmt = select(
+            RoadNetwork.geometry.ST_AsText(),
+            RoadNetwork.road_type,
+        ).where(
+            RoadNetwork.state_code == config.state_code,
+            RoadNetwork.district == config.district,
+            RoadNetwork.geometry.ST_Intersects(
+                func.ST_MakeEnvelope(
+                    config.center_lng - radius_deg_lng * 2,
+                    config.center_lat - radius_deg_lat * 2,
+                    config.center_lng + radius_deg_lng * 2,
+                    config.center_lat + radius_deg_lat * 2,
+                    4326
+                )
+            )
+        )
+
+        results = db.execute(stmt).all()
+
+        if not results:
+            return parcels
+
+        # Parse road geometries
+        import re
+        road_segments = []
+        for row in results:
+            wkt = row[0]
+            road_type = row[1]
+            match = re.search(r'LINESTRING\s*\((.+)\)', wkt)
+            if not match:
+                continue
+            coords_str = match.group(1)
+            coords = []
+            for pair in coords_str.split(','):
+                lon_str, lat_str = pair.strip().split()
+                coords.append((float(lon_str), float(lat_str)))
+            if len(coords) >= 2:
+                road_segments.append((coords, road_type))
+
+        if not road_segments:
+            return parcels
+
+        # Snap each parcel
+        snapped_parcels = []
+        for gp in parcels:
+            ring = gp.ring[:-1]  # Remove duplicate closing point
+            if len(ring) < 3:
+                snapped_parcels.append(gp)
+                continue
+
+            # Convert to local meters for easier distance calculations
+            m_per_lat, m_per_lng = _meters_per_degree(config.center_lat)
+            local_ring = [((p[0] - config.center_lng) * m_per_lng, (p[1] - config.center_lat) * m_per_lat) for p in ring]
+
+            # Convert road segments to local meters
+            local_roads = []
+            for coords, rtype in road_segments:
+                local_coords = [((c[0] - config.center_lng) * m_per_lng, (c[1] - config.center_lat) * m_per_lat) for c in coords]
+                local_roads.append((local_coords, rtype))
+
+            # Snap vertices to nearby road segments
+            new_local_ring = []
+            for vertex in local_ring:
+                vx, vy = vertex
+                best_vertex = vertex
+                best_dist = config.snap_radius_meters
+
+                for road_coords, rtype in local_roads:
+                    for a, b in zip(road_coords, road_coords[1:]):
+                        # Distance from point to line segment
+                        px, py = vx, vy
+                        ax, ay = a
+                        bx, by = b
+
+                        # Vector from a to b
+                        abx, aby = bx - ax, by - ay
+                        # Vector from a to p
+                        apx, apy = px - ax, py - ay
+
+                        # Projection of ap onto ab
+                        ab_len_sq = abx * abx + aby * aby
+                        if ab_len_sq < 1e-9:
+                            continue
+                        t = max(0, min(1, (apx * abx + apy * aby) / ab_len_sq))
+
+                        # Closest point on segment
+                        cx, cy = ax + t * abx, ay + t * aby
+                        dist = math.hypot(px - cx, py - cy)
+
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_vertex = (cx, cy)
+
+                new_local_ring.append(best_vertex)
+
+            # Convert back to lng/lat
+            new_lng_lat_ring = [(config.center_lng + x / m_per_lng, config.center_lat + y / m_per_lat) for x, y in new_local_ring]
+            closed_ring = [*new_lng_lat_ring, new_lng_lat_ring[0]]
+
+            # Recalculate area and centroid
+            # Convert to local for area calculation
+            local_area_ring = new_local_ring
+            area_sq_m = local_area(local_area_ring)
+            open_ring = closed_ring[:-1]
+            centroid = (
+                sum(p[0] for p in open_ring) / len(open_ring),
+                sum(p[1] for p in open_ring) / len(open_ring),
+            )
+
+            snapped_parcels.append(GeneratedParcel(ring=closed_ring, area_sq_m=area_sq_m, centroid=centroid))
+
+        return snapped_parcels
+
+    except Exception:
+        # If snapping fails, return original parcels
+        return parcels
+    finally:
+        db.close()
+
+
+_MAX_CLUSTER_ATTEMPTS = 8
 
 
 def _attempt_generate_cluster_parcels(config: ClusterGeometryConfig) -> list[GeneratedParcel]:
@@ -392,7 +582,13 @@ def _attempt_generate_cluster_parcels(config: ClusterGeometryConfig) -> list[Gen
         if not _is_reasonably_compact(ring):
             raise RuntimeError(f"invalid parcel #{i} in cluster {config.cluster_id}: too elongated (ribbon-like) relative to its area")
 
-    return [_to_generated_parcel(ring, config) for ring in nibbled]
+    parcels = [_to_generated_parcel(ring, config) for ring in nibbled]
+
+    # Snap parcel boundaries to nearby roads
+    if config.snap_to_roads:
+        parcels = _snap_parcels_to_roads(parcels, config)
+
+    return parcels
 
 
 def generate_cluster_parcels(config: ClusterGeometryConfig) -> list[GeneratedParcel]:

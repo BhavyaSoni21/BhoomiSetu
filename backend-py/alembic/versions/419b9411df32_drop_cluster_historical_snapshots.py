@@ -23,8 +23,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index('ix_cluster_historical_snapshots_cluster_year', table_name='cluster_historical_snapshots')
-    op.drop_table('cluster_historical_snapshots')
+    # Use raw SQL for idempotent drop operations
+    conn = op.get_bind()
+    
+    # Drop index if exists
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_cluster_historical_snapshots_cluster_year"))
+    
+    # Drop table if exists
+    conn.execute(sa.text("DROP TABLE IF EXISTS cluster_historical_snapshots"))
+    
+    # Commit the transaction
+    conn.commit()
 
 
 def downgrade() -> None:
