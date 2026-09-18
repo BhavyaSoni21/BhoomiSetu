@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notification
+from app.models.user import User
+from app.services.external_notifications import send_citizen_alert
 
 
 @dataclass
@@ -29,16 +31,24 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload,
     """
     if not user_ids:
         return
+        
+    users = db.scalars(select(User).where(User.id.in_(user_ids))).all()
+    
     db.add_all(
         [
             Notification(
-                user_id=user_id, type=payload.type, title=payload.title, message=payload.message,
+                user_id=user.id, type=payload.type, title=payload.title, message=payload.message,
                 parcel_id=payload.parcel_id, workflow_id=payload.workflow_id, alert_id=payload.alert_id,
             )
-            for user_id in user_ids
+            for user in users
         ]
     )
     db.flush()
+    
+    # Trigger SMS/Email for citizens asynchronously
+    for user in users:
+        if user.role == "CITIZEN":
+            send_citizen_alert(user, payload.message)
 
     if deliver:
         # Import here to avoid circular dependency

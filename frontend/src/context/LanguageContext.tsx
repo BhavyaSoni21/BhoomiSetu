@@ -825,6 +825,19 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     setCurrentLang(lang);
     try {
       localStorage.setItem(STORAGE_KEY, lang);
+      
+      // Attempt to sync with backend if user is logged in
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        fetch(`${API_BASE}/auth/profile/details`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ preferredLanguage: lang })
+        }).catch(() => {}); // Ignore if it fails
+      }
     } catch {
       // ignore
     }

@@ -73,6 +73,12 @@ class Settings(BaseSettings):
     bhashini_max_retries: int = 2
     bhashini_retry_backoff_ms: int = 500
 
+    # Google OAuth 2.0 Configuration
+    # Get credentials from https://console.cloud.google.com/apis/credentials
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:5173/auth/callback"
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

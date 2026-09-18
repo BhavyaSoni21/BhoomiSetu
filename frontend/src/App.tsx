@@ -15,6 +15,7 @@ const AdminPortal = lazy(() => import('./pages/AdminPortal'));
 const VerifierPortal = lazy(() => import('./pages/VerifierPortal'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const OAuthCallbackPage = lazy(() => import('./pages/OAuthCallbackPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
@@ -397,6 +398,7 @@ function AppShell() {
           />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -429,7 +431,7 @@ function AppShell() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppShell />
     </BrowserRouter>
   );

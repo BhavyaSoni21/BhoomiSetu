@@ -80,6 +80,7 @@ class TestLogin:
             "id": str(officer.id), "email": "officer@test.gov.in", "mobileNumber": None, "emailVerified": True, "mobileVerified": False,
             "pendingEmail": None, "pendingMobileNumber": None, "name": "Test Officer", "role": "LAND_RECORD_OFFICER",
             "address": None, "governmentIdNumber": None, "occupation": None, "createdAt": officer.created_at.isoformat(),
+            "googleId": None, "googlePicture": None, "googleEmailVerified": False,
         }
         assert "passwordHash" not in res.text and "password_hash" not in res.text
 
@@ -291,9 +292,10 @@ class TestVerifyRegistrationOtp:
         registration_id = register_res.json()["registrationId"]
         code = email_calls["calls"][0][1]
 
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         pending = db.get(PendingRegistration, registration_id)
-        pending.otp_expires_at = datetime.now() - timedelta(seconds=1)
+        # Use UTC to match _now() in auth_service
+        pending.otp_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=1)
         db.flush()
 
         res = client.post("/api/v1/auth/register/verify-otp", json={"registrationId": registration_id, "code": code})
@@ -527,3 +529,96 @@ class TestUpdateProfileDetails:
         res = client.post("/api/v1/auth/profile/details", headers={"Authorization": f"Bearer {token}"}, json={"address": "5 Park Street"})
         assert res.json()["occupation"] == "Teacher"
         assert res.json()["address"] == "5 Park Street"
+
+
+class TestGoogleOAuth:
+    """Tests for Google OAuth 2.0 authentication flow."""
+
+    def test_google_login_endpoint_returns_auth_url(self, client, monkeypatch):
+        """Test that GET /auth/google/login returns a Google authorization URL."""
+        # Mock the settings to have Google OAuth configured
+        from app.config import Settings
+        from app.services import oauth_service
+        test_settings = Settings(
+            google_client_id="test-client-id",
+            google_client_secret="test-client-secret",
+            google_redirect_uri="http://localhost:5173/auth/callback",
+        )
+        monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
+
+        res = client.get("/api/v1/auth/google/login")
+        assert res.status_code == 200
+        data = res.json()
+        assert "authUrl" in data
+        assert "accounts.google.com/o/oauth2/v2/auth" in data["authUrl"]
+        assert "client_id=test-client-id" in data["authUrl"]
+        assert "redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fauth%2Fcallback" in data["authUrl"]
+        assert "state=" in data["authUrl"]
+
+    def test_google_login_redirect_after_login_param(self, client, monkeypatch):
+        """Test that redirect_after_login parameter is included in state."""
+        from app.config import Settings
+        from app.services import oauth_service
+        test_settings = Settings(
+            google_client_id="test-client-id",
+            google_client_secret="test-client-secret",
+            google_redirect_uri="http://localhost:5173/auth/callback",
+        )
+        monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
+
+        res = client.get("/api/v1/auth/google/login?redirect_after_login=/citizen")
+        assert res.status_code == 200
+        data = res.json()
+        # The state should be stored and include the redirect
+        assert "state=" in data["authUrl"]
+
+    def test_google_login_without_config_returns_500(self, client, monkeypatch):
+        """Test that missing Google OAuth config returns 500."""
+        from app.config import Settings
+        from app.services import oauth_service
+        test_settings = Settings(
+            google_client_id="",
+            google_client_secret="",
+            google_redirect_uri="http://localhost:5173/auth/callback",
+        )
+        monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
+
+        res = client.get("/api/v1/auth/google/login")
+        assert res.status_code == 500
+        # Error response uses 'message' field (NestJS-style), not 'detail'
+        assert "not configured" in res.json()["message"].lower()
+
+    def test_google_callback_rejects_invalid_state(self, client, monkeypatch):
+        """Test that invalid/expired OAuth state is rejected."""
+        from app.config import Settings
+        from app.services import oauth_service
+        test_settings = Settings(
+            google_client_id="test-client-id",
+            google_client_secret="test-client-secret",
+            google_redirect_uri="http://localhost:5173/auth/callback",
+        )
+        monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
+
+        # Use an invalid state
+        res = client.get("/api/v1/auth/google/callback?code=test-code&state=invalid-state")
+        assert res.status_code == 400
+        assert "invalid or expired" in res.json()["message"].lower()
+
+    def test_google_callback_rejects_missing_code(self, client, monkeypatch):
+        """Test that missing authorization code is rejected."""
+        from app.config import Settings
+        from app.services import oauth_service
+        test_settings = Settings(
+            google_client_id="test-client-id",
+            google_client_secret="test-client-secret",
+            google_redirect_uri="http://localhost:5173/auth/callback",
+        )
+        monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
+
+        # Valid state but no code - first we need to get a valid state
+        login_res = client.get("/api/v1/auth/google/login")
+        state = login_res.json()["authUrl"].split("state=")[1].split("&")[0]
+
+        # Missing required query parameter 'code' returns 400 (not 422) per NestJS contract
+        res = client.get(f"/api/v1/auth/google/callback?state={state}")
+        assert res.status_code == 400

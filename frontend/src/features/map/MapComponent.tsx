@@ -304,6 +304,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
       style: BASE_STYLE,
       center: [78.9629, 22.5937], // Center of India
       zoom: 4,
+      minZoom: 3,   // Don't zoom out past India being visible
+      maxZoom: 18,  // OSM/Esri tiles become unavailable beyond this
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle, Globe, Chrome } from 'lucide-react';
 import { useTranslation, SupportedLanguage } from '../context/LanguageContext';
-import { useLogin } from '../features/auth/auth';
+import { useLogin, useGoogleAuthUrl } from '../features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS } from '../features/officer/officerAuth';
 import axios from 'axios';
 
@@ -32,6 +32,7 @@ const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const loginMutation = useLogin();
+  const googleAuthUrlMutation = useGoogleAuthUrl();
   const { t, currentLang, setLanguage } = useTranslation();
 
   const [method, setMethod]             = useState<LoginMethod>('EMAIL');
@@ -41,6 +42,7 @@ const LoginPage: React.FC = () => {
   const [showPwd, setShowPwd]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [demoOpen, setDemoOpen]         = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +61,23 @@ const LoginPage: React.FC = () => {
         axios.isAxiosError(err) && err.response?.status === 401
           ? t('authPage.invalidCredentialsError')
           : t('authPage.genericError'),
+      );
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const { authUrl } = await googleAuthUrlMutation.mutateAsync({ redirectAfterLogin: '/' });
+      // Redirect to Google OAuth authorization page
+      window.location.href = authUrl;
+    } catch (err) {
+      setGoogleLoading(false);
+      setError(
+        axios.isAxiosError(err) && err.response?.status === 500
+          ? t('authPage.googleOauthNotConfigured')
+          : t('authPage.googleOauthError'),
       );
     }
   };
@@ -347,6 +366,44 @@ const LoginPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Divider with "or continue with" */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                <span className="bg-[var(--surface-1)] px-3">{t('authPage.orContinueWith')}</span>
+              </div>
+            </div>
+
+            {/* Google OAuth button */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={googleLoading || loginMutation.isLoading}
+              className="w-full flex items-center justify-center gap-2.5 px-6 py-3 rounded-[4px] font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border shadow-xs"
+              style={{
+                background: 'var(--surface-1)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {googleLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  {t('authPage.continueWithGoogleLoading')}
+                </>
+              ) : (
+                <>
+                  <Chrome className="w-4 h-4" aria-hidden="true" />
+                  {t('authPage.continueWithGoogle')}
+                </>
+              )}
+            </button>
 
             {/* Error message */}
             {error && (
