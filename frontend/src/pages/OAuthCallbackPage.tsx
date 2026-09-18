@@ -17,51 +17,46 @@ const OAuthCallbackPage: React.FC = () => {
 
   const hasMutated = React.useRef(false);
 
+  const { mutate } = googleCallbackMutation;
+
   useEffect(() => {
     if (error) {
-      // OAuth error from Google (user denied, invalid request, etc.)
       console.error('Google OAuth error:', error, errorDescription);
       navigate('/login', {
-        state: {
-          oauthError: errorDescription || t('authPage.googleOauthError'),
-        },
+        state: { oauthError: errorDescription || t('authPage.googleOauthError') },
         replace: true,
       });
       return;
     }
 
     if (code && state) {
-      // Valid callback - exchange code for token
       if (!hasMutated.current) {
         hasMutated.current = true;
-        googleCallbackMutation.mutate({ code, state }, {
-          onSuccess: (user) => {
-            const dest =
-              user.role === 'ADMIN' ? '/admin' :
-              user.role === 'CITIZEN' ? '/citizen' : '/officer';
-            navigate(dest, { replace: true });
-          },
-          onError: (err) => {
-            console.error('Google OAuth callback failed:', err);
-            navigate('/login', {
-              state: {
-                oauthError: t('authPage.googleCallbackFailed'),
-              },
-              replace: true,
-            });
-          },
-        });
+        mutate({ code, state });
       }
     } else {
-      // Invalid callback - missing code or state
       navigate('/login', {
-        state: {
-          oauthError: t('authPage.invalidOauthCallback'),
-        },
+        state: { oauthError: t('authPage.invalidOauthCallback') },
         replace: true,
       });
     }
-  }, [code, state, error, errorDescription, navigate, t]);
+  }, [code, state, error, errorDescription, navigate, t, mutate]);
+
+  useEffect(() => {
+    if (googleCallbackMutation.isSuccess && googleCallbackMutation.data) {
+      const user = googleCallbackMutation.data;
+      const dest =
+        user.role === 'ADMIN' ? '/admin' :
+        user.role === 'CITIZEN' ? '/citizen' : '/officer';
+      navigate(dest, { replace: true });
+    } else if (googleCallbackMutation.isError) {
+      console.error('Google OAuth callback failed:', googleCallbackMutation.error);
+      navigate('/login', {
+        state: { oauthError: t('authPage.googleCallbackFailed') },
+        replace: true,
+      });
+    }
+  }, [googleCallbackMutation.isSuccess, googleCallbackMutation.isError, googleCallbackMutation.data, googleCallbackMutation.error, navigate, t]);
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex items-center justify-center px-4" style={{ background: 'var(--page-bg)' }}>
