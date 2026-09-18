@@ -90,4 +90,6 @@ class User(Base):
     google_picture: Mapped[str | None] = mapped_column(String, nullable=True)
     google_email_verified: Mapped[bool] = mapped_column(default=False)
 
+    preferred_language: Mapped[str] = mapped_column(String(10), default="hi")
+
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

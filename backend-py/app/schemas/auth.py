@@ -106,6 +106,7 @@ class ProfileDetailsRequest(CamelModel):
     address: str | None = Field(default=None, max_length=300)
     government_id_number: str | None = Field(default=None, max_length=50)
     occupation: str | None = Field(default=None, max_length=100)
+    preferred_language: str | None = Field(default=None, max_length=10)
 
 
 class AuthPublicUserOut(CamelModel):
@@ -129,6 +130,7 @@ class AuthPublicUserOut(CamelModel):
     address: str | None
     government_id_number: str | None
     occupation: str | None
+    preferred_language: str
     created_at: datetime
     # Google OAuth fields
     google_id: str | None = None

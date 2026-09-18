@@ -149,6 +149,7 @@ def create(db: Session, dto: CreateWorkflowInput) -> Workflow | str:
     db.flush()
 
     _notify_assigned_officers(db, workflow, pipeline)
+    _notify_citizen_of_submission(db, workflow)
 
     return find_one(db, str(workflow.id))
 
@@ -431,4 +432,21 @@ def _notify_citizen_of_step_decision(db: Session, workflow: Workflow, step: Work
     notification_feed_service.notify_users(
         db, [workflow.citizen_id],
         NotificationPayload(type="WORKFLOW_STEP_APPROVED" if step.action == "APPROVE" else "WORKFLOW_STEP_REJECTED", title=f"Your request was {verb}", message=message, parcel_id=workflow.parcel_id, workflow_id=str(workflow.id)),
+    )
+
+def _notify_citizen_of_submission(db: Session, workflow: Workflow) -> None:
+    if not workflow.citizen_id:
+        return
+        
+    req_type = _strip_request_suffix(workflow.workflow_type)
+    message = f"Your {req_type} request for parcel {workflow.parcel_id[:8]}... has been successfully submitted and is under review."
+    notification_feed_service.notify_users(
+        db, [workflow.citizen_id],
+        NotificationPayload(
+            type="WORKFLOW_SUBMITTED", 
+            title=f"{req_type.capitalize()} Request Submitted", 
+            message=message, 
+            parcel_id=workflow.parcel_id, 
+            workflow_id=str(workflow.id)
+        ),
     )

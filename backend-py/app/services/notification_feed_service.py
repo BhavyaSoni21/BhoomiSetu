@@ -18,6 +18,9 @@ class NotificationPayload:
     alert_id: str | None = None
 
 
+from app.models.user import User
+from app.services.external_notifications import send_citizen_alert
+
 def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload) -> None:
     """Callers (WorkflowsService, GovernanceAlertsService) resolve their own
     recipient user ids - this module deliberately doesn't know about roles
@@ -27,16 +30,24 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload)
     """
     if not user_ids:
         return
+        
+    users = db.scalars(select(User).where(User.id.in_(user_ids))).all()
+    
     db.add_all(
         [
             Notification(
-                user_id=user_id, type=payload.type, title=payload.title, message=payload.message,
+                user_id=user.id, type=payload.type, title=payload.title, message=payload.message,
                 parcel_id=payload.parcel_id, workflow_id=payload.workflow_id, alert_id=payload.alert_id,
             )
-            for user_id in user_ids
+            for user in users
         ]
     )
     db.flush()
+    
+    # Trigger SMS/Email for citizens asynchronously
+    for user in users:
+        if user.role == "CITIZEN":
+            send_citizen_alert(user, payload.message)
 
 
 def find_mine(db: Session, user_id: str) -> list[Notification]:
