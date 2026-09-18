@@ -8,7 +8,7 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 ## Priority order (as of 2026-09-17)
 
-All items re-ranked flat — blocked/deferred items included but marked. Items #1, #3, #4, #5, #8, #12, #13, #14 are done/substantially implemented.
+All items re-ranked flat — blocked/deferred items included but marked. Items #1, #3, #4, #5, #8, #12, #13 are done/substantially implemented. Item #14 has core renderer done but critical end-to-end gaps.
 
 1. **Frontend test infrastructure** — HistoricalImageryPanel.test.tsx ✅ DONE (8/8 passing). Remaining: ~184 failing tests need React Query mocks, MSW handlers, component test setup pattern migration (actionable, internal)
 2. **Finish Unified Map migration** — Migrate HistoricalMapView, AdminCombinedLayerMap, AdminMapLayerAuthoringPage, Verifier AssignedVisitsPage to UnifiedMapWrapper (actionable, internal)
@@ -124,7 +124,41 @@ JWTs never expire by design (session only ends on explicit logout or admin revok
 
 ---
 
-## 14. Unified Map Feature Set — Every Map (Except Landing) Must Have
+### 14. On-Demand Official Document PDF (Form 7/12)
+
+**Status: Core renderer complete — critical end-to-end gaps remain.** Full code review at `docs/architecture/official-document-code-review.md`.
+
+**Completed:**
+- PDF renderer (`official_document_generator.py`) with exact Form 7/12 layout, English/Hindi, QR code, watermark
+- Data assembler (`land_record_pdf_service.py`) pulling parcel, ownership, tax, crop, registration, workflow
+- Route `GET /parcels/{id}/documents/official-pdf` with citizen access control
+- "Download Official Document" button on Parcel 360
+
+**Critical Gaps (must fix before demo):**
+- **C1** Tests only check PDF signature (`%PDF-`), not rendered values (owner name, survey no, ULPIN, mutation, tax, crop)
+- **C2** Assembler never reads authenticated user profile — `User` fields (name, email, mobile, address, govt ID, occupation) not in PDF data contract
+- **C3** No **View Official Document** action — only download; no PDF viewer modal with zoom
+- **C4** Backend deployment target unconfirmed (NestJS vs Python backend route conflict)
+
+**Major Gaps:**
+- Profile data source policy undefined (workflow creator vs authenticated user)
+- Single-page canvas overflows with many ownership/crop rows
+- Object URL revoked immediately after download click (brittle)
+- No error state for failed PDF generation
+
+**Required Fixes:**
+1. Add `ProfileInfo` to `LandRecordPDFData`, pass `User` through assembler/service/route
+2. Render profile block in PDF, make layout multi-page safe (Platypus or `showPage()`)
+3. Return `Content-Disposition: inline` for View flow
+4. Create `OfficialPdfViewerModal` frontend component with iframe viewer
+5. Add View/Download buttons, proper blob URL lifecycle, error handling
+6. Add `pypdf` content assertions to tests; add integration + security + overflow tests
+
+*Source: `docs/architecture/official-document-code-review.md` (2026-09-17 code review).*
+
+---
+
+### 15. Unified Map Feature Set — Every Map (Except Landing) Must Have
 
 **Status: substantially implemented (2026-09-17).** Core unified map wrapper created and deployed to OfficerMapPage, FindParcelsPage, Parcel360View, and HomePage (landing page uses static Parcel-example.png image instead of interactive map).
 

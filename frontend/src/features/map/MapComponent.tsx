@@ -28,6 +28,10 @@ interface MapComponentProps {
   recenterSignal?: number;
   /** Pan/zoom to these bounds (e.g. a cluster picked from a dropdown) and, since the base parcels layer is itself bbox-scoped (see viewBbox below), this also confines the "load every parcel in view" fetch to that cluster instead of whatever the map happened to be showing before - the same nationwide-fetch problem `parcels`/`fitToParcels` solves for callers who already have their own parcel list. */
   focusBounds?: { minLng: number; minLat: number; maxLng: number; maxLat: number } | null;
+  /** Initial layer visibility state from parent (e.g. UnifiedMapWrapper's dropdown). */
+  initialLayerVisibility?: Record<LayerKey, boolean>;
+  /** Callback when layer visibility changes (to sync with parent dropdown). */
+  onLayerVisibilityChange?: (visibility: Record<LayerKey, boolean>) => void;
 }
 
 type LayerKey =
@@ -39,7 +43,11 @@ type LayerKey =
   | 'zoning'
   | 'restriction'
   | 'infrastructure'
-  | 'changeDetection';
+  | 'changeDetection'
+  | 'roads'
+  | 'buildings'
+  | 'landcover'
+  | 'elevation';
 
 // Order drives the toggle list below; keys match the map.layer.* i18n keys.
 const LAYER_KEYS: LayerKey[] = [
@@ -52,6 +60,10 @@ const LAYER_KEYS: LayerKey[] = [
   'restriction',
   'infrastructure',
   'changeDetection',
+  'roads',
+  'buildings',
+  'landcover',
+  'elevation',
 ];
 
 // Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
@@ -67,6 +79,10 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   restriction: false,
   infrastructure: false,
   changeDetection: false,
+  roads: false,
+  buildings: false,
+  landcover: false,
+  elevation: false,
 };
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -100,6 +116,35 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
       tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
       attribution: '&copy; OpenTopoMap contributors',
+    },
+    // Vector tile sources for terrain layers (loaded dynamically)
+    roads: {
+      type: 'vector',
+      tiles: ['/api/tiles/roads/{z}/{x}/{y}.pbf'],
+      minzoom: 0,
+      maxzoom: 14,
+      attribution: '&copy; OSM via Earth Engine',
+    },
+    buildings: {
+      type: 'vector',
+      tiles: ['/api/tiles/buildings/{z}/{x}/{y}.pbf'],
+      minzoom: 0,
+      maxzoom: 16,
+      attribution: '&copy; Microsoft Building Footprints',
+    },
+    landcover: {
+      type: 'vector',
+      tiles: ['/api/tiles/landcover/{z}/{x}/{y}.pbf'],
+      minzoom: 0,
+      maxzoom: 12,
+      attribution: '&copy; ESA WorldCover / Dynamic World',
+    },
+    elevation: {
+      type: 'vector',
+      tiles: ['/api/tiles/elevation/{z}/{x}/{y}.pbf'],
+      minzoom: 0,
+      maxzoom: 12,
+      attribution: '&copy; Copernicus DEM 30m',
     },
   },
   layers: [
@@ -191,6 +236,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   showLayerPanel = true,
   recenterSignal,
   focusBounds,
+  initialLayerVisibility,
+  onLayerVisibilityChange,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -223,8 +270,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
     onParcelClickRef.current?.(id);
   };
 
-  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(DEFAULT_LAYER_VISIBILITY);
-  const toggleLayer = (key: LayerKey) => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
+    initialLayerVisibility ?? DEFAULT_LAYER_VISIBILITY
+  );
+  const toggleLayer = (key: LayerKey) => {
+    const newVisibility = { ...layerVisibility, [key]: !layerVisibility[key] };
+    setLayerVisibility(newVisibility);
+    onLayerVisibilityChange?.(newVisibility);
+  };
 
   const [basemap, setBasemap] = useState<Basemap>('street');
 
@@ -338,7 +391,74 @@ const MapComponent: React.FC<MapComponentProps> = ({
         },
       });
 
-      // Zoning / restriction / change-detection overlays.
+      // Roads - vector tiles
+      if (!map.getLayer('roads-layer')) {
+        map.addLayer({
+          id: 'roads-layer',
+          type: 'line',
+          source: 'roads',
+          'source-layer': 'roads',
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
+          paint: {
+            'line-color': ['match', ['get', 'road_type'], 'HIGHWAY', '#dc2626', 'PRIMARY', '#ea580c', 'SECONDARY', '#f97316', 'TERTIARY', '#fbbf24', 'RESIDENTIAL', '#9ca3af', '#6b7280'],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 12, 3],
+            'line-opacity': 0.8,
+          },
+        });
+      }
+
+      // Buildings - vector tiles
+      if (!map.getLayer('buildings-layer')) {
+        map.addLayer({
+          id: 'buildings-layer',
+          type: 'fill',
+          source: 'buildings',
+          'source-layer': 'buildings',
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
+          paint: {
+            'fill-color': ['interpolate', ['linear'], ['get', 'height_m'], 0, '#9ca3af', 10, '#78716c', 30, '#4b5563', 50, '#1f2937'],
+            'fill-opacity': 0.7,
+            'fill-outline-color': '#374151',
+          },
+        });
+      }
+
+      // Land cover - vector tiles
+      if (!map.getLayer('landcover-layer')) {
+        map.addLayer({
+          id: 'landcover-layer',
+          type: 'fill',
+          source: 'landcover',
+          'source-layer': 'landcover',
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.zoning ? 'visible' : 'none' },
+          paint: {
+            'fill-color': ['match', ['get', 'class_name'], 
+              'Tree cover', '#166534', 'Shrubland', '#65a30d', 'Grassland', '#84cc16', 
+              'Cropland', '#eab308', 'Built-up', '#dc2626', 'Water', '#2563eb', 
+              'Wetland', '#0891b2', 'Moss/lichen', '#a3a3a3', 'Bare/sparse vegetation', '#d4d4d4', 
+              'Snow/ice', '#f0f9ff', '#9ca3af'],
+            'fill-opacity': 0.5,
+          },
+        });
+      }
+
+      // Elevation - vector tiles (contour-style visualization)
+      if (!map.getLayer('elevation-layer')) {
+        map.addLayer({
+          id: 'elevation-layer',
+          type: 'fill',
+          source: 'elevation',
+          'source-layer': 'elevation',
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.zoning ? 'visible' : 'none' },
+          paint: {
+            'fill-color': ['interpolate', ['linear'], ['get', 'mean_elevation_m'], 
+              0, '#0d9488', 50, '#16a34a', 100, '#eab308', 200, '#f97316', 500, '#ea580c', 1000, '#dc2626', '#991b1b'],
+            'fill-opacity': 0.3,
+          },
+        });
+      }
+
+      // Zoning / restriction / change-detection overlays (still GeoJSON for now - admin layers)
       ensureLayer(map, 'zoning-source', {
         id: 'zoning-layer',
         type: 'fill',
@@ -365,7 +485,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         paint: { 'fill-color': '#db2777', 'fill-opacity': 0.3, 'fill-outline-color': '#9d174d' },
       });
 
-      // Infrastructure: lines (roads/utilities) and points (substations etc.) from one source.
+      // Infrastructure from admin (still GeoJSON)
       ensureLayer(map, 'infrastructure-source', {
         id: 'infrastructure-line-layer',
         type: 'line',
@@ -634,9 +754,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
       nearby: ['nearby-layer'],
       cluster: ['cluster-layer', 'cluster-boundary-layer'],
       sameDistrict: ['district-layer'],
-      zoning: ['zoning-layer'],
+      zoning: ['zoning-layer', 'landcover-layer', 'elevation-layer'],
       restriction: ['restriction-layer'],
-      infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer'],
+      infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
     };
     for (const [key, layerIds] of Object.entries(layerIdsByKey) as [LayerKey, string[]][]) {
@@ -696,7 +816,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           </button>
         </div>
       )}
-      {showLayerPanel && (
+      {showLayerPanel && !initialLayerVisibility && (
         <div className="absolute bottom-2 left-2 bg-surface border-2 border-ink shadow-hard-sm p-2.5 text-xs max-w-[190px]">
           <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
             {t('map.layersHeading')}

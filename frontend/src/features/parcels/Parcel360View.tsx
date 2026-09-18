@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, Download, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, Eye, FileText, Flag, History, MapPin, MessageSquareWarning, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react';
 import apiService from '../../services/apiService';
 import UnifiedMapWrapper from '../map/UnifiedMapWrapper';
 import ServiceRequestForm from './ServiceRequestForm';
+import OfficialPdfViewerModal from './OfficialPdfViewerModal';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
 import { ParcelSummary } from '../../types/parcel';
@@ -85,6 +86,9 @@ const Parcel360View: React.FC = () => {
   const isStaffViewer = isOfficer || authUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
+  const [officialPdfUrl, setOfficialPdfUrl] = useState<string | null>(null);
+  const [officialPdfError, setOfficialPdfError] = useState<string | null>(null);
+
   // "Locate" action, next to the map's own year toggle (per the user's
   // explicit placement). MapComponent only fits its view to the selected
   // parcel's context once, when that context first loads (React Query
@@ -99,6 +103,38 @@ const Parcel360View: React.FC = () => {
     setRecenterSignal((n) => n + 1);
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const closeOfficialPdf = () => {
+    setOfficialPdfUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+    setOfficialPdfError(null);
+  };
+
+  const fetchOfficialPdf = async () => {
+    setOfficialPdfError(null);
+    const lang = currentLang === 'hi' ? 'hi' : 'en';
+    try {
+      const response = await apiService.get(`/parcels/${id}/documents/official-pdf`, {
+        params: { lang },
+        responseType: 'blob',
+      });
+      const contentType = response.headers['content-type'] ?? '';
+      if (!contentType.includes('application/pdf')) {
+        throw new Error('The server did not return a PDF document');
+      }
+      const nextUrl = URL.createObjectURL(response.data as Blob);
+      setOfficialPdfUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return nextUrl;
+      });
+    } catch {
+      setOfficialPdfError('Unable to generate the official document.');
+    }
+  };
+
+  useEffect(() => () => closeOfficialPdf(), []);
   // The two-year comparison used to navigate to /officer/historical-imagery
   // (docs/ADMIN_PANEL_ISSUES.md follow-up, per the user's explicit "the
   // compare years data in the parcel 360 should also not redirect to
@@ -140,7 +176,8 @@ const Parcel360View: React.FC = () => {
     link.href = url;
     link.download = `record-of-rights-${id}.pdf`;
     link.click();
-    URL.revokeObjectURL(url);
+    // Revoke on a short timeout to allow the browser to start the download
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
   // The 3 request buttons below (+ Verify Documents) are citizen actions for
@@ -202,6 +239,7 @@ const Parcel360View: React.FC = () => {
     setServiceRequest(null);
     setActiveTab('overview');
     setShowHistoricalCompare(false);
+    closeOfficialPdf();
     explainMutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -232,6 +270,15 @@ const Parcel360View: React.FC = () => {
           onClose={closeServiceRequest}
         />
       )}
+
+      {officialPdfUrl && (
+        <OfficialPdfViewerModal
+          url={officialPdfUrl}
+          fileName={`record-of-rights-${id}.pdf`}
+          onClose={closeOfficialPdf}
+        />
+      )}
+      {officialPdfError && <p role="alert" className="text-secondary-strong text-sm px-2">{officialPdfError}</p>}
 
       {/* Actions moved to the top of the page (docs/ADMIN_PANEL_ISSUES.md
           follow-up, per the user's explicit "bring the actions tab on top"). */}
@@ -271,14 +318,23 @@ const Parcel360View: React.FC = () => {
             </>
           )}
           {(isOwnParcel || isStaffViewer) && (
-            <button
-              onClick={() => downloadPdfMutation.mutate()}
-              disabled={downloadPdfMutation.isLoading}
-              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              {downloadPdfMutation.isLoading ? t('parcel360.downloadingOfficialDocument') : t('parcel360.downloadOfficialDocument')}
-            </button>
+            <>
+              <button
+                onClick={() => fetchOfficialPdf().catch(() => setOfficialPdfError('Unable to generate the official document.'))}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              >
+                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('parcel360.viewOfficialDocument')}
+              </button>
+              <button
+                onClick={() => downloadPdfMutation.mutate()}
+                disabled={downloadPdfMutation.isLoading}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                {downloadPdfMutation.isLoading ? t('parcel360.downloadingOfficialDocument') : t('parcel360.downloadOfficialDocument')}
+              </button>
+            </>
           )}
           <button
             className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"

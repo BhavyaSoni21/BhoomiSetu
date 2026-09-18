@@ -6,11 +6,17 @@ stubbed with 501 in app/routers/parcels.py, pending InteroperabilityModule
 do on its own is ported below.
 """
 
+from datetime import date, datetime
 from geoalchemy2.shape import from_shape
+from io import BytesIO
+from pypdf import PdfReader
 from shapely.geometry import Polygon
 
 from app.models.parcel import CitizenParcel, ParcelDocument, ParcelHistoricalState, ParcelIdentifier, ParcelNeighbour
-from app.models.parcel import Parcel
+from app.models.parcel import Parcel, OwnershipHistoryRecord, CropRecord
+from app.models.department_record import RegistrationRecord, TaxRecord
+from app.models.user import User
+from app.models.workflow import Workflow, WorkflowStep
 from tests.helpers.auth import create_authenticated_user
 
 
@@ -19,6 +25,11 @@ def square(min_lng: float, min_lat: float, size: float = 0.001):
         Polygon([(min_lng, min_lat), (min_lng + size, min_lat), (min_lng + size, min_lat + size), (min_lng, min_lat + size), (min_lng, min_lat)]),
         srid=4326,
     )
+
+
+def _pdf_text(pdf_bytes: bytes) -> str:
+    """Extract all text from a PDF for content assertions."""
+    return "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf_bytes)).pages)
 
 
 def _base_fixtures(db):
@@ -388,12 +399,106 @@ class TestGetDocuments:
 
 
 class TestGetOfficialDocumentPdf:
+    def _seed_full_parcel(self, db, citizen):
+        """Seed a parcel with all related records needed for a populated PDF."""
+        parcel = Parcel(
+            canonical_parcel_id="MH-PUN-000142",
+            cluster_id="PUNE_01",
+            district_code="PUN",
+            state_code="MH",
+            ulpin="ULPIN-MH-PUN-000142",
+            area_sq_m=2310.5,
+            local_body_code="MHLB001",
+            geometry=square(73.85, 18.52),
+        )
+        db.add(parcel)
+        db.flush()
+
+        db.add_all([
+            ParcelIdentifier(parcel_id=str(parcel.id), identifier_type="SURVEY_NUMBER", identifier_value="142", source_state="MH", source_department="LAND_RECORDS"),
+            ParcelIdentifier(parcel_id=str(parcel.id), identifier_type="PLOT_NUMBER", identifier_value="7-A", source_state="MH", source_department="LAND_RECORDS"),
+        ])
+
+        db.add(RegistrationRecord(parcel_id=str(parcel.id), registration_status="REGISTERED"))
+        db.add(TaxRecord(parcel_id=str(parcel.id), assessed_value=45000.0, annual_tax_amount=500.0, tax_status="PAID", outstanding_amount=0.0))
+        db.add(OwnershipHistoryRecord(
+            parcel_id=str(parcel.id),
+            owner_name="Asha Rao",
+            khata_number="1099",
+            transaction_type="ORIGINAL",
+            transaction_date=date(2011, 4, 22),
+            document_reference="DEED-287245",
+        ))
+        db.add(CropRecord(
+            parcel_id=str(parcel.id),
+            agricultural_year="2025-26",
+            season="KHARIF",
+            crop_type="FOOD_CROP",
+            crop_name="Paddy (Rice)",
+            irrigated_area_sq_m=1500.0,
+            unirrigated_area_sq_m=810.5,
+            irrigation_source="WELL",
+            uncultivable_area_sq_m=0.0,
+            remark="Demo crop record",
+        ))
+
+        workflow = Workflow(
+            id=parcel.id,
+            parcel_id=str(parcel.id),
+            workflow_type="ROR_COPY_REQUEST",
+            current_status="APPROVED",
+            created_by="Asha Rao",
+            created_at=datetime(2026, 1, 10),
+        )
+        db.add(workflow)
+        db.flush()
+
+        db.add(WorkflowStep(
+            workflow_id=workflow.id,
+            step_order=1,
+            department="LAND_RECORDS",
+            action="APPROVE",
+            assigned_role="LAND_RECORD_OFFICER",
+            status="APPROVED",
+            completed_at=datetime(2026, 1, 15),
+        ))
+
+        db.add(CitizenParcel(citizen_id=citizen.id, parcel_id=parcel.id))
+        db.flush()
+
+        return parcel
+
     def test_serves_the_pdf_to_the_linked_citizen(self, db, client):
         f = _base_fixtures(db)
         res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/official-pdf", headers=f["citizen_headers"])
         assert res.status_code == 200
         assert res.headers["content-type"] == "application/pdf"
         assert res.content[:5] == b"%PDF-"
+
+    def test_serves_populated_pdf_with_real_values(self, db, client):
+        """Integration test: route returns PDF with actual parcel/owner/crop data."""
+        citizen, _, citizen_headers = create_authenticated_user(db, "CITIZEN")
+
+        parcel = self._seed_full_parcel(db, citizen)
+
+        res = client.get(
+            f"/api/v1/parcels/{parcel.id}/documents/official-pdf",
+            headers=citizen_headers,
+        )
+
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("application/pdf")
+        assert "inline" in res.headers["content-disposition"]
+        assert "private" in res.headers["cache-control"]
+        assert "no-store" in res.headers["cache-control"]
+
+        text = _pdf_text(res.content)
+        assert "Asha Rao" in text
+        assert "142" in text
+        assert "ULPIN-MH-PUN-000142" in text
+        assert "DEED-287245" in text
+        assert "Paddy (Rice)" in text
+        assert "45,000.00" in text
 
     def test_serves_the_pdf_to_staff_regardless_of_association(self, db, client):
         f = _base_fixtures(db)
@@ -420,6 +525,19 @@ class TestGetOfficialDocumentPdf:
         f = _base_fixtures(db)
         res = client.get("/api/v1/parcels/00000000-0000-0000-0000-000000000000/documents/official-pdf", headers=f["citizen_headers"])
         assert res.status_code == 404
+
+    def test_unrelated_citizen_cannot_view_official_pdf(self, db, client):
+        """Security test: citizen not linked to parcel gets 403."""
+        citizen, _, citizen_headers = create_authenticated_user(db, "CITIZEN")
+        parcel = self._seed_full_parcel(db, citizen)
+
+        _, _, other_citizen_headers = create_authenticated_user(db, "CITIZEN")
+
+        res = client.get(
+            f"/api/v1/parcels/{parcel.id}/documents/official-pdf",
+            headers=other_citizen_headers,
+        )
+        assert res.status_code == 403
 
 
 class TestGetHistory:

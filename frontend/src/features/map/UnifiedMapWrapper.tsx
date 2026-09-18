@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Map, Mountain, Layers, Calendar } from 'lucide-react';
+import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
-import MapComponent from './MapComponent';
+import MapComponent, { LayerKey } from './MapComponent';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
+import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
+import { SpatialFeatureCollection } from '../../types/spatial';
 
 interface HierarchicalCluster {
   stateCode: string;
@@ -41,6 +43,10 @@ interface UnifiedMapWrapperProps {
     | 'restriction'
     | 'infrastructure'
     | 'changeDetection'
+    | 'roads'
+    | 'buildings'
+    | 'landcover'
+    | 'elevation'
   >;
   /** Hide the bottom-left layer-toggle legend entirely. */
   showLayerPanel?: boolean;
@@ -58,6 +64,8 @@ interface UnifiedMapWrapperProps {
   onYearChange?: (year: number) => void;
   /** Show the hierarchical cluster dropdown. */
   showClusterDropdown?: boolean;
+  /** Hide the state dropdown in the cluster selector (when parent has its own state picker). */
+  hideStateDropdown?: boolean;
   /** Cluster ID for historical imagery (Parcel 360). */
   clusterId?: string;
   /** Years available for this cluster. */
@@ -72,7 +80,41 @@ interface UnifiedMapWrapperProps {
   height?: string;
 }
 
+const LAYER_KEYS: LayerKey[] = [
+  'selected',
+  'adjacent',
+  'nearby',
+  'cluster',
+  'sameDistrict',
+  'zoning',
+  'restriction',
+  'infrastructure',
+  'changeDetection',
+  'roads',
+  'buildings',
+  'landcover',
+  'elevation',
+];
+
+const LAYER_LABELS: Record<LayerKey, string> = {
+  selected: 'Selected Parcel',
+  adjacent: 'Adjacent Parcels',
+  nearby: 'Nearby Parcels',
+  cluster: 'Full Cluster',
+  sameDistrict: 'Same District',
+  zoning: 'Zoning',
+  restriction: 'Restriction Zones',
+  infrastructure: 'Infrastructure',
+  changeDetection: 'Change Detection',
+  roads: 'Roads (OSM)',
+  buildings: 'Buildings (MS)',
+  landcover: 'Land Cover',
+  elevation: 'Elevation',
+};
+
 const OFFICER_ROLES = ['OFFICER', 'ADMIN', 'VERIFIER', 'CHECKER', 'APPROVER'] as const;
+
+const EMPTY_FC: SpatialFeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   parcels: parcelsProp,
@@ -90,6 +132,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   selectedYear,
   onYearChange,
   showClusterDropdown = false,
+  hideStateDropdown = false,
   clusterId,
   years,
   userRole,
@@ -103,6 +146,34 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   // Use years from props (Parcel 360) or historicalYears (other maps)
   const effectiveHistoricalYears = years?.length ? years : historicalYears;
 
+  // Layer filter state
+  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
+    LAYER_KEYS.reduce((acc, key) => ({ ...acc, [key]: true }), {} as Record<LayerKey, boolean>)
+  );
+  const [showLayerFilters, setShowLayerFilters] = useState(false);
+  const layerFiltersRef = useRef<HTMLDivElement>(null);
+
+  const toggleLayer = (key: LayerKey) => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Close layer filters when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (layerFiltersRef.current && !layerFiltersRef.current.contains(event.target as Node)) {
+        setShowLayerFilters(false);
+      }
+    };
+    if (showLayerFilters) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showLayerFilters]);
+
+  // State for hierarchical dropdown
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [selectedCluster, setSelectedCluster] = useState<string>('');
+  const [clusterBounds, setClusterBounds] = useState<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>(null);
+
   // Fetch hierarchical clusters for the dropdown
   const { data: hierarchicalClusters = [], isLoading: clustersLoading } = useQuery<HierarchicalCluster[]>(
     ['gis-clusters-hierarchical'],
@@ -113,11 +184,108 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     { staleTime: 1000 * 60 * 30 }, // 30 minutes - clusters rarely change
   );
 
-  // State for hierarchical dropdown
-  const [selectedState, setSelectedState] = useState<string>('');
-  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
-  const [selectedCluster, setSelectedCluster] = useState<string>('');
-  const [clusterBounds, setClusterBounds] = useState<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>(null);
+  // Determine district context for spatial layer availability checks
+  // Uses selected parcel's district, or first parcel's district from props
+  const districtContext = useMemo(() => {
+    // TODO: This would need the selected parcel's context to get district
+    // For now, we'll check from parcels prop if available
+    if (parcelsProp && parcelsProp.length > 0) {
+      return { state: parcelsProp[0].stateCode, district: parcelsProp[0].districtCode };
+    }
+    return null;
+  }, [parcelsProp]);
+
+  // Check which spatial layers have data in the database for this district
+  const { data: zoningFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
+    ['zoning-overlays', districtContext?.state, districtContext?.district],
+    async () => {
+      const response = await apiService.get('/gis/zoning-overlays', { params: { state: districtContext!.state, district: districtContext!.district } });
+      return response.data;
+    },
+    { enabled: !!districtContext }
+  );
+
+  const { data: restrictionFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
+    ['restriction-zones', districtContext?.state, districtContext?.district],
+    async () => {
+      const response = await apiService.get('/gis/restriction-zones', { params: { state: districtContext!.state, district: districtContext!.district } });
+      return response.data;
+    },
+    { enabled: !!districtContext }
+  );
+
+  const { data: infrastructureFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
+    ['infrastructure', districtContext?.state, districtContext?.district],
+    async () => {
+      const response = await apiService.get('/gis/infrastructure', { params: { state: districtContext!.state, district: districtContext!.district } });
+      return response.data;
+    },
+    { enabled: !!districtContext }
+  );
+
+  const { data: changeDetectionFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
+    ['change-detection-events', districtContext?.state, districtContext?.district],
+    async () => {
+      const response = await apiService.get('/gis/change-detection-events', { params: { state: districtContext!.state, district: districtContext!.district } });
+      return response.data;
+    },
+    { enabled: !!districtContext }
+  );
+
+  // Determine which layers actually have data
+  const layerHasData = useMemo(() => ({
+    zoning: zoningFC.features.length > 0,
+    restriction: restrictionFC.features.length > 0,
+    infrastructure: infrastructureFC.features.length > 0,
+    changeDetection: changeDetectionFC.features.length > 0,
+    sameDistrict: parcelsProp !== undefined && districtContext !== null,
+    cluster: !!selectedParcelId || !!focusBounds || !!selectedCluster,
+    selected: !!selectedParcelId,
+    adjacent: !!selectedParcelId,
+    nearby: !!selectedParcelId,
+    roads: true, // Vector tiles - always available if data exists in DB
+    buildings: true,
+    landcover: true,
+    elevation: true,
+  }), [zoningFC, restrictionFC, infrastructureFC, changeDetectionFC, parcelsProp, districtContext, selectedParcelId, focusBounds, selectedCluster]);
+
+  // Build state/district lookup from locationData for full names
+  const getStateName = (stateCode: string) => {
+    const state = STATES_AND_DISTRICTS.find(s => s.code === stateCode);
+    return state ? state.name : stateCode;
+  };
+
+  const getDistrictName = (stateCode: string, districtCode: string) => {
+    const state = STATES_AND_DISTRICTS.find(s => s.code === stateCode);
+    if (!state) return districtCode;
+    const district = state.districts.find(d => d.code === districtCode);
+    return district ? district.name : districtCode;
+  };
+
+  // Context-aware layer keys: only show layers relevant to current selection/focus AND that have data
+  const effectiveLayerKeys = useMemo(() => {
+    const baseKeys = visibleLayerKeys ?? LAYER_KEYS;
+    const hasParcelSelected = !!selectedParcelId;
+    const hasClusterFocus = !!focusBounds || !!selectedCluster;
+
+    let availableKeys: LayerKey[];
+    
+    if (hasParcelSelected) {
+      // Parcel selected: all contextual layers available
+      availableKeys = baseKeys;
+    } else if (hasClusterFocus) {
+      // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
+      availableKeys = baseKeys.filter(
+        (key) => ['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'].includes(key)
+      );
+    } else {
+      // No selection: only district-level overlay layers + terrain layers
+      availableKeys = baseKeys.filter((key) => ['zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'].includes(key));
+    }
+
+    // Filter to only layers that have data
+    return availableKeys.filter((key) => layerHasData[key]);
+  }, [visibleLayerKeys, selectedParcelId, focusBounds, selectedCluster, layerHasData]);
 
   // Find cluster bounds when selection changes
   useEffect(() => {
@@ -162,7 +330,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   // Combined recenter signal (external + internal)
   const combinedRecenterSignal = (recenterSignal ?? 0) + internalRecenterSignal;
 
-  // Determine available districts for selected state
+  // Determine available districts for selected state (from API data)
   const availableDistricts = selectedState
     ? hierarchicalClusters.find((s) => s.stateCode === selectedState)?.districts ?? []
     : [];
@@ -173,104 +341,70 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     : [];
 
   return (
-    <div className={`relative ${height} w-full ${className}`}>
-      {/* Top controls: Hierarchical dropdown + Year selector + Locate button */}
-      {(showClusterDropdown || showYearSelector) && (
-        <div className="absolute top-2 left-2 right-2 z-10 flex flex-wrap items-center justify-between gap-2 bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2">
-          {/* Hierarchical State → District → Cluster Dropdown */}
-          {showClusterDropdown && hierarchicalClusters.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="unified-map-state-select" className="text-[10px] font-bold uppercase tracking-widest text-ink/60 hidden sm:block">
-                {t('unifiedMap.state')}
-              </label>
-              <select
-                id="unified-map-state-select"
-                value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
-                className="w-full sm:w-auto min-w-[140px] border-2 border-ink bg-surface px-2 py-1.5 text-sm font-semibold text-ink"
-                aria-label={t('unifiedMap.stateAria')}
+    <div className={`flex flex-col ${height} w-full ${className}`}>
+      {/* Controls bar above map - layer filters + locate button */}
+      {showLayerPanel && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-surface border-b-2 border-ink p-2 shrink-0">
+          {/* Layer Filters Dropdown */}
+          {effectiveLayerKeys.length > 0 && (
+            <div className="relative" ref={layerFiltersRef}>
+              <button
+                type="button"
+                onClick={() => setShowLayerFilters(!showLayerFilters)}
+                className="inline-flex items-center gap-1.5 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0"
+                aria-label={t('unifiedMap.layersAria')}
+                title={t('unifiedMap.layersTooltip')}
               >
-                <option value="">{t('unifiedMap.selectState')}</option>
-                {hierarchicalClusters.map((state) => (
-                  <option key={state.stateCode} value={state.stateCode}>
-                    {state.stateCode}
-                  </option>
-                ))}
-              </select>
-
-              {selectedState && (
-                <>
-                  <label htmlFor="unified-map-district-select" className="text-[10px] font-bold uppercase tracking-widest text-ink/60 hidden sm:block">
-                    {t('unifiedMap.district')}
-                  </label>
-                  <select
-                    id="unified-map-district-select"
-                    value={selectedDistrict}
-                    onChange={(e) => setSelectedDistrict(e.target.value)}
-                    className="w-full sm:w-auto min-w-[140px] border-2 border-ink bg-surface px-2 py-1.5 text-sm font-semibold text-ink"
-                    aria-label={t('unifiedMap.districtAria')}
-                  >
-                    <option value="">{t('unifiedMap.selectDistrict')}</option>
-                    {availableDistricts.map((district) => (
-                      <option key={district.districtCode} value={district.districtCode}>
-                        {district.districtCode}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              {selectedDistrict && (
-                <>
-                  <label htmlFor="unified-map-cluster-select" className="text-[10px] font-bold uppercase tracking-widest text-ink/60 hidden sm:block">
-                    {t('unifiedMap.cluster')}
-                  </label>
-                  <select
-                    id="unified-map-cluster-select"
-                    value={selectedCluster}
-                    onChange={(e) => setSelectedCluster(e.target.value)}
-                    className="w-full sm:w-auto min-w-[140px] border-2 border-ink bg-surface px-2 py-1.5 text-sm font-semibold text-ink"
-                    aria-label={t('unifiedMap.clusterAria')}
-                  >
-                    <option value="">{t('unifiedMap.selectCluster')}</option>
-                    {availableClusters.map((cluster) => (
-                      <option key={cluster.clusterId} value={cluster.clusterId}>
-                        {cluster.clusterId}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Year Selector (Officer/Admin only) */}
-          {showYearSelector && isOfficerOrAdmin && effectiveHistoricalYears.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label htmlFor="unified-map-year-select" className="text-[10px] font-bold uppercase tracking-widest text-ink/60 hidden sm:block">
-                {t('unifiedMap.year')}
-              </label>
-              <select
-                id="unified-map-year-select"
-                value={selectedYear ?? effectiveHistoricalYears[effectiveHistoricalYears.length - 1]}
-                onChange={(e) => onYearChange?.(Number(e.target.value))}
-                className="w-full sm:w-auto min-w-[100px] border-2 border-ink bg-surface px-2 py-1.5 text-sm font-bold text-ink"
-                aria-label={t('unifiedMap.yearAria')}
-              >
-                {effectiveHistoricalYears
-                  .slice()
-                  .sort((a, b) => b - a)
-                  .map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
+                <LayersIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">{t('unifiedMap.layers')}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showLayerFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
+              </button>
+              {showLayerFilters && (
+                <div className="absolute right-0 top-full mt-1 z-20 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[180px] max-h-[300px] overflow-y-auto">
+                  <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
+                    {t('unifiedMap.layerFilters')}
+                  </p>
+                  {effectiveLayerKeys.map((key) => (
+                    <label key={key} className="flex items-center gap-1.5 py-1 text-ink/80 font-medium cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={layerVisibility[key]}
+                        onChange={() => toggleLayer(key)}
+                        className="accent-primary w-3.5 h-3.5 border-2 border-ink"
+                      />
+                      {LAYER_LABELS[key]}
+                    </label>
                   ))}
-              </select>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Locate Button + Action Slot */}
-          <div className="flex items-center gap-2">
+          {/* Year Selector (Officer/Admin only) + Locate Button + Action Slot */}
+          <div className="flex items-center gap-2 shrink-0">
+            {showYearSelector && isOfficerOrAdmin && effectiveHistoricalYears.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="unified-map-year-select" className="text-[10px] font-bold uppercase tracking-widest text-ink/60 hidden sm:block">
+                  {t('unifiedMap.year')}
+                </label>
+                <select
+                  id="unified-map-year-select"
+                  value={selectedYear ?? effectiveHistoricalYears[effectiveHistoricalYears.length - 1]}
+                  onChange={(e) => onYearChange?.(Number(e.target.value))}
+                  className="w-full sm:w-auto min-w-[100px] border-2 border-ink bg-surface px-2 py-1.5 text-sm font-bold text-ink"
+                  aria-label={t('unifiedMap.yearAria')}
+                >
+                  {effectiveHistoricalYears
+                    .slice()
+                    .sort((a, b) => b - a)
+                    .map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
             {actionSlot}
             <button
               type="button"
@@ -286,8 +420,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         </div>
       )}
 
-      {/* Map Component */}
-      <div className="absolute inset-0">
+      {/* Map Component - fills remaining space */}
+      <div className="flex-1 relative min-h-0">
         <MapComponent
           parcels={parcelsProp}
           selectedParcelId={selectedParcelId}
@@ -299,6 +433,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           showLayerPanel={showLayerPanel}
           recenterSignal={combinedRecenterSignal}
           focusBounds={effectiveFocusBounds}
+          initialLayerVisibility={layerVisibility}
+          onLayerVisibilityChange={setLayerVisibility}
         />
       </div>
 

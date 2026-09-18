@@ -12,6 +12,7 @@ from app.auth.passwords import hash_password, verify_password
 from app.models.pending_registration import PendingRegistration
 from app.models.user import User
 from app.schemas.auth import ContactRequest, ProfileDetailsRequest, RegisterRequest
+from app.schemas.profile_field import DynamicProfileData
 from app.services import email_service, sms_service, users_service
 
 _EMAIL_OTP_EXPIRY_MINUTES = 10
@@ -288,10 +289,11 @@ def add_or_change_contact(db: Session, user: User, dto: ContactRequest) -> User:
     return user
 
 
-def update_profile_details(db: Session, user: User, dto: ProfileDetailsRequest) -> User:
+def update_profile_details(db: Session, user: User, dto: DynamicProfileData) -> User:
     fields = dto.model_dump(exclude_unset=True, by_alias=False)
     for key, value in fields.items():
-        setattr(user, key, value)
+        if hasattr(user, key):
+            setattr(user, key, value)
     db.flush()
     return user
 

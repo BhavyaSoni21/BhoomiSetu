@@ -94,23 +94,27 @@ def random_person_name() -> str:
 IDENTIFIER_PROFILES = {
     "MH": [
         {"type": "SURVEY_NUMBER", "probability": 0.9, "format": lambda: f"{rand_int(1, 200)}/{rand_int(1, 12)}"},
-        {"type": "ULPIN", "probability": 0.5, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
+        {"type": "ULPIN", "probability": 0.82, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
     ],
     "TN": [
         {"type": "SURVEY_NUMBER", "probability": 0.9, "format": lambda: f"{rand_int(1, 200)}/{rand_int(1, 12)}"},
         {"type": "SUBDIVISION_NUMBER", "probability": 0.7, "format": lambda: f"SUB-{rand_int(1, 999)}"},
+        {"type": "ULPIN", "probability": 0.73, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
     ],
     "KA": [
         {"type": "SURVEY_NUMBER", "probability": 0.9, "format": lambda: f"{rand_int(1, 200)}/{rand_int(1, 12)}"},
         {"type": "HISSA_NUMBER", "probability": 0.6, "format": lambda: f"{rand_int(1, 50)}/{rand_int(1, 9)}"},
+        {"type": "ULPIN", "probability": 0.73, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
     ],
     "DL": [
         {"type": "PLOT_NUMBER", "probability": 0.9, "format": lambda: f"P-{rand_int(1, 9999)}"},
         {"type": "PROPERTY_NUMBER", "probability": 0.6, "format": lambda: f"PROP-{rand_int(1, 99999)}"},
+        {"type": "ULPIN", "probability": 0.73, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
     ],
     "CH": [
         {"type": "PLOT_NUMBER", "probability": 0.9, "format": lambda: f"SCO-{rand_int(1, 999)}"},
         {"type": "SECTOR_NUMBER", "probability": 0.7, "format": lambda: f"SECTOR-{rand_int(1, 47)}"},
+        {"type": "ULPIN", "probability": 0.73, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
     ],
 }
 
@@ -121,7 +125,7 @@ IDENTIFIER_PROFILES = {
 # actual scheme.
 _DEFAULT_IDENTIFIER_PROFILE = [
     {"type": "SURVEY_NUMBER", "probability": 0.9, "format": lambda: f"{rand_int(1, 200)}/{rand_int(1, 12)}"},
-    {"type": "ULPIN", "probability": 0.5, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
+    {"type": "ULPIN", "probability": 0.78, "format": lambda: f"ULPIN{rand_int(0, 999999):010d}"},
 ]
 
 LAND_USES = [("RESIDENTIAL", 5), ("COMMERCIAL", 2), ("AGRICULTURAL", 2), ("MIXED_USE", 1)]

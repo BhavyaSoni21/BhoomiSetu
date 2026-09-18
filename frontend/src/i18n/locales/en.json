@@ -165,7 +165,14 @@
     "otpVerifyMobileHeading": "Verify your mobile",
     "otpSentPrefix": "We sent a 6-digit code to",
     "wrongContactGoBack": "Wrong email or mobile number? Go back and fix it",
-    "minCharsPlaceholder": "Min 8 characters"
+    "minCharsPlaceholder": "Min 8 characters",
+    "orContinueWith": "or continue with",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithGoogleLoading": "Redirecting to Google…",
+    "googleCompletingSignIn": "Completing Google Sign-In",
+    "googleCompletingSignInDesc": "Please wait while we finish signing you in securely.",
+    "googleOauthNotConfigured": "Google Sign-In is not configured. Please contact the administrator.",
+    "googleOauthError": "Google Sign-In failed. Please try again."
   },
   "hero": {
     "badgeDigitalIndia": "Digital India Land Records",

@@ -6,7 +6,7 @@ only this dataclass and never queries the database itself.
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ from app.services import land_records_lookup_service
 from app.config import get_settings
 from app.models.department_record import RegistrationRecord, TaxRecord
 from app.models.parcel import CropRecord, OwnershipHistoryRecord, Parcel, ParcelIdentifier
+from app.models.user import User
 from app.models.workflow import Workflow, WorkflowStep
 
 # {cluster_id: district display name}, e.g. "Pune", "Pune Rural" - the same
@@ -51,6 +52,16 @@ class ApplicantInfo:
     application_date: datetime
     approved_by: str | None
     approval_date: datetime | None
+
+
+@dataclass
+class ProfileInfo:
+    name: str | None
+    email: str | None
+    mobile_number: str | None
+    address: str | None
+    government_id_number: str | None
+    occupation: str | None
 
 
 @dataclass
@@ -106,12 +117,13 @@ class CropRow:
 
 @dataclass
 class LandRecordPDFData:
+    profile: ProfileInfo | None
     applicant: ApplicantInfo | None
     parcel: ParcelInfo
     ownership: list[OwnershipRow] = field(default_factory=list)
     mutation: MutationInfo = field(default_factory=lambda: MutationInfo(False, None, None))
     crops: list[CropRow] = field(default_factory=list)
-    generated_at: datetime = field(default_factory=datetime.now)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Workflow types that represent a live mutation-in-progress against a
@@ -123,13 +135,29 @@ _MUTATION_WORKFLOW_TYPES = {"LAND_CLAIM_REQUEST", "CORRECTION_REQUEST"}
 _OPEN_STATUSES = {"SUBMITTED", "UNDER_REVIEW"}
 
 
-def build_land_record_pdf_data(db: Session, parcel: Parcel) -> LandRecordPDFData:
+def build_land_record_pdf_data(
+    db: Session,
+    parcel: Parcel,
+    user: User | None = None,
+) -> LandRecordPDFData:
     identifiers = db.query(ParcelIdentifier).filter_by(parcel_id=str(parcel.id)).all()
     survey_number = next((i.identifier_value for i in identifiers if i.identifier_type == "SURVEY_NUMBER"), None)
     plot_number = next((i.identifier_value for i in identifiers if i.identifier_type == "PLOT_NUMBER"), None)
 
     registration = db.query(RegistrationRecord).filter_by(parcel_id=str(parcel.id)).first()
     tax = db.query(TaxRecord).filter_by(parcel_id=str(parcel.id)).first()
+
+    # Build profile info from authenticated user
+    profile = None
+    if user is not None:
+        profile = ProfileInfo(
+            name=user.name,
+            email=user.email,
+            mobile_number=user.mobile_number,
+            address=user.address,
+            government_id_number=user.government_id_number,
+            occupation=user.occupation,
+        )
 
     parcel_info = ParcelInfo(
         parcel_id=str(parcel.id),
@@ -246,4 +274,11 @@ def build_land_record_pdf_data(db: Session, parcel: Parcel) -> LandRecordPDFData
         for row in crop_records
     ]
 
-    return LandRecordPDFData(applicant=applicant, parcel=parcel_info, ownership=ownership_rows, mutation=mutation, crops=crop_rows)
+    return LandRecordPDFData(
+        profile=profile,
+        applicant=applicant,
+        parcel=parcel_info,
+        ownership=ownership_rows,
+        mutation=mutation,
+        crops=crop_rows,
+    )

@@ -7,17 +7,23 @@ default, matching the original's @Throttle({ default: { limit: 20,
 ttl: 60000 } }).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+import httpx
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.auth.deps import get_current_user, require_roles
+from app.auth.deps import create_access_token, get_current_user, require_roles
 from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
+from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
 from app.rate_limit import limiter
 from app.schemas.auth import (
     AuthPublicUserOut,
     ContactRequest,
+    GoogleOAuthCallbackRequest,
     LoginRequest,
     LoginResultOut,
     MessageOut,
@@ -30,6 +36,7 @@ from app.schemas.auth import (
     VerifyOtpRequest,
     VerifyRegistrationOtpRequest,
 )
+from app.schemas.profile_field import DynamicProfileData, ProfileFormConfig
 from app.services import audit_service
 from app.services import auth_service as service
 from app.services import oauth_service
@@ -113,11 +120,25 @@ def update_contact(dto: ContactRequest, db: Session = Depends(get_db), user: Use
 
 
 # Profile "more info, editable" - no OTP step, unlike update_contact above.
+# Uses dynamic validation based on profile_fields table
 @router.post("/profile/details", response_model=AuthPublicUserOut, status_code=status.HTTP_201_CREATED)
-def update_profile_details(dto: ProfileDetailsRequest, db: Session = Depends(get_db), user: User = Depends(_require_any_role)):
+def update_profile_details(dto: DynamicProfileData, db: Session = Depends(get_db), user: User = Depends(_require_any_role)):
+    # Validate against dynamic field config
+    from app.services.profile_field_service import validate_profile_data
+    is_valid, errors = validate_profile_data(db, user.role, dto.model_dump(exclude_unset=True))
+    if not is_valid:
+        raise HTTPException(status_code=400, detail={"message": "Validation failed", "errors": errors})
     updated = service.update_profile_details(db, user, dto)
     audit_service.log(db, user_id=str(user.id), user_role=user.role, action="AUTH_PROFILE_DETAILS_UPDATED", entity_type="USER", entity_id=str(user.id))
     return updated
+
+
+# Get profile form config for current user's role
+@router.get("/profile/config", response_model=ProfileFormConfig)
+def get_profile_config(db: Session = Depends(get_db), user: User = Depends(_require_any_role)):
+    """Get dynamic profile form configuration for the current user's role."""
+    from app.services.profile_field_service import get_profile_form_config
+    return get_profile_form_config(db, user.role)
 
 
 # Lets the frontend rehydrate a session from a stored token on page load
@@ -143,21 +164,28 @@ def logout(db: Session = Depends(get_db), user: User = Depends(get_current_user)
 # CSRF protection and exchanges the authorization code for user identity.
 
 @router.get("/google/login", response_model=OAuthLoginResponse)
-def google_login(redirect_after_login: str = Query(default="/", description="Where to redirect after successful login")):
+def google_login(redirect_after_login: str = "/", db: Session = Depends(get_db)):
     """Initiate Google OAuth 2.0 authorization flow.
 
     Returns the Google authorization URL that the frontend should redirect to.
     The redirect_after_login parameter is stored in the OAuth state and used
     to redirect the user after successful authentication.
     """
-    auth_url = oauth_service.build_google_auth_url(redirect_after_login)
+    try:
+        auth_url = oauth_service.build_google_auth_url(redirect_after_login)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Google OAuth login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initiate Google OAuth. Please try again."
+        )
     return {"auth_url": auth_url}
 
 
 @router.get("/google/callback", response_model=LoginResultOut)
-def google_callback(code: str = Query(..., description="Authorization code from Google"),
-                    state: str = Query(..., description="CSRF state parameter"),
-                    db: Session = Depends(get_db)):
+def google_callback(code: str, state: str, db: Session = Depends(get_db)):
     """Handle Google OAuth 2.0 callback.
 
     Exchanges the authorization code for tokens, fetches user info from Google,

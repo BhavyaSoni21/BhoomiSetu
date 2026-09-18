@@ -126,6 +126,7 @@ const FindParcelsPage: React.FC = () => {
                 selectedParcelId={selectedParcelId}
                 onParcelClick={setSelectedParcelId}
                 showClusterDropdown
+                hideStateDropdown
                 showLayerPanel
                 visibleLayerKeys={['zoning']}
                 className="rounded-xl border border-gov-border"

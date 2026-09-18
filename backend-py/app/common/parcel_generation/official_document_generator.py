@@ -1,10 +1,11 @@
 """Renders the official Form 7/12-style Record of Rights PDF (BACKLOG.md
 item 14) - layout, section order, and styling deliberately mirror the
 project's reference implementation exactly (emblem box, applicant/approval
-strip, Form 7 ownership table, pending-mutation line, notice, Form 12 crop
-register, footer notes, watermark). This module is presentation-only: it
-receives an already-built app.services.land_record_pdf_service.LandRecordPDFData
-tree and never queries the database itself.
+strip, profile block, Form 7 ownership table, pending-mutation line, notice,
+Form 12 crop register, footer notes, watermark). This module is
+presentation-only: it receives an already-built
+app.services.land_record_pdf_service.LandRecordPDFData tree and never
+queries the database itself.
 """
 
 import io
@@ -21,7 +22,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Table, TableStyle
 
-from app.services.land_record_pdf_service import LandRecordPDFData
+from app.services.land_record_pdf_service import LandRecordPDFData, ProfileInfo
 
 # Full display name per state_code (CLUSTER_CONFIGS's own set of 30 codes -
 # see cluster_generator.py) - the subtitle/emblem below are state-specific
@@ -113,6 +114,12 @@ _L = {
         "generated_on": "PDF Generated On",
         "watermark": "SAMPLE  -  NOT FOR LEGAL USE",
         "not_available": "-",
+        "profile_section": "Account Profile",
+        "profile_name": "Name",
+        "profile_contact": "Contact",
+        "profile_occupation": "Occupation",
+        "profile_address": "Address",
+        "profile_gov_id": "Government ID",
     },
     "hi": {
         "report_date": "अहवाल दिनांक",
@@ -142,12 +149,27 @@ _L = {
         "generated_on": "पीडीएफ तयार केल्याचा दिनांक",
         "watermark": "नमुना  -  कायदेशीर वापरासाठी नाही",
         "not_available": "-",
+        "profile_section": "खातेदार प्रोफाइल",
+        "profile_name": "नाव",
+        "profile_contact": "संपर्क",
+        "profile_occupation": "व्यवसाय",
+        "profile_address": "पत्ता",
+        "profile_gov_id": "शासकीय आयडी",
     },
 }
 
 
 def _fmt_date(value) -> str:
     return value.strftime("%d/%m/%Y") if value else "-"
+
+
+def _profile_contact(profile: ProfileInfo, t: dict) -> str:
+    parts = []
+    if profile.mobile_number:
+        parts.append(profile.mobile_number)
+    if profile.email:
+        parts.append(profile.email)
+    return ", ".join(parts) if parts else t["not_available"]
 
 
 _SQM_PER_HECTARE = 10000
@@ -166,6 +188,14 @@ def _fmt_area(area_sq_m: float) -> str:
 def _para(text, font: str, size: float = 7, bold: bool = False, bold_font: str | None = None, align=TA_CENTER) -> Paragraph:
     style = ParagraphStyle(name="cell", fontName=(bold_font if bold and bold_font else font), fontSize=size, leading=size + 2, alignment=align)
     return Paragraph(str(text).replace("\n", "<br/>"), style)
+
+
+def _ensure_space(c: canvas.Canvas, y: float, required: float, margin: float, height: float) -> float:
+    """Ensure there's enough vertical space; if not, start a new page and return the new y position."""
+    if y - required < margin:
+        c.showPage()
+        return height - margin
+    return y
 
 
 def _draw_watermark(c: canvas.Canvas, width: float, height: float, text: str, font: str) -> None:
@@ -275,6 +305,26 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     c.rect(margin - 6, margin - 6, width - 2 * (margin - 6), height - 2 * (margin - 6))
 
     y = height - margin
+    page_number = 1
+
+    def draw_page_footer(page_num: int) -> None:
+        c.setFont(font, 6)
+        c.drawCentredString(width / 2, margin / 2, f"Page {page_num}")
+
+    def new_page() -> None:
+        nonlocal y, page_number
+        draw_page_footer(page_number)
+        c.showPage()
+        page_number += 1
+        y = height - margin
+        _draw_watermark(c, width, height, t["watermark"], font_b)
+        c.setLineWidth(1)
+        c.rect(margin - 6, margin - 6, width - 2 * (margin - 6), height - 2 * (margin - 6))
+
+    def ensure_space(required: float) -> None:
+        nonlocal y
+        if y - required < margin:
+            new_page()
 
     # ---- Top row: emblem box (left) + report date + QR (right) ----
     c.setFont(font, 7)
@@ -302,7 +352,28 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     else:
         y -= 6
 
+    # ---- Profile block (if authenticated user provided) ----
+    if data.profile:
+        ensure_space(60)
+        c.setFont(font_b, 8)
+        c.drawString(margin, y, t["profile_section"])
+        y -= 11
+        c.setFont(font, 7)
+        c.drawString(margin, y, f"{t['profile_name']}: {data.profile.name or t['not_available']}")
+        c.drawRightString(width - margin, y, f"{t['profile_contact']}: {_profile_contact(data.profile, t)}")
+        y -= 10
+        c.drawString(margin, y, f"{t['profile_occupation']}: {data.profile.occupation or t['not_available']}")
+        c.drawRightString(width - margin, y, f"{t['profile_address']}: {data.profile.address or t['not_available']}")
+        if data.profile.government_id_number:
+            # Mask government ID for privacy
+            gov_id = data.profile.government_id_number
+            masked = f"{'*' * max(0, len(gov_id) - 4)}{gov_id[-4:]}" if len(gov_id) > 4 else "****"
+            y -= 10
+            c.drawString(margin, y, f"{t['profile_gov_id']}: {masked}")
+        y -= 14
+
     # ---- Main Title ----
+    ensure_space(40)
     c.setFont(font_b, 12)
     c.drawCentredString(width / 2, y, t["main_title"])
     y -= 13
@@ -311,6 +382,7 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     y -= 16
 
     # ---- Village info block ----
+    ensure_space(60)
     c.setFont(font, 8)
     c.drawString(margin, y, f"{t['village']}: {p.village_name or t['not_available']} ({p.village_code or t['not_available']})")
     c.drawRightString(width - margin, y, f"{t['taluka']}: {p.taluka or t['not_available']}")
@@ -320,6 +392,9 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     y -= 12
     survey_display = " / ".join(v for v in (p.survey_number, p.plot_number) if v) or t["not_available"]
     c.drawCentredString(width / 2, y, f"{t['survey_no']}: {survey_display}")
+    y -= 12
+    # Display area in hectare.are.sqm notation
+    c.drawCentredString(width / 2, y, f"Area: {_fmt_area(p.area_sq_m)}")
     y -= 16
 
     c.setFont(font_b, 8)
@@ -329,10 +404,12 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     # ---- Form 7 Table ----
     table7 = _build_form7_table(data, lang, font, font_b)
     tw, th = table7.wrapOn(c, width - 2 * margin, height)
+    ensure_space(th + 20)
     table7.drawOn(c, margin, y - th)
     y -= (th + 12)
 
     # ---- Pending mutation + mutation line ----
+    ensure_space(30)
     c.setFont(font, 8)
     c.drawString(margin, y, f"{t['pending_mut']}: {t['yes'] if data.mutation.pending else t['no']}")
     c.drawRightString(width - margin, y, t["mutation_line"].format(
@@ -342,11 +419,13 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     y -= 14
 
     # ---- Legal notice ----
+    ensure_space(30)
     c.setFont(font, 7)
     c.drawCentredString(width / 2, y, t["notice"])
     y -= 18
 
     # ---- Form 12 Title ----
+    ensure_space(40)
     c.setFont(font_b, 11)
     c.drawCentredString(width / 2, y, t["form12_title"])
     y -= 12
@@ -363,21 +442,25 @@ def render_official_document_pdf(data: LandRecordPDFData, lang: str = "en") -> b
     # ---- Form 12 Table ----
     table12 = _build_form12_table(data, lang, font, font_b)
     tw2, th2 = table12.wrapOn(c, width - 2 * margin, height)
+    ensure_space(th2 + 40)
     table12.drawOn(c, margin, y - th2)
     y -= (th2 + 14)
 
     # ---- Footer notes ----
+    ensure_space(50)
     c.setFont(font, 7)
     c.drawString(margin, y, t["footer_note"])
     y -= 10
     c.drawCentredString(width / 2, y, t["notice"])
     y -= 14
 
-    c.setFont(font, 6.5)    
+    c.setFont(font, 6.5)
     c.drawCentredString(width / 2, y, t["auto_note"])
     y -= 9
-    c.drawCentredString(width / 2, y, f"{t['generated_on']}: {data.generated_at.strftime('%d/%m/%Y %H:%M:%S')}")
+    # Use timezone-aware timestamp
+    generated_str = data.generated_at.strftime('%d/%m/%Y %H:%M:%S %Z') if data.generated_at.tzinfo else data.generated_at.strftime('%d/%m/%Y %H:%M:%S UTC')
+    c.drawCentredString(width / 2, y, f"{t['generated_on']}: {generated_str}")
 
-    c.showPage()
+    draw_page_footer(page_number)
     c.save()
     return buffer.getvalue()

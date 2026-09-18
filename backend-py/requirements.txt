@@ -24,6 +24,10 @@ earthengine-api==1.4.3
 opencv-python-headless==4.10.0.84
 reportlab==5.0.1
 qrcode[pil]==8.2
+pypdf==5.0.1
+celery==5.4.0
+redis==5.2.0
+kombu==5.4.0
 
 pytest==8.3.4
 httpx==0.28.1

@@ -156,3 +156,8 @@ class MessageOut(CamelModel):
 class OAuthLoginResponse(CamelModel):
     """Response for the Google OAuth login initiation endpoint."""
     auth_url: str
+
+
+class GoogleOAuthCallbackRequest(CamelModel):
+    code: str
+    state: str | None = None

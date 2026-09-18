@@ -361,8 +361,15 @@ def get_official_document_pdf(
     # only sees it for a parcel actually linked to their account.
     if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
-    pdf_bytes = service.get_official_document_pdf(db, str(id), lang)
-    return Response(content=pdf_bytes, media_type="application/pdf")
+    pdf_bytes = service.get_official_document_pdf(db, str(id), lang, user=user)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="record-of-rights-{id}.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 # Registered above this route - "official-pdf" is a literal path segment,

@@ -32,6 +32,7 @@ from app.models.parcel import (
     ParcelIdentifier,
     ParcelNeighbour,
 )
+from app.models.user import User
 from app.models.workflow import Workflow
 from app.services.land_record_pdf_service import build_land_record_pdf_data
 
@@ -116,7 +117,7 @@ def get_document_file(db: Session, parcel_id: str, doc_id: str) -> tuple[bytes, 
         return None
 
 
-def get_official_document_pdf(db: Session, parcel_id: str, lang: str) -> bytes | None:
+def get_official_document_pdf(db: Session, parcel_id: str, lang: str, user: User | None = None) -> bytes | None:
     """Form 7/12-style Record of Rights PDF, generated on demand from real
     rows (BACKLOG.md item 14) - nothing persisted, no seed-time image. All
     data assembly lives in land_record_pdf_service.build_land_record_pdf_data;
@@ -125,7 +126,7 @@ def get_official_document_pdf(db: Session, parcel_id: str, lang: str) -> bytes |
     parcel = db.get(Parcel, parcel_id)
     if parcel is None:
         return None
-    data = build_land_record_pdf_data(db, parcel)
+    data = build_land_record_pdf_data(db, parcel, user=user)
     return render_official_document_pdf(data, lang)
 
 

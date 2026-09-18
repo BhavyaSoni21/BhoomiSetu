@@ -14,6 +14,7 @@ from app.routers import (
     admin,
     admin_pipeline_config,
     admin_governance_rules,
+    admin_terrain,
     ai,
     analytics,
     audit,
@@ -24,11 +25,14 @@ from app.routers import (
     governance,
     health,
     historical_imagery,
+    jobs,
     land_records,
+    map_tiles,
     multilingual,
     notification_feed,
     parcels,
     predictive_analytics,
+    profile_fields,
     spatial,
     users,
     workflows,
@@ -116,7 +120,10 @@ app.include_router(spatial.router, prefix="/api/v1")
 app.include_router(change_detection.router, prefix="/api/v1")
 app.include_router(historical_imagery.router, prefix="/api/v1")
 app.include_router(parcels.router, prefix="/api/v1")
+app.include_router(map_tiles.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
+app.include_router(profile_fields.router, prefix="/api/v1")
+app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(predictive_analytics.router, prefix="/api/v1")
 app.include_router(land_records.state_a_router, prefix="/api/v1")
 app.include_router(land_records.state_b_router, prefix="/api/v1")
@@ -128,6 +135,7 @@ app.include_router(multilingual.router)
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(admin_pipeline_config.router, prefix="/api/v1")
 app.include_router(admin_governance_rules.router, prefix="/api/v1")
+app.include_router(admin_terrain.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")

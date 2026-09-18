@@ -88,3 +88,5 @@ backend-py/_img.png
 # Graphify cache
 graphify-out/cache/
 
+#maps pbf
+map/

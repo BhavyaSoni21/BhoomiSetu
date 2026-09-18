@@ -416,3 +416,78 @@ def generate_cluster_parcels(config: ClusterGeometryConfig) -> list[GeneratedPar
     raise RuntimeError(
         f"parcel-generation: cluster {config.cluster_id} failed validation {_MAX_CLUSTER_ATTEMPTS} times in a row: {last_error}"
     )
+
+
+def apply_terrain_constraints(
+    config: ClusterGeometryConfig,
+    parcels: list[GeneratedParcel],
+) -> list[GeneratedParcel]:
+    """Filter parcels based on terrain constraints from ParcelTerrainProfile.
+
+    This function queries the database for pre-computed terrain profiles
+    and excludes parcels that fall in constrained areas (water bodies,
+    steep slopes, protected areas, flood zones, building footprints).
+
+    Should be called AFTER terrain data ingestion and profile computation.
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models.terrain import ParcelTerrainProfile
+        from app.models.parcel import Parcel
+        from geoalchemy2.shape import to_shape
+        from shapely.geometry import Point as ShapelyPoint
+
+        db = SessionLocal()
+        try:
+            # Get all terrain profiles for this cluster
+            profiles = db.query(ParcelTerrainProfile).join(Parcel).filter(
+                Parcel.cluster_id == config.cluster_id
+            ).all()
+
+            # Build lookup by parcel centroid proximity (since generated parcels
+            # don't have DB IDs yet, match by spatial proximity)
+            profile_map = {}
+            for profile in profiles:
+                # Get the parcel geometry to find centroid
+                parcel = db.query(Parcel).filter(Parcel.id == profile.parcel_id).first()
+                if parcel and parcel.geometry:
+                    centroid_shape = to_shape(parcel.geometry).centroid
+                    centroid = (centroid_shape.x, centroid_shape.y)
+                    profile_map[centroid] = profile
+
+            # Filter parcels
+            filtered = []
+            for gp in parcels:
+                # Find closest profile by centroid distance
+                gp_centroid = gp.centroid
+                closest_profile = None
+                min_dist = float('inf')
+
+                for profile_centroid, profile in profile_map.items():
+                    dx = gp_centroid[0] - profile_centroid[0]
+                    dy = gp_centroid[1] - profile_centroid[1]
+                    dist = (dx * dx + dy * dy) ** 0.5
+                    if dist < min_dist:
+                        min_dist = dist
+                        closest_profile = profile
+
+                if closest_profile:
+                    constraints = closest_profile.constraints or {}
+                    # Skip parcels in hard-constrained areas
+                    if constraints.get("water_body") or constraints.get("steep_slope") or constraints.get("protected_area"):
+                        continue
+                    if constraints.get("flood_zone"):
+                        # Could reduce parcel size or mark as restricted
+                        # For now, skip flood zone parcels
+                        continue
+                    if constraints.get("building_footprint"):
+                        continue
+
+                filtered.append(gp)
+
+            return filtered
+        finally:
+            db.close()
+    except Exception:
+        # If terrain data not available or any error, return original parcels
+        return parcels

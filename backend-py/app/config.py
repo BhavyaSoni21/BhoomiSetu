@@ -50,12 +50,23 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
+    # Google OAuth 2.0 - for "Sign in with Google" button on login/register pages.
+    # Credentials from Google Cloud Console > APIs & Services > Credentials.
+    # Authorized redirect URI must be set to: <FRONTEND_URL>/auth/callback
+    # (e.g. http://localhost:5173/auth/callback for local dev)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:5173/auth/callback"
+
     # Google Earth Engine - real Sentinel-2 imagery for Change Detection's
     # satellite-sourced analysis path (app/services/earth_engine_service.py).
     # Service-account auth (no user in the loop) - the JSON key file itself
     # is never committed (see .gitignore), only its path lives here.
     gee_service_account_email: str = ""
     gee_service_account_key_path: str = ""
+
+    # Redis for Celery background jobs
+    redis_url: str = "redis://localhost:6379/0"
 
     # Bhashini Multilingual API Configuration (Government of India)
     ulca_user_id: str = ""
@@ -72,12 +83,6 @@ class Settings(BaseSettings):
     bhashini_cache_ttl: int = 3600
     bhashini_max_retries: int = 2
     bhashini_retry_backoff_ms: int = 500
-
-    # Google OAuth 2.0 Configuration
-    # Get credentials from https://console.cloud.google.com/apis/credentials
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:5173/auth/callback"
 
     @property
     def is_production(self) -> bool:
