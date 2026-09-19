@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import apiService from '../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn() },
-}));
+
 
 function renderWithClient() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <AnalyticsDashboard />
     </QueryClientProvider>,
@@ -31,11 +32,10 @@ const summary = {
 
 describe('AnalyticsDashboard', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
   });
 
   it('requests the summary endpoint', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: summary });
+    server.use(http.get('*', () => HttpResponse.json(summary)));
     renderWithClient();
 
     expect(await screen.findByText('200')).toBeInTheDocument();
@@ -43,7 +43,7 @@ describe('AnalyticsDashboard', () => {
   });
 
   it('renders the totals KPI cards', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: summary });
+    server.use(http.get('*', () => HttpResponse.json(summary)));
     renderWithClient();
 
     expect(await screen.findByText('200')).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('AnalyticsDashboard', () => {
   });
 
   it('renders a card title for every section, using meaningful titles rather than raw field names', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: summary });
+    server.use(http.get('*', () => HttpResponse.json(summary)));
     renderWithClient();
 
     await screen.findByText('200');
@@ -72,7 +72,7 @@ describe('AnalyticsDashboard', () => {
   // or business logic), only shown when at least one workflow has actually
   // been decided.
   it('shows the approval rate derived from decided workflows (approved / (approved + rejected))', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: summary });
+    server.use(http.get('*', () => HttpResponse.json(summary)));
     renderWithClient();
 
     await screen.findByText('200');
@@ -82,9 +82,7 @@ describe('AnalyticsDashboard', () => {
   });
 
   it('omits the approval rate when no workflow has been decided yet', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({
-      data: { ...summary, workflowStatusDistribution: [{ key: 'SUBMITTED', count: 8 }] },
-    });
+    server.use(http.get('*', () => HttpResponse.json({ ...summary, workflowStatusDistribution: [{ key: 'SUBMITTED', count: 8 }] },)));
     renderWithClient();
 
     await screen.findByText('200');
@@ -92,7 +90,7 @@ describe('AnalyticsDashboard', () => {
   });
 
   it('shows a "no data" message for an empty distribution', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { ...summary, taxStatusDistribution: [] } });
+    server.use(http.get('*', () => HttpResponse.json({ ...summary, taxStatusDistribution: [] })));
     renderWithClient();
 
     await screen.findByText('200');
@@ -100,7 +98,7 @@ describe('AnalyticsDashboard', () => {
   });
 
   it('shows an error message when the request fails', async () => {
-    vi.mocked(apiService.get).mockRejectedValue(new Error('network error'));
+    server.use(http.get('*', () => HttpResponse.error()));
     renderWithClient();
 
     expect(await screen.findByText('Error loading analytics')).toBeInTheDocument();

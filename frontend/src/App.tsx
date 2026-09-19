@@ -194,7 +194,7 @@ function AppShell() {
                       onClick={handleLogout}
                       className="text-action-500 hover:text-action-400 font-bold transition ml-1"
                     >
-                      Sign out
+                      Sign Out
                     </button>
                   </div>
                 ) : (

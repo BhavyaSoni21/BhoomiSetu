@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RaiseRequestPage from './RaiseRequestPage';
-import apiService from '../../services/apiService';
 import { AuthUser } from '../../features/auth/auth';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
-}));
+
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 
@@ -45,7 +45,7 @@ const parcelTwo = {
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['auth-me'], citizen);
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter>
           <LocationProbe />
@@ -57,12 +57,10 @@ function renderPage() {
 
 describe('RaiseRequestPage', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
-    vi.mocked(apiService.post).mockReset();
   });
 
   it('shows a no-parcels message and Link Parcel CTA when citizen has no registered parcels', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [], total: 0 })));
     renderPage();
 
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
@@ -84,7 +82,7 @@ describe('RaiseRequestPage', () => {
       geometry: '{}',
       status: 'Pending Verification',
     };
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [pendingParcel], total: 1 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [pendingParcel], total: 1 })));
     renderPage();
 
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
@@ -92,7 +90,7 @@ describe('RaiseRequestPage', () => {
   });
 
   it("lists only the citizen's registered parcels in the dropdown", async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [parcelOne, parcelTwo], total: 2 })));
     renderPage();
 
     const select = await screen.findByLabelText(/Select Verified Parcel/i);
@@ -102,7 +100,7 @@ describe('RaiseRequestPage', () => {
   });
 
   it('selecting a parcel reveals the service actions and shows parcel summary', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [parcelOne, parcelTwo], total: 2 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [parcelOne, parcelTwo], total: 2 })));
     renderPage();
 
     const select = await screen.findByLabelText(/Select Verified Parcel/i);

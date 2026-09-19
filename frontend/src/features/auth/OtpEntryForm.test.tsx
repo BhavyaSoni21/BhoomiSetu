@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import OtpEntryForm from './OtpEntryForm';
 import { AuthUser } from './auth';
 
@@ -7,14 +8,14 @@ const updatedUser: AuthUser = { id: 'c1', email: 'citizen@example.com', name: 'A
 
 // verify/resend are injected props now (not hardcoded hooks) so this same
 // component can drive both Profile's add/change-contact flow and the
-// pre-account registration flow - render() below stands in for whichever
+// pre-account registration flow - renderWithProviders() below stands in for whichever
 // caller wires it up (see ContactMethodCard.tsx / RegisterPage.tsx).
 function renderForm(overrides: Partial<React.ComponentProps<typeof OtpEntryForm>> = {}) {
   const onVerifyCode = vi.fn().mockResolvedValue(updatedUser);
   const onResend = vi.fn().mockResolvedValue(undefined);
   const onVerified = vi.fn();
   const onCancel = vi.fn();
-  const utils = render(
+  const utils = renderWithProviders(
     <OtpEntryForm
       method="EMAIL"
       target="citizen@example.com"

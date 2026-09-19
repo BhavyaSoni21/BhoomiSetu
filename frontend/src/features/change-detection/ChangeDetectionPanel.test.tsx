@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ChangeDetectionPanel from './ChangeDetectionPanel';
 import apiService from '../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
-  default: { post: vi.fn() },
-}));
+
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -17,7 +18,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 function renderPanel() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <ChangeDetectionPanel />
@@ -49,7 +50,6 @@ function fillForm() {
 
 describe('ChangeDetectionPanel', () => {
   beforeEach(() => {
-    vi.mocked(apiService.post).mockReset();
     mockNavigate.mockReset();
   });
 
@@ -67,20 +67,20 @@ describe('ChangeDetectionPanel', () => {
   });
 
   it('submits a multipart request with the images and bounds, and shows the result', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: { changeDetected: true, changedPixelRatio: 0.108, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1', 'p2'], alertsCreated: 2 },
-    });
+    let capturedBody: FormData | null = null;
+    server.use(
+      http.post('*/change-detection/analyze', async ({ request }) => {
+        capturedBody = await request.formData() as FormData;
+        return HttpResponse.json({ changeDetected: true, changedPixelRatio: 0.108, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1', 'p2'], alertsCreated: 2 });
+      })
+    );
     renderPanel();
     fillForm();
-
     submitForm();
 
-    await waitFor(() =>
-      expect(apiService.post).toHaveBeenCalledWith('/change-detection/analyze', expect.any(FormData), expect.any(Object)),
-    );
-    const formData = vi.mocked(apiService.post).mock.calls[0][1] as FormData;
-    expect(formData.get('minLng')).toBe('73.8492');
-    expect((formData.get('before') as File).name).toBe('before.png');
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    expect(capturedBody!.get('minLng')).toBe('73.8492');
+    expect((capturedBody!.get('before') as File).name).toBe('before.png');
 
     expect(await screen.findByText('Change detected: 10.8% of the analyzed area')).toBeInTheDocument();
     expect(screen.getByText('2 parcel(s) affected, 2 governance alert(s) created.')).toBeInTheDocument();
@@ -88,9 +88,7 @@ describe('ChangeDetectionPanel', () => {
   });
 
   it('navigates to the parcel 360 view when an affected parcel\'s View is clicked', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: { changeDetected: true, changedPixelRatio: 0.05, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1'], alertsCreated: 1 },
-    });
+    server.use(http.post('*', () => HttpResponse.json({ changeDetected: true, changedPixelRatio: 0.05, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1'], alertsCreated: 1 },)));
     renderPanel();
     fillForm();
     submitForm();
@@ -100,9 +98,7 @@ describe('ChangeDetectionPanel', () => {
   });
 
   it('shows a "no significant change" message when changeDetected is false', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: { changeDetected: false, changedPixelRatio: 0.0004, changeRegion: null, eventId: null, affectedParcelIds: [], alertsCreated: 0 },
-    });
+    server.use(http.post('*', () => HttpResponse.json({ changeDetected: false, changedPixelRatio: 0.0004, changeRegion: null, eventId: null, affectedParcelIds: [], alertsCreated: 0 },)));
     renderPanel();
     fillForm();
     submitForm();
@@ -111,7 +107,7 @@ describe('ChangeDetectionPanel', () => {
   });
 
   it('shows an error message when the request fails', async () => {
-    vi.mocked(apiService.post).mockRejectedValue({ isAxiosError: true, response: { status: 500 } });
+    server.use(http.post('*', () => HttpResponse.json({}, { status: 500 })));
     renderPanel();
     fillForm();
     submitForm();
