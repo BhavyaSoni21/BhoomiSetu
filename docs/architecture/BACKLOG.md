@@ -16,21 +16,22 @@ All items re-ranked flat — blocked/deferred items included but marked.
 3. **OCR binary** — Install Tesseract on dev machine (5 workflow tests fail on TesseractNotFoundError) (actionable, internal)
 
 ### P1 — Substantially Implemented, Critical Gaps Remain
-4. **Official Document PDF (Form 7/12)** — Core renderer complete. Critical gaps: no View action (only download), no PDF viewer modal, assembler doesn't read authenticated user profile, single-page canvas overflows, tests only check `%PDF-` signature. Full code review at `docs/architecture/official-document-code-review.md`.
+
+*(none — Official Document PDF moved to Done)*
 
 ### P2 — Blocked (External Dependency)
-5. **Bhashini OCR / ALD** — Blocked on account provisioning. Bhashini's OCR returns `"Requested pipeline does not exist"`, ALD returns `"TaskType is not valid"`. Needs Bhashini support team enablement.
+4. **Bhashini OCR / ALD** — Blocked on account provisioning. Bhashini's OCR returns `"Requested pipeline does not exist"`, ALD returns `"TaskType is not valid"`. Needs Bhashini support team enablement.
 
 ### P3 — Deferred (No Schema Support / Policy Needed)
-6. **Address-based fuzzy parcel search** — Deferred. `Parcel` has no street/locality/landmark fields; ULPIN/survey-number/plot-number search covers how Indian land records are actually identified. Revisit only if concrete need emerges.
+5. **Address-based fuzzy parcel search** — Deferred. `Parcel` has no street/locality/landmark fields; ULPIN/survey-number/plot-number search covers how Indian land records are actually identified. Revisit only if concrete need emerges.
 
 ### P4 — Low Priority, Unconfirmed Asks (Need Scoping)
-7. **Penalty for intentional false claims** — No enforcement mechanism. Needs way to distinguish "intentional" from "genuine mistake" (manual officer judgment) — policy first, code second.
-8. **Notify owner when parcel viewed** — In-app notifications exist but no parcel-view → notification write path. Needs consent flag on `citizen_parcels`, write path from parcel-view, and in-app messaging (doesn't exist).
-9. **Duplicate/fraud cross-check on complaints** — Nothing compares new workflow/complaint against existing/rejected ones. Needs similarity check (same parcel + same type + overlapping details) at submission, surfaced to reviewing officer.
-10. **Single-ULPIN instant ownership check** — One-field "enter ULPIN, get ownership" screen distinct from general Parcel Search — gated by OTP/rate-limiting instead of captcha.
-11. **Offline field verification with sync** — No offline mode in frontend. Depends on Verifier role/field evidence capture (done) — this would be that feature's offline-capable variant (local queue + sync-on-reconnect).
-12. **Onboarding tutorial tooltips** — No step-by-step onboarding UI. Pure frontend addition once target flow picked — genuinely last-priority, cosmetic.
+6. **Penalty for intentional false claims** — No enforcement mechanism. Needs way to distinguish "intentional" from "genuine mistake" (manual officer judgment) — policy first, code second.
+7. **Notify owner when parcel viewed** — In-app notifications exist but no parcel-view → notification write path. Needs consent flag on `citizen_parcels`, write path from parcel-view, and in-app messaging (doesn't exist).
+8. **Duplicate/fraud cross-check on complaints** — Nothing compares new workflow/complaint against existing/rejected ones. Needs similarity check (same parcel + same type + overlapping details) at submission, surfaced to reviewing officer.
+9. **Single-ULPIN instant ownership check** — One-field "enter ULPIN, get ownership" screen distinct from general Parcel Search — gated by OTP/rate-limiting instead of captcha.
+10. **Offline field verification with sync** — No offline mode in frontend. Depends on Verifier role/field evidence capture (done) — this would be that feature's offline-capable variant (local queue + sync-on-reconnect).
+11. **Onboarding tutorial tooltips** — No step-by-step onboarding UI. Pure frontend addition once target flow picked — genuinely last-priority, cosmetic.
 
 ---
 
@@ -49,6 +50,7 @@ All items re-ranked flat — blocked/deferred items included but marked.
 | General SMS outreach | 2026-09-17 | Generic `send_sms()` in `sms_service.py` |
 | Frontend test i18n mock | 2026-09-17 | Global mock in `setup.ts`, `FALLBACK_STRINGS.en` |
 | Test DB governance_rules | 2026-09-17 | Migration applied, 8 rules seeded, 3 tests passing |
+| Official Document PDF (Form 7/12) | 2026-09-19 | View action, PDF viewer modal, authenticated user profile, multi-page, tests validate real values + overflow |
 
 ---
 
