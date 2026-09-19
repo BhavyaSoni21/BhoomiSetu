@@ -63,7 +63,7 @@ def search_parcels(
     local_identifier: str | None = None,
     state: str | None = None,
     district: str | None = None,
-    limit: int | None = None,
+    limit: int | None = Query(50, ge=1, le=200),
     offset: int | None = None,
     db: Session = Depends(get_db),
 ):

@@ -190,7 +190,7 @@ def search_parcels(
     local_identifier: str | None = None,
     state: str | None = None,
     district: str | None = None,
-    limit: int | None = None,
+    limit: int | None = 50,
     offset: int | None = None,
 ) -> dict[str, Any]:
     query = db.query(Parcel).options(joinedload(Parcel.identifiers))

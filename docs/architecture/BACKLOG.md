@@ -13,7 +13,6 @@ All items re-ranked flat — blocked/deferred items included but marked.
 ### P0 — Actionable, Internal (Blocking Tests/Dev)
 1. **Frontend test infrastructure** — HistoricalImageryPanel.test.tsx ✅ DONE (8/8 passing). Remaining: ~184 failing tests need React Query mocks, MSW handlers, component test setup pattern migration (actionable, internal)
 2. **Finish Unified Map migration** — Migrate HistoricalMapView, AdminCombinedLayerMap, AdminMapLayerAuthoringPage, Verifier AssignedVisitsPage to UnifiedMapWrapper (actionable, internal)
-3. **OCR binary** — Install Tesseract on dev machine (5 workflow tests fail on TesseractNotFoundError) (actionable, internal)
 
 ### P1 — Substantially Implemented, Critical Gaps Remain
 
@@ -51,12 +50,7 @@ All items re-ranked flat — blocked/deferred items included but marked.
 | Frontend test i18n mock | 2026-09-17 | Global mock in `setup.ts`, `FALLBACK_STRINGS.en` |
 | Test DB governance_rules | 2026-09-17 | Migration applied, 8 rules seeded, 3 tests passing |
 | Official Document PDF (Form 7/12) | 2026-09-19 | View action, PDF viewer modal, authenticated user profile, multi-page, tests validate real values + overflow |
-
----
-
-## Environment Gaps (Not Product Backlog, Block Tests Locally)
-
-- **Tesseract OCR binary not installed** — `pytesseract` needs `tesseract` on PATH. Install to pass 5 workflow tests.
+| OCR binary (Tesseract) | 2026-09-19 | Installed v5.5.3, 5 workflow tests unblocked, local pytesseract wrapper functional |
 
 ---
 
