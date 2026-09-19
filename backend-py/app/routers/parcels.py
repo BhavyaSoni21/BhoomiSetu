@@ -63,11 +63,12 @@ def search_parcels(
     local_identifier: str | None = None,
     state: str | None = None,
     district: str | None = None,
+    address: str | None = None,
     limit: int | None = Query(50, ge=1, le=200),
     offset: int | None = None,
     db: Session = Depends(get_db),
 ):
-    return service.search_parcels(db, ulpin, survey_number, plot_number, local_identifier, state, district, limit, offset)
+    return service.search_parcels(db, ulpin, survey_number, plot_number, local_identifier, state, district, address, limit, offset)
 
 
 @router.post("/verify")

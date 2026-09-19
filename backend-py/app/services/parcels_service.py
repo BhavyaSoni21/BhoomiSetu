@@ -49,6 +49,10 @@ def _to_parcel_feature(parcel: Parcel) -> dict[str, Any]:
             "stateCode": parcel.state_code,
             "districtCode": parcel.district_code,
             "areaSqM": float(parcel.area_sq_m),
+            "streetAddress": parcel.street_address,
+            "locality": parcel.locality,
+            "landmark": parcel.landmark,
+            "pincode": parcel.pincode,
         },
         "geometry": geometry_to_geojson(parcel.geometry),
     }
@@ -190,6 +194,7 @@ def search_parcels(
     local_identifier: str | None = None,
     state: str | None = None,
     district: str | None = None,
+    address: str | None = None,
     limit: int | None = 50,
     offset: int | None = None,
 ) -> dict[str, Any]:
@@ -209,8 +214,39 @@ def search_parcels(
         query = query.filter(Parcel.state_code == state)
     if district:
         query = query.filter(Parcel.district_code == district)
+    
+    if address:
+        from sqlalchemy import func, or_
+        clean_term = address.strip()
+        address_expr = (
+            func.coalesce(Parcel.street_address, '') + ' ' +
+            func.coalesce(Parcel.locality, '') + ' ' +
+            func.coalesce(Parcel.landmark, '') + ' ' +
+            func.coalesce(Parcel.pincode, '')
+        )
 
-    total = query.distinct().count()
+        # Trigram word similarity check or substring ILIKE
+        # word_similarity tests if search query matches any slice/word of the full address
+        query = query.filter(
+            or_(
+                func.word_similarity(clean_term, address_expr) >= 0.4,
+                address_expr.ilike(f"%{clean_term}%"),
+            )
+        )
+
+    total = query.order_by(None).distinct().count()
+
+    if address:
+        from sqlalchemy import func
+        clean_term = address.strip()
+        address_expr = (
+            func.coalesce(Parcel.street_address, '') + ' ' +
+            func.coalesce(Parcel.locality, '') + ' ' +
+            func.coalesce(Parcel.landmark, '') + ' ' +
+            func.coalesce(Parcel.pincode, '')
+        )
+        query = query.order_by(func.word_similarity(clean_term, address_expr).desc())
+
     if limit:
         query = query.limit(limit)
     if offset:

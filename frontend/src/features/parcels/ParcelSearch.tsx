@@ -34,6 +34,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
     survey_number: '',
     plot_number: '',
     local_identifier: urlParams.get('local_identifier') ?? '',
+    address: '',
     state: '',
     district: '',
   });
@@ -177,7 +178,25 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelClass.replace('mb-1', '')}>
+                  {t('parcelSearch.addressLabel', 'Address / Locality')}
+                </label>
+                <MicButton
+                  onResult={(text) => setSearchParams((prev) => ({ ...prev, address: text }))}
+                />
+              </div>
+              <input
+                type="text"
+                name="address"
+                value={searchParams.address}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder={t('parcelSearch.addressPlaceholder', 'e.g. Shivajinagar, Connaught, Lexicon...')}
+              />
+            </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className={labelClass.replace('mb-1', '')}>
@@ -259,6 +278,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                   survey_number: '',
                   plot_number: '',
                   local_identifier: '',
+                  address: '',
                   state: '',
                   district: '',
                 });
@@ -295,8 +315,13 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-bold text-ink">
-                      {parcel.id.substring(0, 8)}
+                      {parcel.canonicalParcelId || parcel.id.substring(0, 8)}
                     </h3>
+                    {parcel.streetAddress && (
+                      <p className="text-xs text-brand-900 font-semibold mt-0.5">
+                        📍 {parcel.streetAddress}{parcel.locality ? `, ${parcel.locality}` : ''}
+                      </p>
+                    )}
                     <p className="text-sm text-ink/60">
                       {parcel.ulpin ? `${t('parcelSearch.ulpinLabel')}: ${parcel.ulpin}` : t('parcelSearch.noUlpin')}
                     </p>

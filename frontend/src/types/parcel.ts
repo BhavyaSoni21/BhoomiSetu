@@ -7,6 +7,10 @@ export interface ParcelSummary {
   localBodyCode: string;
   areaSqM: number;
   geometry: string;
+  streetAddress?: string | null;
+  locality?: string | null;
+  landmark?: string | null;
+  pincode?: string | null;
   status?: string; // 'Registered' | 'Pending Verification' | 'Rejected'
   localId?: string | null;
   verificationReport?: string | null;
