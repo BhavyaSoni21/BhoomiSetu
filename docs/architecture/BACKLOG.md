@@ -212,11 +212,11 @@ A one-field "enter a ULPIN, get ownership back" screen distinct from general Par
 
 ### 17. QR code per parcel
 
-Generate/display a unique QR code per parcel (on official document or Parcel 360) encoding its identifier for quick lookup. No QR generation exists in the codebase.
+✅ **DONE (2026-09-18)** — Generated on official document PDF (`official_document_generator.py:335`), encodes parcel URL for quick lookup.
 
 ### 18. General SMS outreach channel
 
-TextBee is wired for OTP only. A broader outreach channel (e.g. notifying feature-phone users of decisions/alerts by SMS) would reuse that integration but needs its own trigger points and opt-in/consent model — distinct from item #5's "deliver existing in-app notifications via SMS/email."
+✅ **DONE (2026-09-17)** — Generic `send_sms()` in `sms_service.py:88` used by `notification_delivery_service.py` for workflow/governance alert notifications beyond OTP.
 
 ### 20. Penalty for intentional false claims
 
