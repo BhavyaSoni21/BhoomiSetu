@@ -6,18 +6,18 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 
 ---
 
-## Priority order (as of 2026-09-17)
+## Priority order (as of 2026-09-19)
 
-All items re-ranked flat — blocked/deferred items included but marked. Items #1, #3, #4, #5, #8, #12, #13 are done/substantially implemented. Item #14 has core renderer done but critical end-to-end gaps.
+All items re-ranked flat — blocked/deferred items included but marked. Items #1, #3, #4, #5, #7, #8, #12, #13 are done/substantially implemented. Item #14 has core renderer done but critical end-to-end gaps.
 
 1. **Frontend test infrastructure** — HistoricalImageryPanel.test.tsx ✅ DONE (8/8 passing). Remaining: ~184 failing tests need React Query mocks, MSW handlers, component test setup pattern migration (actionable, internal)
 2. **Finish Unified Map migration** — Migrate HistoricalMapView, AdminCombinedLayerMap, AdminMapLayerAuthoringPage, Verifier AssignedVisitsPage to UnifiedMapWrapper (actionable, internal)
 3. **Backend test DB migration** — ✅ DONE (2026-09-17) Applied governance_rules migration + seeded 8 default rules. 3 tests passing.
 4. **OCR binary** — Install Tesseract on dev machine (5 workflow tests fail on TesseractNotFoundError) (actionable, internal)
 5. **#6 Address-based fuzzy parcel search** — Deferred (no street/locality fields on Parcel); revisit if concrete need emerges
-6. **#2 OAuth login** — Blocked (needs external provider registration by deploying party)
-7. **#17 QR code per parcel** — Low priority, unconfirmed ask
-8. **#18 General SMS outreach channel** — Low priority, unconfirmed ask
+6. **#2 OAuth login** — ✅ DONE (2026-09-18) Google OAuth + bilingual notifications merged in auth branch
+7. **#17 QR code per parcel** — ✅ DONE (2026-09-18) Generated on official document PDF (`official_document_generator.py`)
+8. **#18 General SMS outreach channel** — ✅ DONE (2026-09-17) Generic `send_sms()` in `sms_service.py` used by notification delivery service
 9. **#20 Penalty for intentional false claims** — Low priority, unconfirmed ask
 10. **#21 Notify owner when parcel viewed** — Low priority, unconfirmed ask
 11. **#22 Duplicate/fraud cross-check on complaints** — Low priority, unconfirmed ask
