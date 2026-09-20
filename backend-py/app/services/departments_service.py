@@ -1,6 +1,6 @@
 """Ported from backend/src/departments/{registration,planning,tax,restriction,
-dispute,encumbrance}.service.ts - six independent, identically-shaped
-`findByParcelId` lookups over the six mock department entities.
+dispute,encumbrance,survey}.service.ts - seven independent, identically-shaped
+`findByParcelId` lookups over the seven mock department entities.
 """
 
 from sqlalchemy import select
@@ -12,6 +12,7 @@ from app.models.department_record import (
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyRecord,
     TaxRecord,
 )
 
@@ -40,6 +41,10 @@ def find_encumbrance_by_parcel(db: Session, parcel_id: str) -> EncumbranceRecord
     return db.scalars(select(EncumbranceRecord).where(EncumbranceRecord.parcel_id == parcel_id)).first()
 
 
+def find_survey_by_parcel(db: Session, parcel_id: str) -> SurveyRecord | None:
+    return db.scalars(select(SurveyRecord).where(SurveyRecord.parcel_id == parcel_id)).first()
+
+
 # Department dashboard widgets (BACKLOG.md item 26 follow-up) - each
 # department's own "what needs my attention" list, not a per-parcel lookup.
 def find_overdue_tax(db: Session) -> list[TaxRecord]:
@@ -52,3 +57,7 @@ def find_pending_building_permissions(db: Session) -> list[PlanningRecord]:
 
 def find_pending_registrations(db: Session) -> list[RegistrationRecord]:
     return list(db.scalars(select(RegistrationRecord).where(RegistrationRecord.registration_status == "PENDING")).all())
+
+
+def find_pending_surveys(db: Session) -> list[SurveyRecord]:
+    return list(db.scalars(select(SurveyRecord).where(SurveyRecord.survey_status == "PENDING")).all())

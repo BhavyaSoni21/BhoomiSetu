@@ -10,7 +10,8 @@ export type OfficerRole =
   | 'DISPUTE_OFFICER'
   | 'TAX_OFFICER'
   | 'RESTRICTION_OFFICER'
-  | 'ENCUMBRANCE_OFFICER';
+  | 'ENCUMBRANCE_OFFICER'
+  | 'SURVEY_OFFICER';
 
 export const OFFICER_ROLES: OfficerRole[] = [
   'LAND_RECORD_OFFICER',
@@ -20,6 +21,7 @@ export const OFFICER_ROLES: OfficerRole[] = [
   'TAX_OFFICER',
   'RESTRICTION_OFFICER',
   'ENCUMBRANCE_OFFICER',
+  'SURVEY_OFFICER',
 ];
 
 export const ROLE_LABELS: Record<OfficerRole, string> = {
@@ -30,6 +32,7 @@ export const ROLE_LABELS: Record<OfficerRole, string> = {
   TAX_OFFICER: 'Tax Officer',
   RESTRICTION_OFFICER: 'Restriction Officer',
   ENCUMBRANCE_OFFICER: 'Encumbrance Officer',
+  SURVEY_OFFICER: 'Survey Officer',
 };
 
 // A role reviews exactly the workflow_steps row for its own department -
@@ -44,6 +47,7 @@ export const ROLE_DEPARTMENT: Record<OfficerRole, string> = {
   TAX_OFFICER: 'TAX',
   RESTRICTION_OFFICER: 'RESTRICTION',
   ENCUMBRANCE_OFFICER: 'ENCUMBRANCE',
+  SURVEY_OFFICER: 'SURVEY',
 };
 
 // Field evidence collector - deliberately not an OfficerRole/in

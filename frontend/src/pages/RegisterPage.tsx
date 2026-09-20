@@ -26,9 +26,12 @@ const InputField: React.FC<{
   inputMode?: 'text' | 'numeric' | 'email' | 'tel';
 }> = ({ id, label, type, value, onChange, placeholder, required, autoComplete, rightSlot, inputMode }) => (
   <div className="space-y-1.5">
-    <label htmlFor={id} className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-      {label}{required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
-    </label>
+    <div className="flex items-center gap-1">
+      <label htmlFor={id} className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+        {label}
+      </label>
+      {required && <span className="text-red-500 text-sm font-semibold ml-0.5" aria-hidden="true">*</span>}
+    </div>
     <div className="relative">
       <input
         id={id}
@@ -303,7 +306,7 @@ const RegisterPage: React.FC = () => {
               >
                 {m === 'EMAIL'
                   ? <><Mail className="w-3.5 h-3.5" aria-hidden="true" /> {t('authPage.emailTab')}</>
-                  : <><Phone className="w-3.5 h-3.5" aria-hidden="true" /> {t('authPage.mobileTab')}</>
+                  : <><Phone className="w-3.5 h-3.5" aria-hidden="true" /> {t('authPage.registerMobileTab')}</>
                 }
               </button>
             ))}
@@ -336,9 +339,12 @@ const RegisterPage: React.FC = () => {
               />
             ) : (
               <div className="space-y-1.5">
-                <label htmlFor="reg-mobile" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {t('authPage.mobileNumberLabel')} <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
+                <div className="flex items-center gap-1">
+                  <label htmlFor="reg-mobile" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {t('authPage.mobileNumberLabel')}
+                  </label>
+                  <span className="text-red-500 text-sm font-semibold" aria-hidden="true">*</span>
+                </div>
                 <div className="flex">
                   <span
                     className="flex items-center px-3.5 rounded-l-xl text-sm font-mono font-semibold"
@@ -365,9 +371,12 @@ const RegisterPage: React.FC = () => {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label htmlFor="reg-password" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {t('authPage.passwordLabel')} <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+              <div className="flex items-center gap-1">
+                <label htmlFor="reg-password" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {t('authPage.passwordLabel')}
+                </label>
+                <span className="text-red-500 text-sm font-semibold" aria-hidden="true">*</span>
+              </div>
               <div className="relative">
                 <input
                   id="reg-password"
@@ -402,9 +411,12 @@ const RegisterPage: React.FC = () => {
 
             {/* Confirm password */}
             <div className="space-y-1.5">
-              <label htmlFor="reg-confirm" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {t('authPage.confirmPasswordLabel')} <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+              <div className="flex items-center gap-1">
+                <label htmlFor="reg-confirm" className="block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {t('authPage.confirmPasswordLabel')}
+                </label>
+                <span className="text-red-500 text-sm font-semibold" aria-hidden="true">*</span>
+              </div>
               <div className="relative">
                 <input
                   id="reg-confirm"

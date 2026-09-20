@@ -1,4 +1,4 @@
-import { vi, beforeAll, afterAll } from 'vitest';
+import { vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { FALLBACK_STRINGS } from '../context/LanguageContext';
 
@@ -29,13 +29,14 @@ vi.mock('@tanstack/react-query', async () => {
     { queryKey: ['governance-rules'], data: [] },
   ];
 
-  const PatchedQueryClient = function (...args: unknown[]) {
-    const client = new OriginalQueryClient(...args);
-    defaultQueries.forEach(({ queryKey, data }) => {
-      client.setQueryData(queryKey, data);
-    });
-    return client;
-  } as typeof OriginalQueryClient;
+  class PatchedQueryClient extends OriginalQueryClient {
+    constructor(config?: import('@tanstack/react-query').QueryClientConfig) {
+      super(config);
+      defaultQueries.forEach(({ queryKey, data }) => {
+        this.setQueryData(queryKey, data);
+      });
+    }
+  }
 
   return {
     ...rest,
@@ -100,51 +101,22 @@ Object.defineProperty(window, 'matchMedia', {
 global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
 global.URL.revokeObjectURL = vi.fn();
 
-// Global apiService mock with default responses for common queries
-// This prevents "evidence.map is not a function" / "users.filter is not a function"
-// errors when useQuery returns undefined data in tests.
-vi.mock('../services/apiService', () => {
-  const mockGet = vi.fn();
-  const mockPatch = vi.fn();
-  const mockPost = vi.fn();
-  const mockDelete = vi.fn();
-  const mockPut = vi.fn();
+import { server } from '../mocks/server';
+import apiService from '../services/apiService';
 
-  // Default responses for common endpoints
-  const defaultResponses: Record<string, unknown> = {
-    '/users': { data: [] },
-    '/admin/users': { data: [] },
-    '/parcels': { data: { parcels: [] } },
-  };
-
-  mockGet.mockImplementation(async (url: string) => {
-    // Return default response for known endpoints, or empty array for unknown
-    if (defaultResponses[url]) {
-      return defaultResponses[url];
-    }
-    // For dynamic endpoints, return empty data by default
-    return { data: [] };
-  });
-
-  mockPatch.mockResolvedValue({ data: {} });
-  mockPost.mockResolvedValue({ data: {} });
-  mockDelete.mockResolvedValue({ data: {} });
-  mockPut.mockResolvedValue({ data: {} });
-
-  return {
-    default: {
-      get: mockGet,
-      patch: mockPatch,
-      post: mockPost,
-      delete: mockDelete,
-      put: mockPut,
-      interceptors: {
-        request: { use: vi.fn() },
-        response: { use: vi.fn() },
-      },
-    },
-  };
+beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
+beforeEach(() => {
+  vi.spyOn(apiService, 'get');
+  vi.spyOn(apiService, 'post');
+  vi.spyOn(apiService, 'put');
+  vi.spyOn(apiService, 'patch');
+  vi.spyOn(apiService, 'delete');
 });
+afterEach(() => {
+  server.resetHandlers();
+  vi.clearAllMocks();
+});
+afterAll(() => server.close());
 
 // Create a shared QueryClient with default query data for common queries
 // This prevents useQuery from returning undefined and causing .map/.filter errors
@@ -155,7 +127,7 @@ export const createTestQueryClient = () => {
     defaultOptions: {
       queries: {
         retry: false,
-        gcTime: 0,
+        cacheTime: 0,
       },
     },
   });
@@ -174,16 +146,14 @@ export const resetTestState = () => {
     defaultOptions: {
       queries: {
         retry: false,
-        gcTime: 0,
+        cacheTime: 0,
       },
     },
   });
   // Replace the global testQueryClient's internal state
   Object.assign(testQueryClient, newClient);
 
-  // Reset apiService mocks
-  // Note: apiService is mocked globally above, so we reset the mocked functions directly
-  // The mocked functions are accessible via the vi.mocked() calls in individual tests
+  // MSW handlers are reset in afterEach automatically
 };
 
 // Export for use in tests

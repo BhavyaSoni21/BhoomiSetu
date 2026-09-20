@@ -120,7 +120,7 @@ const Parcel360View: React.FC = () => {
         params: { lang },
         responseType: 'blob',
       });
-      const contentType = response.headers['content-type'] ?? '';
+      const contentType = String(response.headers['content-type'] ?? '');
       if (!contentType.includes('application/pdf')) {
         throw new Error('The server did not return a PDF document');
       }

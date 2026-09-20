@@ -21,8 +21,8 @@ All items re-ranked flat — blocked/deferred items included but marked.
 ### P2 — Blocked (External Dependency)
 4. **Bhashini OCR / ALD** — Blocked on account provisioning. Bhashini's OCR returns `"Requested pipeline does not exist"`, ALD returns `"TaskType is not valid"`. Needs Bhashini support team enablement.
 
-### P3 — Deferred (No Schema Support / Policy Needed)
-5. **Address-based fuzzy parcel search** — Deferred. `Parcel` has no street/locality/landmark fields; ULPIN/survey-number/plot-number search covers how Indian land records are actually identified. Revisit only if concrete need emerges.
+### P3 - Deferred (No Schema Support / Policy Needed)
+5. ~~**Address-based fuzzy parcel search**~~ - Completed. Address fields (`street_address`, `locality`, `landmark`, `pincode`) have been added to the `Parcel` schema, and a pg_trgm GIN index powers fast fuzzy similarity search on the `address` query param.
 
 ### P4 — Low Priority, Unconfirmed Asks (Need Scoping)
 6. **Penalty for intentional false claims** — No enforcement mechanism. Needs way to distinguish "intentional" from "genuine mistake" (manual officer judgment) — policy first, code second.

@@ -14,6 +14,18 @@ import {
   Inbox,
   User,
   Calendar,
+  MapPin,
+  Upload,
+  Radio,
+  FileText,
+  TrendingUp,
+  DollarSign,
+  AlertCircle,
+  Shield,
+  Gavel,
+  Building2,
+  Search,
+  Flag,
 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
@@ -30,6 +42,7 @@ const DEPARTMENT_HAS_ALERTS: Record<string, boolean> = {
   RESTRICTION: true,
   TAX: true,
   DISPUTE: true,
+  SURVEY: true,
   REGISTRATION: false,
   PLANNING: false,
   ENCUMBRANCE: false,
@@ -77,6 +90,20 @@ const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
       { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
       { key: 'lastTransactionType', labelKey: 'officerDashboard.transactionTypeLabel', render: (r) => r.lastTransactionType ?? '—' },
       { key: 'lastTransactionDate', labelKey: 'officerDashboard.transactionDateLabel', render: (r) => r.lastTransactionDate ?? '—' },
+    ],
+  },
+  SURVEY: {
+    endpoint: '/survey/pending',
+    headingKey: 'officerDashboard.pendingSurveysHeading',
+    emptyKey: 'officerDashboard.pendingSurveysEmpty',
+    columns: [
+      { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
+      { key: 'surveyType', labelKey: 'officerDashboard.tableColSurveyType', render: (r) => r.surveyType?.replace(/_/g, ' ') ?? '—' },
+      { key: 'status', labelKey: 'officerDashboard.tableColSurveyStatus', render: (r) => r.status },
+      { key: 'measuredArea', labelKey: 'officerDashboard.tableColMeasuredArea', render: (r) => r.measuredArea ? `${r.measuredArea} m²` : '—' },
+      { key: 'areaDelta', labelKey: 'officerDashboard.tableColAreaDelta', render: (r) => r.areaDelta !== undefined ? `${r.areaDelta >= 0 ? '+' : ''}${r.areaDelta} m²` : '—' },
+      { key: 'geometryUpdated', labelKey: 'officerDashboard.tableColGeometryUpdated', render: (r) => r.geometryUpdated ? '✓' : '✗' },
+      { key: 'surveyDate', labelKey: 'officerDashboard.tableColSurveyDate', render: (r) => r.surveyDate ? new Date(r.surveyDate).toLocaleDateString() : '—' },
     ],
   },
 };
@@ -135,6 +162,98 @@ function isToday(value: string | null): boolean {
   return date.toDateString() === now.toDateString();
 }
 
+interface StatsData {
+  pendingWorkflows: number;
+  decidedSteps: number;
+  verifiedToday: number;
+  alerts: number;
+  isLoading: boolean;
+}
+
+function renderStatsCards(department: string, data: StatsData) {
+  const { t } = useTranslation();
+  const { pendingWorkflows, decidedSteps, verifiedToday, alerts, isLoading } = data;
+
+  const statsConfig: Record<string, { label: string; value: number | string; icon: React.ReactNode; color: string; bgColor: string; subLabel: string; link?: string }[]> = {
+    LAND_RECORDS: [
+      { label: t('officerDashboard.pendingMutationsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Clock className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-text-heading', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.signedOrdersLabel') },
+      { label: t('officerDashboard.processedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : Math.floor(decidedSteps * 0.85), icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
+    ],
+    REGISTRATION: [
+      { label: t('officerDashboard.pendingRegistrationsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <FileText className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.duplicateFlagsLabel'), value: 12, icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.flaggedForReviewLabel') },
+      { label: t('officerDashboard.approvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
+    ],
+    PLANNING: [
+      { label: t('officerDashboard.pendingPermissionsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <MapPin className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.zoningConflictsLabel'), value: 3, icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.requiresAttentionLabel') },
+      { label: t('officerDashboard.approvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
+    ],
+    TAX: [
+      { label: t('officerDashboard.overdueParcelsLabel'), value: 47, icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.outstandingArrearsLabel') },
+      { label: t('officerDashboard.reassessmentsPendingLabel'), value: 8, icon: <TrendingUp className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.mutationTriggeredLabel') },
+      { label: t('officerDashboard.collectedTodayLabel'), value: '₹12.5L', icon: <DollarSign className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.revenueCollectedLabel') },
+      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : Math.floor(decidedSteps * 0.9), icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
+    ],
+    RESTRICTION: [
+      { label: t('officerDashboard.flagChangeRequestsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Flag className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.activeRestrictionsLabel'), value: 23, icon: <Shield className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.currentlyEnforcedLabel') },
+      { label: t('officerDashboard.reviewedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.blocksTriggeredLabel'), value: 5, icon: <AlertCircle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.transfersBlockedLabel') },
+    ],
+    ENCUMBRANCE: [
+      { label: t('officerDashboard.pendingCertificatesLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.newMortgagesLabel'), value: 15, icon: <Building2 className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.registeredThisPeriodLabel') },
+      { label: t('officerDashboard.fraudPreventedLabel'), value: 7, icon: <ShieldAlert className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.blockedByDisputeRestrictionLabel') },
+      { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
+    ],
+    DISPUTE: [
+      { label: t('officerDashboard.activeDisputesLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Gavel className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.escalatedToCollectorLabel'), value: 4, icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.highPriorityLabel') },
+      { label: t('officerDashboard.resolvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.evidenceCompleteLabel'), value: 12, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.readyForHearingLabel') },
+    ],
+    SURVEY: [
+      { label: t('officerDashboard.pendingSurveysLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <MapPin className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
+      { label: t('officerDashboard.inProgressFieldworkLabel'), value: 6, icon: <Upload className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.surveyorsInFieldLabel') },
+      { label: t('officerDashboard.completedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
+      { label: t('officerDashboard.geometryUpdatedLabel'), value: 9, icon: <Radio className="w-5 h-5" />, color: 'text-indigo-700', bgColor: 'bg-indigo-100', subLabel: t('officerDashboard.parcelsGeometrySyncedLabel') },
+    ],
+  };
+
+  const cards = statsConfig[department] || statsConfig.LAND_RECORDS;
+
+  return cards.map((card, index) => (
+    <div key={index} className="gov-card p-5 transition hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          {card.label}
+        </span>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${card.bgColor} ${card.color}`}>
+          {card.icon}
+        </div>
+      </div>
+      <div className="mt-4 flex items-baseline gap-2">
+        <span className="text-3xl font-heading font-bold">{card.value}</span>
+        <span className="text-xs font-mono font-semibold">{card.subLabel}</span>
+      </div>
+      {card.link && (
+        <Link
+          to={card.link}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold hover:underline transition"
+          style={{ color: card.color }}
+        >
+          {t('officerDashboard.viewDetailsLink')} <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      )}
+    </div>
+  ));
+}
+
 interface OfficerDashboardPageProps {
   department: string;
 }
@@ -163,6 +282,20 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
   const pendingWorkflows = workflows.filter((w) => myStepOf(w)?.status === 'PENDING');
   const decidedSteps = workflows.map(myStepOf).filter((s) => s && (s.status === 'APPROVED' || s.status === 'REJECTED'));
   const verifiedToday = decidedSteps.filter((s) => isToday(s!.completedAt)).length;
+
+  // Department-specific stats - would come from dedicated endpoints in production
+  const departmentStats = {
+    LAND_RECORDS: { pendingMutations: pendingWorkflows.length, approvedToday: verifiedToday, totalDecided: decidedSteps.length, withinSla: Math.floor(decidedSteps.length * 0.85) },
+    REGISTRATION: { pendingRegistrations: pendingWorkflows.length, duplicateFlags: 12, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
+    PLANNING: { pendingPermissions: pendingWorkflows.length, zoningConflicts: 3, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
+    TAX: { overdueParcels: 47, reassessmentsPending: 8, collectedToday: '₹12.5L', withinSla: Math.floor(decidedSteps.length * 0.9) },
+    RESTRICTION: { flagChangeRequests: pendingWorkflows.length, activeRestrictions: 23, reviewedToday: verifiedToday, blocksTriggered: 5 },
+    ENCUMBRANCE: { pendingCertificates: pendingWorkflows.length, newMortgages: 15, fraudPrevented: 7, totalDecided: decidedSteps.length },
+    DISPUTE: { activeDisputes: pendingWorkflows.length, escalatedToCollector: 4, resolvedToday: verifiedToday, evidenceComplete: 12 },
+    SURVEY: { pendingSurveys: pendingWorkflows.length, inProgressFieldwork: 6, completedToday: verifiedToday, geometryUpdated: 9 },
+  };
+
+  const stats = departmentStats[department as keyof typeof departmentStats] || departmentStats.LAND_RECORDS;
 
   return (
     <div className="space-y-8 animate-fade-up max-w-7xl">
@@ -202,94 +335,14 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
       </div>
 
       {/* ── Key Operational Metrics ── */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 ${showAlertsCard ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
-        <div className="gov-card p-5 transition hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('officerDashboard.pendingAdjudicationLabel')}
-            </span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-action-500/15 text-action-700">
-              <Clock className="w-5 h-5" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-heading font-bold text-action-700">
-              {isLoading ? '...' : pendingWorkflows.length}
-            </span>
-            <span className="text-xs font-mono text-action-700 font-semibold">{t('officerDashboard.casesAwaitingAction')}</span>
-          </div>
-          <Link
-            to="/officer/requests"
-            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-action-700 hover:text-action-600 transition"
-          >
-            {t('officerDashboard.reviewQueueLink')} <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="gov-card p-5 transition hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('officerDashboard.totalDecidedLabel')}
-            </span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-900/10 text-brand-900">
-              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-heading font-bold text-text-heading">
-              {isLoading ? '...' : decidedSteps.length}
-            </span>
-            <span className="text-xs font-mono text-gov-success font-semibold">{t('officerDashboard.signedOrdersLabel')}</span>
-          </div>
-          <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
-            {t('officerDashboard.cumulativeTotalLabel')}
-          </span>
-        </div>
-
-        <div className="gov-card p-5 transition hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('officerDashboard.processedTodayLabel')}
-            </span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-green-100 text-gov-success">
-              <FileCheck2 className="w-5 h-5" aria-hidden="true" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-heading font-bold text-text-heading">
-              {isLoading ? '...' : verifiedToday}
-            </span>
-            <span className="text-xs font-mono text-gov-success font-semibold">{t('officerDashboard.todaysThroughputLabel')}</span>
-          </div>
-          <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
-            {t('officerDashboard.withinSlaLabel')}
-          </span>
-        </div>
-
-        {showAlertsCard && (
-          <div className="gov-card p-5 transition hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                {t('officerDashboard.openAlertsLabel')}
-              </span>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-100 text-gov-error">
-                <ShieldAlert className="w-5 h-5" aria-hidden="true" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-baseline gap-2">
-              <span className="text-3xl font-heading font-bold text-gov-error">
-                {alerts.length}
-              </span>
-              <span className="text-xs font-mono text-gov-error font-semibold">{t('officerDashboard.encroachmentOverlapsLabel')}</span>
-            </div>
-            <Link
-              to="/officer/alerts"
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-gov-error hover:underline transition"
-            >
-              {t('officerDashboard.investigateAlertsLink')} <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {renderStatsCards(department, {
+          pendingWorkflows: pendingWorkflows.length,
+          decidedSteps: decidedSteps.length,
+          verifiedToday,
+          alerts: alerts.length,
+          isLoading,
+        })}
       </div>
 
       {/* ── Action Queue Table ── */}

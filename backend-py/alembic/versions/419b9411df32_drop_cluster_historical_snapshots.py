@@ -24,6 +24,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Use raw SQL for idempotent drop operations
+    # In offline mode, op.get_bind() returns a MockConnection without commit()
     conn = op.get_bind()
     
     # Drop index if exists
@@ -32,8 +33,9 @@ def upgrade() -> None:
     # Drop table if exists
     conn.execute(sa.text("DROP TABLE IF EXISTS cluster_historical_snapshots"))
     
-    # Commit the transaction
-    conn.commit()
+    # Commit only in online mode (offline mode uses MockConnection without commit)
+    if hasattr(conn, 'commit'):
+        conn.commit()
 
 
 def downgrade() -> None:

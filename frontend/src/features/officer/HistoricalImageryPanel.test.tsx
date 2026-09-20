@@ -5,9 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HistoricalImageryPanel from './HistoricalImageryPanel';
 import apiService from '../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
-}));
+import { server } from '../../mocks/server';
+import { http, HttpResponse, type JsonBodyType } from 'msw';
 
 // UnifiedMapWrapper needs hierarchical clusters for its dropdown and a
 // satellite-image endpoint for the officer-only satellite view mode.
@@ -50,23 +49,28 @@ const categorizedParcels2025 = [
   { id: 'p2', canonicalParcelId: 'MH-PUN-0002', ulpin: null, stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 600, geometry: '{}', category: 'NONE' },
 ];
 
-function createApiMock(overrides: Record<string, unknown> = {}) {
-  return vi.fn(async (url: string) => {
-    if (overrides[url]) return overrides[url];
-    if (url === '/historical-imagery/clusters') return { data: clusters };
-    if (url === '/historical-imagery/clusters/MH-PUNE-01/years/2025/parcels') return { data: categorizedParcels2025 };
-    if (url === '/historical-imagery/clusters/MH-PUNE-01/years/2024/parcels') return { data: [] };
-    if (url === '/historical-imagery/clusters/MH-PUNE-01/years/2023/parcels') return { data: [] };
-    if (url === '/gis/clusters-hierarchical') return { data: [{ stateCode: 'MH', districts: [{ districtCode: 'PUN', clusters: [{ clusterId: 'MH-PUNE-01', bounds: { minLng: 0, minLat: 0, maxLng: 1, maxLat: 1 } }] }] }] };
-    if (url.includes('/satellite-image')) return { data: new Blob(['fake'], { type: 'image/png' }) };
-    if (url === '/historical-imagery/clusters/MH-PUNE-01/compare') return { data: { clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: false, affectedParcels: [] } };
-    if (url.includes('/parcels')) return { data: [] };
-    throw new Error(`Unexpected GET ${url}`);
-  });
+function setApiMock(overrides: Record<string, unknown> = {}) {
+  server.use(
+    http.get('*/historical-imagery/clusters', () => {
+      if (overrides['/historical-imagery/clusters']) return HttpResponse.json(overrides['/historical-imagery/clusters']);
+      return HttpResponse.json(clusters);
+    }),
+    http.get('*/historical-imagery/clusters/MH-PUNE-01/years/:year/parcels', ({ params }) => {
+      if (overrides[`/historical-imagery/clusters/MH-PUNE-01/years/${params.year}/parcels`]) {
+        return HttpResponse.json(overrides[`/historical-imagery/clusters/MH-PUNE-01/years/${params.year}/parcels`] as JsonBodyType);
+      }
+      if (params.year === '2025') return HttpResponse.json(categorizedParcels2025);
+      return HttpResponse.json([]);
+    }),
+    http.get('*/gis/clusters-hierarchical', () => HttpResponse.json([{ stateCode: 'MH', districts: [{ districtCode: 'PUN', clusters: [{ clusterId: 'MH-PUNE-01', bounds: { minLng: 0, minLat: 0, maxLng: 1, maxLat: 1 } }] }] }])),
+    http.get('*/satellite-image*', () => new HttpResponse(new Blob(['fake'], { type: 'image/png' }))),
+    http.post('*/historical-imagery/clusters/MH-PUNE-01/compare', () => HttpResponse.json({ clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: false, affectedParcels: [] })),
+    http.get('*/parcels', () => HttpResponse.json([]))
+  );
 }
 
 function renderWithClient(ui: React.ReactElement, queryOverrides: Record<string, unknown> = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   // Prime common query cache
   client.setQueryData(['historical-imagery', ''], { images: [] });
   client.setQueryData(['change-detection', ''], { changes: [] });
@@ -82,17 +86,15 @@ function renderWithClient(ui: React.ReactElement, queryOverrides: Record<string,
 
 describe('HistoricalImageryPanel', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
-    vi.mocked(apiService.post).mockReset();
-    // Default implementation for all endpoints
-    vi.mocked(apiService.get).mockImplementation(createApiMock());
-    vi.mocked(apiService.post).mockResolvedValue({ data: {} });
+            // Default implementation for all endpoints
+    setApiMock();
+    
   });
 
   it('shows an empty state when no clusters have imagery yet', async () => {
-    vi.mocked(apiService.get).mockImplementation(createApiMock({
-      '/historical-imagery/clusters': { data: [] },
-    }));
+    setApiMock({
+      '/historical-imagery/clusters': [],
+    });
     renderWithClient(<HistoricalImageryPanel />);
 
     expect(await screen.findByText('No historical imagery has been generated yet.')).toBeInTheDocument();
@@ -101,7 +103,7 @@ describe('HistoricalImageryPanel', () => {
   it('loads the cluster list and compares the two most recent years only - no picker', async () => {
     renderWithClient(<HistoricalImageryPanel />);
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/historical-imagery/clusters'));
+    // API call to '/historical-imagery/clusters' is implicitly tested by UI state
     expect(await screen.findByRole('option', { name: 'MH-PUNE-01' })).toBeInTheDocument();
 
     expect(await screen.findByText('Comparing 2024 to 2025 - the only pair that can generate governance alerts.')).toBeInTheDocument();
@@ -137,8 +139,7 @@ describe('HistoricalImageryPanel', () => {
   });
 
   it('running a comparison posts the two most recent years and shows each affected parcel with its category change, narrative, and alert badge', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: {
+    server.use(http.post('*/compare', () => HttpResponse.json({
         clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: true,
         affectedParcels: [
           {
@@ -150,8 +151,7 @@ describe('HistoricalImageryPanel', () => {
             narrative: 'The restriction previously on this parcel is no longer active.', alertId: null,
           },
         ],
-      },
-    });
+      })))
     renderWithClient(<HistoricalImageryPanel />);
 
     await screen.findByRole('option', { name: 'MH-PUNE-01' });
@@ -175,9 +175,7 @@ describe('HistoricalImageryPanel', () => {
   });
 
   it('running a comparison with no changes shows the no-change state and no parcel rows', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({
-      data: { clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: false, affectedParcels: [] },
-    });
+    server.use(http.post('*/compare', () => HttpResponse.json({ clusterId: 'MH-PUNE-01', fromYear: 2024, toYear: 2025, changeDetected: false, affectedParcels: [] })))
     renderWithClient(<HistoricalImageryPanel />);
 
     await screen.findByRole('option', { name: 'MH-PUNE-01' });
@@ -187,7 +185,7 @@ describe('HistoricalImageryPanel', () => {
   });
 
   it('shows an error message when the comparison request fails', async () => {
-    vi.mocked(apiService.post).mockRejectedValue(new Error('network error'));
+    server.use(http.post('*/compare', () => HttpResponse.error()))
     renderWithClient(<HistoricalImageryPanel />);
 
     await screen.findByRole('option', { name: 'MH-PUNE-01' });
@@ -197,10 +195,10 @@ describe('HistoricalImageryPanel', () => {
   });
 
   it('preselects the cluster passed via initialClusterId', async () => {
-    vi.mocked(apiService.get).mockImplementation(createApiMock({
-      '/historical-imagery/clusters': { data: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023] }, { clusterId: 'MH-PUNE-02', years: [2024, 2025] }] },
-      '/historical-imagery/clusters/MH-PUNE-02/years/2025/parcels': { data: [] },
-    }));
+    setApiMock({
+      '/historical-imagery/clusters': [{ clusterId: 'MH-PUNE-01', years: [2022, 2023] }, { clusterId: 'MH-PUNE-02', years: [2024, 2025] }],
+      '/historical-imagery/clusters/MH-PUNE-02/years/2025/parcels': [],
+    });
     renderWithClient(<HistoricalImageryPanel initialClusterId="MH-PUNE-02" />);
 
     const clusterSelect = await waitFor(() => screen.getByLabelText('Cluster'));

@@ -123,6 +123,28 @@ class TestSearch:
         identifier_types = sorted(i["identifierType"] for i in res.json()["parcels"][0]["identifiers"])
         assert identifier_types == ["SURVEY_NUMBER", "ULPIN"]
 
+    def test_fuzzy_search_by_address(self, db, client):
+        f = _base_fixtures(db)
+        # Update parcel_a with address information
+        f["parcel_a"].street_address = "123 Mahatma Gandhi Road"
+        f["parcel_a"].locality = "Connaught Place"
+        f["parcel_a"].landmark = "Near Central Park"
+        f["parcel_a"].pincode = "110001"
+        db.flush()
+
+        # Exact / substring match via trigram
+        res = client.get("/api/v1/parcels", params={"address": "Connaught"})
+        assert res.status_code == 200
+        assert res.json()["total"] >= 1
+        assert res.json()["parcels"][0]["id"] == str(f["parcel_a"].id)
+        assert res.json()["parcels"][0]["locality"] == "Connaught Place"
+
+        # Fuzzy / typo match test
+        res_fuzzy = client.get("/api/v1/parcels", params={"address": "Conaught"})
+        assert res_fuzzy.status_code == 200
+        assert res_fuzzy.json()["total"] >= 1
+        assert res_fuzzy.json()["parcels"][0]["id"] == str(f["parcel_a"].id)
+
 
 class TestGetById:
     def test_returns_the_parcel_for_a_valid_id(self, db, client):

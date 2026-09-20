@@ -31,6 +31,10 @@ class ParcelOut(CamelModel):
     local_body_code: str
     geometry: str
     area_sq_m: float
+    street_address: str | None = None
+    locality: str | None = None
+    landmark: str | None = None
+    pincode: str | None = None
     status: str = "Registered"
     local_id: str | None = None
     verification_report: str | None = None
@@ -56,6 +60,10 @@ class ParcelFeatureProperties(CamelModel):
     district_code: str
     local_body_code: str
     area_sq_m: float
+    street_address: str | None = None
+    locality: str | None = None
+    landmark: str | None = None
+    pincode: str | None = None
 
 
 class ParcelFeature(CamelModel):

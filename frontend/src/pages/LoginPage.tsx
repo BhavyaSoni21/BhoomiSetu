@@ -15,6 +15,7 @@ const DEMO_OFFICER_EMAILS: Record<(typeof OFFICER_ROLES)[number], string> = {
   TAX_OFFICER:           'tax.officer@bhoomisetu.gov.in',
   RESTRICTION_OFFICER:   'restriction.officer@bhoomisetu.gov.in',
   ENCUMBRANCE_OFFICER:   'encumbrance.officer@bhoomisetu.gov.in',
+  SURVEY_OFFICER:        'survey.officer@bhoomisetu.gov.in',
 };
 const DEMO_ADMIN_EMAIL = 'admin@bhoomisetu.gov.in';
 const DEMO_VERIFIER_EMAILS = ['verifier1@bhoomisetu.gov.in', 'verifier2@bhoomisetu.gov.in'];

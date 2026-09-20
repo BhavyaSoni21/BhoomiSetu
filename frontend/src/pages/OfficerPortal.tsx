@@ -10,6 +10,13 @@ import OfficerNotificationsPage from './officer/OfficerNotificationsPage';
 import OfficerProfilePage from './officer/OfficerProfilePage';
 import HistoricalImageryPage from './officer/HistoricalImageryPage';
 import ChangeDetectionPage from './officer/ChangeDetectionPage';
+import DuplicateRegistryPage from './officer/DuplicateRegistryPage';
+import RegistrationChainPage from './officer/RegistrationChainPage';
+import ReassessmentQueuePage from './officer/ReassessmentQueuePage';
+import TaxAnalyticsPage from './officer/TaxAnalyticsPage';
+import FraudPreventionPage from './officer/FraudPreventionPage';
+import CertificateGeneratorPage from './officer/CertificateGeneratorPage';
+import DocumentsPage from './officer/DocumentsPage';
 
 // Multi-page Officer Portal (docs/FRONTEND_UPGRADE_SPEC.md §5), mounted once
 // at /officer/* by App.tsx (already wrapped in RequireAuth roles={OFFICER_ROLES}
@@ -38,11 +45,13 @@ const OfficerPortal: React.FC = () => {
         <Route path="historical-imagery" element={<HistoricalImageryPage />} />
         <Route path="change-detection" element={<ChangeDetectionPage />} />
         <Route path="map" element={<OfficerMapPage />} />
-        {/* Documents merged into Assigned Requests 2026-09-10 (docs/ADMIN_PANEL_ISSUES.md
-            follow-up, per the user's explicit "the documents should be the
-            part of... Assigned Requests") - old links/bookmarks redirect,
-            same precedent as CitizenPortal.tsx's own redirected routes. */}
-        <Route path="documents" element={<Navigate to="/officer/requests" replace />} />
+        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="duplicate-registry" element={<DuplicateRegistryPage />} />
+        <Route path="registration-chain" element={<RegistrationChainPage />} />
+        <Route path="reassessment-queue" element={<ReassessmentQueuePage />} />
+        <Route path="tax-analytics" element={<TaxAnalyticsPage />} />
+        <Route path="fraud-prevention" element={<FraudPreventionPage />} />
+        <Route path="certificate-generator" element={<CertificateGeneratorPage />} />
         <Route path="notifications" element={<OfficerNotificationsPage />} />
         <Route path="profile" element={<OfficerProfilePage />} />
       </Routes>

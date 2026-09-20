@@ -21,12 +21,12 @@ const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = lazy(() => import('./pages/TermsOfUsePage'));
 const ContactUsPage = lazy(() => import('./pages/ContactUsPage'));
+const AskAiWidget = lazy(() => import('./features/ai/AskAiWidget'));
 import RequireAuth from './features/auth/RequireAuth';
 import { useAuthUser, useLogout } from './features/auth/auth';
-import { OFFICER_ROLES, ROLE_LABELS } from './features/officer/officerAuth';
-import AskAiWidget from './features/ai/AskAiWidget';
+import { OFFICER_ROLES, ROLE_LABELS, ROLE_DEPARTMENT } from './features/officer/officerAuth';
 import { useTheme } from './theme/theme';
-import { NavItem, CITIZEN_NAV_ITEMS, OFFICER_NAV_ITEMS, ADMIN_NAV_ITEMS, VERIFIER_NAV_ITEMS } from './navConfig';
+import { NavItem, CITIZEN_NAV_ITEMS, ADMIN_NAV_ITEMS, VERIFIER_NAV_ITEMS, getOfficerNavItems, OFFICER_NAV_ITEMS } from './navConfig';
 import SvgIndianEmblem from './components/IndianEmblem';
 
 const BsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -46,13 +46,14 @@ const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-xl ${isActive ? 'bg-emerald-50 dark:bg-emerald-900/20 text-[var(--bhashini-accent)] font-bold' : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
   }`;
 
-function navItemsFor(role: string | undefined): NavItem[] {
+function navItemsFor(role: string | undefined, department?: string): NavItem[] {
   const home: NavItem = { to: '/', end: true, labelKey: 'nav.home' };
   const about: NavItem = { to: '/about', labelKey: 'nav.about' };
   if (!role) return [home, about, { to: '/features', labelKey: 'nav.features' }];
   if (role === 'CITIZEN') return [home, about, ...CITIZEN_NAV_ITEMS];
   if (role === 'ADMIN') return ADMIN_NAV_ITEMS;
   if (role === 'VERIFIER') return VERIFIER_NAV_ITEMS;
+  if (department) return getOfficerNavItems(department);
   return OFFICER_NAV_ITEMS;
 }
 
@@ -75,7 +76,8 @@ function AppShell() {
   const logout = useLogout();
   const isGuest = !authUser;
   const isCitizen = authUser?.role === 'CITIZEN';
-  const navItems = navItemsFor(authUser?.role);
+  const department = authUser?.role && ROLE_DEPARTMENT[authUser?.role as keyof typeof ROLE_DEPARTMENT];
+  const navItems = navItemsFor(authUser?.role, department);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -194,7 +196,7 @@ function AppShell() {
                       onClick={handleLogout}
                       className="text-action-500 hover:text-action-400 font-bold transition ml-1"
                     >
-                      Sign out
+                      Sign Out
                     </button>
                   </div>
                 ) : (
@@ -423,7 +425,9 @@ function AppShell() {
       {!location.pathname.startsWith('/officer') &&
         !location.pathname.startsWith('/admin') &&
         !isAuthPage && (
-          <AskAiWidget />
+          <Suspense fallback={null}>
+            <AskAiWidget />
+          </Suspense>
         )}
     </div>
   );

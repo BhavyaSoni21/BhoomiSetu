@@ -40,6 +40,7 @@ _DEPARTMENT_DESCRIPTIONS = {
     "RESTRICTION": "Environmental, protected-area, and other land-use restrictions.",
     "DISPUTE": "Ownership, boundary, inheritance, and encroachment dispute resolution.",
     "ENCUMBRANCE": "Mortgages, liens, and other charges registered against a parcel.",
+    "SURVEY": "Physical field measurement, cadastral map geometry updates, and boundary demarcation.",
 }
 _VALID_DEPARTMENTS = list(_DEPARTMENT_DESCRIPTIONS.keys())
 

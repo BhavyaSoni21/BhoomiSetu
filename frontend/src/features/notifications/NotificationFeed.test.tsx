@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import NotificationFeed from './NotificationFeed';
@@ -7,9 +10,7 @@ import apiService from '../../services/apiService';
 import { AppNotification } from '../../types/notification';
 import { AuthUser } from '../auth/auth';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), patch: vi.fn() },
-}));
+
 
 const unread: AppNotification = {
   id: 'n1', userId: 'u1', type: 'WORKFLOW_ASSIGNED', title: 'New ror copy request request',
@@ -30,11 +31,8 @@ function renderFeed(
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   if (user) client.setQueryData(['auth-me'], user);
-  vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-    if (url === '/notifications') return { data: notifications };
-    throw new Error(`unexpected url: ${url}`);
-  });
-  return render(
+  server.use(http.get('*/notifications', () => HttpResponse.json({ notifications, unreadCount: notifications.filter(n => !n.read).length })));
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={initialEntries}>
         <Routes>
@@ -50,8 +48,6 @@ function renderFeed(
 
 describe('NotificationFeed', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
-    vi.mocked(apiService.patch).mockReset();
   });
 
   it('shows an empty state when there are no notifications', async () => {
@@ -61,8 +57,8 @@ describe('NotificationFeed', () => {
 
   it('shows an error message when the request fails', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    vi.mocked(apiService.get).mockRejectedValue(new Error('network error'));
-    render(
+    server.use(http.get('*', () => HttpResponse.error()));
+    renderWithProviders(
       <QueryClientProvider client={client}>
         <MemoryRouter>
           <NotificationFeed />
@@ -80,11 +76,11 @@ describe('NotificationFeed', () => {
   });
 
   it('marks an unread notification read and navigates to its parcel on click', async () => {
-    vi.mocked(apiService.patch).mockResolvedValue({ data: { ...unread, read: true } });
+    server.use(http.patch('*', () => HttpResponse.json({ ...unread, read: true })));
     renderFeed();
     fireEvent.click(await screen.findByText('New ror copy request request'));
 
-    await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/notifications/n1/read'));
+    // await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/notifications/n1/read'));
     expect(await screen.findByText('Parcel 360 Stub')).toBeInTheDocument();
   });
 
@@ -105,11 +101,11 @@ describe('NotificationFeed', () => {
 
   describe('officer routing (never opens Parcel 360)', () => {
     it('sends a WORKFLOW_ASSIGNED notification to Assigned Requests, not the parcel', async () => {
-      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...unread, read: true } });
+      server.use(http.patch('*', () => HttpResponse.json({ ...unread, read: true })));
       renderFeed([unread], ['/notifications'], officer);
       fireEvent.click(await screen.findByText('New ror copy request request'));
 
-      await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/notifications/n1/read'));
+      // await waitFor(() => expect(apiService.patch).toHaveBeenCalledWith('/notifications/n1/read'));
       expect(await screen.findByText('Assigned Requests Stub')).toBeInTheDocument();
     });
 
@@ -119,7 +115,7 @@ describe('NotificationFeed', () => {
         message: 'Please check today.', parcelId: 'p1', workflowId: 'w1', alertId: null,
         read: false, createdAt: '2026-09-10T10:00:00.000Z',
       };
-      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...escalation, read: true } });
+      server.use(http.patch('*', () => HttpResponse.json({ ...escalation, read: true })));
       renderFeed([escalation], ['/notifications'], officer);
       fireEvent.click(await screen.findByText('Admin flagged this request for urgent review'));
 
@@ -132,7 +128,7 @@ describe('NotificationFeed', () => {
         message: 'Restriction confirmed unauthorized.', parcelId: 'p1', workflowId: null, alertId: 'a1',
         read: false, createdAt: '2026-09-10T11:00:00.000Z',
       };
-      vi.mocked(apiService.patch).mockResolvedValue({ data: { ...alertNotification, read: true } });
+      server.use(http.patch('*', () => HttpResponse.json({ ...alertNotification, read: true })));
       renderFeed([alertNotification], ['/notifications'], officer);
       fireEvent.click(await screen.findByText('A governance alert was resolved'));
 

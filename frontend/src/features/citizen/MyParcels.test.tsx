@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MyParcels from './MyParcels';
 import apiService from '../../services/apiService';
 import { AuthUser } from '../auth/auth';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
-}));
+
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
 const officer: AuthUser = { id: 'o1', email: 'officer@test.gov.in', name: 'An Officer', role: 'LAND_RECORD_OFFICER' };
@@ -18,7 +19,7 @@ function renderPanel(user: AuthUser | null, initialEntries = ['/citizen/parcels'
   client.setQueryData(['auth-me'], user);
   return {
     client,
-    ...render(
+    ...renderWithProviders(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={initialEntries}>
           <MyParcels />
@@ -30,7 +31,6 @@ function renderPanel(user: AuthUser | null, initialEntries = ['/citizen/parcels'
 
 describe('MyParcels', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
   });
 
   it('prompts to sign in when not authenticated, and never calls /parcels/mine', async () => {
@@ -46,7 +46,7 @@ describe('MyParcels', () => {
   });
 
   it('shows an empty state with Link Parcel CTA for a citizen with no linked parcels', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [], total: 0 })));
     renderPanel(citizen);
 
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('MyParcels', () => {
   });
 
   it('displays contextual banner when arriving from blocked complaint flow', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [], total: 0 })));
     renderPanel(citizen, ['/citizen/parcels?from=raise-request']);
 
     expect(await screen.findByText(/Parcel Verification Required/i)).toBeInTheDocument();
@@ -63,8 +63,7 @@ describe('MyParcels', () => {
   });
 
   it("lists a citizen's linked parcels with status badges", async () => {
-    vi.mocked(apiService.get).mockResolvedValue({
-      data: {
+    server.use(http.get('*', () => HttpResponse.json({
         total: 2,
         parcels: [
           {
@@ -92,8 +91,7 @@ describe('MyParcels', () => {
             status: 'Pending Verification',
           },
         ],
-      },
-    });
+      },)));
     renderPanel(citizen);
 
     expect(await screen.findByText(/MH-AH-SH-588\/2/)).toBeInTheDocument();
@@ -103,7 +101,7 @@ describe('MyParcels', () => {
   });
 
   it('opens and closes the new parcel verification form on button click', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { parcels: [], total: 0 } });
+    server.use(http.get('*', () => HttpResponse.json({ parcels: [], total: 0 })));
     renderPanel(citizen);
 
     const newParcelBtn = await screen.findByRole('button', { name: /\+ New Parcel/i });
@@ -114,8 +112,7 @@ describe('MyParcels', () => {
   });
 
   it('allows citizen to delete a pending parcel submission with confirmation modal', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({
-      data: {
+    server.use(http.get('*', () => HttpResponse.json({
         total: 1,
         parcels: [
           {
@@ -131,9 +128,8 @@ describe('MyParcels', () => {
             status: 'Pending Verification',
           },
         ],
-      },
-    });
-    vi.mocked(apiService.delete).mockResolvedValue({ data: { success: true } });
+      },)));
+    server.use(http.delete('*', () => HttpResponse.json({ success: true })));
 
     renderPanel(citizen);
 

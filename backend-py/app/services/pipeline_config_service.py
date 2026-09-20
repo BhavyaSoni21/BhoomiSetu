@@ -30,6 +30,13 @@ PIPELINES_BY_TYPE_DEFAULT = {
     "DOCUMENT_VERIFICATION_REQUEST": [
         {"department": "LAND_RECORDS", "assigned_role": "LAND_RECORD_OFFICER", "step_order": 1},
     ],
+    "SURVEY_MEASUREMENT_REQUEST": [
+        {"department": "SURVEY", "assigned_role": "SURVEY_OFFICER", "step_order": 1},
+    ],
+    "BOUNDARY_DEMARCATION_REQUEST": [
+        {"department": "SURVEY", "assigned_role": "SURVEY_OFFICER", "step_order": 1},
+        {"department": "DISPUTE", "assigned_role": "DISPUTE_OFFICER", "step_order": 2},
+    ],
 }
 
 

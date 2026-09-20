@@ -8,6 +8,7 @@ OFFICER_ROLES = [
     "TAX_OFFICER",
     "RESTRICTION_OFFICER",
     "ENCUMBRANCE_OFFICER",
+    "SURVEY_OFFICER",
 ]
 ALL_STAFF_ROLES = [*OFFICER_ROLES, "ADMIN"]
 
@@ -36,6 +37,7 @@ ROLE_DEPARTMENT = {
     "TAX_OFFICER": "TAX",
     "RESTRICTION_OFFICER": "RESTRICTION",
     "ENCUMBRANCE_OFFICER": "ENCUMBRANCE",
+    "SURVEY_OFFICER": "SURVEY",
 }
 
 # Reverse of the map above (department code -> officer role) - used to turn

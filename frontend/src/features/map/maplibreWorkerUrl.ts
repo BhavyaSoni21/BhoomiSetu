@@ -1,5 +1,5 @@
 import { setWorkerUrl } from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?worker&url';
 
 // KNOWN_RISKS.md CRIT-1 (maplibre-gl 4.7.1 -> 6.9.0 upgrade): as of v5/v6,
 // maplibre-gl no longer reliably auto-detects its own worker script's URL

@@ -261,10 +261,10 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                   <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
                   <div>
                     <h3 className="font-heading font-bold text-base">
-                      {t('parcelVerification.partialTitle', 'Sent for Officer Review (Partial Match)')}
+                      {t('parcelVerification.partialTitle')}
                     </h3>
                     <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                      {t('parcelVerification.partialDesc', 'Some details did not fully match the document scan (Match Score: {{score}}%). This parcel is listed as "Pending Verification" on your profile while a Land Records officer reviews it.', { score: verificationResult.matchPercent })}
+                      {t('parcelVerification.partialDesc', { score: verificationResult.matchPercent })}
                     </p>
                   </div>
                 </div>
@@ -281,10 +281,10 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                   <XCircle className="w-6 h-6 text-red-600 shrink-0" />
                   <div>
                     <h3 className="font-heading font-bold text-base">
-                      {t('parcelVerification.mismatchTitle', 'Details Do Not Match Document')}
+                      {t('parcelVerification.mismatchTitle')}
                     </h3>
                     <p className="text-xs text-red-800 dark:text-red-300 mt-0.5">
-                      {t('parcelVerification.mismatchDesc', 'The information you typed does not match the uploaded document scan. Please review the comparison below, correct any errors, and try again.')}
+                      {t('parcelVerification.mismatchDesc')}
                     </p>
                   </div>
                 </div>
@@ -297,10 +297,10 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                   <ShieldAlert className="w-6 h-6 text-red-600 shrink-0" />
                   <div>
                     <h3 className="font-heading font-bold text-base">
-                      {t('parcelVerification.fakeLikelyTitle', 'Document Could Not Be Verified')}
+                      {t('parcelVerification.fakeLikelyTitle')}
                     </h3>
                     <p className="text-xs text-red-800 dark:text-red-300 mt-0.5">
-                      {t('parcelVerification.fakeLikelyDesc', 'The uploaded scan has low resolution or possible image tampering artifacts. Please upload a clear original copy or visit your Taluka Land Records office.')}
+                      {t('parcelVerification.fakeLikelyDesc')}
                     </p>
                   </div>
                 </div>
@@ -312,7 +312,7 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
               <div className="rounded-xl border border-gov-border overflow-hidden bg-white dark:bg-[#0D261D] shadow-xs">
                 <div className="px-4 py-3 bg-surface-2 border-b border-gov-border flex items-center justify-between">
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-text-secondary">
-                    {t('parcelVerification.comparisonTitle', 'Field-by-Field Verification Report')}
+                    {t('parcelVerification.comparisonTitle')}
                   </span>
                   <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-brand-900/10 text-brand-900">
                     Match: {verificationResult.matchedCount} / {verificationResult.totalFields} ({verificationResult.matchPercent}%)
@@ -323,11 +323,11 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-gov-border bg-surface-2/40 text-text-muted font-mono uppercase text-[10px]">
-                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colField', 'Field')}</th>
-                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colTyped', 'You Typed')}</th>
-                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colDocument', 'Document Found')}</th>
-                        <th className="py-2.5 px-4 font-semibold text-center">{t('parcelVerification.colStatus', 'Status')}</th>
-                        <th className="py-2.5 px-4 font-semibold text-right">{t('parcelVerification.colScore', 'Score')}</th>
+                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colField')}</th>
+                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colTyped')}</th>
+                        <th className="py-2.5 px-4 font-semibold">{t('parcelVerification.colDocument')}</th>
+                        <th className="py-2.5 px-4 font-semibold text-center">{t('parcelVerification.colStatus')}</th>
+                        <th className="py-2.5 px-4 font-semibold text-right">{t('parcelVerification.colScore')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gov-border">

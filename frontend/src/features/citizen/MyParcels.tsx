@@ -101,7 +101,6 @@ export const MyParcels: React.FC = () => {
             <p className="text-xs text-text-secondary leading-relaxed">
               {t(
                 'myParcels.deleteModalDesc',
-                'Are you sure you want to remove the ownership submission for parcel {{localId}}? Any pending officer verification request for this document will be cancelled.',
                 { localId: parcelToDelete.localId || `#${parcelToDelete.id.substring(0, 8)}` }
               )}
             </p>

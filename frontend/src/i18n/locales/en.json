@@ -361,6 +361,7 @@
     "assignedRequests": "Assigned Requests",
     "governanceAlerts": "Governance Alerts",
     "historicalImagery": "Historical Imagery",
+    "changeDetection": "Change Detection",
     "map": "Map",
     "documents": "Documents",
     "notifications": "Notifications",
@@ -477,6 +478,28 @@
     "noStepForDepartment": "No step in this workflow is assigned to your department.",
     "loadingWorkflow": "Loading workflow...",
     "errorLoadingWorkflow": "Error loading workflow"
+  },
+  "officerDashboard": {
+    "officialDeskBadge": "Official Desk",
+    "departmentLabel": "LAND RECORDS",
+    "consoleHeadingPrefix": "Land Records Officer",
+    "consoleSubtitle": "Review and decide on assigned cases",
+    "pendingAdjudicationLabel": "Pending Adjudication",
+    "casesAwaitingAction": "Cases Awaiting Action",
+    "reviewQueueLink": "Review Queue",
+    "totalDecidedLabel": "Total Decided",
+    "signedOrdersLabel": "Signed Orders",
+    "cumulativeTotalLabel": "Cumulative Total",
+    "processedTodayLabel": "Processed Today",
+    "todaysThroughputLabel": "Today's Throughput",
+    "withinSlaLabel": "Within SLA",
+    "openAlertsLabel": "Open Alerts",
+    "encroachmentOverlapsLabel": "Encroachment Overlaps",
+    "investigateAlertsLink": "Investigate Alerts",
+    "pendingCasesQueueHeading": "Pending Cases Queue",
+    "pendingCasesQueueDesc": "Cases assigned to you that need review",
+    "openFullDeskLink": "Open Full Desk",
+    "loadingPendingQueue": "Loading pending queue..."
   },
   "adminNav": {
     "dashboard": "Dashboard",
@@ -631,5 +654,23 @@
     "avgDecisionTimeColumn": "Avg. Time to Decide",
     "lastActivityColumn": "Last Activity",
     "pendingInQueueNote": "\"Pending in Queue\" is per role, not per officer - officers sharing a role share the same queue."
+  },
+  "footer": {
+    "tagline": "Empowering transparent land governance through technology",
+    "departmentHeading": "Ministry of Panchayati Raj & Department of Land Resources",
+    "address": "BhoomiSetu, Land Resources Division, Ministry of Rural Development, Government of India",
+    "helplineLabel": "Helpline: 1800-11-2026 / 011-2430 1361",
+    "email": "helpdesk@bhoomisetu.gov.in",
+    "quickLinks": "Quick Links",
+    "linkHome": "Home",
+    "linkAbout": "About",
+    "linkFeatures": "Features",
+    "linkCitizen": "Citizen Portal",
+    "linkOfficer": "Officer Portal",
+    "governance": "Governance",
+    "linkTerms": "Terms of Service",
+    "linkPrivacy": "Privacy Policy",
+    "linkContact": "Contact Us",
+    "svamitvaPortal": "SVAMITVA Portal"
   }
 }

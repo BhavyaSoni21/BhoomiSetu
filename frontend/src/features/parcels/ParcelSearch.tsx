@@ -34,6 +34,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
     survey_number: '',
     plot_number: '',
     local_identifier: urlParams.get('local_identifier') ?? '',
+    address: '',
     state: '',
     district: '',
   });
@@ -49,10 +50,17 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlParams]);
 
+  const [debouncedSearchParams, setDebouncedSearchParams] = useState(searchParams);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedSearchParams(searchParams), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchParams]);
+
   const { data: searchResults, isLoading, error } = useQuery<ParcelSummary[]>(
-    ['parcels', searchParams, currentLang],
-    async () => {
-      let effectiveLocalId = searchParams.local_identifier;
+    ['parcels', debouncedSearchParams, currentLang],
+    async ({ signal }) => {
+      let effectiveLocalId = debouncedSearchParams.local_identifier;
 
       // Check if text is Roman/Latin script and current language is non-English
       if (effectiveLocalId && currentLang !== 'en' && /[a-zA-Z]/.test(effectiveLocalId)) {
@@ -65,7 +73,11 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
               source_lang: 'en',
               target_lang: currentLang,
             }),
+            signal,
           });
+          if (signal?.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+          }
           if (res.ok) {
             const data = await res.json();
             if (data?.transliterated_text) {
@@ -78,6 +90,9 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
             setTransliteratedText(null);
           }
         } catch (err) {
+          if (signal?.aborted) {
+            throw err;
+          }
           console.error('Transliteration failed, falling back to original query:', err);
           setTransliteratedText(null);
         }
@@ -87,16 +102,16 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
 
       // Filter out empty params
       const params = Object.entries({
-        ...searchParams,
-        local_identifier: effectiveLocalId || searchParams.local_identifier,
+        ...debouncedSearchParams,
+        local_identifier: effectiveLocalId || debouncedSearchParams.local_identifier,
       })
         .filter(([_, value]) => value !== '')
         .reduce((obj, [key, value]) => {
-          obj[key as keyof typeof searchParams] = value as string;
+          obj[key as keyof typeof debouncedSearchParams] = value as string;
           return obj;
-        }, {} as typeof searchParams);
+        }, {} as typeof debouncedSearchParams);
 
-      const response = await apiService.get('/parcels', { params });
+      const response = await apiService.get('/parcels', { params, signal });
       return response.data.parcels;
     }
   );
@@ -177,7 +192,25 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelClass.replace('mb-1', '')}>
+                  {t('parcelSearch.addressLabel', 'Address / Locality')}
+                </label>
+                <MicButton
+                  onResult={(text) => setSearchParams((prev) => ({ ...prev, address: text }))}
+                />
+              </div>
+              <input
+                type="text"
+                name="address"
+                value={searchParams.address}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder={t('parcelSearch.addressPlaceholder', 'e.g. Shivajinagar, Connaught, Lexicon...')}
+              />
+            </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className={labelClass.replace('mb-1', '')}>
@@ -259,6 +292,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                   survey_number: '',
                   plot_number: '',
                   local_identifier: '',
+                  address: '',
                   state: '',
                   district: '',
                 });
@@ -295,8 +329,13 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-bold text-ink">
-                      {parcel.id.substring(0, 8)}
+                      {parcel.canonicalParcelId || parcel.id.substring(0, 8)}
                     </h3>
+                    {parcel.streetAddress && (
+                      <p className="text-xs text-brand-900 font-semibold mt-0.5">
+                        📍 {parcel.streetAddress}{parcel.locality ? `, ${parcel.locality}` : ''}
+                      </p>
+                    )}
                     <p className="text-sm text-ink/60">
                       {parcel.ulpin ? `${t('parcelSearch.ulpinLabel')}: ${parcel.ulpin}` : t('parcelSearch.noUlpin')}
                     </p>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { SchemesMarquee } from './SchemesMarquee';
 import { GOVT_SCHEMES } from '../../data/govtSchemes';
 import { LanguageProvider } from '../../context/LanguageContext';
@@ -14,7 +15,7 @@ describe('SchemesMarquee Component', () => {
     if (initialLang) {
       localStorage.setItem('bhoomisetu_lang', initialLang);
     }
-    return render(<LanguageProvider>{ui}</LanguageProvider>);
+    return renderWithProviders(<LanguageProvider>{ui}</LanguageProvider>);
   };
 
   it('renders section heading and eyebrow badge in English', () => {

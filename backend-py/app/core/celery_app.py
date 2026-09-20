@@ -10,6 +10,13 @@ celery_app = Celery(
     "bhoomisetu",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=[
+        "app.tasks.earth_engine_tasks",
+        "app.tasks.ocr_tasks",
+        "app.tasks.etl_tasks",
+        "app.tasks.change_detection_tasks",
+        "app.tasks.terrain_tasks",
+    ],
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
@@ -19,10 +26,11 @@ celery_app = Celery(
 
 # Task routes for different queues
 celery_app.conf.task_routes = {
-    "app.tasks.earth_engine.*": {"queue": "earth_engine"},
-    "app.tasks.ocr.*": {"queue": "ocr"},
-    "app.tasks.etl.*": {"queue": "etl"},
-    "app.tasks.change_detection.*": {"queue": "change_detection"},
+    "app.tasks.earth_engine_tasks.*": {"queue": "earth_engine"},
+    "app.tasks.ocr_tasks.*": {"queue": "ocr"},
+    "app.tasks.etl_tasks.*": {"queue": "etl"},
+    "app.tasks.change_detection_tasks.*": {"queue": "change_detection"},
+    "app.tasks.terrain_tasks.*": {"queue": "terrain"},
 }
 
 # Task execution settings

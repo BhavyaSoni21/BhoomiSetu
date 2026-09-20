@@ -354,6 +354,7 @@
     "assignedRequests": "सौंपे गए अनुरोध",
     "governanceAlerts": "शासन चेतावनियाँ",
     "historicalImagery": "ऐतिहासिक इमेजरी",
+    "changeDetection": "परिवर्तन पहचान",
     "map": "मानचित्र",
     "documents": "दस्तावेज़",
     "notifications": "सूचनाएं",
@@ -470,6 +471,28 @@
     "noStepForDepartment": "इस वर्कफ़्लो में आपके विभाग को कोई चरण नहीं सौंपा गया है।",
     "loadingWorkflow": "वर्कफ़्लो लोड हो रहा है...",
     "errorLoadingWorkflow": "वर्कफ़्लो लोड करने में त्रुटि"
+  },
+  "officerDashboard": {
+    "officialDeskBadge": "आधिकारिक डेस्क",
+    "departmentLabel": "भूमि अभिलेख",
+    "consoleHeadingPrefix": "भूमि अभिलेख अधिकारी",
+    "consoleSubtitle": "सौंपे गए मामलों की समीक्षा और निर्णय लें",
+    "pendingAdjudicationLabel": "लंबित न्यायनिर्णय",
+    "casesAwaitingAction": "कार्रवाई की प्रतीक्षा में मामले",
+    "reviewQueueLink": "समीक्षा कतार",
+    "totalDecidedLabel": "कुल निर्णीत",
+    "signedOrdersLabel": "हस्ताक्षरित आदेश",
+    "cumulativeTotalLabel": "संचयी कुल",
+    "processedTodayLabel": "आज संसाधित",
+    "todaysThroughputLabel": "आज का थ्रूपुट",
+    "withinSlaLabel": "SLA के भीतर",
+    "openAlertsLabel": "खुली चेतावनियाँ",
+    "encroachmentOverlapsLabel": "अतिक्रमण ओवरलैप",
+    "investigateAlertsLink": "चेतावनियों की जांच करें",
+    "pendingCasesQueueHeading": "लंबित मामलों की कतार",
+    "pendingCasesQueueDesc": "आपको सौंपे गए मामले जिनकी समीक्षा आवश्यक है",
+    "openFullDeskLink": "पूर्ण डेस्क खोलें",
+    "loadingPendingQueue": "लंबित कतार लोड हो रही है..."
   },
   "adminNav": {
     "dashboard": "डैशबोर्ड",
@@ -624,5 +647,23 @@
     "avgDecisionTimeColumn": "औसत निर्णय समय",
     "lastActivityColumn": "अंतिम गतिविधि",
     "pendingInQueueNote": "\"कतार में लंबित\" प्रति भूमिका है, प्रति अधिकारी नहीं - एक ही भूमिका साझा करने वाले अधिकारी एक ही कतार साझा करते हैं।"
+  },
+  "footer": {
+    "tagline": "प्रौद्योगिकी के माध्यम से पारदर्शी भूमि शासन को सशक्त बनाना",
+    "departmentHeading": "पंचायती राज मंत्रालय और भूमि संसाधन विभाग",
+    "address": "भूमिसेतु, भूमि संसाधन प्रभाग, ग्रामीण विकास मंत्रालय, भारत सरकार",
+    "helplineLabel": "हेल्पलाइन: 1800-11-2026 / 011-2430 1361",
+    "email": "helpdesk@bhoomisetu.gov.in",
+    "quickLinks": "त्वरित लिंक",
+    "linkHome": "होम",
+    "linkAbout": "हमारे बारे में",
+    "linkFeatures": "सुविधाएं",
+    "linkCitizen": "नागरिक पोर्टल",
+    "linkOfficer": "अधिकारी पोर्टल",
+    "governance": "शासन",
+    "linkTerms": "सेवा की शर्तें",
+    "linkPrivacy": "गोपनीयता नीति",
+    "linkContact": "संपर्क करें",
+    "svamitvaPortal": "स्वामित्व पोर्टल"
   }
 }

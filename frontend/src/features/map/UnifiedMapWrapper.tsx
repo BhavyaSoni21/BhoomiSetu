@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
-import MapComponent, { LayerKey } from './MapComponent';
+import MapComponent, { type LayerKey } from './MapComponent';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
@@ -233,7 +233,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   );
 
   // Determine which layers actually have data
-  const layerHasData = useMemo(() => ({
+  const layerHasData = useMemo<Record<LayerKey, boolean>>(() => ({
     zoning: zoningFC.features.length > 0,
     restriction: restrictionFC.features.length > 0,
     infrastructure: infrastructureFC.features.length > 0,

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RequireAuth from './RequireAuth';
@@ -11,7 +12,7 @@ const admin: AuthUser = { id: 'u2', email: 'admin@test.gov.in', name: 'Admin', r
 function renderGuarded(user: AuthUser | null | undefined, roles: AuthUser['role'][]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   if (user !== undefined) client.setQueryData(['auth-me'], user);
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/officer']}>
         <Routes>

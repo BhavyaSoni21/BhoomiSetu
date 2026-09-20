@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthUser, useLogin, useLogout } from './auth';
 import apiService from '../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
-}));
+
 
 function wrapper(client: QueryClient) {
   return ({ children }: { children: React.ReactNode }) => (
@@ -20,7 +21,6 @@ const sampleUser = { id: 'u1', email: 'officer@test.gov.in', name: 'Asha', role:
 describe('useAuthUser', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
   });
 
   it('resolves to null without ever calling the API when no token is stored', async () => {
@@ -34,7 +34,7 @@ describe('useAuthUser', () => {
 
   it('fetches /auth/me and resolves the user when a token is stored', async () => {
     localStorage.setItem('access_token', 'a-valid-token');
-    vi.mocked(apiService.get).mockResolvedValue({ data: sampleUser });
+    server.use(http.get('*', () => HttpResponse.json(sampleUser)));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useAuthUser(), { wrapper: wrapper(client) });
 
@@ -44,7 +44,7 @@ describe('useAuthUser', () => {
 
   it('clears the stored token and resolves null when /auth/me rejects (expired/invalid token)', async () => {
     localStorage.setItem('access_token', 'a-stale-token');
-    vi.mocked(apiService.get).mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
+    server.use(http.get('*', () => HttpResponse.json({}, { status: 401 })));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useAuthUser(), { wrapper: wrapper(client) });
 
@@ -57,11 +57,10 @@ describe('useAuthUser', () => {
 describe('useLogin', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.post).mockReset();
   });
 
   it('stores the returned token and seeds the auth-me cache with the returned user', async () => {
-    vi.mocked(apiService.post).mockResolvedValue({ data: { accessToken: 'new-token', user: sampleUser } });
+    server.use(http.post('*', () => HttpResponse.json({ accessToken: 'new-token', user: sampleUser })));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useLogin(), { wrapper: wrapper(client) });
 

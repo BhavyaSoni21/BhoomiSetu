@@ -1,3 +1,4 @@
+import './maplibreWorkerUrl';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import * as maplibregl from 'maplibre-gl';
@@ -48,6 +49,8 @@ type LayerKey =
   | 'buildings'
   | 'landcover'
   | 'elevation';
+
+export type { LayerKey };
 
 // Order drives the toggle list below; keys match the map.layer.* i18n keys.
 const LAYER_KEYS: LayerKey[] = [
@@ -758,6 +761,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
       restriction: ['restriction-layer'],
       infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
+      roads: ['roads-layer'],
+      buildings: ['buildings-layer'],
+      landcover: ['landcover-layer'],
+      elevation: ['elevation-layer'],
     };
     for (const [key, layerIds] of Object.entries(layerIdsByKey) as [LayerKey, string[]][]) {
       for (const layerId of layerIds) {

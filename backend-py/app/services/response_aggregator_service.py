@@ -34,6 +34,7 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
     restriction = departments_service.find_restriction_by_parcel(db, parcel_id)
     dispute = departments_service.find_dispute_by_parcel(db, parcel_id)
     encumbrance = departments_service.find_encumbrance_by_parcel(db, parcel_id)
+    survey = departments_service.find_survey_by_parcel(db, parcel_id)
 
     land_records = (
         adapt_land_records_result(land_records_result)
@@ -55,6 +56,7 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
             "RESTRICTION": restriction is not None,
             "DISPUTE": dispute is not None,
             "ENCUMBRANCE": encumbrance is not None,
+            "SURVEY": survey is not None,
         },
     )
 
@@ -69,5 +71,6 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
             "restriction": restriction,
             "dispute": dispute,
             "encumbrance": encumbrance,
+            "survey": survey,
         },
     }

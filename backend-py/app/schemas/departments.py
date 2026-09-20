@@ -74,6 +74,20 @@ class EncumbranceRecordOut(CamelModel):
     discharge_date: date | None
 
 
+class SurveyRecordOut(CamelModel):
+    id: UUID
+    parcel_id: str
+    survey_status: str
+    survey_type: str | None
+    measured_area_sq_m: float | None
+    original_area_sq_m: float | None
+    area_delta_sq_m: float | None
+    geometry_updated: bool
+    survey_date: date | None
+    surveyor_notes: str | None
+    reference_document: str | None
+
+
 class IdentifierUsed(CamelModel):
     type: str
     value: str

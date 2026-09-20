@@ -24,6 +24,7 @@ from app.schemas.departments import (
     PlanningRecordOut,
     RegistrationRecordOut,
     RestrictionRecordOut,
+    SurveyRecordOut,
     TaxRecordOut,
 )
 from app.services import departments_service as service
@@ -51,6 +52,11 @@ def list_pending_building_permissions(db: Session = Depends(get_db), _staff: Use
 @router.get("/registration/pending", response_model=list[RegistrationRecordOut])
 def list_pending_registrations(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
     return service.find_pending_registrations(db)
+
+
+@router.get("/survey/pending", response_model=list[SurveyRecordOut])
+def list_pending_surveys(db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
+    return service.find_pending_surveys(db)
 
 
 @router.get("/land-records/{parcel_id}", response_model=LandRecordsLookupOut)
@@ -113,4 +119,12 @@ def get_encumbrance(parcel_id: UUID, db: Session = Depends(get_db)):
     record = service.find_encumbrance_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No encumbrance record for parcel: {parcel_id}")
+    return record
+
+
+@router.get("/survey/{parcel_id}", response_model=SurveyRecordOut)
+def get_survey(parcel_id: UUID, db: Session = Depends(get_db)):
+    record = service.find_survey_by_parcel(db, str(parcel_id))
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No survey record for parcel: {parcel_id}")
     return record

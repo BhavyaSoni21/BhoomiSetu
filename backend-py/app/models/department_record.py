@@ -118,3 +118,23 @@ class EncumbranceRecord(Base):
     instrument_reference: Mapped[str | None] = mapped_column(String(60), nullable=True)
     registered_date: Mapped[date | None] = mapped_column(nullable=True)
     discharge_date: Mapped[date | None] = mapped_column(nullable=True)
+
+
+class SurveyRecord(Base):
+    """Survey measurement, boundary demarcation, and GIS geometry correction
+    records. Tracks physical field measurements and their outcomes.
+    """
+
+    __tablename__ = "survey_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    survey_status: Mapped[str] = mapped_column(String(20), default="PENDING")  # PENDING | IN_PROGRESS | COMPLETED | NO_CHANGE
+    survey_type: Mapped[str | None] = mapped_column(String(30), nullable=True)  # BOUNDARY_VERIFICATION | AREA_CORRECTION | DEMARCATION | GEOMETRY_CORRECTION
+    measured_area_sq_m: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    original_area_sq_m: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    area_delta_sq_m: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    geometry_updated: Mapped[bool] = mapped_column(Boolean, default=False)
+    survey_date: Mapped[date | None] = mapped_column(nullable=True)
+    surveyor_notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reference_document: Mapped[str | None] = mapped_column(String(60), nullable=True)  # e.g. FIELD_BOOK_REF | GPS_LOG | DRONE_IMAGERY

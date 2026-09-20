@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import {  } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import LayerGeometryDrawMap from './LayerGeometryDrawMap';
 
 const mockMapInstances: any[] = [];
@@ -65,7 +66,7 @@ describe('LayerGeometryDrawMap', () => {
     mockMapInstances.length = 0;
     mockDrawInstances.length = 0;
     const onChange = vi.fn();
-    render(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
+    renderWithProviders(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
 
     expect(mockDrawInstances[0].features).toHaveLength(0);
     expect(onChange).not.toHaveBeenCalled();
@@ -75,7 +76,7 @@ describe('LayerGeometryDrawMap', () => {
     mockMapInstances.length = 0;
     mockDrawInstances.length = 0;
     const geometry: GeoJSON.Geometry = { type: 'Point', coordinates: [73.9, 18.6] };
-    render(<LayerGeometryDrawMap allowedGeometryTypes={['Point']} initialGeometry={geometry} onChange={vi.fn()} />);
+    renderWithProviders(<LayerGeometryDrawMap allowedGeometryTypes={['Point']} initialGeometry={geometry} onChange={vi.fn()} />);
 
     expect(mockDrawInstances[0].features).toHaveLength(1);
     expect(mockDrawInstances[0].features[0].geometry).toEqual(geometry);
@@ -85,7 +86,7 @@ describe('LayerGeometryDrawMap', () => {
   it('only enables the draw controls for the allowed geometry types', () => {
     mockMapInstances.length = 0;
     mockDrawInstances.length = 0;
-    render(<LayerGeometryDrawMap allowedGeometryTypes={['Point', 'LineString']} initialGeometry={null} onChange={vi.fn()} />);
+    renderWithProviders(<LayerGeometryDrawMap allowedGeometryTypes={['Point', 'LineString']} initialGeometry={null} onChange={vi.fn()} />);
 
     expect(mockDrawInstances[0].options.controls).toEqual({
       point: true,
@@ -99,7 +100,7 @@ describe('LayerGeometryDrawMap', () => {
     mockMapInstances.length = 0;
     mockDrawInstances.length = 0;
     const onChange = vi.fn();
-    render(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
+    renderWithProviders(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
 
     const draw = mockDrawInstances[0];
     const map = mockMapInstances[0];
@@ -114,7 +115,7 @@ describe('LayerGeometryDrawMap', () => {
     mockMapInstances.length = 0;
     mockDrawInstances.length = 0;
     const onChange = vi.fn();
-    render(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
+    renderWithProviders(<LayerGeometryDrawMap allowedGeometryTypes={['Polygon']} initialGeometry={null} onChange={onChange} />);
 
     mockMapInstances[0].trigger('draw.delete');
 

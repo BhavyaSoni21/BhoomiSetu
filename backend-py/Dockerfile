@@ -8,6 +8,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gdal-bin libgdal-dev g++ \
     libcairo2 \
+    libexpat1 \
+    zlib1g \
+    libbz2-1.0 \
     tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 

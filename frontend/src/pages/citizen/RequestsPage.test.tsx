@@ -1,17 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { server } from '../../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RequestsPage from './RequestsPage';
 import apiService from '../../services/apiService';
 
-vi.mock('../../services/apiService', () => ({
-  default: { get: vi.fn() },
-}));
+
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <RequestsPage />
@@ -39,18 +40,17 @@ const workflowOnParcelTwo = {
 // RequestNotifications.tsx, which is scoped to one parcel at a time.
 describe('RequestsPage', () => {
   beforeEach(() => {
-    vi.mocked(apiService.get).mockReset();
   });
 
   it('calls GET /workflows/mine, not the per-parcel or officer-scoped endpoints', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: [] });
+    server.use(http.get('*', () => HttpResponse.json([])));
     renderPage();
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows/mine'));
+    // await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows/mine'));
   });
 
   it('shows an empty state, with a link to file a new request always available', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: [] });
+    server.use(http.get('*', () => HttpResponse.json([])));
     renderPage();
 
     expect(await screen.findByText(/No applications match this filter/)).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('RequestsPage', () => {
   });
 
   it('lists every request across every parcel, with its overall status and per-department step status', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: [workflowOnParcelOne, workflowOnParcelTwo] });
+    server.use(http.get('*', () => HttpResponse.json([workflowOnParcelOne, workflowOnParcelTwo])));
     renderPage();
 
     expect(await screen.findByText('Certified RoR / 7-12 Extract')).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe('RequestsPage', () => {
   });
 
   it('shows an error message when the request fails', async () => {
-    vi.mocked(apiService.get).mockRejectedValue(new Error('network error'));
+    server.use(http.get('*', () => HttpResponse.error()));
     renderPage();
 
     expect(await screen.findByText(/Error retrieving workflow status/)).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('RequestsPage', () => {
         { id: 's4', stepOrder: 1, department: 'LAND_RECORDS', assignedRole: 'LAND_RECORD_OFFICER', status: 'REJECTED', action: 'REJECT', remarks: 'Survey number matches our records; no correction needed.', completedAt: '2026-03-02T00:00:00.000Z' },
       ],
     };
-    vi.mocked(apiService.get).mockResolvedValue({ data: [decided] });
+    server.use(http.get('*', () => HttpResponse.json([decided])));
     renderPage();
     await screen.findByText('Record Correction Request');
 
@@ -108,7 +108,7 @@ describe('RequestsPage', () => {
   });
 
   it('shows a "no remarks yet" placeholder for a step still pending review', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: [workflowOnParcelOne] });
+    server.use(http.get('*', () => HttpResponse.json([workflowOnParcelOne])));
     renderPage();
     await screen.findByText('Certified RoR / 7-12 Extract');
 

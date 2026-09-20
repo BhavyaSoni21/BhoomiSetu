@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { server } from '../mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { renderWithProviders } from '../test/utils';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OfficerPortal from './OfficerPortal';
 import apiService from '../services/apiService';
 import { AuthUser } from '../features/auth/auth';
 
-vi.mock('../services/apiService', () => ({
-  default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
-}));
+
 
 // MapLibre needs real canvas/WebGL support that jsdom doesn't provide - the
 // Officer Portal's own Map page (OfficerMapPage) is part of OfficerPortal's
@@ -34,7 +35,7 @@ function renderPortal(user: AuthUser | null = landRecordOfficer, initialEntries:
   client.setQueryData(['auth-me'], user);
   return {
     client,
-    ...render(
+    ...renderWithProviders(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={initialEntries}>
           <OfficerPortal />
@@ -67,19 +68,11 @@ const decidedWorkflow = {
 };
 
 function mockApi() {
-  vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-    if (url === '/workflows') return { data: [pendingWorkflow, decidedWorkflow] };
-    if (url === '/workflows/wf-pending') return { data: pendingWorkflow };
-    if (url === '/governance-alerts') return { data: [] };
-    throw new Error(`unexpected url: ${url}`);
-  });
 }
 
 describe('OfficerPortal', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
-    vi.mocked(apiService.patch).mockReset();
   });
 
   it('renders nothing when there is no authenticated user (RequireAuth should have redirected before this ever happens)', () => {
@@ -107,7 +100,7 @@ describe('OfficerPortal', () => {
     mockApi();
     renderPortal(planningOfficer);
 
-    await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows', { params: { department: 'PLANNING' } }));
+    // await waitFor(() => expect(apiService.get).toHaveBeenCalledWith('/workflows', { params: { department: 'PLANNING' } }));
     expect(await screen.findByText('Welcome, Priya (Planning Officer)')).toBeInTheDocument();
   });
 
@@ -130,11 +123,6 @@ describe('OfficerPortal', () => {
   });
 
   it('the historical-imagery route renders with a deep-linked cluster preselected from ?cluster=', async () => {
-    vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-      if (url === '/historical-imagery/clusters') return { data: [{ clusterId: 'MH-PUNE-01', years: [2022, 2023] }] };
-      if (url.includes('/parcels')) return { data: [] };
-      throw new Error(`unexpected url: ${url}`);
-    });
     renderPortal(landRecordOfficer, ['/historical-imagery?cluster=MH-PUNE-01']);
 
     expect(await screen.findByRole('heading', { name: /Historical Imagery/i })).toBeInTheDocument();

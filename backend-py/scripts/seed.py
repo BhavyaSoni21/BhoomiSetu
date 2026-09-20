@@ -33,6 +33,7 @@ from app.models.department_record import (
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyRecord,
     TaxRecord,
 )
 from app.models.governance import GovernanceAlert, GovernanceRule
@@ -410,6 +411,7 @@ def seed_database() -> None:
         restriction_records_to_save: list[RestrictionRecord] = []
         dispute_records_to_save: list[DisputeRecord] = []
         encumbrance_records_to_save: list[EncumbranceRecord] = []
+        survey_records_to_save: list[SurveyRecord] = []
         ownership_history_records_to_save: list[OwnershipHistoryRecord] = []
         crop_records_to_save: list[CropRecord] = []
         parcel_historical_states_to_save: list[ParcelHistoricalState] = []
@@ -636,6 +638,57 @@ def seed_database() -> None:
                     )
                 )
 
+                # Survey measurement: ~10% of parcels have a survey on file
+                # (boundary verification, area correction, or demarcation).
+                # Completed surveys may have measured area different from
+                # the RoR area, triggering cross-dept updates.
+                has_survey = random.random() < 0.10
+                survey_type = weighted_pick([("BOUNDARY_VERIFICATION", 4), ("AREA_CORRECTION", 3), ("DEMARCATION", 2), ("GEOMETRY_CORRECTION", 1)]) if has_survey else None
+                survey_status = weighted_pick([("PENDING", 2), ("IN_PROGRESS", 1), ("COMPLETED", 4), ("NO_CHANGE", 1)]) if has_survey else "PENDING"
+                original_area = float(parcel.area_sq_m)
+                measured_area = None
+                area_delta = None
+                geometry_updated = False
+                if has_survey and survey_status in ("COMPLETED", "NO_CHANGE"):
+                    # For AREA_CORRECTION and GEOMETRY_CORRECTION, simulate
+                    # a measured area that may differ from the original
+                    if survey_type in ("AREA_CORRECTION", "GEOMETRY_CORRECTION"):
+                        # ±5% variation
+                        variation = (random.random() - 0.5) * 0.10
+                        measured_area = round(original_area * (1 + variation), 2)
+                        area_delta = round(measured_area - original_area, 2)
+                        geometry_updated = survey_type == "GEOMETRY_CORRECTION"
+                    else:
+                        # Boundary verification and demarcation typically
+                        # confirm the existing area
+                        measured_area = original_area
+                        area_delta = 0.0
+                        geometry_updated = False
+                survey_records_to_save.append(
+                    SurveyRecord(
+                        parcel_id=str(parcel.id),
+                        survey_status=survey_status,
+                        survey_type=survey_type,
+                        measured_area_sq_m=measured_area,
+                        original_area_sq_m=original_area if has_survey else None,
+                        area_delta_sq_m=area_delta,
+                        geometry_updated=geometry_updated,
+                        survey_date=random_date(2) if has_survey and survey_status != "PENDING" else None,
+                        surveyor_notes=(
+                            f"{survey_type.replace('_', ' ').title()} completed. Area delta: {area_delta:+.2f} sq m."
+                            if has_survey and survey_status == "COMPLETED"
+                            else f"Field visit scheduled for {survey_type.replace('_', ' ').lower()}."
+                            if has_survey and survey_status in ("PENDING", "IN_PROGRESS")
+                            else None
+                        ),
+                        reference_document=(
+                            weighted_pick([("FIELD_BOOK_REF", 2), ("GPS_LOG", 2), ("DRONE_IMAGERY", 1)])
+                            if has_survey and survey_status == "COMPLETED"
+                            else None
+                        ),
+                    )
+                )
+
                 # Ownership history - a representative subset of parcels,
                 # 1-3 prior owners each, ending at whichever name the state
                 # schema recorded as current owner/holder when one exists.
@@ -759,6 +812,9 @@ def seed_database() -> None:
         db.add_all(encumbrance_records_to_save)
         db.flush()
         print(f"Saved {len(encumbrance_records_to_save)} encumbrance records")
+        db.add_all(survey_records_to_save)
+        db.flush()
+        print(f"Saved {len(survey_records_to_save)} survey records")
         db.add_all(ownership_history_records_to_save)
         db.flush()
         print(f"Saved {len(ownership_history_records_to_save)} ownership history records")
@@ -897,6 +953,7 @@ def seed_database() -> None:
                 User(email="tax.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Meera Iyer", role="TAX_OFFICER", email_verified=True),
                 User(email="restriction.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Arjun Deshmukh", role="RESTRICTION_OFFICER", email_verified=True),
                 User(email="encumbrance.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Kavita Rao", role="ENCUMBRANCE_OFFICER", email_verified=True),
+                User(email="survey.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Sanjay Patil", role="SURVEY_OFFICER", email_verified=True),
             ]
         )
         verifiers = [
@@ -905,7 +962,7 @@ def seed_database() -> None:
         ]
         db.add_all(verifiers)
         db.flush()
-        print("Saved 8 demo user accounts (1 admin + 7 officer roles, password: Demo@123)")
+        print("Saved 9 demo user accounts (1 admin + 8 officer roles, password: Demo@123)")
         print(f"Saved {len(verifiers)} demo verifier accounts (password: Demo@123)")
 
         # Seed default governance rules (BACKLOG.md #4 - admin-editable governance rules)
@@ -1125,6 +1182,7 @@ def seed_database() -> None:
             Department(code="RESTRICTION", name="Restriction", description="Environmental, protected-area, and other land-use restrictions.", contact_email="restrictions@bhoomisetu.gov.in"),
             Department(code="DISPUTE", name="Dispute", description="Ownership, boundary, inheritance, and encroachment dispute resolution.", contact_email="disputes@bhoomisetu.gov.in"),
             Department(code="ENCUMBRANCE", name="Encumbrance", description="Mortgages, liens, and other charges registered against a parcel.", contact_email="encumbrance@bhoomisetu.gov.in"),
+            Department(code="SURVEY", name="Survey", description="Physical field measurement, cadastral map geometry updates, and boundary demarcation.", contact_email="survey@bhoomisetu.gov.in"),
         ]
         db.add_all(departments)
         db.flush()

@@ -11,7 +11,7 @@ const sectionHeadingClass = 'text-xl sm:text-2xl font-black uppercase tracking-t
 
 // Every department code workflow steps can be assigned to (mirrors
 // ROLE_DEPARTMENT in features/officer/officerAuth.ts / backend/src/auth/roles.constants.ts).
-const DEPARTMENTS = ['LAND_RECORDS', 'REGISTRATION', 'PLANNING', 'DISPUTE', 'TAX', 'RESTRICTION', 'ENCUMBRANCE'];
+const DEPARTMENTS = ['LAND_RECORDS', 'REGISTRATION', 'PLANNING', 'DISPUTE', 'TAX', 'RESTRICTION', 'ENCUMBRANCE', 'SURVEY'];
 
 const STATUS_BADGE_STYLES: Record<string, string> = {
   PENDING: 'border-accent text-secondary-strong',

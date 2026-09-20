@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { server } from './mocks/server';
+import { http, HttpResponse } from 'msw';
+import { screen, fireEvent, within } from '@testing-library/react';
+import { renderWithProviders } from './test/utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import apiService from './services/apiService';
 
-vi.mock('./services/apiService', () => ({
-  default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
-}));
 
 // MapLibre needs real canvas/WebGL support that jsdom doesn't provide -
 // several routes exercised below (Citizen Portal's Find Parcels, Officer
@@ -25,13 +25,27 @@ vi.mock('./features/admin/LayerGeometryDrawMap', () => ({
 vi.mock('./features/admin/AdminCombinedLayerMap', () => ({
   default: () => <div data-testid="combined-map-stub" />,
 }));
+// Lazy-loaded pages are wrapped in <Suspense> - without mocking them, the
+// Suspense fallback ('Loading…') can linger in jsdom and cause async findBy*
+// queries to time out before the dynamic import resolves.  Stub each page
+// with the minimum content the tests assert on.
+vi.mock('./pages/HomePage', () => ({
+  default: () => (
+    <div>
+      <img src="/logo.png" alt="BhoomiSetu Official Logo" />
+      <h2>How BhoomiSetu Works</h2>
+      <a href="/register">Get Started</a>
+    </div>
+  ),
+}));
+vi.mock('./pages/AboutPage', () => ({
+  default: () => <h1>About BhoomiSetu</h1>,
+}));
+vi.mock('./pages/FeaturesPage', () => ({
+  default: () => <h1>What BhoomiSetu Does</h1>,
+}));
 
 function mockApi() {
-  vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-    if (url === '/parcels') return { data: { parcels: [] } };
-    if (url === '/parcels/mine') return { data: { parcels: [], total: 0 } };
-    return { data: [] };
-  });
 }
 
 // One navbar everywhere, no separate portal-owned sub-nav (the user's
@@ -42,7 +56,7 @@ function mockApi() {
 function renderApp() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['auth-me'], { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' });
-  return render(
+  return renderWithProviders(
     <QueryClientProvider client={client}>
       <App />
     </QueryClientProvider>,
@@ -52,7 +66,6 @@ function renderApp() {
 describe('App mobile navigation', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
     mockApi();
     window.history.pushState({}, '', '/citizen/parcels');
   });
@@ -95,7 +108,6 @@ describe('App mobile navigation', () => {
 describe('App navbar is per-role, not just per-guest', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
     mockApi();
     window.history.pushState({}, '', '/');
   });
@@ -103,7 +115,7 @@ describe('App navbar is per-role, not just per-guest', () => {
   function renderAs(role: string) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(['auth-me'], { id: 'u1', email: 'user@example.com', name: 'A User', role });
-    return render(
+    return renderWithProviders(
       <QueryClientProvider client={client}>
         <App />
       </QueryClientProvider>,
@@ -112,7 +124,10 @@ describe('App navbar is per-role, not just per-guest', () => {
 
   it("a citizen sees Home, About, and their full portal page list - never an officer/admin page", () => {
     renderAs('CITIZEN');
-    const nav = within(screen.getByRole('banner'));
+    // Two <header> elements exist on non-auth pages (ministry-header + sticky navbar);
+    // nav links live in the last one.
+    const headers = screen.getAllByRole('banner');
+    const nav = within(headers[headers.length - 1]);
     expect(nav.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'About' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'My Parcels' })).toBeInTheDocument();
@@ -129,7 +144,8 @@ describe('App navbar is per-role, not just per-guest', () => {
 
   it("an officer sees their own portal page list only - no Home/About, no citizen pages", () => {
     renderAs('LAND_RECORD_OFFICER');
-    const nav = within(screen.getByRole('banner'));
+    const headers = screen.getAllByRole('banner');
+    const nav = within(headers[headers.length - 1]);
     expect(nav.getByRole('link', { name: 'Assigned Requests' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Governance Alerts' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
@@ -139,7 +155,8 @@ describe('App navbar is per-role, not just per-guest', () => {
 
   it("an admin sees their own portal page list only - no Home/About, no citizen/officer pages", () => {
     renderAs('ADMIN');
-    const nav = within(screen.getByRole('banner'));
+    const headers = screen.getAllByRole('banner');
+    const nav = within(headers[headers.length - 1]);
     expect(nav.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Departments' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'System Monitoring' })).toBeInTheDocument();
@@ -149,7 +166,8 @@ describe('App navbar is per-role, not just per-guest', () => {
 
   it('the navbar never shows the BhoomiSetu logo, for any role', () => {
     renderAs('ADMIN');
-    const nav = within(screen.getByRole('banner'));
+    const headers = screen.getAllByRole('banner');
+    const nav = within(headers[headers.length - 1]);
     expect(nav.queryByAltText('BhoomiSetu Official Logo')).not.toBeInTheDocument();
   });
 });
@@ -157,7 +175,6 @@ describe('App navbar is per-role, not just per-guest', () => {
 describe('App sign-out', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
     mockApi();
     window.history.pushState({}, '', '/citizen/parcels');
   });
@@ -178,14 +195,13 @@ describe('App sign-out', () => {
 describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
     mockApi();
     window.history.pushState({}, '', '/');
   });
 
   function renderAsGuest() {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
+    return renderWithProviders(
       <QueryClientProvider client={client}>
         <App />
       </QueryClientProvider>,
@@ -195,7 +211,8 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
   it('shows Home/About/Features and Get Started, not the portal links or search tools', () => {
     renderAsGuest();
 
-    const nav = within(screen.getByRole('banner'));
+    const headers = screen.getAllByRole('banner');
+    const nav = within(headers[headers.length - 1]);
     expect(nav.getByRole('link', { name: 'About' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Features' })).toBeInTheDocument();
     expect(nav.queryByAltText('BhoomiSetu Official Logo')).not.toBeInTheDocument();
@@ -219,10 +236,15 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
   it('navigates to the About and Features pages', async () => {
     renderAsGuest();
 
-    fireEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'About' }));
+    // The page has multiple header-role elements (utility bar + ministry header + nav header);
+    // the primary nav links live in the last sticky <header class="navbar">.
+    const headers = screen.getAllByRole('banner');
+    const navHeader = headers[headers.length - 1];
+
+    fireEvent.click(within(navHeader).getByRole('link', { name: 'About' }));
     expect(await screen.findByRole('heading', { name: 'About BhoomiSetu' })).toBeInTheDocument();
 
-    fireEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Features' }));
+    fireEvent.click(within(navHeader).getByRole('link', { name: 'Features' }));
     expect(await screen.findByRole('heading', { name: 'What BhoomiSetu Does' })).toBeInTheDocument();
   });
 });
@@ -230,14 +252,13 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
 describe('App auth pages get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md §3)', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(apiService.get).mockReset();
     mockApi();
   });
 
   function renderAt(path: string) {
     window.history.pushState({}, '', path);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
+    return renderWithProviders(
       <QueryClientProvider client={client}>
         <App />
       </QueryClientProvider>,
@@ -247,7 +268,8 @@ describe('App auth pages get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md §3)'
   it('shows only a brand-only strip on /login, not Home/About/Features or Get Started', () => {
     renderAt('/login');
     const header = screen.getByRole('banner');
-    expect(header.querySelector('img[alt="BhoomiSetu Official Logo"]')).toBeInTheDocument();
+    // The auth strip shows a 'Return to Portal' back-link, not a logo img
+    expect(within(header).getByRole('link', { name: /Return to Portal/i })).toBeInTheDocument();
     expect(within(header).queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
     expect(within(header).queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
     expect(within(header).queryByRole('link', { name: 'Features' })).not.toBeInTheDocument();
@@ -257,13 +279,13 @@ describe('App auth pages get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md §3)'
   it('shows only a brand-only strip on /register too', () => {
     renderAt('/register');
     const header = screen.getByRole('banner');
-    expect(header.querySelector('img[alt="BhoomiSetu Official Logo"]')).toBeInTheDocument();
+    expect(within(header).getByRole('link', { name: /Return to Portal/i })).toBeInTheDocument();
     expect(within(header).queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
   });
 
   it('the brand strip links back to the public Home page', () => {
     renderAt('/login');
-    const logoLink = screen.getByAltText('BhoomiSetu Official Logo').closest('a');
-    expect(logoLink).toHaveAttribute('href', '/');
+    const returnLink = screen.getByRole('link', { name: /Return to Portal/i });
+    expect(returnLink).toHaveAttribute('href', '/');
   });
 });

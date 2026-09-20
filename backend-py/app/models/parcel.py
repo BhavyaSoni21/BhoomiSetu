@@ -37,6 +37,11 @@ class Parcel(Base):
     geometry: Mapped[object] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False))
     area_sq_m: Mapped[float] = mapped_column(Numeric(15, 2))
 
+    street_address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    landmark: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    pincode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     identifiers: Mapped[list["ParcelIdentifier"]] = relationship(back_populates="parcel", cascade="all, delete-orphan")
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

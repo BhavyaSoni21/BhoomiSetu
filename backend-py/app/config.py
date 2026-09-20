@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -66,7 +67,10 @@ class Settings(BaseSettings):
     gee_service_account_key_path: str = ""
 
     # Redis for Celery background jobs
-    redis_url: str = "redis://localhost:6379/0"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_url: str = ""
 
     # Bhashini Multilingual API Configuration (Government of India)
     ulca_user_id: str = ""
@@ -83,6 +87,12 @@ class Settings(BaseSettings):
     bhashini_cache_ttl: int = 3600
     bhashini_max_retries: int = 2
     bhashini_retry_backoff_ms: int = 500
+
+    @model_validator(mode="after")
+    def configure_redis_url(self) -> "Settings":
+        if not self.redis_url:
+            self.redis_url = f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        return self
 
     @property
     def is_production(self) -> bool:

@@ -19,7 +19,8 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - backend-py
+      backend-py:
+        condition: service_healthy
 
   backend-py:
     build: ./backend-py
@@ -48,9 +49,75 @@ services:
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=bhoomisetu_py
+      - REDIS_URL=redis://redis:6379/0
       - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
     depends_on:
-      - postgis
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    build: ./backend-py
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./backend-py/.env
+    environment:
+      - DB_HOST=postgis
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=bhoomisetu_py
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgis:
+        condition: service_healthy
+    restart: "no"
+
+  worker:
+    build: ./backend-py
+    command:
+      - celery
+      - -A
+      - app.core.celery_app:celery_app
+      - worker
+      - --loglevel=INFO
+      - --queues=celery,earth_engine,ocr,etl,change_detection,terrain
+    env_file:
+      - ./backend-py/.env
+    environment:
+      - DB_HOST=postgis
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=bhoomisetu_py
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   # PostGIS Database - no `ports:` mapping on purpose: the backend reaches
   # it over the internal Docker network by service name (`postgis`), which
@@ -77,6 +144,13 @@ services:
       # re-run it if backend-py's database needs to be recreated from
       # scratch.
       - ./backend-py/docker/init-bhoomisetu_py-db.sql:/docker-entrypoint-initdb.d/init-bhoomisetu_py-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   postgis_data:
+  redis_data:

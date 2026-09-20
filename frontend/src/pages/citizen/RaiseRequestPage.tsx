@@ -137,10 +137,7 @@ const RaiseRequestPage: React.FC = () => {
               {t('raiseRequestPage.noParcelsHeading', 'No registered parcels on your profile')}
             </h3>
             <p className="text-xs text-text-secondary leading-relaxed">
-              {t(
-                'raiseRequestPage.noParcelsDesc',
-                'A citizen can only raise complaints or requests against parcels linked and verified on their profile. Please link a parcel to unlock the request form.'
-              )}
+              {t('raiseRequestPage.noParcelsDesc')}
             </p>
           </div>
 
@@ -148,11 +145,7 @@ const RaiseRequestPage: React.FC = () => {
             <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-xs text-amber-800 dark:text-amber-300 max-w-md mx-auto flex items-center justify-center gap-2">
               <Clock className="w-4 h-4 shrink-0 text-amber-600" />
               <span>
-                {t(
-                  'raiseRequestPage.pendingParcelsNotice',
-                  'You have {{count}} parcel(s) currently under officer review.',
-                  { count: pendingParcels.length }
-                )}
+                {t('raiseRequestPage.pendingParcelsNotice', { count: pendingParcels.length })}
               </span>
             </div>
           )}

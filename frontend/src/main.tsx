@@ -8,7 +8,15 @@ import { LanguageProvider } from './context/LanguageContext';
 
 initTheme();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      cacheTime: 5 * 60_000,
+      retry: 1,
+    },
+  },
+});
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
