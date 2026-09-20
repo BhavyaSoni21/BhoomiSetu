@@ -14,21 +14,19 @@ import apiService from '../../services/apiService';
 // mock LayerGeometryDrawMap.test.tsx uses for its own maplibre-gl coverage;
 // this file's tests only exercise the surrounding form fields, not drawing.
 vi.mock('maplibre-gl', () => ({
-  default: {
-    Map: vi.fn().mockImplementation(() => ({
-      addControl: vi.fn(),
-      isStyleLoaded: vi.fn(() => true),
-      once: vi.fn(),
-      on: vi.fn(),
-      remove: vi.fn(),
-      fitBounds: vi.fn(),
-    })),
-    NavigationControl: vi.fn(),
-    LngLatBounds: vi.fn().mockImplementation(() => ({
-      extend: vi.fn(),
-      isEmpty: vi.fn(() => true),
-    })),
-  },
+  Map: vi.fn().mockImplementation(() => ({
+    addControl: vi.fn(),
+    isStyleLoaded: vi.fn(() => true),
+    once: vi.fn(),
+    on: vi.fn(),
+    remove: vi.fn(),
+    fitBounds: vi.fn(),
+  })),
+  NavigationControl: vi.fn(),
+  LngLatBounds: vi.fn().mockImplementation(() => ({
+    extend: vi.fn(),
+    isEmpty: vi.fn(() => true),
+  })),
 }));
 vi.mock('@mapbox/mapbox-gl-draw', () => ({
   default: vi.fn().mockImplementation(() => ({
@@ -126,6 +124,7 @@ describe('MapLayerManagement', () => {
   });
 
   it('surfaces the backend geometry-type validation message on create', async () => {
+    server.resetHandlers();
     renderPanel();
     await screen.findByText('Downtown Residential');
 
@@ -136,6 +135,10 @@ describe('MapLayerManagement', () => {
     fireEvent.change(screen.getByPlaceholderText(/Geometry - GeoJSON/), {
       target: { value: '{"type":"Point","coordinates":[0,0]}' },
     });
+    // Mock backend validation error for wrong geometry type
+    server.use(http.post('*/gis/zoning-overlays', () =>
+      HttpResponse.json({ message: 'geometry.type must be one of: Polygon' }, { status: 400 })
+    ));
     fireEvent.click(screen.getByRole('button', { name: 'Create Layer' }));
 
     expect(await screen.findByText('geometry.type must be one of: Polygon')).toBeInTheDocument();
