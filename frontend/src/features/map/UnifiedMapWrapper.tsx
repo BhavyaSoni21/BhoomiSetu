@@ -77,8 +77,10 @@ interface UnifiedMapWrapperProps {
   actionSlot?: React.ReactNode;
   /** Custom className for the wrapper. */
   className?: string;
-  /** Map height override. */
+  /** Fixed height class (e.g. h-[500px] or h-full) */
   height?: string;
+  /** Optional overlay element to render completely over the map area (e.g. for full-bleed satellite photos). */
+  overlayElement?: React.ReactNode;
 }
 
 const LAYER_KEYS: LayerKey[] = [
@@ -142,6 +144,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   actionSlot,
   className = '',
   height = 'h-[500px]',
+  overlayElement,
 }) => {
   const { t } = useTranslation();
   const isOfficerOrAdmin = userRole ? OFFICER_ROLES.includes(userRole as (typeof OFFICER_ROLES)[number]) : false;
@@ -453,6 +456,11 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           initialLayerVisibility={layerVisibility}
           onLayerVisibilityChange={setLayerVisibility}
         />
+        {overlayElement && (
+          <div className="absolute inset-0 z-20 bg-surface">
+            {overlayElement}
+          </div>
+        )}
       </div>
 
       {/* Cluster lock indicator */}

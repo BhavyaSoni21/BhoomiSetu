@@ -2,9 +2,12 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { CategorizedParcel, ClusterSummary, HistoricalComparisonResult } from '../../types/historicalImagery';
 
-export const useHistoricalClusters = () =>
-  useQuery<ClusterSummary[]>(['historical-imagery', 'clusters'], async () => {
-    const response = await apiService.get('/historical-imagery/clusters');
+export const useHistoricalClusters = (stateCode?: string | null, districtCode?: string | null) =>
+  useQuery<ClusterSummary[]>(['historical-imagery', 'clusters', stateCode, districtCode], async () => {
+    const params: Record<string, string> = {};
+    if (stateCode) params.state = stateCode;
+    if (districtCode) params.district = districtCode;
+    const response = await apiService.get('/historical-imagery/clusters', { params });
     return response.data;
   });
 
