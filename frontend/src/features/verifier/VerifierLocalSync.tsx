@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sync, CheckCircle2, AlertCircle, UploadCloud, Trash2 } from 'lucide-react';
+import { RefreshCw as Sync, CheckCircle2, AlertCircle, UploadCloud, Trash2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { getLocalQueue, clearLocalQueue, LocalEvidenceRecord } from '../../services/verifierLocalSyncService';
 
@@ -37,7 +37,7 @@ const VerifierLocalSync: React.FC = () => {
       if (synced > 0) clearLocalQueue();
       setQueue(getLocalQueue());
       setSyncing(false);
-      queryClient.invalidateQueries(['verifier-tasks'));
+      queryClient.invalidateQueries(['verifier-tasks']);
 
       if (failed > 0) {
         setError(`${t('localSync.syncPartialFail', { synced, failed })}`);

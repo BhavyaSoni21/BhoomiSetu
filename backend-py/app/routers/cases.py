@@ -905,16 +905,20 @@ def get_cases_by_parcel(
 
 @router.get("/tasks/my", response_model=list[DepartmentTaskOut])
 def get_my_tasks(
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ALL_STAFF_ROLES)),
 ):
     """Get department tasks assigned to the currently authenticated officer (§59)."""
-    tasks = service.get_tasks_for_officer(db, str(user.id))
+    tasks = service.get_tasks_for_officer(db, str(user.id), skip, limit)
     return [DepartmentTaskOut.model_validate(t) for t in tasks]
 
 
 @router.get("/verifier/tasks", response_model=list[DepartmentTaskOut])
 def get_verifier_tasks(
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(VERIFIER_ROLE)),
 ):
@@ -924,6 +928,8 @@ def get_verifier_tasks(
         db.query(DepartmentTask)
         .filter(DepartmentTask.assigned_verifier_id == str(user.id))
         .order_by(DepartmentTask.created_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
     return tasks

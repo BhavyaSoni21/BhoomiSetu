@@ -53,7 +53,7 @@ class InvalidTransitionError(Exception):
 
 
 def find_all(
-    db: Session, status: str | None = None, severity: str | None = None, department: str | None = None
+    db: Session, status: str | None = None, severity: str | None = None, department: str | None = None, skip: int = 0, limit: int = 20
 ) -> list[GovernanceAlert]:
     stmt = select(GovernanceAlert)
     # ACTIVE is a pseudo-status, not a real column value - "still needs
@@ -70,7 +70,7 @@ def find_all(
         # to be kept in sync with _ALERT_TYPE_DEPARTMENT by hand.
         matching_types = [t for t, d in _ALERT_TYPE_DEPARTMENT.items() if d == department]
         stmt = stmt.where(GovernanceAlert.alert_type.in_(matching_types))
-    stmt = stmt.order_by(GovernanceAlert.created_at.desc())
+    stmt = stmt.order_by(GovernanceAlert.created_at.desc()).offset(skip).limit(limit)
     return list(db.scalars(stmt).all())
 
 

@@ -22,6 +22,7 @@ import {
 import apiService from '../../services/apiService';
 import { VerificationResult, ParcelSummary } from '../../types/parcel';
 import { useNavigate } from 'react-router-dom';
+import { STATES_AND_DISTRICTS } from '../../data/locationData';
 
 interface ParcelVerificationFlowProps {
   onSuccess?: (parcel: ParcelSummary) => void;
@@ -42,7 +43,8 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
     survey_number: '',
     village: '',
     taluka: '',
-    district: 'Ahmadnagar',
+    state: '',
+    district: '',
     mobile: '',
     ulpin: '',
   });
@@ -81,6 +83,7 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
     formData.append('survey_number', formFields.survey_number);
     formData.append('village', formFields.village);
     formData.append('taluka', formFields.taluka);
+    formData.append('state', formFields.state);
     formData.append('district', formFields.district);
     formData.append('mobile', formFields.mobile);
     if (formFields.ulpin) formData.append('ulpin', formFields.ulpin);
@@ -162,7 +165,8 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
       survey_number: '588/2',
       village: 'Shedgaon',
       taluka: 'Sangamner',
-      district: 'Ahmadnagar',
+      state: 'MH',
+      district: 'AHM',
       mobile: '9867180509',
       ulpin: 'MH2026091600125',
     });
@@ -604,16 +608,44 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
 
                 <div>
                   <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                    {t('parcelSearch.stateLabel', 'State (राज्य)')} *
+                  </label>
+                  <select
+                    required
+                    value={formFields.state}
+                    onChange={(e) => {
+                      const newState = e.target.value;
+                      setFormFields((prev) => ({ ...prev, state: newState, district: '' }));
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gov-border bg-white dark:bg-[#123126] text-xs sm:text-sm text-text-heading placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition shadow-2xs"
+                  >
+                    <option value="">-- Select State --</option>
+                    {STATES_AND_DISTRICTS.map((st) => (
+                      <option key={st.code} value={st.code}>
+                        {st.name} ({st.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1.5">
                     {t('parcelVerification.districtLabel', 'District (जिल्हा)')} *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder="e.g. Ahmadnagar"
                     value={formFields.district}
                     onChange={(e) => handleInputChange('district', e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gov-border bg-white dark:bg-[#123126] text-xs sm:text-sm text-text-heading placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition shadow-2xs"
-                  />
+                    disabled={!formFields.state}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gov-border bg-white dark:bg-[#123126] text-xs sm:text-sm text-text-heading placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition shadow-2xs disabled:opacity-50"
+                  >
+                    <option value="">-- Select District --</option>
+                    {STATES_AND_DISTRICTS.find((st) => st.code === formFields.state)?.districts.map((dst) => (
+                      <option key={dst.code} value={dst.code}>
+                        {dst.name} ({dst.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

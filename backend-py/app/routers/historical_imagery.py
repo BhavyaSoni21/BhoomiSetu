@@ -29,8 +29,8 @@ router = APIRouter(prefix="/historical-imagery", tags=["historical-imagery"])
 
 
 @router.get("/clusters", response_model=list[ClusterYears])
-def list_clusters(db: Session = Depends(get_db)):
-    return service.list_clusters(db)
+def list_clusters(state: str | None = None, district: str | None = None, db: Session = Depends(get_db)):
+    return service.list_clusters(db, state, district)
 
 
 @router.get("/clusters/{cluster_id}/years/{year}/parcels", response_model=list[CategorizedParcelOut])

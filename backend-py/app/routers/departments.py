@@ -40,23 +40,23 @@ router = APIRouter(tags=["departments"])
 # below so a literal path segment like "overdue" is never swallowed as a
 # {parcel_id}.
 @router.get("/tax/overdue", response_model=list[TaxRecordOut])
-def list_overdue_tax(db: Session = Depends(get_db), _staff: User = Depends(require_roles("TAX_OFFICER", "ADMIN"))):
-    return service.find_overdue_tax(db)
+def list_overdue_tax(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("TAX_OFFICER", "ADMIN"))):
+    return service.find_overdue_tax(db, skip, limit)
 
 
 @router.get("/planning/pending-permissions", response_model=list[PlanningRecordOut])
-def list_pending_building_permissions(db: Session = Depends(get_db), _staff: User = Depends(require_roles("PLANNING_OFFICER", "ADMIN"))):
-    return service.find_pending_building_permissions(db)
+def list_pending_building_permissions(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("PLANNING_OFFICER", "ADMIN"))):
+    return service.find_pending_building_permissions(db, skip, limit)
 
 
 @router.get("/registration/pending", response_model=list[RegistrationRecordOut])
-def list_pending_registrations(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
-    return service.find_pending_registrations(db)
+def list_pending_registrations(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
+    return service.find_pending_registrations(db, skip, limit)
 
 
 @router.get("/survey/pending", response_model=list[SurveyRecordOut])
-def list_pending_surveys(db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
-    return service.find_pending_surveys(db)
+def list_pending_surveys(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
+    return service.find_pending_surveys(db, skip, limit)
 
 
 @router.get("/land-records/{parcel_id}", response_model=LandRecordsLookupOut)

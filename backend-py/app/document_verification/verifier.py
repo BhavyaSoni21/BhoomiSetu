@@ -8,7 +8,7 @@ import io
 import os
 import re
 import cv2
-import fitz
+import pymupdf
 import numpy as np
 import pytesseract
 from PIL import Image
@@ -165,7 +165,7 @@ def get_text_and_preview(file_bytes: bytes, is_pdf: bool) -> tuple[str, np.ndarr
 
     if is_pdf:
         try:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
             emb = "\n".join(p.get_text("text") for p in doc)
             ocr_texts = []
             preview_img = None

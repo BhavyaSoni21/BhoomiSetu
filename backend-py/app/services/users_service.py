@@ -27,13 +27,13 @@ def find_by_id(db: Session, user_id: UUID) -> User | None:
     return db.get(User, user_id)
 
 
-def find_all(db: Session) -> list[User]:
+def find_all(db: Session, skip: int = 0, limit: int = 20) -> list[User]:
     """Staff only - this backs the Admin Portal's "User Management" list
     (officer/admin/verifier account administration), which citizen accounts
     were never part of. Without this filter, citizen sign-in accounts would
     silently spill into this admin-only staff list.
     """
-    return list(db.scalars(select(User).where(User.role.in_(_MANAGED_ROLES)).order_by(User.created_at.desc())).all())
+    return list(db.scalars(select(User).where(User.role.in_(_MANAGED_ROLES)).order_by(User.created_at.desc()).offset(skip).limit(limit)).all())
 
 
 def create(db: Session, *, email: str | None, password_hash: str, name: str, role: str, email_verified: bool = False, mobile_number: str | None = None, mobile_verified: bool = False, district: str | None = None, government_id_number: str | None = None) -> User:

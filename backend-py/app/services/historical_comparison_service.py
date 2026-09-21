@@ -76,11 +76,14 @@ class CategorizedParcel:
     category: str
 
 
-def list_clusters(db: Session) -> list[dict[str, Any]]:
-    cluster_ids = [
-        row[0]
-        for row in db.query(Parcel.cluster_id).filter(Parcel.cluster_id.isnot(None)).distinct().order_by(Parcel.cluster_id).all()
-    ]
+def list_clusters(db: Session, state: str | None = None, district: str | None = None) -> list[dict[str, Any]]:
+    query = db.query(Parcel.cluster_id).filter(Parcel.cluster_id.isnot(None))
+    if state:
+        query = query.filter(Parcel.state_code == state)
+    if district:
+        query = query.filter(Parcel.district_code == district)
+    
+    cluster_ids = [row[0] for row in query.distinct().order_by(Parcel.cluster_id).all()]
     return [{"clusterId": cluster_id, "years": SNAPSHOT_YEARS} for cluster_id in cluster_ids]
 
 

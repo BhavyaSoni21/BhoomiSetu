@@ -29,6 +29,23 @@ def upgrade() -> None:
     # --- Parcel current_state (§41) ---
     op.add_column('parcels', sa.Column('current_state', JSON(), nullable=True))
 
+    # --- SLA Configs (§56) ---
+    op.create_table(
+        'sla_configs',
+        sa.Column('id', UUID(as_uuid=True), primary_key=True),
+        sa.Column('workflow_id', UUID(as_uuid=True), nullable=True),
+        sa.Column('task_id', UUID(as_uuid=True), nullable=True),
+        sa.Column('department_id', UUID(as_uuid=True), nullable=True),
+        sa.Column('threshold_hours', sa.Numeric(5, 2), nullable=False),
+        sa.Column('warning_threshold', sa.Numeric(5, 2), nullable=False),
+        sa.Column('breach_threshold', sa.Numeric(5, 2), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.ForeignKeyConstraint(['workflow_id'], ['workflows.id'], ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='SET NULL'),
+    )
+
     # --- Cases (§6, §59) ---
     op.create_table(
         'cases',
@@ -71,7 +88,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['workflow_id'], ['workflows.id'], ondelete='SET NULL'),
     )
-    op.create_index('ix_department_tasks_case_id', 'department_tasks', ['case_id'], unique=False)
 
     # --- AI Analyses (§11) ---
     op.create_table(
@@ -109,7 +125,6 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['case_id'], ['cases.id'], ondelete='CASCADE'),
     )
-    op.create_index('ix_case_applications_case_id', 'case_applications', ['case_id'], unique=False)
 
     # --- Routing Decisions (§17) ---
     op.create_table(
@@ -121,23 +136,6 @@ def upgrade() -> None:
         sa.Column('priority', sa.String(20), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['case_id'], ['cases.id'], ondelete='CASCADE'),
-    )
-
-    # --- SLA Configs (§56) ---
-    op.create_table(
-        'sla_configs',
-        sa.Column('id', UUID(as_uuid=True), primary_key=True),
-        sa.Column('workflow_id', UUID(as_uuid=True), nullable=True),
-        sa.Column('task_id', UUID(as_uuid=True), nullable=True),
-        sa.Column('department_id', UUID(as_uuid=True), nullable=True),
-        sa.Column('threshold_hours', sa.Numeric(5, 2), nullable=False),
-        sa.Column('warning_threshold', sa.Numeric(5, 2), nullable=False),
-        sa.Column('breach_threshold', sa.Numeric(5, 2), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-        sa.ForeignKeyConstraint(['workflow_id'], ['workflows.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='SET NULL'),
     )
 
     # --- Appointments (§45, §46) ---

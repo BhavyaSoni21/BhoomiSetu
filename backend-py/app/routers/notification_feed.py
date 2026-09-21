@@ -20,8 +20,8 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("", response_model=list[NotificationOut])
-def find_mine(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return service.find_mine(db, str(user.id))
+def find_mine(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return service.find_mine(db, str(user.id), skip, limit)
 
 
 @router.patch("/{id}/read", response_model=NotificationOut)

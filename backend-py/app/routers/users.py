@@ -23,8 +23,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("", response_model=list[PublicUserOut])
-def find_all(db: Session = Depends(get_db), _admin: User = Depends(require_roles("ADMIN"))):
-    return service.find_all(db)
+def find_all(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), _admin: User = Depends(require_roles("ADMIN"))):
+    return service.find_all(db, skip, limit)
 
 
 @router.post("", response_model=PublicUserOut, status_code=status.HTTP_201_CREATED)

@@ -119,9 +119,9 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
     },
     'terrain-background': {
       type: 'raster',
-      tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
+      tiles: ['https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png'],
       tileSize: 256,
-      attribution: '&copy; OpenTopoMap contributors',
+      attribution: '&copy; <a href="https://stamen.com">Stamen Design</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     },
     // Vector tile sources for terrain layers (loaded dynamically)
     roads: {
@@ -279,6 +279,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
     initialLayerVisibility ?? DEFAULT_LAYER_VISIBILITY
   );
+  // Sync parent-controlled visibility (UnifiedMapWrapper's dropdown) into
+  // this component's internal state. useState only uses its initial value
+  // once, so prop changes from the parent are otherwise silently ignored.
+  useEffect(() => {
+    if (initialLayerVisibility) {
+      setLayerVisibility(initialLayerVisibility);
+    }
+  }, [initialLayerVisibility]);
   const toggleLayer = (key: LayerKey) => {
     const newVisibility = { ...layerVisibility, [key]: !layerVisibility[key] };
     setLayerVisibility(newVisibility);
@@ -626,9 +634,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
       mapReadyRef.current = true;
       setMapReady(true);
 
+      // Round to 3 decimal places (~110 m precision). This collapses the
+      // tiny floating-point shifts produced by map rotation into the same
+      // bbox string, so React Query returns the cached result instead of
+      // firing a fresh network request on every rotate event.
+      const round = (n: number) => Math.round(n * 1000) / 1000;
       const updateBbox = () => {
         const bounds = map.getBounds();
-        setViewBbox(`${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`);
+        const next = `${round(bounds.getWest())},${round(bounds.getSouth())},${round(bounds.getEast())},${round(bounds.getNorth())}`;
+        setViewBbox((prev) => (prev === next ? prev : next));
       };
       updateBbox();
       map.on('moveend', updateBbox);
@@ -677,7 +691,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       const bounds = boundsOfFeatures(features);
       if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
     }
-  }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady]);
+  }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady, recenterSignal]);
 
   // Fit to an explicitly-picked cluster's bounds (e.g. OfficerMapPage's
   // cluster dropdown). This also narrows the base parcels fetch below to
@@ -692,7 +706,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       ],
       { padding: 60, maxZoom: 17 },
     );
-  }, [focusBounds, mapReady]);
+  }, [focusBounds, mapReady, recenterSignal]);
 
   // Same-district layer.
   useEffect(() => {

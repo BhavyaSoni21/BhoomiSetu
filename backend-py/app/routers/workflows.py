@@ -153,14 +153,14 @@ def find_all(
 
 # Registered before '/{id}' so 'mine' is never swallowed as an id param.
 @router.get("/mine", response_model=list[WorkflowOut])
-def find_mine(db: Session = Depends(get_db), user: User = Depends(require_roles(CITIZEN_ROLE))):
-    return service.find_mine_for_citizen(db, str(user.id))
+def find_mine(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), user: User = Depends(require_roles(CITIZEN_ROLE))):
+    return service.find_mine_for_citizen(db, str(user.id), skip, limit)
 
 
 # Same registration-order reason as '/mine' above.
 @router.get("/assigned-to-me", response_model=list[WorkflowOut])
-def find_assigned_to_me(db: Session = Depends(get_db), user: User = Depends(require_roles(VERIFIER_ROLE))):
-    return service.find_assigned_to_verifier(db, str(user.id))
+def find_assigned_to_me(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), user: User = Depends(require_roles(VERIFIER_ROLE))):
+    return service.find_assigned_to_verifier(db, str(user.id), skip, limit)
 
 
 # Department-scoped like GET /workflows above (KNOWN_RISKS.md HIGH-9) - a

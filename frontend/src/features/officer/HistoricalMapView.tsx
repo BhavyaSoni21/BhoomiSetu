@@ -188,57 +188,51 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
     </div>
   ) : undefined;
 
+  const satelliteOverlay = viewMode === 'satellite' && isOfficer ? (
+    <>
+      {satelliteImageUrl ? (
+        <img
+          src={satelliteImageUrl}
+          alt={`Satellite photo of cluster ${clusterId} near ${year}`}
+          className="w-full h-full object-contain bg-black"
+        />
+      ) : (
+        <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-ink/40 text-sm font-bold uppercase tracking-wide text-center px-4">
+          {satelliteQuery.isError ? (
+            <span className="text-secondary-strong normal-case font-medium">
+              Could not load a real satellite photo for this area/date - it may not have cloud-free coverage.
+            </span>
+          ) : (
+            <span>Click "Load {year} satellite photo" above</span>
+          )}
+        </div>
+      )}
+    </>
+  ) : undefined;
+
   return (
     <div className="border-2 sm:border-4 border-ink">
-      {/* UnifiedMapWrapper handles the map view (parcel boundaries) */}
-{viewMode === 'map' && (
-        <UnifiedMapWrapper
-          parcels={parcels}
-          parcelColors={parcelColors}
-          parcelLabels={parcelLabels}
-          selectedParcelId={selectedParcelId}
-          onParcelClick={onParcelClick}
-          recenterSignal={recenterSignal}
-          showClusterDropdown={false} // Historical imagery has its own cluster selector outside
-          showYearSelector
-          historicalYears={years}
-          selectedYear={year}
-          onYearChange={setYear}
-          showLayerPanel={showCustomLayerPanel}
-          visibleLayerKeys={['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection']}
-          userRole={user?.role}
-          actionSlot={actionSlot}
-          height="h-[500px]"
-          focusBounds={null} // Don't auto-fit to cluster bounds - let MapComponent's fitToParcels handle it
-        />
-      )}
-      
-      {/* Satellite Photo View - officer only, on demand */}
-      {viewMode === 'satellite' && isOfficer && (
-        <>
-          {satelliteImageUrl ? (
-            <img
-              src={satelliteImageUrl}
-              alt={`Satellite photo of cluster ${clusterId} near ${year}`}
-              className="w-full max-h-[500px] object-contain border-2 sm:border-4 border-ink bg-black"
-            />
-          ) : (
-            <div className="h-[500px] w-full border-2 sm:border-4 border-ink flex flex-col items-center justify-center gap-2 text-ink/40 text-sm font-bold uppercase tracking-wide text-center px-4">
-              {satelliteQuery.isError ? (
-                <span className="text-secondary-strong normal-case font-medium">
-                  Could not load a real satellite photo for this area/date - it may not have cloud-free coverage.
-                </span>
-              ) : (
-                <span>Click "Load {year} satellite photo" above</span>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* View mode toggle and year selector in UnifiedMapWrapper's header area */}
-      {/* The year selector is handled by UnifiedMapWrapper's showYearSelector prop */}
-      {/* The view mode toggle is rendered as actionSlot */}
+      <UnifiedMapWrapper
+        parcels={parcels}
+        parcelColors={parcelColors}
+        parcelLabels={parcelLabels}
+        selectedParcelId={selectedParcelId}
+        onParcelClick={onParcelClick}
+        recenterSignal={recenterSignal}
+        fitToParcels={true}
+        showClusterDropdown={false}
+        showYearSelector
+        historicalYears={years}
+        selectedYear={year}
+        onYearChange={setYear}
+        showLayerPanel={showCustomLayerPanel}
+        visibleLayerKeys={['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection']}
+        userRole={user?.role}
+        actionSlot={actionSlot}
+        height="h-[500px]"
+        focusBounds={null}
+        overlayElement={satelliteOverlay}
+      />
     </div>
   );
 };

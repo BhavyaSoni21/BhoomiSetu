@@ -57,8 +57,8 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload,
         deliver_notification(db, user_ids, payload)
 
 
-def find_mine(db: Session, user_id: str) -> list[Notification]:
-    return list(db.scalars(select(Notification).where(Notification.user_id == user_id).order_by(Notification.created_at.desc())).all())
+def find_mine(db: Session, user_id: str, skip: int = 0, limit: int = 20) -> list[Notification]:
+    return list(db.scalars(select(Notification).where(Notification.user_id == user_id).order_by(Notification.created_at.desc()).offset(skip).limit(limit)).all())
 
 
 def mark_read(db: Session, notification_id: str, user_id: str) -> Notification | None:
