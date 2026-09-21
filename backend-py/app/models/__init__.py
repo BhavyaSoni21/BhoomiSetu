@@ -21,6 +21,7 @@ from app.models.department_record import (  # noqa: F401
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyRecord,
     TaxRecord,
 )
 from app.models.governance import GovernanceAlert  # noqa: F401
@@ -45,6 +46,13 @@ from app.models.spatial import (  # noqa: F401
     InfrastructureFeature,
     RestrictionZone,
     ZoningOverlay,
+)
+from app.models.terrain import (  # noqa: F401
+    RoadNetwork,
+    BuildingFootprint,
+    LandCover,
+    ElevationTile,
+    ParcelTerrainProfile,
 )
 from app.models.user import User  # noqa: F401
 from app.models.verification_evidence import VerificationEvidence  # noqa: F401
