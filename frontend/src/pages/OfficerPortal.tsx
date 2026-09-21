@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { OfficerRole, ROLE_DEPARTMENT } from '../features/officer/officerAuth';
 import { useAuthUser } from '../features/auth/auth';
 import OfficerDashboardPage from './officer/OfficerDashboardPage';
+import OfficerTasksPage from './officer/OfficerTasksPage';
 import AssignedRequestsPage from './officer/AssignedRequestsPage';
 import GovernanceAlertsPage from './officer/GovernanceAlertsPage';
 import OfficerMapPage from './officer/OfficerMapPage';
@@ -39,8 +40,9 @@ const OfficerPortal: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
       <Routes>
-        <Route index element={<OfficerDashboardPage department={department} />} />
-        <Route path="requests" element={<AssignedRequestsPage department={department} />} />
+         <Route index element={<OfficerDashboardPage department={department} />} />
+         <Route path="tasks" element={<OfficerTasksPage />} />
+         <Route path="requests" element={<AssignedRequestsPage department={department} />} />
         <Route path="alerts" element={<GovernanceAlertsPage />} />
         <Route path="historical-imagery" element={<HistoricalImageryPage />} />
         <Route path="change-detection" element={<ChangeDetectionPage />} />

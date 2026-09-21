@@ -43,6 +43,7 @@ interface UnifiedMapWrapperProps {
     | 'restriction'
     | 'infrastructure'
     | 'changeDetection'
+    | 'adminNotes'
     | 'roads'
     | 'buildings'
     | 'landcover'
@@ -90,6 +91,7 @@ const LAYER_KEYS: LayerKey[] = [
   'restriction',
   'infrastructure',
   'changeDetection',
+  'adminNotes',
   'roads',
   'buildings',
   'landcover',
@@ -106,6 +108,7 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   restriction: 'Restriction Zones',
   infrastructure: 'Infrastructure',
   changeDetection: 'Change Detection',
+  adminNotes: 'Admin Notes',
   roads: 'Roads (OSM)',
   buildings: 'Buildings (MS)',
   landcover: 'Land Cover',
@@ -232,12 +235,23 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     { enabled: !!districtContext }
   );
 
+  // Admin-only notes layer - fetched without district scoping (all notes nationwide)
+  const { data: adminNotesFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
+    ['admin-notes'],
+    async () => {
+      const response = await apiService.get('/gis/admin-notes');
+      return response.data;
+    },
+    { enabled: districtContext !== null || !!parcelsProp }
+  );
+
   // Determine which layers actually have data
   const layerHasData = useMemo<Record<LayerKey, boolean>>(() => ({
     zoning: zoningFC.features.length > 0,
     restriction: restrictionFC.features.length > 0,
     infrastructure: infrastructureFC.features.length > 0,
     changeDetection: changeDetectionFC.features.length > 0,
+    adminNotes: adminNotesFC.features.length > 0,
     sameDistrict: parcelsProp !== undefined && districtContext !== null,
     cluster: !!selectedParcelId || !!focusBounds || !!selectedCluster,
     selected: !!selectedParcelId,
@@ -247,7 +261,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     buildings: true,
     landcover: true,
     elevation: true,
-  }), [zoningFC, restrictionFC, infrastructureFC, changeDetectionFC, parcelsProp, districtContext, selectedParcelId, focusBounds, selectedCluster]);
+  }), [zoningFC, restrictionFC, infrastructureFC, changeDetectionFC, adminNotesFC, parcelsProp, districtContext, selectedParcelId, focusBounds, selectedCluster]);
 
   // Build state/district lookup from locationData for full names
   const getStateName = (stateCode: string) => {
@@ -267,25 +281,28 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     const baseKeys = visibleLayerKeys ?? LAYER_KEYS;
     const hasParcelSelected = !!selectedParcelId;
     const hasClusterFocus = !!focusBounds || !!selectedCluster;
+    const isOfficerOrAdminMap = isOfficerOrAdmin;
 
     let availableKeys: LayerKey[];
     
     if (hasParcelSelected) {
-      // Parcel selected: all contextual layers available
+      // Parcel selected: all contextual layers available (including adminNotes for officers)
       availableKeys = baseKeys;
     } else if (hasClusterFocus) {
       // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
-      availableKeys = baseKeys.filter(
-        (key) => ['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'].includes(key)
-      );
+      const keys = ['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      if (isOfficerOrAdminMap) keys.push('adminNotes');
+      availableKeys = baseKeys.filter((key) => keys.includes(key));
     } else {
       // No selection: only district-level overlay layers + terrain layers
-      availableKeys = baseKeys.filter((key) => ['zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'].includes(key));
+      const keys = ['zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      if (isOfficerOrAdminMap) keys.push('adminNotes');
+      availableKeys = baseKeys.filter((key) => keys.includes(key));
     }
 
     // Filter to only layers that have data
     return availableKeys.filter((key) => layerHasData[key]);
-  }, [visibleLayerKeys, selectedParcelId, focusBounds, selectedCluster, layerHasData]);
+  }, [visibleLayerKeys, selectedParcelId, focusBounds, selectedCluster, layerHasData, isOfficerOrAdmin]);
 
   // Find cluster bounds when selection changes
   useEffect(() => {

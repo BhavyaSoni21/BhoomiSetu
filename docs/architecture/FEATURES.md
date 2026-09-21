@@ -276,6 +276,30 @@ A Village Form 7 (Record of Rights) + Form 12 (Register of Crops) style PDF, gen
 2. **Frontend:** Add `OfficialPdfViewerModal` with iframe viewer, separate View/Download actions, proper object URL lifecycle, error handling
 3. **Tests:** Add `pypdf` text extraction assertions for real values; add integration test with full fixture data; add security test for 403 on unrelated citizen; add overflow test with 25+ rows
 
+## 32. Case Management (Unified Workflow)
+
+A parcel-centric, case-based governance engine replacing the prior fixed request-type model. One citizen issue → one or more parcels → one or more department workflows → resolution.
+
+- **Backend:** `app/models/case.py` (10 models: Case, DepartmentTask, Application, AIAnalysis, RoutingDecision, SLAConfig, Appointment, CaseTimelineEvent, Feedback, CaseParcelGeometryVersion), `app/services/case_service.py` (case engine), `app/routers/cases.py` (API endpoints), `app/schemas/case.py` (Pydantic schemas). Registered in `app/main.py` as `POST /api/v1/cases/from-application`, `GET /api/v1/cases/:id/application` (Phase 2); plus all Phase 1 endpoints: `GET/POST /api/v1/cases`, `GET/PATCH /api/v1/cases/:id`, `GET/POST /api/v1/cases/:id/detail`, `POST /api/v1/cases/:id/tasks`, `POST /api/v1/cases/:id/ai-analysis`, `POST /api/v1/cases/:id/routing`, `POST /api/v1/cases/:id/appointments`, `GET/POST /api/v1/cases/:id/timeline`, `GET/POST /api/v1/cases/:id/feedback`, `GET /api/v1/cases/:id/ai-analysis`, `GET /api/v1/cases/:id/routing`, `GET /api/v1/cases/:id/sla`, `GET /api/v1/cases/:id/active`, `GET /api/v1/cases/my`, `GET /api/v1/cases/parcel/:parcel_id`.
+  - **Invariant 1** (§6): `create_case()` and `create_case_from_application()` enforce no duplicate active cases for same citizen + parcel — returns `ACTIVE_CASE_EXISTS` (409) if one exists.
+  - **Lifecycle** (§59): `CREATED → ACTIVE → RESOLUTION → FEEDBACK → CLOSED` — validated by `CASE_STATUS_TRANSITIONS` in `case_service.py`.
+  - **Authorization** (§38, §63): Officers/staff manage any case; citizens only cases on their own parcels via `_can_manage_case()` + `parcels_service.is_citizen_associated_with_parcel()`.
+  - **Audit trail**: Every case creation/status change linked to case via `audit_service.log()`.
+  - **Timeline** (§57): `CaseTimelineEvent` records Who/When/What/Previous/New/Case/Task for every material event.
+  - **AI integration**: `create_ai_analysis()` stores structured understanding, fact/claim separation, departments identified, and application draft (§11, §15).
+  - **Routing** (§17): `create_routing_decision()` persists department routing and workflow assignment per department.
+  - **Department tasks** (§18): `add_department_task()` creates per-department work items within a case.
+  - **Appointments** (§45, §46): `create_appointment()` links appointments to cases.
+  - **Feedback** (§51, §52): `submit_feedback()` supports multi-officer ratings with structured reasons.
+  - **Geometry versioning** (§43): `CaseParcelGeometryVersion` tracks proposed/current geometry states per case.
+  - **Phase 2 — AI-Assisted Request Flow (§9–18):**
+    - **AI conversation service** (`app/services/ai_service.py`): `understand_request()` (§10, §11.1) produces structured understanding with intent, issues, database facts vs citizen statements (§15), follow-up questions, and initial application draft. `generate_application_draft()` (§11.2, §13) generates a formal one-paragraph application with explicit fact/claim separation. `generate_routing_decision()` (§17) determines departments, workflows, required capabilities, and priority, with deterministic fallback.
+    - **AI API endpoints** (`app/routers/ai.py`): `POST /api/v1/ai/understand`, `POST /api/v1/ai/application-draft`, `POST /api/v1/ai/route` — all citizen-facing, rate-limited, 502 on AI validation failure.
+    - **AI schemas** (`app/schemas/ai.py`): `UnderstandRequestIn`, `UnderstandRequestOut`, `ApplicationDraftIn`, `ApplicationDraftOut`, `RoutingDecisionIn`, `RoutingDecisionOut`, `FactStatement`, `DepartmentRouting`.
+    - **Case creation from confirmed application** (`case_service.py`): `create_case_from_application()` creates Case → AIAnalysis → Application (with version history per §14) → RoutingDecision → DepartmentTasks → transitions to ACTIVE. Exposed via `POST /api/v1/cases/from-application`.
+    - **Application versioning** (§14, §16): `Application` model (`case_applications` table) preserves original_input, conversation, ai_interpretation, ai_draft, citizen_edited_version, final_submitted_version, citizen_confirmation, and generated document path. `GET /api/v1/cases/:id/application` retrieves the artifact.
+- **Frontend:** To be built in Phase 2 (citizen AI workflow) and Phase 4 (officer workspace).
+
 ## Where things aren't built yet
 
 OAuth-based auth is the one item still open against the team's own spec (see `docs/archive/FEATURE_AUDIT.md` §6/§8 item 15) — it needs a real OAuth app registered with an external provider, which only the user can provision. See `docs/architecture/BACKLOG.md` for the full current list of open items, including session/timeout handling and the Users/Governance-Rules engine rework.

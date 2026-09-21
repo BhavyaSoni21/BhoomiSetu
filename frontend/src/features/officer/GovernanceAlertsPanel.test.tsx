@@ -40,6 +40,10 @@ describe('GovernanceAlertsPanel', () => {
   beforeEach(() => {
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('requests only ACTIVE alerts', async () => {
     server.use(http.get('*', () => HttpResponse.json([])));
     renderWithClient();
@@ -53,7 +57,7 @@ describe('GovernanceAlertsPanel', () => {
 
     expect(await screen.findByText('UNAUTHORIZED CHANGE DETECTED')).toBeInTheDocument();
     expect(screen.getByText('HIGH')).toBeInTheDocument();
-    expect(screen.getByText('Parcel: p1')).toBeInTheDocument();
+    expect(screen.getByText('p1')).toBeInTheDocument();
     expect(screen.getByText('New construction footprint detected.')).toBeInTheDocument();
     expect(screen.getByText('RESTRICTION ZONE OVERLAP')).toBeInTheDocument();
   });
@@ -236,7 +240,7 @@ describe('GovernanceAlertsPanel', () => {
 
     it('shows no advance/dismiss buttons for a terminal (RESOLVED) alert reached via deep link', async () => {
       const resolvedAlert = { ...alerts[0], status: 'RESOLVED', reason: 'Addressed.' };
-      server.use(http.get('*/governance-alerts*', () => HttpResponse.json({ alerts: [resolvedAlert] })));
+      server.use(http.get('*/governance-alerts*', () => HttpResponse.json([resolvedAlert])));
       renderWithClient(['/officer/alerts?alert=a1']);
 
       const dialog = await screen.findByRole('dialog');
@@ -262,7 +266,7 @@ describe('GovernanceAlertsPanel', () => {
 
     it('falls back to fetching the alert directly when it is no longer active (a RESOLVED/DISMISSED notification)', async () => {
       const resolvedAlert = { ...alerts[0], status: 'DISMISSED', reason: 'Not a real issue.' };
-      server.use(http.get('*/governance-alerts*', () => HttpResponse.json({ alerts: [resolvedAlert] })));
+      server.use(http.get('*/governance-alerts*', () => HttpResponse.json([resolvedAlert])));
       renderWithClient(['/officer/alerts?alert=a1']);
 
       const dialog = await screen.findByRole('dialog');

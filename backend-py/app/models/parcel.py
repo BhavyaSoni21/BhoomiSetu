@@ -13,7 +13,7 @@ from datetime import date, datetime
 
 from geoalchemy2 import Geometry
 from sqlalchemy import ForeignKey, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -41,6 +41,13 @@ class Parcel(Base):
     locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     landmark: Mapped[str | None] = mapped_column(String(100), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Current state snapshot (§41) — quick-access summary of current
+    # values across domains (tax, dispute, encumbrance, restriction,
+    # survey, registration). Full history lives in OwnershipHistoryRecord,
+    # ParcelHistoricalState, and the department_record_* tables.
+    # Never overwritten — new values go into history tables first.
+    current_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     identifiers: Mapped[list["ParcelIdentifier"]] = relationship(back_populates="parcel", cascade="all, delete-orphan")
 

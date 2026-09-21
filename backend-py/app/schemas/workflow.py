@@ -26,6 +26,12 @@ class WorkflowPipelineConfigOut(CamelModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    # §21-§23 extended fields
+    template: str | None = None
+    definition: dict | None = None
+    resolution_modes: list[str] | None = None
+    decision_types: list[str] | None = None
+    conditions: list[dict] | None = None
 
 
 class CreateWorkflowPipelineConfig(CamelModel):
@@ -33,12 +39,24 @@ class CreateWorkflowPipelineConfig(CamelModel):
     workflow_type: str = Field(max_length=40)
     stages: list[PipelineStageConfig] = Field(min_length=1)
     is_active: bool = True
+    # §21-§23 extended fields
+    template: str | None = None
+    definition: dict | None = None
+    resolution_modes: list[str] | None = None
+    decision_types: list[str] | None = None
+    conditions: list[dict] | None = None
 
 
 class UpdateWorkflowPipelineConfig(CamelModel):
     """Update an existing workflow pipeline configuration."""
     stages: list[PipelineStageConfig] | None = Field(default=None, min_length=1)
     is_active: bool | None = None
+    # §21-§23 extended fields
+    template: str | None = None
+    definition: dict | None = None
+    resolution_modes: list[str] | None = None
+    decision_types: list[str] | None = None
+    conditions: list[dict] | None = None
 
 
 class CreateWorkflow(CamelModel):

@@ -13,7 +13,7 @@ enforces that at the database level.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, func
+from sqlalchemy import JSON, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +29,10 @@ class Department(Base):
     description: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(100), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    # Capability matrix (§20, §60): list of capability strings this department possesses.
+    # e.g. ["VIEW_PARCEL", "PARCEL_360", "ASSIGN_VERIFIER", "EDIT_TAX_DATA", ...]
+    capabilities: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

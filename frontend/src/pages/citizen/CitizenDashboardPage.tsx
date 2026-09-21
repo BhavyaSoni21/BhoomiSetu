@@ -18,6 +18,7 @@ import apiService from '../../services/apiService';
 import { useAuthUser } from '../../features/auth/auth';
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
+import { CaseOut } from '../../types/aiFlow';
 import LandClaimPanel from '../../features/citizen/LandClaimPanel';
 import SpeakerButton from '../../components/SpeakerButton';
 
@@ -34,6 +35,12 @@ const CitizenDashboardPage: React.FC = () => {
   const { data: workflows = [], isLoading: workflowsLoading } = useQuery<Workflow[]>(
     ['my-workflows'],
     async () => (await apiService.get('/workflows/mine')).data,
+  );
+
+  const { data: cases = [], isLoading: casesLoading } = useQuery<CaseOut[]>(
+    ['my-cases'],
+    async () => (await apiService.get('/cases/my')).data,
+    { staleTime: 5 * 60 * 1000 },
   );
 
   const pendingCount = workflows.filter(
@@ -101,6 +108,52 @@ const CitizenDashboardPage: React.FC = () => {
             className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
           >
             {t('citizenDashboard.viewLandHoldingsLink')} <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="gov-card p-5 transition hover:shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              {t('citizenDashboard.activeCasesLabel', 'citizenNav.myCases')}
+            </span>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-900/10 text-brand-900">
+              <Inbox className="w-5 h-5" aria-hidden="true" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-heading font-bold text-text-heading">
+              {casesLoading ? '...' : cases.filter((c) => c.status === 'PENDING' || c.status === 'IN_PROGRESS').length}
+            </span>
+            <span className="text-xs font-mono text-action-700 font-semibold">{t('citizenDashboard.activeCasesSub', 'In Progress')}</span>
+          </div>
+          <Link
+            to="/citizen/my-cases"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
+          >
+            {t('citizenDashboard.viewMyCasesLink', 'View my cases')} <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="gov-card p-5 transition hover:shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              {t('citizenDashboard.actionRequiredLabel', 'Action Required')}
+            </span>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-action-500/15 text-action-700">
+              <Flag className="w-5 h-5" aria-hidden="true" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-heading font-bold text-text-heading">
+              {casesLoading ? '...' : cases.filter((c) => c.status === 'PENDING').length}
+            </span>
+            <span className="text-xs font-mono text-action-700 font-semibold">{t('citizenDashboard.needsAttention', 'Needs Attention')}</span>
+          </div>
+          <Link
+            to="/citizen/my-cases"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-action-700 hover:text-action-600 transition"
+          >
+            {t('citizenDashboard.resolvePendingLink', 'Resolve pending')} <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 

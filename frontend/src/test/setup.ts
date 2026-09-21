@@ -1,6 +1,7 @@
 import { vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { FALLBACK_STRINGS } from '../context/LanguageContext';
+import { FALLBACK_STRINGS, SupportedLanguage } from '../context/LanguageContext';
+const STORAGE_KEY = 'bhoomisetu_lang';
 
 // Mock @tanstack/react-query to provide a QueryClient that auto-populates default data
 // This ensures ANY QueryClient created in tests has the default cache populated
@@ -48,25 +49,38 @@ vi.mock('@tanstack/react-query', async () => {
 // wrapping in <LanguageProvider> - stub it the same way ResizeObserver/
 // matchMedia are stubbed below, so useTranslation() works standalone and
 // t(key) returns English fallback strings, resolving keys accurately.
+// The mock respects the language from localStorage (set by LanguageProvider)
+// so multi-language tests that wrap in <LanguageProvider> still get the
+// correct language from FALLBACK_STRINGS.
+function getLangFromStorage(): SupportedLanguage {
+  const stored = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+  if (stored && FALLBACK_STRINGS[stored]) return stored as SupportedLanguage;
+  return 'en';
+}
+
 vi.mock('../context/LanguageContext', async () => {
   const actual = await vi.importActual<typeof import('../context/LanguageContext')>('../context/LanguageContext');
   return {
     ...actual,
-    useTranslation: () => ({
-      t: (key: string, options?: Record<string, string | number> | string) => {
-        let text = FALLBACK_STRINGS.en[key] ?? (typeof options === 'string' ? options : key);
-        if (options && typeof options === 'object') {
-          Object.entries(options).forEach(([k, v]) => {
-            text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
-          });
-        }
-        return text;
-      },
-      currentLang: 'en',
-      setLanguage: () => Promise.resolve(),
-      loading: false,
-      translationFailed: false,
-    }),
+    useTranslation: () => {
+      const lang = getLangFromStorage();
+      const strings = FALLBACK_STRINGS[lang] || FALLBACK_STRINGS.en;
+      return {
+        t: (key: string, options?: Record<string, string | number> | string) => {
+          let text = strings[key] ?? (typeof options === 'string' ? options : key);
+          if (options && typeof options === 'object') {
+            Object.entries(options).forEach(([k, v]) => {
+              text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
+            });
+          }
+          return text;
+        },
+        currentLang: lang,
+        setLanguage: () => Promise.resolve(),
+        loading: false,
+        translationFailed: false,
+      };
+    },
   };
 });
 

@@ -2,6 +2,19 @@
 # (and therefore Alembic's autogenerate) sees it.
 from app.models.admin import Department  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
+from app.models.case import (  # noqa: F401
+    Application,
+    Appointment,
+    AIAnalysis,
+    Case,
+    CaseParcelGeometryVersion,
+    CaseTimelineEvent,
+    DepartmentTask,
+    Feedback,
+    ProposedFieldChange,
+    RoutingDecision,
+    SLAConfig,
+)
 from app.models.department_record import (  # noqa: F401
     DisputeRecord,
     EncumbranceRecord,

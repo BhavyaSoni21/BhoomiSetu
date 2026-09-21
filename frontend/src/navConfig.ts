@@ -16,18 +16,21 @@
  export const CITIZEN_NAV_ITEMS: NavItem[] = [
    { to: '/citizen', end: true, labelKey: 'citizenNav.dashboard' },
    { to: '/citizen/parcels', labelKey: 'citizenNav.myParcels' },
-   { to: '/citizen/find', labelKey: 'citizenNav.findParcels' },
-   { to: '/citizen/raise-request', labelKey: 'citizenNav.raiseRequest' },
+    { to: '/citizen/find', labelKey: 'citizenNav.findParcels' },
+    { to: '/citizen/get-assistance', labelKey: 'citizenNav.getAssistance' },
+    { to: '/citizen/my-cases', labelKey: 'citizenNav.myCases' },
+    { to: '/citizen/raise-request', labelKey: 'citizenNav.raiseRequest' },
    { to: '/citizen/requests', labelKey: 'citizenNav.requests' },
    { to: '/citizen/notifications', iconOnly: true, iconName: 'Bell', labelKey: 'citizenNav.notifications' },
    { to: '/citizen/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'citizenNav.profile' },
  ];
 
- // Base tabs for all officers
- const BASE_OFFICER_TABS: NavItem[] = [
-   { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
-   { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
- ];
+  // Base tabs for all officers
+  const BASE_OFFICER_TABS: NavItem[] = [
+    { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
+    { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
+    { to: '/officer/tasks', labelKey: 'officerNav.myTasks' },
+  ];
 
  // Department-specific tabs mapping based on OFFICER_DASHBOARD_PLAN.md tab access matrix
  const DEPARTMENT_TABS: Record<string, NavItem[]> = {
@@ -78,10 +81,11 @@
  }
 
  // For backward compatibility - returns all tabs (used by Admin)
- export const OFFICER_NAV_ITEMS: NavItem[] = [
-   { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
-   { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
-   { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
+  export const OFFICER_NAV_ITEMS: NavItem[] = [
+    { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
+    { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
+    { to: '/officer/tasks', labelKey: 'officerNav.myTasks' },
+    { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
    { to: '/officer/historical-imagery', labelKey: 'officerNav.historicalImagery' },
    { to: '/officer/change-detection', labelKey: 'officerNav.changeDetection' },
    { to: '/officer/map', labelKey: 'officerNav.map' },

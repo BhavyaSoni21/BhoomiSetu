@@ -11,8 +11,8 @@ If you finish one of these, move it into `docs/architecture/FEATURES.md`/`FEATUR
 All items re-ranked flat — blocked/deferred items included but marked.
 
 ### P0 — Actionable, Internal (Blocking Tests/Dev)
-1. **Frontend test infrastructure** — HistoricalImageryPanel.test.tsx ✅ DONE (8/8 passing). Remaining: ~184 failing tests need React Query mocks, MSW handlers, component test setup pattern migration (actionable, internal)
-2. **Finish Unified Map migration** — Migrate HistoricalMapView, AdminCombinedLayerMap, AdminMapLayerAuthoringPage, Verifier AssignedVisitsPage to UnifiedMapWrapper (actionable, internal)
+1. **Frontend test infrastructure stabilization** — 107 of 323 tests still failing across 20 test files. React Query mocks ✅, MSW handlers ✅, component test setup ✅ all complete. Remaining failures: MapComponent.test.tsx needs param-aware MSW handlers for `/gis/parcels?bbox=` (currently 11/12 passing, 1 failing on district-context test); LinkedParcelsCard `areaSqM` undefined in ProfilePage.test.tsx; other tests need data-shape alignment
+2. **Finish Unified Map migration** — HistoricalMapView ✅, AdminCombinedLayerMap ✅, AssignedVisitsPage ✅ migrated. **1 remaining:** AdminMapLayerAuthoringPage (not directly migrated, but delegates through AdminCombinedLayerMap which is UnifiedMapWrapper-backed)
 
 ### P1 — Substantially Implemented, Critical Gaps Remain
 
@@ -51,6 +51,13 @@ All items re-ranked flat — blocked/deferred items included but marked.
 | Test DB governance_rules | 2026-09-17 | Migration applied, 8 rules seeded, 3 tests passing |
 | Official Document PDF (Form 7/12) | 2026-09-19 | View action, PDF viewer modal, authenticated user profile, multi-page, tests validate real values + overflow |
 | OCR binary (Tesseract) | 2026-09-19 | Installed v5.5.3, 5 workflow tests unblocked, local pytesseract wrapper functional |
+| AskAiWidget.test.tsx stabilization | 2026-09-21 | 14/14 passing |
+| GovernanceAlertsPanel.test.tsx stabilization | 2026-09-21 | 19/19 passing |
+| React Query mock setup | 2026-09-21 | PatchedQueryClient auto-populates default query data in setup.ts |
+| MSW handlers setup | 2026-09-21 | Basic handlers for parcels, notifications, auth, users, generic fallbacks |
+| HistoricalMapView → UnifiedMapWrapper migration | 2026-09-21 | Component now imports and renders UnifiedMapWrapper |
+| AdminCombinedLayerMap → UnifiedMapWrapper migration | 2026-09-21 | Component now imports and renders UnifiedMapWrapper |
+| AssignedVisitsPage → UnifiedMapWrapper migration | 2026-09-21 | Component now imports and renders UnifiedMapWrapper |
 
 ---
 

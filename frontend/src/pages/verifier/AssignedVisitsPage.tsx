@@ -1,20 +1,81 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, MapPinned } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import apiService from '../../services/apiService';
-import { Workflow, FieldEvidence } from '../../types/workflow';
-import FieldEvidenceCaptureForm from '../../features/verifier/FieldEvidenceCaptureForm';
+import { DepartmentTaskOut, CaseDetailOut } from '../../types/aiFlow';
+import { ParcelSummary } from '../../types/parcel';
+import UnifiedMapWrapper from '../../features/map/UnifiedMapWrapper';
 
 const AssignedVisitsPage: React.FC = () => {
   const { t } = useTranslation();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
 
-  const { data: workflows = [], isLoading } = useQuery<Workflow[]>(
-    ['verifier-assigned-workflows'],
-    async () => (await apiService.get('/workflows/assigned-to-me')).data,
+  const { data: tasks = [], isLoading } = useQuery<DepartmentTaskOut[]>(
+    ['verifier-assigned-tasks'],
+    async () => (await apiService.get('/cases/verifier/tasks')).data,
   );
+
+  const { data: caseDetails = {} } = useQuery<Record<string, CaseDetailOut>>(
+    ['verifier-case-details', tasks.map((t) => t.id)],
+    async () => {
+      const result: Record<string, CaseDetailOut> = {};
+      await Promise.all(
+        tasks.map(async (task) => {
+          try {
+            const response = await apiService.get(`/cases/${task.case_id}`);
+            result[task.id] = response.data;
+          } catch {
+            // Skip tasks where case fetch fails
+          }
+        }),
+      );
+      return result;
+    },
+    {
+      enabled: tasks.length > 0,
+      staleTime: 1000 * 60 * 2,
+    },
+  );
+
+  const parcelIds = useMemo(
+    () =>
+      tasks
+        .map((task) => caseDetails[task.id]?.case?.parcel_id)
+        .filter((id): id is string => !!id),
+    [tasks, caseDetails],
+  );
+
+  const { data: parcelSummaries = [] } = useQuery<ParcelSummary[]>(
+    ['verifier-parcels', parcelIds],
+    async () => {
+      const results = await Promise.all(
+        parcelIds.map(async (id) => {
+          try {
+            const response = await apiService.get(`/parcels/${id}/summary`);
+            return response.data;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return results.filter((p): p is ParcelSummary => p !== null);
+    },
+    {
+      enabled: parcelIds.length > 0,
+      staleTime: 1000 * 60 * 2,
+    },
+  );
+
+  const handleParcelClick = (parcelId: string) => {
+    setSelectedParcelId(parcelId);
+    const task = tasks.find((t) => caseDetails[t.id]?.case?.parcel_id === parcelId);
+    if (task) {
+      setExpandedId(task.id);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -27,17 +88,31 @@ const AssignedVisitsPage: React.FC = () => {
       </div>
 
       {isLoading && <p className="text-sm text-ink/60">{t('verifierPortal.loadingVisits')}</p>}
-      {!isLoading && workflows.length === 0 && (
+      {!isLoading && tasks.length === 0 && (
         <p className="text-sm text-ink/60 border-2 border-ink/20 p-4">{t('verifierPortal.noAssignedVisits')}</p>
       )}
 
+      {!isLoading && tasks.length > 0 && parcelSummaries.length > 0 && (
+        <div className="border-2 border-ink h-[400px]">
+          <UnifiedMapWrapper
+            parcels={parcelSummaries}
+            selectedParcelId={selectedParcelId}
+            onParcelClick={handleParcelClick}
+            fitToParcels={true}
+            showLayerPanel={false}
+            userRole="VERIFIER"
+            height="h-[400px]"
+          />
+        </div>
+      )}
+
       <div className="space-y-3">
-        {workflows.map((workflow) => (
+        {tasks.map((task) => (
           <VisitCard
-            key={workflow.id}
-            workflow={workflow}
-            expanded={expandedId === workflow.id}
-            onToggle={() => setExpandedId((prev) => (prev === workflow.id ? null : workflow.id))}
+            key={task.id}
+            task={task}
+            expanded={expandedId === task.id}
+            onToggle={() => setExpandedId((prev) => (prev === task.id ? null : task.id))}
           />
         ))}
       </div>
@@ -45,13 +120,13 @@ const AssignedVisitsPage: React.FC = () => {
   );
 };
 
-const VisitCard: React.FC<{ workflow: Workflow; expanded: boolean; onToggle: () => void }> = ({ workflow, expanded, onToggle }) => {
+const VisitCard: React.FC<{
+  task: DepartmentTaskOut;
+  expanded: boolean;
+  onToggle: () => void;
+}> = ({ task, expanded, onToggle }) => {
   const { t } = useTranslation();
-  const { data: evidence = [] } = useQuery<FieldEvidence[]>(
-    ['field-evidence', workflow.id],
-    async () => (await apiService.get(`/workflows/${workflow.id}/field-evidence`)).data,
-    { enabled: expanded },
-  );
+  const departmentLabel = task.department_id || t('verifierPortal.unknownDepartment');
 
   return (
     <div className="border-2 border-ink bg-surface-1">
@@ -61,10 +136,10 @@ const VisitCard: React.FC<{ workflow: Workflow; expanded: boolean; onToggle: () 
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-2 transition"
       >
         <div>
-          <p className="font-bold text-sm text-ink">{workflow.workflowType.replace(/_/g, ' ')}</p>
+          <p className="font-bold text-sm text-ink">{departmentLabel.replace(/_/g, ' ')}</p>
           <p className="text-xs text-ink/60 flex items-center gap-1">
             <MapPinned className="w-3.5 h-3.5" aria-hidden="true" />
-            {workflow.parcelId}
+            Case #{task.case_id.slice(0, 8)} — {task.status.replace(/_/g, ' ')}
           </p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-ink/50">
@@ -74,24 +149,23 @@ const VisitCard: React.FC<{ workflow: Workflow; expanded: boolean; onToggle: () 
 
       {expanded && (
         <div className="border-t-2 border-ink p-4 space-y-4">
-          {workflow.requestDetails && <p className="text-sm text-ink/70 italic">&quot;{workflow.requestDetails}&quot;</p>}
-          <Link
-            to={`/parcels/${workflow.parcelId}`}
-            className="inline-block text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
-          >
-            {t('officerPortal.viewParcelCta')}
-          </Link>
-
-          {evidence.length > 0 && (
-            <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('verifierPortal.previouslySubmittedLabel')}</h4>
-              <p className="text-xs text-ink/60">{t('verifierPortal.evidenceCount', { count: evidence.length })}</p>
-            </div>
-          )}
-
-          <div>
-            <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5">{t('verifierPortal.captureNewEvidenceLabel')}</h4>
-            <FieldEvidenceCaptureForm workflowId={workflow.id} />
+          <div className="text-sm text-ink/70">
+            <span className="font-semibold">{t('verifierPortal.resolutionMode')}:</span>{' '}
+            {task.resolution_mode || t('verifierPortal.notApplicable')}
+          </div>
+          <div className="flex gap-3">
+            <Link
+              to={`/verifier/task/${task.id}/evidence`}
+              className="inline-block text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
+            >
+              {t('verifierPortal.captureEvidenceCta')}
+            </Link>
+            <Link
+              to={`/verifier/task/${task.id}/findings`}
+              className="inline-block text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
+            >
+              {t('verifierPortal.submitFindingsCta')}
+            </Link>
           </div>
         </div>
       )}

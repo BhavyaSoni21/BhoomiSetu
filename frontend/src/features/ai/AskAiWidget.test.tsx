@@ -53,6 +53,10 @@ describe('AskAiWidget', () => {
     mockNavigate.mockReset();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('is closed by default, showing only the floating toggle button', () => {
     renderWidget();
     expect(screen.getByRole('button', { name: 'Open Ask AI' })).toBeInTheDocument();
@@ -63,7 +67,7 @@ describe('AskAiWidget', () => {
     renderWidget();
     openWidget();
 
-    expect(screen.getByText(/Ask about parcel data/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask me anything/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'How do I search for a parcel?' })).toBeInTheDocument();
   });
 
@@ -85,6 +89,9 @@ describe('AskAiWidget', () => {
 
   it("shows the user's message immediately, before the response arrives", async () => {
     let resolveRequest: (value: unknown) => void = () => {};
+    vi.spyOn(apiService, 'post').mockReturnValue(
+      new Promise((resolve) => { resolveRequest = (val: unknown) => resolve(val); }) as unknown as ReturnType<typeof apiService.post>,
+    );
     renderWidget();
     openWidget();
 
@@ -194,9 +201,8 @@ describe('AskAiWidget', () => {
       expect(panel.style.left).not.toBe(before.panelLeft);
       expect(panel.style.top).not.toBe(before.panelTop);
     });
-      renderWidget();
     it('dragging the open panel by its header moves it without closing it', () => {
-
+      renderWidget();
       openWidget();
       const header = screen.getByText('Ask AI').closest('div')!;
       const panel = screen.getByPlaceholderText('Ask a question...').closest('div.fixed') as HTMLElement;

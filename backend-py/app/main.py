@@ -19,6 +19,7 @@ from app.routers import (
     analytics,
     audit,
     auth,
+    cases,
     change_detection,
     departments,
     gis,
@@ -140,3 +141,4 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(cases.router, prefix="/api/v1")

@@ -9,6 +9,7 @@ import apiService from '../../services/apiService';
 
 const mockMapInstances: any[] = [];
 
+vi.mock('./maplibreWorkerUrl', () => ({}));
 vi.mock('maplibre-gl', () => {
   class MockMap {
     public options: any;
@@ -318,6 +319,7 @@ describe('MapComponent', () => {
       // /gis/parcels is called twice here (once for the base layer, once
       // for the district layer with state/district params) so this needs a
       // param-aware mock rather than the simple prefix router above.
+      mockApiRoutes();
 
       renderWithClient(<MapComponent selectedParcelId="p1" />);
 

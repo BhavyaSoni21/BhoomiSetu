@@ -45,6 +45,7 @@ type LayerKey =
   | 'restriction'
   | 'infrastructure'
   | 'changeDetection'
+  | 'adminNotes'
   | 'roads'
   | 'buildings'
   | 'landcover'
@@ -63,6 +64,7 @@ const LAYER_KEYS: LayerKey[] = [
   'restriction',
   'infrastructure',
   'changeDetection',
+  'adminNotes',
   'roads',
   'buildings',
   'landcover',
@@ -82,6 +84,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   restriction: false,
   infrastructure: false,
   changeDetection: false,
+  adminNotes: false,
   roads: false,
   buildings: false,
   landcover: false,
@@ -347,6 +350,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const { data: restrictionFC = EMPTY_FC } = useSpatialLayer('restriction-zones');
   const { data: infrastructureFC = EMPTY_FC } = useSpatialLayer('infrastructure');
   const { data: changeDetectionFC = EMPTY_FC } = useSpatialLayer('change-detection-events');
+  const { data: adminNotesFC = EMPTY_FC } = useSpatialLayer('admin-notes');
 
   // Initialize the map + every source/layer once the container is mounted.
   // The container renders unconditionally (see JSX below) so this ref is
@@ -508,6 +512,36 @@ const MapComponent: React.FC<MapComponentProps> = ({
           filter: ['==', ['geometry-type'], 'Point'],
           layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
           paint: { 'circle-color': '#eab308', 'circle-radius': 6, 'circle-stroke-color': '#78350f', 'circle-stroke-width': 1 },
+        });
+      }
+
+      // Admin-only notes layer - dashed violet style across all geometry types
+      ensureLayer(map, 'admin-notes-source', {
+        id: 'admin-notes-fill-layer',
+        type: 'fill',
+        source: 'admin-notes-source',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.adminNotes ? 'visible' : 'none' },
+        paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.2, 'fill-outline-color': '#5b21b6' },
+      });
+      if (!map.getLayer('admin-notes-line-layer')) {
+        map.addLayer({
+          id: 'admin-notes-line-layer',
+          type: 'line',
+          source: 'admin-notes-source',
+          filter: ['==', ['geometry-type'], 'LineString'],
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.adminNotes ? 'visible' : 'none' },
+          paint: { 'line-color': '#7c3aed', 'line-width': 3, 'line-dasharray': [2, 1.5] },
+        });
+      }
+      if (!map.getLayer('admin-notes-point-layer')) {
+        map.addLayer({
+          id: 'admin-notes-point-layer',
+          type: 'circle',
+          source: 'admin-notes-source',
+          filter: ['==', ['geometry-type'], 'Point'],
+          layout: { visibility: DEFAULT_LAYER_VISIBILITY.adminNotes ? 'visible' : 'none' },
+          paint: { 'circle-color': '#7c3aed', 'circle-radius': 7, 'circle-stroke-color': '#5b21b6', 'circle-stroke-width': 2 },
         });
       }
 
@@ -746,6 +780,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
     if (!map || !mapReady) return;
     setSourceData(map, 'change-detection-source', changeDetectionFC);
   }, [changeDetectionFC, mapReady]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    setSourceData(map, 'admin-notes-source', adminNotesFC);
+  }, [adminNotesFC, mapReady]);
 
   // Sync layer toggle checkboxes to maplibre layer visibility.
   useEffect(() => {
@@ -761,6 +800,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       restriction: ['restriction-layer'],
       infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
+      adminNotes: ['admin-notes-fill-layer', 'admin-notes-line-layer', 'admin-notes-point-layer'],
       roads: ['roads-layer'],
       buildings: ['buildings-layer'],
       landcover: ['landcover-layer'],

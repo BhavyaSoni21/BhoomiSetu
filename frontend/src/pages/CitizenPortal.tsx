@@ -4,6 +4,8 @@ import CitizenDashboardPage from './citizen/CitizenDashboardPage';
 import MyParcelsPage from './citizen/MyParcelsPage';
 import FindParcelsPage from './citizen/FindParcelsPage';
 import RaiseRequestPage from './citizen/RaiseRequestPage';
+import GetAssistancePage from './citizen/GetAssistancePage';
+import MyCasesPage from './citizen/MyCasesPage';
 import RequestsPage from './citizen/RequestsPage';
 import NotificationsPage from './citizen/NotificationsPage';
 import ProfilePage from './citizen/ProfilePage';
@@ -30,6 +32,8 @@ const CitizenPortal: React.FC = () => (
       <Route path="parcels" element={<MyParcelsPage />} />
       <Route path="find" element={<FindParcelsPage />} />
       <Route path="raise-request" element={<RaiseRequestPage />} />
+      <Route path="get-assistance" element={<GetAssistancePage />} />
+      <Route path="my-cases" element={<MyCasesPage />} />
       <Route path="requests" element={<RequestsPage />} />
       <Route path="verify" element={<Navigate to="/citizen/raise-request" replace />} />
       <Route path="documents" element={<Navigate to="/citizen/profile?tab=documents" replace />} />

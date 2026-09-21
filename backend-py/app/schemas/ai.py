@@ -12,6 +12,105 @@ class NaturalLanguageQuery(CamelModel):
     query: str = Field(min_length=1)
 
 
+# --- Phase 2: Unified AI-Assisted Request Flow (§9, §10, §11, §15, §17) ----------
+
+
+class UnderstandRequestIn(CamelModel):
+    """Citizen's natural language description of the issue + the parcel it
+    relates to. The AI conversation builds a structured understanding from
+    this, optionally continuing an existing conversation transcript.
+    """
+
+    parcel_id: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=2000)
+    conversation: list[dict[str, Any]] | None = None
+
+
+class FactStatement(CamelModel):
+    """A single fact tagged by the AI as either a database fact or a citizen
+    statement (§15 - Facts vs Claims).
+    """
+
+    statement: str
+    fact_type: Literal["DATABASE_FACT", "CITIZEN_STATEMENT"]
+    source: str | None = None
+    confidence: float | None = None
+
+
+class DepartmentRouting(CamelModel):
+    """One department identified by AI for routing the case (§17, §18).
+    """
+
+    department: str
+    confidence: float | None = None
+    reason: str | None = None
+
+
+class UnderstandRequestOut(CamelModel):
+    """Structured understanding output from the AI (§11.1, §15).
+
+    Includes follow-up questions (§10) only when the AI still needs more
+    information from the citizen to form a complete understanding.
+    """
+
+    parcel_id: str
+    intent: str | None = None
+    issues: list[str] = Field(default_factory=list)
+    facts_stated_by_citizen: list[str] = Field(default_factory=list)
+    facts_database: list[str] = Field(default_factory=list)
+    departments: list[str] = Field(default_factory=list)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    application_draft: str | None = None
+
+
+class ApplicationDraftIn(CamelModel):
+    """Confirmed structured understanding used to generate the formal
+    application draft (§11.2, §13).
+    """
+
+    parcel_id: str
+    intent: str | None = None
+    issues: list[str] = Field(default_factory=list)
+    facts_stated_by_citizen: list[str] = Field(default_factory=list)
+    facts_database: list[str] = Field(default_factory=list)
+    departments: list[str] = Field(default_factory=list)
+    conversation: list[dict[str, Any]] | None = None
+
+
+class ApplicationDraftOut(CamelModel):
+    """The AI-generated application draft text, with facts and claims
+    explicitly separated (§15).
+    """
+
+    application_draft: str
+    facts_database: list[str] = Field(default_factory=list)
+    citizen_statements: list[str] = Field(default_factory=list)
+
+
+class RoutingDecisionIn(CamelModel):
+    """Input for AI routing: the citizen's confirmed understanding.
+    """
+
+    parcel_id: str
+    intent: str | None = None
+    issues: list[str] = Field(default_factory=list)
+    departments: list[str] = Field(default_factory=list)
+
+
+class RoutingDecisionOut(CamelModel):
+    """AI routing decision output (§17).
+
+    Determines relevant departments, workflows, required capabilities, and
+    potential priority — not just a department choice.
+    """
+
+    departments: list[DepartmentRouting] = Field(default_factory=list)
+    workflows_per_department: dict[str, Any] | None = None
+    required_capabilities: list[str] = Field(default_factory=list)
+    priority: str | None = None
+    reason: str | None = None
+
+
 # --- Raw-AI-response validation (mirrors assistant-response.schema.ts /
 # ai-explanation.schema.ts's Zod schemas exactly - extra="ignore" matches
 # Zod's default strip-unknown-keys behavior) --------------------------------

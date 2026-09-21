@@ -616,6 +616,7 @@
       "zoning": "Zoning Overlays",
       "restriction": "Restriction Zones",
       "infrastructure": "Infrastructure",
+      "changeDetection": "Change Detection",
       "adminNotes": "Admin Notes"
     },
     "mapLayerAuthoringSubtitle": "Create, edit, and remove zoning, restriction, infrastructure, and admin-only annotation layers - draw directly on the map or edit the GeoJSON by hand.",

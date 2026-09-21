@@ -10,7 +10,7 @@ import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, String, Text, func
+from sqlalchemy import Boolean, ForeignKey, Index, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,11 +25,42 @@ from app.database import Base
 FIELD_VERIFICATION_WORKFLOW_TYPES = {"LAND_CLAIM_REQUEST", "DISPUTE_FILING", "DOCUMENT_VERIFICATION_REQUEST"}
 
 
+# Default workflow templates (§21) — reusable templates departments can use.
+DEFAULT_WORKFLOW_TEMPLATES = [
+    "DIGITAL_RECORD_CORRECTION",
+    "FIELD_VERIFICATION",
+    "TAX_REVIEW",
+    "DOCUMENT_VERIFICATION",
+    "DISPUTE_REVIEW",
+    "OFFLINE_APPOINTMENT",
+    "GEOMETRY_CORRECTION",
+    "ENCUMBRANCE_VERIFICATION",
+    "MANUAL_REVIEW",
+]
+
+# Stage types for workflow conditions (§22, §23).
+WORKFLOW_STAGE_TYPES = [
+    "REVIEW",
+    "ASSIGN_VERIFIER",
+    "FIELD_VERIFICATION",
+    "EVIDENCE_REVIEW",
+    "DECISION",
+    "APPOINTMENT",
+    "DIGITAL_UPDATE",
+    "OFFLINE_REVIEW",
+    "MANUAL_REVIEW",
+]
+
+
 class WorkflowPipelineConfig(Base):
     """Admin-editable review pipeline configuration per workflow type.
-    
+
     Replaces the hardcoded _PIPELINES_BY_TYPE / _DEFAULT_PIPELINE in workflows_service.py.
     Each config defines an ordered list of stages (department + assigned_role).
+
+    Extended for §21-§23: now also stores the full workflow definition
+    (stages with types, capabilities, conditions, resolution modes,
+    decision types) for the Department Workflow Configuration spec.
     """
 
     __tablename__ = "workflow_pipeline_configs"
@@ -41,6 +72,29 @@ class WorkflowPipelineConfig(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    # §21: Template name from DEFAULT_WORKFLOW_TEMPLATES
+    template: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    # §23: Full workflow definition (§23): stages, capabilities, SLA,
+    # conditions, required documents/evidence, verifier requirement,
+    # appointment requirement, permitted mutations, decision types,
+    # notifications, feedback rules.
+    definition_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON: {"stages": [{"id", "type", "condition"}, ...], "capabilities": [...],
+    #        "sla": {...}, "conditions": [...], "required_documents": [...],
+    #        "verifier_required": bool, "appointment_allowed": bool,
+    #        "permitted_mutations": [...], "decision_types": [...],
+    #        "notifications": {...}, "feedback_rules": {...}}
+
+    # §36: Resolution modes this workflow supports
+    resolution_modes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+    # §34: Decision types permitted for this workflow
+    decision_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+    # §22: Conditional path definitions
+    conditions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     @property
     def stages(self) -> list[dict]:
@@ -59,6 +113,34 @@ class WorkflowPipelineConfig(Base):
         for i, stage in enumerate(stages):
             stage["step_order"] = i + 1
         self.stages_json = json.dumps(stages)
+
+    @property
+    def definition(self) -> dict | None:
+        """Return parsed workflow definition (§23)."""
+        if not self.definition_json:
+            return None
+        try:
+            return json.loads(self.definition_json)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def set_definition(self, definition: dict) -> None:
+        """Set the full workflow definition (§23)."""
+        self.definition_json = json.dumps(definition)
+
+    @property
+    def conditions(self) -> list[dict] | None:
+        """Return parsed conditional path definitions (§22)."""
+        if not self.conditions_json:
+            return None
+        try:
+            return json.loads(self.conditions_json)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def set_conditions(self, conditions: list[dict]) -> None:
+        """Set conditional path definitions (§22)."""
+        self.conditions_json = json.dumps(conditions)
 
 
 class Workflow(Base):

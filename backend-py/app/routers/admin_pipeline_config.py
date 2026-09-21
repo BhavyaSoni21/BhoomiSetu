@@ -63,3 +63,26 @@ def remove(id: UUID, db: Session = Depends(get_db), admin: User = Depends(requir
 
     audit_service.log(db, user_id=str(admin.id), user_role=admin.role, action="WORKFLOW_PIPELINE_CONFIG_DELETED", entity_type="WORKFLOW_PIPELINE_CONFIG", entity_id=str(id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/templates", response_model=list[str])
+def get_templates(admin: User = Depends(require_roles("ADMIN"))):
+    """Get available workflow templates (§21)."""
+    return service.get_workflow_templates()
+
+
+@router.get("/{id}/definition")
+def get_definition(id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_roles("ADMIN"))):
+    """Get the full workflow definition for a pipeline config (§23)."""
+    config = service.get_pipeline_config_by_id(db, id)
+    if config is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pipeline config not found: {id}")
+    return {
+        "workflow_type": config.workflow_type,
+        "template": config.template,
+        "stages": config.stages,
+        "definition": config.definition,
+        "resolution_modes": config.resolution_modes,
+        "decision_types": config.decision_types,
+        "conditions": config.conditions,
+    }

@@ -34,6 +34,7 @@ class Notification(Base):
     message: Mapped[str] = mapped_column(Text)
     parcel_id: Mapped[str | None] = mapped_column(String, nullable=True)
     workflow_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    case_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     alert_id: Mapped[str | None] = mapped_column(String, nullable=True)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
 

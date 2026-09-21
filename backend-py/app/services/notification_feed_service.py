@@ -17,6 +17,7 @@ class NotificationPayload:
     message: str
     parcel_id: str | None = None
     workflow_id: str | None = None
+    case_id: str | None = None
     alert_id: str | None = None
 
 
@@ -38,7 +39,7 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload,
         [
             Notification(
                 user_id=user.id, type=payload.type, title=payload.title, message=payload.message,
-                parcel_id=payload.parcel_id, workflow_id=payload.workflow_id, alert_id=payload.alert_id,
+                parcel_id=payload.parcel_id, workflow_id=payload.workflow_id, case_id=payload.case_id, alert_id=payload.alert_id,
             )
             for user in users
         ]
