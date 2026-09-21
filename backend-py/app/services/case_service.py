@@ -24,6 +24,7 @@ from app.models.case import (
     Appointment,
 )
 from app.models.user import User
+from app.models.verification_evidence import VerificationEvidence
 from app.services import audit_service, parcels_service
 
 CASE_STATUSES = ["CREATED", "ACTIVE", "RESOLUTION", "FEEDBACK", "CLOSED"]
@@ -369,12 +370,14 @@ def get_tasks_for_case(db: Session, case_id: str) -> list[DepartmentTask]:
     return case.tasks
 
 
-def get_tasks_for_officer(db: Session, officer_id: str) -> list[DepartmentTask]:
-    """Tasks assigned to a specific officer (§59)."""
+def get_tasks_for_officer(db: Session, officer_id: str, skip: int = 0, limit: int = 20) -> list[DepartmentTask]:
+    """Tasks assigned to a specific officer (A 59)."""
     return (
         db.query(DepartmentTask)
         .filter(DepartmentTask.assigned_officer_id == officer_id)
         .order_by(DepartmentTask.created_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 

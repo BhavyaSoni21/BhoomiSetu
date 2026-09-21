@@ -94,17 +94,17 @@ def find_survey_by_parcel(db: Session, parcel_id: str) -> SurveyRecord | None:
 
 # Department dashboard widgets (BACKLOG.md item 26 follow-up) - each
 # department's own "what needs my attention" list, not a per-parcel lookup.
-def find_overdue_tax(db: Session) -> list[TaxRecord]:
-    return list(db.scalars(select(TaxRecord).where(TaxRecord.tax_status == "OVERDUE")).all())
+def find_overdue_tax(db: Session, skip: int = 0, limit: int = 10) -> list[TaxRecord]:
+    return list(db.scalars(select(TaxRecord).where(TaxRecord.tax_status == "OVERDUE").offset(skip).limit(limit)).all())
 
 
-def find_pending_building_permissions(db: Session) -> list[PlanningRecord]:
-    return list(db.scalars(select(PlanningRecord).where(PlanningRecord.building_permission_status == "PENDING")).all())
+def find_pending_building_permissions(db: Session, skip: int = 0, limit: int = 10) -> list[PlanningRecord]:
+    return list(db.scalars(select(PlanningRecord).where(PlanningRecord.building_permission_status == "PENDING").offset(skip).limit(limit)).all())
 
 
-def find_pending_registrations(db: Session) -> list[RegistrationRecord]:
-    return list(db.scalars(select(RegistrationRecord).where(RegistrationRecord.registration_status == "PENDING")).all())
+def find_pending_registrations(db: Session, skip: int = 0, limit: int = 10) -> list[RegistrationRecord]:
+    return list(db.scalars(select(RegistrationRecord).where(RegistrationRecord.registration_status == "PENDING").offset(skip).limit(limit)).all())
 
 
-def find_pending_surveys(db: Session) -> list[SurveyRecord]:
-    return list(db.scalars(select(SurveyRecord).where(SurveyRecord.survey_status == "PENDING")).all())
+def find_pending_surveys(db: Session, skip: int = 0, limit: int = 10) -> list[SurveyRecord]:
+    return list(db.scalars(select(SurveyRecord).where(SurveyRecord.survey_status == "PENDING").offset(skip).limit(limit)).all())

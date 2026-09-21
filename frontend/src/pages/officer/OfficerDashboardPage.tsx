@@ -110,45 +110,76 @@ const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
 
 const DepartmentFocusWidget: React.FC<{ department: string }> = ({ department }) => {
   const { t } = useTranslation();
+  const [page, setPage] = React.useState(0);
+  const limit = 10;
+  
   const config = DEPARTMENT_WIDGETS[department];
-  const { data: rows = [], isLoading } = useQuery<any[]>(
-    ['department-focus', department],
-    async () => (await apiService.get(config.endpoint)).data,
-    { enabled: !!config },
+  const { data: rows = [], isLoading, isFetching } = useQuery<any[]>(
+    ['department-focus', department, page],
+    async () => (await apiService.get(config.endpoint, { params: { skip: page * limit, limit } })).data,
+    { enabled: !!config, keepPreviousData: true },
   );
 
   if (!config) return null;
 
   return (
     <div className="gov-card p-6">
-      <h3 className="font-heading font-bold text-lg text-text-heading mb-5">{t(config.headingKey)}</h3>
-      {isLoading ? (
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="font-heading font-bold text-lg text-text-heading">{t(config.headingKey)}</h3>
+        {isFetching && <div className="text-xs text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>}
+      </div>
+      {isLoading && page === 0 ? (
         <div className="py-8 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && page === 0 ? (
         <div className="py-8 text-center rounded-xl bg-surface-2 border border-gov-border">
           <CheckCircle2 className="w-8 h-8 mx-auto text-gov-success mb-2" />
           <p className="text-sm font-semibold text-text-heading">{t(config.emptyKey)}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-gov-border text-text-muted uppercase font-mono text-[11px]">
-                {config.columns.map((col) => (
-                  <th key={col.key} className="pb-3 font-semibold">{t(col.labelKey)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gov-border">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-surface-2/60 transition-colors">
+        <div className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-gov-border text-text-muted uppercase font-mono text-[11px]">
                   {config.columns.map((col) => (
-                    <td key={col.key} className="py-3 font-mono text-text-primary">{col.render(row)}</td>
+                    <th key={col.key} className="pb-3 font-semibold">{t(col.labelKey)}</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gov-border">
+                {rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-surface-2/60 transition-colors">
+                    {config.columns.map((col) => (
+                      <td key={col.key} className="py-3 font-mono text-text-primary">{col.render(row)}</td>
+                    ))}
+                  </tr>
+                ))}
+                {rows.length === 0 && page > 0 && (
+                  <tr>
+                    <td colSpan={config.columns.length} className="py-8 text-center text-text-muted">No more records</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="flex justify-between items-center pt-2">
+            <button 
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0 || isFetching}
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider border border-gov-border rounded hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-text-muted">Page {page + 1}</span>
+            <button 
+              onClick={() => setPage(p => p + 1)}
+              disabled={rows.length < limit || isFetching}
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider border border-gov-border rounded hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

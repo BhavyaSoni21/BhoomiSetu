@@ -89,13 +89,13 @@ def is_citizen_associated_with_parcel(db: Session, citizen_id: str, parcel_id: s
     return db.scalars(select(CitizenParcel).where(CitizenParcel.citizen_id == citizen_id, CitizenParcel.parcel_id == parcel_id)).first() is not None
 
 
-def find_mine_for_citizen(db: Session, citizen_id: str) -> list[Workflow]:
+def find_mine_for_citizen(db: Session, citizen_id: str, skip: int = 0, limit: int = 20) -> list[Workflow]:
     parcel_ids = [row.parcel_id for row in db.scalars(select(CitizenParcel).where(CitizenParcel.citizen_id == citizen_id)).all()]
     if not parcel_ids:
         return []
 
-    take, skip = resolve_pagination()
-    stmt = _with_steps(select(Workflow).where(Workflow.parcel_id.in_([str(pid) for pid in parcel_ids])).order_by(Workflow.created_at.desc()).limit(take).offset(skip))
+    take, skip_val = resolve_pagination(limit, skip)
+    stmt = _with_steps(select(Workflow).where(Workflow.parcel_id.in_([str(pid) for pid in parcel_ids])).order_by(Workflow.created_at.desc()).limit(take).offset(skip_val))
     return list(db.scalars(stmt).unique().all())
 
 
@@ -292,10 +292,10 @@ def assign_verifier(db: Session, workflow_id: str, verifier_id: str) -> Workflow
     return workflow
 
 
-def find_assigned_to_verifier(db: Session, verifier_id: str) -> list[Workflow]:
-    take, skip = resolve_pagination()
+def find_assigned_to_verifier(db: Session, verifier_id: str, skip: int = 0, limit: int = 20) -> list[Workflow]:
+    take, skip_val = resolve_pagination(limit, skip)
     stmt = _with_steps(
-        select(Workflow).where(Workflow.assigned_verifier_id == verifier_id).order_by(Workflow.created_at.desc()).limit(take).offset(skip)
+        select(Workflow).where(Workflow.assigned_verifier_id == verifier_id).order_by(Workflow.created_at.desc()).limit(take).offset(skip_val)
     )
     return list(db.scalars(stmt).unique().all())
 

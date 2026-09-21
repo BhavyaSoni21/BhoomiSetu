@@ -31,6 +31,8 @@ def find_all(
     status_: str | None = Query(None, alias="status"),
     severity: str | None = None,
     department: str | None = None,
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     _staff: User = Depends(require_roles(*ALL_STAFF_ROLES)),
 ):
@@ -40,7 +42,7 @@ def find_all(
     # which asserts a single-department officer sees alerts from every
     # department). `department` is opt-in narrowing only, for callers (e.g.
     # a department-specific dashboard widget) that want to filter.
-    alerts = service.find_all(db, status_, severity, department)
+    alerts = service.find_all(db, status_, severity, department, skip, limit)
     return [_to_out(alert) for alert in alerts]
 
 
