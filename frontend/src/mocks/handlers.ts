@@ -1,5 +1,8 @@
 import { http, HttpResponse } from 'msw';
 
+const citizenParcelA = { id: 'pa', canonicalParcelId: 'CAN-A', ulpin: 'ULPIN-A', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: '{}', streetAddress: null, locality: null };
+const citizenParcelB = { id: 'pb', canonicalParcelId: 'CAN-B', ulpin: 'ULPIN-B', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 400, geometry: '{}', streetAddress: null, locality: null };
+
 export const handlers = [
   // Authentication
   http.get('*/auth/me', () => {
@@ -11,12 +14,12 @@ export const handlers = [
     });
   }),
   
-  // Parcels
+  // Parcels - return owned parcel for /parcels/mine, and both for /parcels search
   http.get('*/parcels', () => {
-    return HttpResponse.json({ parcels: [], total: 0 });
+    return HttpResponse.json({ parcels: [citizenParcelA, citizenParcelB], total: 2 });
   }),
   http.get('*/parcels/mine', () => {
-    return HttpResponse.json({ parcels: [], total: 0 });
+    return HttpResponse.json({ parcels: [citizenParcelA], total: 1 });
   }),
   http.get('*/parcels/:id/360', () => {
     return HttpResponse.json({

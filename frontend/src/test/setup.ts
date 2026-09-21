@@ -13,6 +13,7 @@ vi.mock('@tanstack/react-query', async () => {
     { queryKey: ['admin-users'], data: [] },
     { queryKey: ['users'], data: [] },
     { queryKey: ['parcels'], data: { parcels: [] } },
+    { queryKey: ['my-parcels'], data: { parcels: [{ id: 'pa', canonicalParcelId: 'CAN-A', ulpin: 'ULPIN-A', stateCode: 'MH', districtCode: 'PUN', localBodyCode: 'MHLB001', areaSqM: 500, geometry: '{}' }], total: 1 } },
     { queryKey: ['parcel-documents', ''], data: [] },
     { queryKey: ['field-evidence', ''], data: [] },
     { queryKey: ['workflow', ''], data: null },
@@ -118,17 +119,43 @@ global.URL.revokeObjectURL = vi.fn();
 import { server } from '../mocks/server';
 import apiService from '../services/apiService';
 
+// Capture original axios methods bound to the instance before any spying.
+// vi.spyOn(obj, 'method') wraps the method but for axios instances the
+// wrapper can disrupt the internal XHR/XHR-interceptor stack (especially
+// with FormData), causing MSW-intercepted responses to never return.
+// By providing an explicit mockImplementation that delegates to the bound
+// original, the spy records calls AND the real axios request still completes.
+const originalApiMethods = {
+  get: apiService.get.bind(apiService),
+  post: apiService.post.bind(apiService),
+  put: apiService.put.bind(apiService),
+  patch: apiService.patch.bind(apiService),
+  delete: apiService.delete.bind(apiService),
+};
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 beforeEach(() => {
-  vi.spyOn(apiService, 'get');
-  vi.spyOn(apiService, 'post');
-  vi.spyOn(apiService, 'put');
-  vi.spyOn(apiService, 'patch');
-  vi.spyOn(apiService, 'delete');
+  vi.spyOn(apiService, 'get').mockImplementation(originalApiMethods.get);
+  vi.spyOn(apiService, 'post').mockImplementation((...args: any[]) => {
+    // Workaround for axios + MSW + FormData + Content-Type:undefined in jsdom.
+    // When Content-Type is explicitly set to undefined, MSW's XHR interceptor
+    // fails to deliver the response back. Strip it so axios auto-detects FormData
+    // and sets the proper multipart/form-data header with boundary.
+    const config = args[2];
+    if (config?.headers && config.headers['Content-Type'] === undefined) {
+      const sanitizedConfig = { ...config, headers: { ...config.headers } };
+      delete sanitizedConfig.headers['Content-Type'];
+      return originalApiMethods.post(args[0], args[1], sanitizedConfig);
+    }
+    return originalApiMethods.post(args[0], args[1], args[2]);
+  });
+  vi.spyOn(apiService, 'put').mockImplementation(originalApiMethods.put);
+  vi.spyOn(apiService, 'patch').mockImplementation(originalApiMethods.patch);
+  vi.spyOn(apiService, 'delete').mockImplementation(originalApiMethods.delete);
 });
 afterEach(() => {
   server.resetHandlers();
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 afterAll(() => server.close());
 

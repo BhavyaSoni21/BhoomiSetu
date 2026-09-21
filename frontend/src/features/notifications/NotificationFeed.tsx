@@ -34,7 +34,8 @@ const NotificationFeed: React.FC = () => {
 
   const { data: notifications = [], isLoading, error } = useQuery<AppNotification[]>(['notifications'], async () => {
     const response = await apiService.get('/notifications');
-    return response.data;
+    const payload = response.data;
+    return Array.isArray(payload) ? payload : (payload?.notifications ?? []);
   });
 
   const markReadMutation = useMutation(

@@ -74,7 +74,10 @@ export const LinkedParcelsCard: React.FC<LinkedParcelsCardProps> = ({
               <span>{sampleParcel.districtCode}, {sampleParcel.stateCode}</span>
             </p>
             <p className="text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400 mt-1">
-              {sampleParcel.areaSqM.toLocaleString()} m²
+              {sampleParcel.areaSqM !== undefined && sampleParcel.areaSqM !== null
+              ? sampleParcel.areaSqM.toLocaleString()
+              : '—'
+            } m²
             </p>
           </div>
         </div>

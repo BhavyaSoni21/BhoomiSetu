@@ -96,7 +96,7 @@ describe('ProfilePage', () => {
 
   describe('more info (Account tab)', () => {
     it('shows member-since, linked-parcel count, and total request count', async () => {
-      mockApi({ parcels: [{ id: 'p1' }, { id: 'p2' }], workflows: [{ id: 'w1' }] });
+      mockApi({ parcels: [{ id: 'p1', areaSqM: 300, ulpin: 'UL123' }, { id: 'p2', areaSqM: 250 }], workflows: [{ id: 'w1' }] });
       renderPage(emailOnlyCitizen);
 
       expect(screen.getByText('Member Since')).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('ProfilePage', () => {
 
     it("shows each linked parcel's documents, or an empty-state message when it has none", async () => {
       mockApi({
-        parcels: [{ id: 'p1', ulpin: 'UL123', stateCode: 'MH', districtCode: 'PUN' }, { id: 'p2', ulpin: 'UL456', stateCode: 'DL', districtCode: 'NEW' }],
+        parcels: [{ id: 'p1', ulpin: 'UL123', stateCode: 'MH', districtCode: 'PUN', areaSqM: 26714 }, { id: 'p2', ulpin: 'UL456', stateCode: 'DL', districtCode: 'NEW', areaSqM: 15000 }],
         documents: {
           p1: [{ id: 'd1', parcelId: 'p1', documentType: 'ROR_COPY', fileName: 'p1.png', mimeType: 'image/png', registrationStatus: 'REGISTERED', createdAt: '2026-01-01' }],
           p2: [],

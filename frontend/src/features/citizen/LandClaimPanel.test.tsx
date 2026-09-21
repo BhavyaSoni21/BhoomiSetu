@@ -94,12 +94,13 @@ describe('LandClaimPanel', () => {
     renderPanel();
     chooseAndFind();
 
-    expect(await screen.findByText(/more than one possible match/)).toBeInTheDocument();
+    expect(await screen.findByText(/more than one possible match/i)).toBeInTheDocument();
     expect(screen.getByText(/Search Parcels/i)).toBeInTheDocument();
   });
 
   it('shows "Already Yours" instead of a claim button for a parcel the citizen already owns, in the manual search fallback', async () => {
     server.use(http.post('*', () => HttpResponse.json({ extractedText: 'gibberish', ocrConfidence: 40, candidates: [] })));
+    server.use(http.get('*/parcels', () => HttpResponse.json({ parcels: [parcelA], total: 1 })));
     renderPanel();
     chooseAndFind();
 

@@ -158,6 +158,13 @@ const contextResponse = {
   ],
 };
 
+// Two parcels returned for the district-layer /gis/parcels call (state+district
+// params present) - the base-layer call (only bbox params) returns empty here.
+const districtParcels = [
+  { id: 'dp1', canonicalParcelId: 'DPC1', stateCode: 'DL', districtCode: 'ND', areaSqM: 200, geometry: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}' },
+  { id: 'dp2', canonicalParcelId: 'DPC2', stateCode: 'DL', districtCode: 'ND', areaSqM: 150, geometry: '{"type":"Polygon","coordinates":[[[1,0],[2,0],[2,1],[1,0]]]}' },
+];
+
 // Routes every apiService.get call to a canned response by URL prefix, so
 // tests only need to describe what each endpoint returns, not the order
 // MapComponent happens to call them in.
@@ -173,8 +180,21 @@ function mockApiRoutes(overrides: Record<string, any> = {}) {
   };
   server.use(
     http.get('*', ({ request }) => {
-      const url = new URL(request.url).pathname;
-      const match = Object.keys(routes).find((k) => url.endsWith(k));
+      const url = new URL(request.url);
+      const pathname = url.pathname;
+      const searchParams = url.searchParams;
+
+      // /gis/parcels is called twice by MapComponent when a parcel is selected:
+      //   1. base layer: ?bbox=...&limit=...
+      //   2. district layer: ?state=...&district=...&limit=...
+      // Return district parcels only for the district-scoped call so tests
+      // that exercise the same-district feature get real data in district-source.
+      if (pathname.endsWith('/gis/parcels')) {
+        const hasStateDistrict = searchParams.has('state') && searchParams.has('district');
+        return HttpResponse.json(hasStateDistrict ? { parcels: districtParcels } : routes['/gis/parcels']);
+      }
+
+      const match = Object.keys(routes).find((k) => pathname.endsWith(k));
       return HttpResponse.json(match ? routes[match] : {});
     })
   );
