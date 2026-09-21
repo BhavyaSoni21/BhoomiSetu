@@ -391,7 +391,7 @@ def summarise_document(
     
     # Fetch PDF and extract text, then summarise with AI
     import httpx
-    import fitz  # PyMuPDF
+    import pymupdf
     from app.services import groq_service
     
     try:
@@ -400,7 +400,7 @@ def summarise_document(
         pdf_bytes = response.content
         
         # Extract text from PDF
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
         text = ""
         for page in doc:
             text += page.get_text()
