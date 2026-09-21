@@ -46,21 +46,17 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
     const fromUrl = urlParams.get('local_identifier');
     if (fromUrl) {
       setSearchParams((prev) => ({ ...prev, local_identifier: fromUrl }));
+      setSubmittedSearchParams((prev) => ({ ...prev, local_identifier: fromUrl }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlParams]);
 
-  const [debouncedSearchParams, setDebouncedSearchParams] = useState(searchParams);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDebouncedSearchParams(searchParams), 300);
-    return () => window.clearTimeout(timeoutId);
-  }, [searchParams]);
+  const [submittedSearchParams, setSubmittedSearchParams] = useState(searchParams);
 
   const { data: searchResults, isLoading, error } = useQuery<ParcelSummary[]>(
-    ['parcels', debouncedSearchParams, currentLang],
+    ['parcels', submittedSearchParams, currentLang],
     async ({ signal }) => {
-      let effectiveLocalId = debouncedSearchParams.local_identifier;
+      let effectiveLocalId = submittedSearchParams.local_identifier;
 
       // Check if text is Roman/Latin script and current language is non-English
       if (effectiveLocalId && currentLang !== 'en' && /[a-zA-Z]/.test(effectiveLocalId)) {
@@ -102,14 +98,14 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
 
       // Filter out empty params
       const params = Object.entries({
-        ...debouncedSearchParams,
-        local_identifier: effectiveLocalId || debouncedSearchParams.local_identifier,
+        ...submittedSearchParams,
+        local_identifier: effectiveLocalId || submittedSearchParams.local_identifier,
       })
         .filter(([_, value]) => value !== '')
         .reduce((obj, [key, value]) => {
-          obj[key as keyof typeof debouncedSearchParams] = value as string;
+          obj[key as keyof typeof submittedSearchParams] = value as string;
           return obj;
-        }, {} as typeof debouncedSearchParams);
+        }, {} as typeof submittedSearchParams);
 
       const response = await apiService.get('/parcels', { params, signal });
       return response.data.parcels;
@@ -142,7 +138,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Search results already update live as searchParams changes; nothing to trigger here.
+    setSubmittedSearchParams(searchParams);
   };
 
   return (
@@ -287,7 +283,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
             <button
               type="button"
               onClick={() => {
-                setSearchParams({
+                const emptyParams = {
                   ulpin: '',
                   survey_number: '',
                   plot_number: '',
@@ -295,7 +291,9 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                   address: '',
                   state: '',
                   district: '',
-                });
+                };
+                setSearchParams(emptyParams);
+                setSubmittedSearchParams(emptyParams);
               }}
               className="inline-flex items-center gap-2 border-2 border-ink text-ink font-bold uppercase text-sm tracking-wider px-4 py-2 hover:bg-muted transition"
             >

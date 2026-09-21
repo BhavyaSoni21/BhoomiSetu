@@ -234,7 +234,7 @@ def search_parcels(
             )
         )
 
-    total = query.order_by(None).distinct().count()
+    total = query.with_entities(Parcel.id).distinct().count()
 
     if address:
         from sqlalchemy import func
