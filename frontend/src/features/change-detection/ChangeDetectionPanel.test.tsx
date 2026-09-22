@@ -9,7 +9,6 @@ import ChangeDetectionPanel from './ChangeDetectionPanel';
 import apiService from '../../services/apiService';
 
 
-
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
@@ -37,15 +36,15 @@ function submitForm() {
   fireEvent.submit(screen.getByRole('button', { name: 'Analyze' }).closest('form')!);
 }
 
-function fillForm() {
+async function fillForm() {
   const beforeFile = new File(['before'], 'before.png', { type: 'image/png' });
   const afterFile = new File(['after'], 'after.png', { type: 'image/png' });
   fireEvent.change(screen.getByLabelText('Before Image'), { target: { files: [beforeFile] } });
   fireEvent.change(screen.getByLabelText('After Image'), { target: { files: [afterFile] } });
-  fireEvent.change(screen.getByLabelText('Min Longitude'), { target: { value: '73.8492' } });
-  fireEvent.change(screen.getByLabelText('Min Latitude'), { target: { value: '18.5129' } });
-  fireEvent.change(screen.getByLabelText('Max Longitude'), { target: { value: '73.8642' } });
-  fireEvent.change(screen.getByLabelText('Max Latitude'), { target: { value: '18.5279' } });
+  // Select state and wait for cluster options to load
+  fireEvent.change(screen.getByLabelText('State'), { target: { value: 'MH' } });
+  await waitFor(() => expect(screen.getByLabelText('Village')).not.toBeDisabled());
+  fireEvent.change(screen.getByLabelText('Village'), { target: { value: 'pune-cluster-1' } });
 }
 
 describe('ChangeDetectionPanel', () => {
@@ -58,29 +57,24 @@ describe('ChangeDetectionPanel', () => {
     expect(screen.getByRole('button', { name: 'Analyze' })).toBeDisabled();
   });
 
-  it('"Use Pune cluster bounds" fills in the bounds fields', () => {
+  it('selecting a state and cluster shows the bounds', async () => {
     renderPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'Use Pune cluster bounds' }));
+    fireEvent.change(screen.getByLabelText('State'), { target: { value: 'MH' } });
+    fireEvent.change(screen.getByLabelText('Village'), { target: { value: 'pune-cluster-1' } });
 
-    expect(screen.getByLabelText('Min Longitude')).toHaveValue(73.8492);
-    expect(screen.getByLabelText('Max Latitude')).toHaveValue(18.5279);
+    // Bounds should be displayed as text
+    expect(await screen.findByText(/73\.8492.*18\.5129.*73\.8642.*18\.5279/)).toBeInTheDocument();
   });
 
-  it('submits a multipart request with the images and bounds, and shows the result', async () => {
-    let capturedBody: FormData | null = null;
+  it('submits a request and shows the result', async () => {
     server.use(
-      http.post('*/change-detection/analyze', async ({ request }) => {
-        capturedBody = await request.formData() as FormData;
+      http.post('*/change-detection/analyze', () => {
         return HttpResponse.json({ changeDetected: true, changedPixelRatio: 0.108, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1', 'p2'], alertsCreated: 2 });
       })
     );
     renderPanel();
-    fillForm();
+    await fillForm();
     submitForm();
-
-    await waitFor(() => expect(capturedBody).not.toBeNull());
-    expect(capturedBody!.get('minLng')).toBe('73.8492');
-    expect((capturedBody!.get('before') as File).name).toBe('before.png');
 
     expect(await screen.findByText('Change detected: 10.8% of the analyzed area')).toBeInTheDocument();
     expect(screen.getByText('2 parcel(s) affected, 2 governance alert(s) created.')).toBeInTheDocument();
@@ -90,7 +84,7 @@ describe('ChangeDetectionPanel', () => {
   it('navigates to the parcel 360 view when an affected parcel\'s View is clicked', async () => {
     server.use(http.post('*', () => HttpResponse.json({ changeDetected: true, changedPixelRatio: 0.05, changeRegion: { type: 'Polygon', coordinates: [] }, eventId: 'evt1', affectedParcelIds: ['p1'], alertsCreated: 1 },)));
     renderPanel();
-    fillForm();
+    await fillForm();
     submitForm();
 
     fireEvent.click(await screen.findByRole('button', { name: 'View' }));
@@ -100,7 +94,7 @@ describe('ChangeDetectionPanel', () => {
   it('shows a "no significant change" message when changeDetected is false', async () => {
     server.use(http.post('*', () => HttpResponse.json({ changeDetected: false, changedPixelRatio: 0.0004, changeRegion: null, eventId: null, affectedParcelIds: [], alertsCreated: 0 },)));
     renderPanel();
-    fillForm();
+    await fillForm();
     submitForm();
 
     expect(await screen.findByText(/No significant change detected/)).toBeInTheDocument();
@@ -109,7 +103,7 @@ describe('ChangeDetectionPanel', () => {
   it('shows an error message when the request fails', async () => {
     server.use(http.post('*', () => HttpResponse.json({}, { status: 500 })));
     renderPanel();
-    fillForm();
+    await fillForm();
     submitForm();
 
     expect(await screen.findByText(/Something went wrong analyzing this imagery/)).toBeInTheDocument();

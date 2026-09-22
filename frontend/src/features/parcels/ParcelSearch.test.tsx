@@ -82,7 +82,7 @@ describe('ParcelSearch', () => {
 
     renderWithClient(<ParcelSearch onSelectParcel={onSelectParcel} />);
 
-    const row = (await screen.findByText(/abcdef12/i)).closest('div[class*="cursor-pointer"]') as HTMLElement;
+    const row = (await screen.findByText(/CAN1/i)).closest('div[class*="cursor-pointer"]') as HTMLElement;
     row.click();
 
     expect(onSelectParcel).toHaveBeenCalledWith(sampleParcel.id);

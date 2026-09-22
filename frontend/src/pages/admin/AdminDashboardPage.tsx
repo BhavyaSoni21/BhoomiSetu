@@ -41,6 +41,7 @@ const AdminDashboardPage: React.FC = () => {
             <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">
               State Land Governance Administration
             </h1>
+            <span className="sr-only">Welcome, {user.name}</span>
             <p className="text-white/80 text-sm sm:text-base max-w-2xl leading-relaxed">
               Global system control plane. Monitor inter-departmental workflows, manage user authorizations, analyze revenue risk, and oversee cadastral map layers.
             </p>

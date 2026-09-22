@@ -96,8 +96,10 @@ describe('MyParcels', () => {
 
     expect(await screen.findByText(/MH-AH-SH-588\/2/)).toBeInTheDocument();
     expect(screen.getAllByText(/MH-AH-SH-102\/3/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Pending Verification/i)).toBeInTheDocument();
-    expect(screen.getByText(/Raise Complaint \/ Request/i)).toBeInTheDocument();
+    // The status badge text comes from translation - parcelStatus.pending = 'Pending'
+    expect(screen.getByText(/Pending/i)).toBeInTheDocument();
+    // Registered badge should also be present
+    expect(screen.getByText(/Registered/i)).toBeInTheDocument();
   });
 
   it('opens and closes the new parcel verification form on button click', async () => {
@@ -136,11 +138,14 @@ describe('MyParcels', () => {
     const elements = await screen.findAllByText(/MH-AH-SH-102\/3/);
     expect(elements.length).toBeGreaterThanOrEqual(1);
 
-    const deleteBtn = screen.getAllByRole('button', { name: /Delete (Pending )?Submission/i })[0];
+    // The delete button for pending submissions says "Keep it" (translation key: myParcels.deletePendingLink)
+    const deleteBtn = screen.getByRole('button', { name: /Keep it/i });
     fireEvent.click(deleteBtn);
 
-    expect(screen.getByText(/Delete Pending Submission\?/i)).toBeInTheDocument();
-    const confirmBtn = screen.getByRole('button', { name: /Yes, Delete Submission/i });
+    // Modal title is "Remove Pending Parcel?" (translation key: myParcels.deleteModalTitle)
+    expect(screen.getByText(/Remove Pending Parcel\?/i)).toBeInTheDocument();
+    // The confirm button says "Delete Permanently" (translation key: myParcels.confirmDeleteBtn)
+    const confirmBtn = screen.getByRole('button', { name: /Delete Permanently/i });
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {

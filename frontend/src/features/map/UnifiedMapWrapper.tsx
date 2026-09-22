@@ -148,6 +148,9 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
 }) => {
   const { t } = useTranslation();
   const isOfficerOrAdmin = userRole ? OFFICER_ROLES.includes(userRole as (typeof OFFICER_ROLES)[number]) : false;
+  // GET /gis/admin-notes is require_roles("ADMIN") server-side, so fetching it
+  // as anyone else just 403s and spams the console. Only ask for it as admin.
+  const isAdmin = userRole === 'ADMIN';
 
   // Use years from props (Parcel 360) or historicalYears (other maps)
   const effectiveHistoricalYears = years?.length ? years : historicalYears;
@@ -189,6 +192,30 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     },
     { staleTime: 1000 * 60 * 30 }, // 30 minutes - clusters rarely change
   );
+
+  // Flatten clusters into low-zoom overview markers (centroid of each
+  // cluster's bounds). Only meaningful in the "show all" mode - when a
+  // caller hands us its own `parcels`, it already knows what to show.
+  const clusterOverviewFC = useMemo<GeoJSON.FeatureCollection>(() => ({
+    type: 'FeatureCollection',
+    features: hierarchicalClusters.flatMap((state) =>
+      state.districts.flatMap((district) =>
+        district.clusters.map((c) => ({
+          type: 'Feature' as const,
+          properties: {
+            clusterId: c.clusterId,
+            label: c.clusterId,
+            minLng: c.bounds.minLng, minLat: c.bounds.minLat,
+            maxLng: c.bounds.maxLng, maxLat: c.bounds.maxLat,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [(c.bounds.minLng + c.bounds.maxLng) / 2, (c.bounds.minLat + c.bounds.maxLat) / 2],
+          },
+        })),
+      ),
+    ),
+  }), [hierarchicalClusters]);
 
   // Determine district context for spatial layer availability checks
   // Uses selected parcel's district, or first parcel's district from props
@@ -245,7 +272,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       const response = await apiService.get('/gis/admin-notes');
       return response.data;
     },
-    { enabled: districtContext !== null || !!parcelsProp }
+    { enabled: (districtContext !== null || !!parcelsProp) && isAdmin }
   );
 
   // Determine which layers actually have data
@@ -303,9 +330,12 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     }
 
-    // Filter to only layers that have data
-    return availableKeys.filter((key) => layerHasData[key]);
-  }, [visibleLayerKeys, selectedParcelId, focusBounds, selectedCluster, layerHasData, isOfficerOrAdmin]);
+    // Show every context-relevant layer as a toggle, even before its data
+    // has loaded - hiding no-data layers made the filter panel look empty
+    // and left users unable to see which layers exist. Overlay layers still
+    // only render features once a parcel/district brings their data in.
+    return availableKeys;
+  }, [visibleLayerKeys, selectedParcelId, focusBounds, selectedCluster, isOfficerOrAdmin]);
 
   // Find cluster bounds when selection changes
   useEffect(() => {
@@ -380,7 +410,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showLayerFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>
               {showLayerFilters && (
-                <div className="absolute right-0 top-full mt-1 z-20 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[180px] max-h-[300px] overflow-y-auto">
+                <div className="absolute left-0 top-full mt-1 z-30 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[180px] max-h-[300px] overflow-y-auto">
                   <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
                     {t('unifiedMap.layerFilters')}
                   </p>
@@ -455,6 +485,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           focusBounds={effectiveFocusBounds}
           initialLayerVisibility={layerVisibility}
           onLayerVisibilityChange={setLayerVisibility}
+          clusterOverview={clusterOverviewFC}
+          canViewAdminNotes={isAdmin}
         />
         {overlayElement && (
           <div className="absolute inset-0 z-20 bg-surface">

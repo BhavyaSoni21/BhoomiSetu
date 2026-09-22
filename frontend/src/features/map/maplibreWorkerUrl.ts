@@ -1,5 +1,14 @@
 import { setWorkerUrl } from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?worker&url';
+// maplibre-gl 4.7.1's csp worker (dist/maplibre-gl-csp-worker.js) is a
+// self-contained classic script with no ES imports, so a plain `?url` serves
+// it verbatim as a static asset. `?worker&url` instead routes it through
+// Vite's worker pipeline, which in dev re-emits it as an ES module - and
+// maplibre loads the worker with a classic `new Worker(url)`, so that ES
+// module throws "Cannot use import statement outside a module" and every
+// GeoJSON layer (parcels, overlays, clusters) silently fails to tile. Plain
+// `?url` avoids that transform. (The `?worker&url` note below was written for
+// a maplibre v6 upgrade that isn't the version actually installed here.)
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?url';
 
 // KNOWN_RISKS.md CRIT-1 (maplibre-gl 4.7.1 -> 6.9.0 upgrade): as of v5/v6,
 // maplibre-gl no longer reliably auto-detects its own worker script's URL

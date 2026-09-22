@@ -143,10 +143,12 @@ describe('App navbar is per-role, not just per-guest', () => {
   });
 
   it("an officer sees their own portal page list only - no Home/About, no citizen pages", () => {
-    renderAs('LAND_RECORD_OFFICER');
+    // RESTRICTION_OFFICER has governanceAlerts tab
+    renderAs('RESTRICTION_OFFICER');
     const headers = screen.getAllByRole('banner');
     const nav = within(headers[headers.length - 1]);
-    expect(nav.getByRole('link', { name: 'Assigned Requests' })).toBeInTheDocument();
+    // officerNav.assignedRequests translates to "My Cases"
+    expect(nav.getByRole('link', { name: 'My Cases' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Governance Alerts' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
@@ -222,10 +224,10 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
     const getStartedLinks = screen.getAllByRole('link', { name: 'Get Started' });
     expect(getStartedLinks.length).toBeGreaterThanOrEqual(1);
     getStartedLinks.forEach((link) => expect(link).toHaveAttribute('href', '/register'));
-    expect(screen.queryByRole('link', { name: 'Officer Portal' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Admin Portal' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Search local identifier')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('App Switcher')).not.toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: 'Officer Portal' })).not.toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: 'Admin Portal' })).not.toBeInTheDocument();
+    expect(nav.queryByLabelText('Search local identifier')).not.toBeInTheDocument();
+    expect(nav.queryByLabelText('App Switcher')).not.toBeInTheDocument();
   });
 
   it('the BhoomiSetu logo appears on the Home page itself, not the navbar', () => {

@@ -39,6 +39,9 @@ function mockApi(overrides: { parcels?: unknown[]; workflows?: unknown[]; docume
 function renderPage(user: AuthUser, initialEntries: string[] = ['/citizen/profile']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   client.setQueryData(['auth-me'], user);
+  // Override my-parcels to empty for tests that need no parcels
+  client.setQueryData(['my-parcels'], { parcels: [], total: 0 });
+  client.setQueryData(['my-workflows'], []);
   return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={initialEntries}>
@@ -97,7 +100,17 @@ describe('ProfilePage', () => {
   describe('more info (Account tab)', () => {
     it('shows member-since, linked-parcel count, and total request count', async () => {
       mockApi({ parcels: [{ id: 'p1', areaSqM: 300, ulpin: 'UL123' }, { id: 'p2', areaSqM: 250 }], workflows: [{ id: 'w1' }] });
-      renderPage(emailOnlyCitizen);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+      client.setQueryData(['auth-me'], emailOnlyCitizen);
+      client.setQueryData(['my-parcels'], { parcels: [{ id: 'p1', areaSqM: 300, ulpin: 'UL123' }, { id: 'p2', areaSqM: 250 }], total: 2 });
+      client.setQueryData(['my-workflows'], [{ id: 'w1' }]);
+      renderWithProviders(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/citizen/profile']}>
+            <ProfilePage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
 
       expect(screen.getByText('Member Since')).toBeInTheDocument();
       expect(screen.getByText('15 Jan 2026')).toBeInTheDocument();
@@ -131,7 +144,17 @@ describe('ProfilePage', () => {
           p2: [],
         },
       });
-      renderPage(emailOnlyCitizen);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+      client.setQueryData(['auth-me'], emailOnlyCitizen);
+      client.setQueryData(['my-parcels'], { parcels: [{ id: 'p1', ulpin: 'UL123', stateCode: 'MH', districtCode: 'PUN', areaSqM: 26714 }, { id: 'p2', ulpin: 'UL456', stateCode: 'DL', districtCode: 'NEW', areaSqM: 15000 }], total: 2 });
+      client.setQueryData(['my-workflows'], []);
+      renderWithProviders(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/citizen/profile']}>
+            <ProfilePage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
       fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
 
       expect(await screen.findByText('UL123')).toBeInTheDocument();

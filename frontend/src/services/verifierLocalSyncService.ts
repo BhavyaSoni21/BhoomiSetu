@@ -10,9 +10,13 @@ export interface LocalEvidenceRecord {
   notes?: string | null;
   task_id?: string | null;
   photo: File | null;
+  upload_state?: 'pending' | 'uploading' | 'uploaded' | 'failed';
+  upload_progress?: number;
+  retry_count?: number;
 }
 
 const STORAGE_KEY = 'bhoomisetu_verifier_local_evidence';
+const MAX_RETRIES = 3;
 
 export function getLocalQueue(): LocalEvidenceRecord[] {
   try {
@@ -48,6 +52,9 @@ export function getLocalQueue(): LocalEvidenceRecord[] {
         notes: item.notes,
         task_id: item.task_id,
         photo,
+        upload_state: item.upload_state || 'pending',
+        upload_progress: item.upload_progress || 0,
+        retry_count: item.retry_count || 0,
       };
     });
   } catch {
@@ -74,7 +81,6 @@ export async function saveLocalEvidence(record: LocalEvidenceRecord): Promise<vo
     }
     serialized.photo = null;
 
-    const existing = getLocalQueue();
     const existingSerialized = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     existingSerialized.push(serialized);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existingSerialized));
@@ -91,6 +97,43 @@ export function clearLocalQueue(): void {
   }
 }
 
+export function updateLocalEvidence(index: number, updates: Partial<LocalEvidenceRecord>): void {
+  try {
+    const existing = getLocalQueue();
+    if (index >= 0 && index < existing.length) {
+      existing[index] = { ...existing[index], ...updates };
+      const serialized = existing.map(item => {
+        let s: any = { ...item };
+        if (item.photo) {
+          // Don't re-serialize photo, keep existing data_url
+        }
+        s.photo = null;
+        return s;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+    }
+  } catch {
+    // Silently fail
+  }
+}
+
+export function removeLocalEvidence(index: number): void {
+  try {
+    const existing = getLocalQueue();
+    if (index >= 0 && index < existing.length) {
+      existing.splice(index, 1);
+      const serialized = existing.map(item => {
+        let s: any = { ...item };
+        s.photo = null;
+        return s;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+    }
+  } catch {
+    // Silently fail
+  }
+}
+
 export function isOnline(): boolean {
   return navigator.onLine;
 }
@@ -102,4 +145,94 @@ export function subscribeToConnectivity(callback: () => void): () => void {
     window.removeEventListener('online', callback);
     window.removeEventListener('offline', callback);
   };
+}
+
+// Automatic sync when online - processes queue with retry logic
+export async function autoSyncQueue(
+  apiService: any,
+  onProgress?: (synced: number, failed: number, total: number) => void
+): Promise<{ synced: number; failed: number }> {
+  if (!isOnline()) {
+    return { synced: 0, failed: 0 };
+  }
+
+  const queue = getLocalQueue();
+  const pending = queue.filter(r => r.upload_state !== 'uploaded');
+  if (pending.length === 0) {
+    return { synced: 0, failed: 0 };
+  }
+
+  let synced = 0;
+  let failed = 0;
+
+  for (let i = 0; i < pending.length; i++) {
+    const record = pending[i];
+    const originalIndex = queue.indexOf(record);
+
+    try {
+      // Update progress
+      updateLocalEvidence(originalIndex, { upload_state: 'uploading', upload_progress: 0 });
+
+      const formData = new FormData();
+      if (record.photo) {
+        formData.append('photo', record.photo);
+      }
+      formData.append('latitude', String(record.latitude));
+      formData.append('longitude', String(record.longitude));
+      if (record.accuracy_m != null) formData.append('accuracy_m', String(record.accuracy_m));
+      formData.append('captured_at', record.captured_at || new Date().toISOString());
+      if (record.photo_hash) formData.append('photo_hash', record.photo_hash);
+      if (record.sequence != null) formData.append('sequence', String(record.sequence));
+      if (record.notes) formData.append('notes', record.notes);
+      if (record.task_id) formData.append('task_id', record.task_id);
+
+      const response = await apiService.post(`/cases/${record.case_id}/evidence/capture`, formData, {
+        headers: { 'Content-Type': undefined },
+        onUploadProgress: (progressEvent: any) => {
+          const progress = progressEvent.total ? Math.round((progressEvent.loaded * 100) / progressEvent.total) : 0;
+          updateLocalEvidence(originalIndex, { upload_progress: progress });
+        },
+      });
+
+      if (response.data?.evidence_id) {
+        updateLocalEvidence(originalIndex, {
+          upload_state: 'uploaded',
+          upload_progress: 100,
+        });
+        synced++;
+      } else {
+        throw new Error('No evidence_id returned');
+      }
+    } catch (err) {
+      const retryCount = (record.retry_count || 0) + 1;
+      if (retryCount <= MAX_RETRIES) {
+        updateLocalEvidence(originalIndex, {
+          upload_state: 'failed',
+          upload_progress: 0,
+          retry_count: retryCount,
+        });
+        // Will retry on next autoSync
+      } else {
+        updateLocalEvidence(originalIndex, {
+          upload_state: 'failed',
+          upload_progress: 0,
+          retry_count: retryCount,
+        });
+        failed++;
+      }
+    }
+
+    onProgress?.(synced, failed, pending.length);
+  }
+
+  // Clean up uploaded items
+  const remaining = getLocalQueue().filter(r => r.upload_state !== 'uploaded');
+  const serialized = remaining.map(item => {
+    let s: any = { ...item };
+    s.photo = null;
+    return s;
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+
+  return { synced, failed };
 }

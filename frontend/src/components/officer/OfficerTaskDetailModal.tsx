@@ -4,7 +4,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import { CaseOut, DepartmentTaskOut, CaseTimelineEventOut, ApplicationOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn } from '../../types/aiFlow';
 import { Parcel360Response } from '../../types/parcel360';
 import apiService from '../../services/apiService';
-import { X, User, Send, ShieldCheck, Download, MapPin, UserCheck, AlertCircle, FileText } from 'lucide-react';
+import { X, User, Send, ShieldCheck, Download, MapPin, UserCheck, AlertCircle, FileText, Clock, User as UserIcon, Package, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface OfficerTaskDetailModalProps {
   taskId: string;
@@ -403,6 +403,36 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                         <FileText className="w-4 h-4" />
                         {checklistMutation.isPending ? t('officerTaskDetail.submittingChecklist', 'Submitting...') : t('officerTaskDetail.submitChecklist', 'Submit Verification Checklist')}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Verifier Assignment (§29) */}
+                  {needsVerification && task.status !== 'COMPLETED' && (
+                    <div className="gov-card p-4">
+                      <h3 className="font-heading font-bold text-sm text-text-heading mb-3 flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-brand-900" />
+                        {t('officerTaskDetail.assignVerifierHeading', 'Assign Field Verifier')}
+                      </h3>
+                      <AssignVerifierTask
+                        taskId={taskId}
+                        caseId={caseId}
+                        assignedVerifierId={task.assigned_verifier_id}
+                        onAssigned={() => queryClient.invalidateQueries({ queryKey: ['task', taskId] })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Verifier Findings & Evidence Review (§33, §5.6) */}
+                  {needsVerification && task.assigned_verifier_id && (
+                    <div className="gov-card p-4">
+                      <h3 className="font-heading font-bold text-sm text-text-heading mb-3 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-brand-900" />
+                        {t('officerTaskDetail.verifierFindingsHeading', 'Verifier Findings & Evidence')}
+                      </h3>
+                      <VerifierFindingsTask
+                        caseId={caseId}
+                        taskId={taskId}
+                      />
                     </div>
                   )}
 

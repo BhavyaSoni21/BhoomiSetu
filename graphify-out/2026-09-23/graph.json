@@ -7671,7 +7671,7 @@
       "file_type": "code",
       "norm_label": "basemap",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L187"
+      "source_location": "L185"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_layerkey",
@@ -7684,7 +7684,7 @@
       "file_type": "code",
       "norm_label": "layerkey",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L42"
+      "source_location": "L40"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_mapcomponentprops",
@@ -28991,7 +28991,7 @@
       "file_type": "code",
       "norm_label": "boundsoffeatures()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L199"
+      "source_location": "L197"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_ensurelayer",
@@ -29003,7 +29003,7 @@
       "file_type": "code",
       "norm_label": "ensurelayer()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L221"
+      "source_location": "L219"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_escapehtml",
@@ -29015,7 +29015,7 @@
       "file_type": "code",
       "norm_label": "escapehtml()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L189"
+      "source_location": "L187"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_mapcomponent",
@@ -29027,7 +29027,7 @@
       "file_type": "code",
       "norm_label": "mapcomponent()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L238"
+      "source_location": "L236"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_mapcomponent_usespatiallayer",
@@ -29039,7 +29039,7 @@
       "file_type": "code",
       "norm_label": "usespatiallayer()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L353"
+      "source_location": "L350"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_setsourcedata",
@@ -29051,7 +29051,7 @@
       "file_type": "code",
       "norm_label": "setsourcedata()",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L230"
+      "source_location": "L228"
     },
     {
       "id": "frontend_src_types_parcel_parseparcelgeometry",
@@ -59174,7 +59174,7 @@
       "source_location": "L1"
     },
     {
-      "id": "frontend_src_features_map_unifiedmapwrapper_rationale_223",
+      "id": "frontend_src_features_map_unifiedmapwrapper_rationale_220",
       "label": "TODO: This would need the selected parcel's context to get district",
       "_origin": "ast",
       "community": 59,
@@ -59182,7 +59182,7 @@
       "file_type": "rationale",
       "norm_label": "todo: this would need the selected parcel's context to get district",
       "source_file": "frontend/src/features/map/UnifiedMapWrapper.tsx",
-      "source_location": "L223"
+      "source_location": "L220"
     },
     {
       "id": "frontend_src_features_auth_contactmethodcard",
@@ -64463,7 +64463,7 @@
       "file_type": "code",
       "norm_label": "base_style",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L109"
+      "source_location": "L107"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_default_layer_visibility",
@@ -64474,7 +64474,7 @@
       "file_type": "code",
       "norm_label": "default_layer_visibility",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L81"
+      "source_location": "L79"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_default_state_colors",
@@ -64485,7 +64485,7 @@
       "file_type": "code",
       "norm_label": "default_state_colors",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L235"
+      "source_location": "L233"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_empty_fc",
@@ -64496,7 +64496,7 @@
       "file_type": "code",
       "norm_label": "empty_fc",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L98"
+      "source_location": "L96"
     },
     {
       "id": "frontend_src_features_map_mapcomponent_layer_keys",
@@ -64507,7 +64507,7 @@
       "file_type": "code",
       "norm_label": "layer_keys",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L61"
+      "source_location": "L59"
     },
     {
       "id": "frontend_src_features_map_maplibreworkerurl",
@@ -94186,7 +94186,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L254",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -94198,7 +94198,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L392",
+      "source_location": "L387",
       "weight": 1.0
     },
     {
@@ -94210,7 +94210,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L660",
+      "source_location": "L655",
       "weight": 1.0
     },
     {
@@ -94222,7 +94222,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L724",
+      "source_location": "L719",
       "weight": 1.0
     },
     {
@@ -94234,7 +94234,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L726",
+      "source_location": "L721",
       "weight": 1.0
     },
     {
@@ -94246,7 +94246,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L729",
+      "source_location": "L724",
       "weight": 1.0
     },
     {
@@ -96274,7 +96274,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L353",
+      "source_location": "L350",
       "weight": 1.0
     },
     {
@@ -185844,7 +185844,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L109",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -185866,7 +185866,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L187",
+      "source_location": "L185",
       "weight": 1.0
     },
     {
@@ -185877,7 +185877,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L189",
+      "source_location": "L187",
       "weight": 1.0
     },
     {
@@ -185888,7 +185888,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L199",
+      "source_location": "L197",
       "weight": 1.0
     },
     {
@@ -185899,7 +185899,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L221",
+      "source_location": "L219",
       "weight": 1.0
     },
     {
@@ -185910,7 +185910,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L230",
+      "source_location": "L228",
       "weight": 1.0
     },
     {
@@ -185921,7 +185921,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L235",
+      "source_location": "L233",
       "weight": 1.0
     },
     {
@@ -185932,7 +185932,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L238",
+      "source_location": "L236",
       "weight": 1.0
     },
     {
@@ -185943,7 +185943,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L42",
+      "source_location": "L40",
       "weight": 1.0
     },
     {
@@ -185954,7 +185954,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L61",
+      "source_location": "L59",
       "weight": 1.0
     },
     {
@@ -185965,7 +185965,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L81",
+      "source_location": "L79",
       "weight": 1.0
     },
     {
@@ -185976,7 +185976,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/MapComponent.tsx",
-      "source_location": "L98",
+      "source_location": "L96",
       "weight": 1.0
     },
     {
@@ -208627,14 +208627,14 @@
       "weight": 1.0
     },
     {
-      "source": "frontend_src_features_map_unifiedmapwrapper_rationale_223",
+      "source": "frontend_src_features_map_unifiedmapwrapper_rationale_220",
       "target": "frontend_src_features_map_unifiedmapwrapper",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/map/UnifiedMapWrapper.tsx",
-      "source_location": "L223",
+      "source_location": "L220",
       "weight": 1.0
     },
     {

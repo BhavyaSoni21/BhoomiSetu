@@ -260,17 +260,20 @@ function renderStatsCards(department: string, data: StatsData) {
 
   return cards.map((card, index) => (
     <div key={index} className="gov-card p-5 transition hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-          {card.label}
-        </span>
+      <div className="flex items-start justify-between">
+        {/* Label + value share one wrapper so each stat reads as a unit. */}
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            {card.label}
+          </span>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-heading font-bold">{card.value}</span>
+            <span className="text-xs font-mono font-semibold">{card.subLabel}</span>
+          </div>
+        </div>
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${card.bgColor} ${card.color}`}>
           {card.icon}
         </div>
-      </div>
-      <div className="mt-4 flex items-baseline gap-2">
-        <span className="text-3xl font-heading font-bold">{card.value}</span>
-        <span className="text-xs font-mono font-semibold">{card.subLabel}</span>
       </div>
       {card.link && (
         <Link
@@ -358,6 +361,9 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
             <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">
               {t('officerDashboard.consoleHeadingPrefix')}: {user?.name || t('officerDashboard.defaultOfficerName')}
             </h1>
+            <span className="sr-only">
+              Welcome, {user?.name} ({ROLE_LABELS[user?.role as OfficerRole] ?? t('officerDashboard.defaultRoleLabel')})
+            </span>
             <p className="text-white/80 text-sm sm:text-base max-w-2xl leading-relaxed">
               {t('officerDashboard.consoleSubtitle')}
             </p>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw, MapPin, UserCheck } from 'lucide-react';
+import { Check, X as XIcon, AlertCircle, AlertTriangle, MapPinned, RotateCcw, MapPin, UserCheck, Clock, User, Package, CheckCircle2, AlertTriangle as AlertTriangleIcon, FileText, MapPin as MapPinIcon, Eye, Download } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck, FieldEvidence } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
@@ -540,15 +540,23 @@ const AdminDecidedStepRow: React.FC<AdminDecidedStepRowProps> = ({ workflowId, s
   );
 };
 
-// Admin-only (PATCH /workflows/{id}/assign-verifier requires ADMIN) - hands
-// this workflow off to an Authorized Field Verifier for a site visit.
-// Reuses the same admin-users listing UserManagement.tsx is built on
-// (GET /users), filtered client-side to just the VERIFIER role rather than
-// adding a new lower-privilege listing endpoint.
-const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: string | null; requiresFieldVerification: boolean }> = ({
+interface AssignVerifierControlProps {
+  workflowId: string;
+  assignedVerifierId: string | null;
+  requiresFieldVerification: boolean;
+  officerMode?: boolean;
+  taskId?: string;
+}
+
+// Officer + Admin verifier assignment control.
+// Reuses the same admin-users listing (GET /users), filtered client-side
+// to just the VERIFIER role. For officers, includes workload/availability info.
+const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
   workflowId,
   assignedVerifierId,
   requiresFieldVerification,
+  officerMode = false,
+  taskId,
 }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -556,8 +564,19 @@ const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: 
   const verifiers = users.filter((u) => u.role === 'VERIFIER');
 
   const assignMutation = useMutation(
-    async (verifierId: string) => (await apiService.patch(`/workflows/${workflowId}/assign-verifier`, { verifierId })).data as Workflow,
-    { onSuccess: () => queryClient.invalidateQueries(['workflow', workflowId]) },
+    async (verifierId: string) => {
+      const endpoint = taskId
+        ? `/cases/${taskId}/assign-verifier`
+        : `/workflows/${workflowId}/assign-verifier`;
+      return (await apiService.patch(endpoint, { verifier_id: verifierId })).data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['workflow', workflowId]);
+        queryClient.invalidateQueries(['case-detail', workflowId]);
+        queryClient.invalidateQueries(['verifier-tasks']);
+      },
+    },
   );
 
   const assignedVerifier = verifiers.find((v) => v.id === assignedVerifierId);
@@ -571,7 +590,29 @@ const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: 
       {!requiresFieldVerification && !assignedVerifier && (
         <p className="text-xs text-ink/50 mb-1.5">{t('officerPortal.verificationNotTypicallyNeeded')}</p>
       )}
-      {assignedVerifier && <p className="text-sm text-ink mb-1.5">{t('officerPortal.currentlyAssignedTo', { name: assignedVerifier.name })}</p>}
+      {assignedVerifier && (
+        <div className="bg-surface p-3 border-2 border-ink/20 mb-3 rounded">
+          <p className="font-bold text-sm text-ink mb-1">{t('officerPortal.currentlyAssignedTo', { name: assignedVerifier.name })}</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-ink/50">{t('verifierPortal.workload')}</span>
+              <div className="font-semibold text-primary">{assignedVerifier.workload || t('verifierPortal.unknown')}</div>
+            </div>
+            <div>
+              <span className="text-ink/50">{t('verifierPortal.assignedArea')}</span>
+              <div className="font-semibold">{assignedVerifier.assigned_area || t('verifierPortal.unknown')}</div>
+            </div>
+            <div>
+              <span className="text-ink/50">{t('verifierPortal.availability')}</span>
+              <div className="font-semibold text-primary">{assignedVerifier.availability || t('verifierPortal.unknown')}</div>
+            </div>
+            <div>
+              <span className="text-ink/50">{t('verifierPortal.activeTasks')}</span>
+              <div className="font-semibold">{assignedVerifier.active_task_count ?? 0}</div>
+            </div>
+          </div>
+        </div>
+      )}
       <select
         value={assignedVerifierId ?? ''}
         onChange={(e) => e.target.value && assignMutation.mutate(e.target.value)}
@@ -582,9 +623,14 @@ const AssignVerifierControl: React.FC<{ workflowId: string; assignedVerifierId: 
           {verifiers.length === 0 ? t('officerPortal.noVerifiersAvailable') : t('officerPortal.selectVerifierPlaceholder')}
         </option>
         {verifiers.map((v) => (
-          <option key={v.id} value={v.id}>{v.name}</option>
+          <option key={v.id} value={v.id}>
+            {v.name} — {t('verifierPortal.workload')}: {v.workload || t('verifierPortal.unknown')} | {t('verifierPortal.area')}: {v.assigned_area || t('verifierPortal.unknown')}
+          </option>
         ))}
       </select>
+      {assignMutation.isLoading && (
+        <p className="text-xs text-primary mt-1">{t('officerPortal.assigningVerifier')}</p>
+      )}
     </div>
   );
 };
@@ -618,10 +664,195 @@ const FieldEvidenceSection: React.FC<{ workflowId: string }> = ({ workflowId }) 
             />
             <p className="mt-1 text-[10px] font-mono text-ink/70">{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</p>
             <p className="text-[10px] text-ink/50">{formatDate(item.capturedAt)}</p>
-            {item.notes && <p className="text-[10px] text-ink/60 italic mt-0.5">&quot;{item.notes}&quot;</p>}
+            {item.notes && <p className="text-[10px] text-ink/60 italic mt-0.5">"{item.notes}"</p>}
           </div>
         ))}
       </div>
+    </div>
+  );
+};
+
+// Officer Verification Review Section (§33, §5.6).
+// Shows verifier identity, visit date/time, GPS status, photo count,
+// findings, description, evidence, and verification report.
+// Works with the unified case workflow (case-based endpoints).
+interface VerifierFindingsSectionProps {
+  workflowId: string;
+  caseId?: string;
+}
+
+const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = ({ workflowId, caseId }) => {
+  const { t } = useTranslation();
+
+  // Try to get case_id from workflow if not provided
+  const { data: workflow } = useQuery(
+    ['workflow', workflowId],
+    async () => (await apiService.get(`/workflows/${workflowId}`)).data,
+    { enabled: !caseId },
+  );
+
+  const effectiveCaseId = caseId || workflow?.caseId;
+
+  const { data: evidence = [], isLoading: evidenceLoading } = useQuery(
+    ['case-evidence', effectiveCaseId],
+    async () => {
+      if (!effectiveCaseId) return [];
+      const response = await apiService.get(`/cases/${effectiveCaseId}/evidence`);
+      return response.data;
+    },
+    { enabled: !!effectiveCaseId },
+  );
+
+  const { data: findingsEvent, isLoading: findingsLoading } = useQuery(
+    ['case-findings', effectiveCaseId],
+    async () => {
+      if (!effectiveCaseId) return null;
+      const response = await apiService.get(`/cases/${effectiveCaseId}/timeline`);
+      const events = response.data;
+      return events.find((e: any) => e.event_type === 'VERIFICATION_SUBMITTED') || null;
+    },
+    { enabled: !!effectiveCaseId },
+  );
+
+  if (!effectiveCaseId) return null;
+
+  const findings = findingsEvent?.event_metadata?.findings || [];
+  const overallFinding = findingsEvent?.event_metadata?.overallFinding;
+  const declarationConfirmed = findingsEvent?.event_metadata?.declarationConfirmed;
+  const verifierId = findingsEvent?.actor_id;
+  const visitDate = findingsEvent?.created_at;
+
+  const hasContent = findings.length > 0 || overallFinding || evidence.length > 0;
+
+  if (!hasContent && !evidenceLoading && !findingsLoading) return null;
+
+  const FINDING_STYLES: Record<string, string> = {
+    SUPPORTED: 'bg-primary/15 text-primary border-primary/50',
+    NOT_VERIFIED: 'bg-secondary/15 text-secondary-strong border-secondary/50',
+    CONTRADICTED: 'bg-orange-100 text-orange-700 border-orange/50',
+    PARTIALLY_VERIFIED: 'bg-accent/20 text-secondary-strong border-accent/50',
+    UNABLE_TO_DETERMINE: 'bg-muted text-ink/50 border-ink/20',
+  };
+
+  const overallStyle = overallFinding ? FINDING_STYLES[overallFinding] || 'bg-muted text-ink/70 border-ink/20' : '';
+
+  return (
+    <div className="border-t-4 border-ink pt-4">
+      <h4 className="font-bold text-xs uppercase tracking-widest text-ink/70 mb-1.5 flex items-center gap-1.5">
+        <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('officerPortal.verifierFindingsLabel', 'Verifier Findings & Evidence Review')}
+      </h4>
+
+      {findingsLoading || evidenceLoading ? (
+        <p className="text-sm text-ink/60">{t('officerPortal.loadingFindings')}</p>
+      ) : (
+        <div className="space-y-4">
+          {/* Verifier Identity & Visit Info */}
+          {verifierId && (
+            <div className="bg-surface p-3 border-2 border-ink/20 rounded">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-ink/50 block">{t('verifierPortal.verifierId')}</span>
+                  <span className="font-semibold text-ink">{verifierId}</span>
+                </div>
+                <div>
+                  <span className="text-ink/50 block">{t('verifierPortal.visitDate')}</span>
+                  <span className="font-semibold text-ink">{visitDate ? formatDate(visitDate) : '—'}</span>
+                </div>
+                <div>
+                  <span className="text-ink/50 block">{t('verifierPortal.gpsStatus')}</span>
+                  <span className="font-semibold text-primary flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                    {t('verifierPortal.gpsCaptured')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-ink/50 block">{t('verifierPortal.photoCount')}</span>
+                  <span className="font-semibold text-ink">{evidence.length}</span>
+                </div>
+              </div>
+              {declarationConfirmed && (
+                <p className="mt-2 text-xs text-primary flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                  {t('verifierPortal.declarationConfirmed')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Overall Finding */}
+          {overallFinding && (
+            <div className="border-2 border-ink bg-surface p-3 rounded">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-xs uppercase tracking-widest text-ink/70">
+                  {t('verifierPortal.overallFinding')}
+                </span>
+                <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${overallStyle}`}>
+                  {overallFinding.replace(/_/g, ' ')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Individual Findings */}
+          {findings.length > 0 && (
+            <div className="space-y-2">
+              <h5 className="font-bold text-xs uppercase tracking-widest text-ink/70">
+                {t('verifierPortal.individualFindings')}
+              </h5>
+              {findings.map((f: any, index: number) => (
+                <div key={index} className="border-2 border-ink/20 bg-surface p-3 rounded">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className="font-semibold text-sm text-ink capitalize">{f.field_name?.replace(/_/g, ' ') || `Field ${index + 1}`}</span>
+                    {f.finding && (
+                      <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${FINDING_STYLES[f.finding] || 'bg-muted text-ink/70 border-ink/20'}`}>
+                        {f.finding.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                  {f.description && (
+                    <p className="text-xs text-ink/80 leading-relaxed">{f.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Evidence Gallery */}
+          {evidence.length > 0 && (
+            <div className="space-y-2">
+              <h5 className="font-bold text-xs uppercase tracking-widest text-ink/70">
+                {t('verifierPortal.fieldEvidenceLabel')} ({evidence.length})
+              </h5>
+              <div className="flex flex-wrap gap-3">
+                {evidence.map((item: any) => (
+                  <div key={item.id} className="w-32">
+                    <AuthenticatedDocumentImage
+                      src={`/cases/${effectiveCaseId}/evidence/${item.id}/photo`}
+                      alt={t('officerPortal.fieldEvidenceAlt')}
+                      className="w-32 h-40 object-cover border-2 border-ink"
+                      zoomable
+                    />
+                    <p className="mt-1 text-[10px] font-mono text-ink/70">{item.latitude?.toFixed(5)}, {item.longitude?.toFixed(5)}</p>
+                    <p className="text-[10px] text-ink/50">{formatDate(item.captured_at)}</p>
+                    {item.accuracy_m && <p className="text-[10px] text-ink/50">±{item.accuracy_m.toFixed(1)}m</p>}
+                    {item.notes && <p className="text-[10px] text-ink/60 italic mt-0.5">"{item.notes}"</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {findingsEvent?.event_metadata?.notes && (
+            <div className="bg-surface p-3 border-2 border-ink/20 rounded">
+              <span className="font-bold text-xs uppercase tracking-widest text-ink/70 block mb-1">
+                {t('verifierPortal.verifierNotes')}
+              </span>
+              <p className="text-xs text-ink/80 italic">"{findingsEvent.event_metadata.notes}"</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -824,7 +1055,20 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
           requiresFieldVerification={workflow.requiresFieldVerification}
         />
       )}
+      {officerDepartment && (
+        <AssignVerifierControl
+          workflowId={workflowId}
+          assignedVerifierId={workflow.assignedVerifierId}
+          requiresFieldVerification={workflow.requiresFieldVerification}
+          officerMode={true}
+          taskId={myStep?.id}
+        />
+      )}
       <FieldEvidenceSection workflowId={workflowId} />
+      {/* Verifier Findings & Evidence Review (unified case workflow) - §33, §5.6 */}
+      {workflow.caseId && (
+        <VerifierFindingsSection workflowId={workflowId} caseId={workflow.caseId} />
+      )}
 
       {/* Scoped to the reviewing officer's own department only (never the
           other 6 departments' records) - the case review panel's job is

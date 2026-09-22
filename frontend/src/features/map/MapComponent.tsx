@@ -33,6 +33,10 @@ interface MapComponentProps {
   initialLayerVisibility?: Record<LayerKey, boolean>;
   /** Callback when layer visibility changes (to sync with parent dropdown). */
   onLayerVisibilityChange?: (visibility: Record<LayerKey, boolean>) => void;
+  /** Cluster-overview markers (one Point per cluster, `bounds` in properties) shown only when zoomed out - individual ~200m² parcels are sub-pixel at national zoom, so without these the map looks empty until you zoom into a city. Clicking a marker zooms to that cluster. */
+  clusterOverview?: GeoJSON.FeatureCollection;
+  /** Whether to fetch the ADMIN-only /gis/admin-notes layer. Off for everyone but admins, or the request just 403s. */
+  canViewAdminNotes?: boolean;
 }
 
 type LayerKey =
@@ -244,6 +248,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   focusBounds,
   initialLayerVisibility,
   onLayerVisibilityChange,
+  clusterOverview,
+  canViewAdminNotes = false,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -344,21 +350,23 @@ const MapComponent: React.FC<MapComponentProps> = ({
     { enabled: !!district },
   );
 
-  function useSpatialLayer(layerPath: string) {
+  function useSpatialLayer(layerPath: string, extraEnabled = true) {
     return useQuery<SpatialFeatureCollection>(
       [layerPath, district?.state, district?.district],
       async () => {
         const response = await apiService.get(`/gis/${layerPath}`, { params: { state: district!.state, district: district!.district } });
         return response.data;
       },
-      { enabled: !!district },
+      { enabled: !!district && extraEnabled },
     );
   }
   const { data: zoningFC = EMPTY_FC } = useSpatialLayer('zoning-overlays');
   const { data: restrictionFC = EMPTY_FC } = useSpatialLayer('restriction-zones');
   const { data: infrastructureFC = EMPTY_FC } = useSpatialLayer('infrastructure');
   const { data: changeDetectionFC = EMPTY_FC } = useSpatialLayer('change-detection-events');
-  const { data: adminNotesFC = EMPTY_FC } = useSpatialLayer('admin-notes');
+  // /gis/admin-notes is ADMIN-only server-side; only fetch it as an admin, or
+  // every other role just 403s on parcel select (see canViewAdminNotes prop).
+  const { data: adminNotesFC = EMPTY_FC } = useSpatialLayer('admin-notes', canViewAdminNotes);
 
   // Initialize the map + every source/layer once the container is mounted.
   // The container renders unconditionally (see JSX below) so this ref is
@@ -466,8 +474,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
           'source-layer': 'elevation',
           layout: { visibility: DEFAULT_LAYER_VISIBILITY.zoning ? 'visible' : 'none' },
           paint: {
-            'fill-color': ['interpolate', ['linear'], ['get', 'mean_elevation_m'], 
-              0, '#0d9488', 50, '#16a34a', 100, '#eab308', 200, '#f97316', 500, '#ea580c', 1000, '#dc2626', '#991b1b'],
+            'fill-color': ['interpolate', ['linear'], ['get', 'mean_elevation_m'],
+              0, '#0d9488', 50, '#16a34a', 100, '#eab308', 200, '#f97316', 500, '#ea580c', 1000, '#dc2626'],
             'fill-opacity': 0.3,
           },
         });
@@ -569,6 +577,36 @@ const MapComponent: React.FC<MapComponentProps> = ({
         layout: { visibility: DEFAULT_LAYER_VISIBILITY.cluster ? 'visible' : 'none' },
         paint: { 'line-color': '#334155', 'line-width': 2.5, 'line-opacity': 1 },
       });
+
+      // Cluster overview: a dot per cluster, shown only when zoomed out
+      // (maxzoom 11). Individual ~200m² parcels are sub-pixel at national
+      // zoom, so without these the map looks empty until you zoom into a
+      // city; clicking a dot zooms to that cluster where parcels take over.
+      ensureLayer(map, 'cluster-overview-source', {
+        id: 'cluster-overview-layer',
+        type: 'circle',
+        source: 'cluster-overview-source',
+        maxzoom: 11,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 10, 13],
+          'circle-color': '#2563eb',
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+      // (No text label layer: BASE_STYLE ships no `glyphs`, so a symbol
+      // layer with text-field would fail to add. The dot alone is enough.)
+      map.on('click', 'cluster-overview-layer', (e) => {
+        const p = e.features?.[0]?.properties;
+        if (!p) return;
+        map.fitBounds(
+          [[Number(p.minLng), Number(p.minLat)], [Number(p.maxLng), Number(p.maxLat)]],
+          { padding: 60, maxZoom: 16 },
+        );
+      });
+      map.on('mouseenter', 'cluster-overview-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'cluster-overview-layer', () => { map.getCanvas().style.cursor = ''; });
 
       // Level 3 / 2 / 1: nearby, adjacent, selected - most prominent on top.
       ensureLayer(map, 'nearby-source', {
@@ -721,6 +759,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
       })),
     });
   }, [districtParcels, mapReady]);
+
+  // Cluster-overview dots (low-zoom navigation, see the layer setup above).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    setSourceData(map, 'cluster-overview-source', clusterOverview ?? EMPTY_FC);
+  }, [clusterOverview, mapReady]);
 
   // Selected / adjacent / nearby / cluster layers, plus the buffered
   // contextual zoom.

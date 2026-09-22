@@ -177,6 +177,115 @@ class CropRecord(Base):
     remark: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 
+# --- Phase 7: Historical State Preservation (§41) ---
+# Attribute-level history tables for each domain. These maintain
+# the full history of changes while the current state lives in
+# the department_record_* tables. Never overwrite history; new
+# values go into history tables first (§40, §41, §64).
+
+
+class TaxHistoryRecord(Base):
+    """Tax events history - records every change to tax assessment,
+    payment, and status per parcel per year (§41)."""
+
+    __tablename__ = "tax_history_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    year: Mapped[int] = mapped_column(index=True)
+    assessed_value: Mapped[float] = mapped_column(Numeric(14, 2))
+    annual_tax_amount: Mapped[float] = mapped_column(Numeric(10, 2))
+    tax_status: Mapped[str] = mapped_column(String(20))  # PAID | PENDING | OVERDUE
+    outstanding_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    last_payment_date: Mapped[date | None] = mapped_column(nullable=True)
+    market_value_reference: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    valuation_date: Mapped[date | None] = mapped_column(nullable=True)
+    valuation_source: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    change_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class DisputeHistoryRecord(Base):
+    """Dispute history - records the full lifecycle of a dispute
+    from filing through resolution (§42, §41)."""
+
+    __tablename__ = "dispute_history_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    dispute_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    has_active_dispute: Mapped[bool] = mapped_column(default=False)
+    dispute_type: Mapped[str | None] = mapped_column(String(30), nullable=True)  # OWNERSHIP | BOUNDARY | INHERITANCE | ENCROACHMENT
+    case_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # FILED | UNDER_REVIEW | RESOLVED | DISMISSED
+    filing_date: Mapped[date | None] = mapped_column(nullable=True)
+    resolution_date: Mapped[date | None] = mapped_column(nullable=True)
+    resolution_summary: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    resolution_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    changed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class EncumbranceHistoryRecord(Base):
+    """Encumbrance history - records all encumbrances on a parcel
+    including mortgages, liens, charges (§41)."""
+
+    __tablename__ = "encumbrance_history_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    has_encumbrance: Mapped[bool] = mapped_column(default=False)
+    encumbrance_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # MORTGAGE | LIEN | CHARGE
+    lender_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    instrument_reference: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    registered_date: Mapped[date | None] = mapped_column(nullable=True)
+    discharge_date: Mapped[date | None] = mapped_column(nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    change_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class RestrictionHistoryRecord(Base):
+    """Restriction history - records all restrictions on a parcel
+    including environmental zones, protected areas, flood-prone areas (§41)."""
+
+    __tablename__ = "restriction_history_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    has_restriction: Mapped[bool] = mapped_column(default=False)
+    restriction_type: Mapped[str | None] = mapped_column(String(30), nullable=True)  # ENVIRONMENTAL | PROTECTED_AREA | FLOOD_PRONE
+    restriction_details: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    imposing_authority: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    change_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class RegistrationHistoryRecord(Base):
+    """Registration history - records all registration transactions
+    and status changes for a parcel (§41)."""
+
+    __tablename__ = "registration_history_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    registration_status: Mapped[str] = mapped_column(String(20))  # REGISTERED | PENDING | NOT_REGISTERED
+    registration_number: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    registration_date: Mapped[date | None] = mapped_column(nullable=True)
+    last_transaction_type: Mapped[str | None] = mapped_column(String(30), nullable=True)  # SALE | GIFT | INHERITANCE | PARTITION
+    last_transaction_date: Mapped[date | None] = mapped_column(nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    change_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
 class ParcelHistoricalState(Base):
     """Attribute-level history, per year, deliberately NOT geometry (the
     parcel's boundary shape is never re-versioned - only the values other

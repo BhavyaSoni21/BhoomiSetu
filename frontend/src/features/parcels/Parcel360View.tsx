@@ -505,6 +505,9 @@ const Parcel360View: React.FC = () => {
                     geometry: JSON.stringify(spatial.geometry),
                   }]}
                   selectedParcelId={parcel360.parcel_id}
+                  // Zoom straight to this parcel's own bounds so opening a
+                  // 360 view lands on the parcel, not the all-India default.
+                  fitToParcels
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}

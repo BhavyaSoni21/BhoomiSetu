@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { server } from '../../mocks/server';
 import { http, HttpResponse } from 'msw';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/utils';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RaiseRequestPage from './RaiseRequestPage';
 import { AuthUser } from '../../features/auth/auth';
-
+import { testQueryClient } from '../../test/setup';
 
 
 const citizen: AuthUser = { id: 'c1', email: 'citizen1@example.com', name: 'A Citizen', role: 'CITIZEN' };
@@ -42,13 +42,21 @@ const parcelTwo = {
   status: 'Registered',
 };
 
-function renderPage() {
+function createTestClient(overrides: Record<string, any> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(['auth-me'], citizen);
+  client.setQueryData(['my-parcels'], { parcels: [parcelOne, parcelTwo], total: 2 });
+  Object.entries(overrides).forEach(([key, data]) => {
+    client.setQueryData(JSON.parse(key), data);
+  });
+  return client;
+}
+
+function renderWithClient(client: QueryClient) {
   return renderWithProviders(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-          <LocationProbe />
+        <LocationProbe />
         <RaiseRequestPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -56,16 +64,14 @@ function renderPage() {
 }
 
 describe('RaiseRequestPage', () => {
-  beforeEach(() => {
-  });
-
   it('shows a no-parcels message and Link Parcel CTA when citizen has no registered parcels', async () => {
     server.use(http.get('*', () => HttpResponse.json({ parcels: [], total: 0 })));
-    renderPage();
+    const client = createTestClient({ '["my-parcels"]': { parcels: [], total: 0 } });
+    renderWithClient(client);
 
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
     expect(screen.getByText(/Link a Parcel to Get Started/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Select Verified Parcel/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Select a Parcel/i)).not.toBeInTheDocument();
     expect(await screen.findByTestId('location')).toHaveTextContent('/citizen/parcels?from=raise-request');
   });
 
@@ -83,17 +89,19 @@ describe('RaiseRequestPage', () => {
       status: 'Pending Verification',
     };
     server.use(http.get('*', () => HttpResponse.json({ parcels: [pendingParcel], total: 1 })));
-    renderPage();
+    const client = createTestClient({ '["my-parcels"]': { parcels: [pendingParcel], total: 1 } });
+    renderWithClient(client);
 
     expect(await screen.findByText(/No registered parcels on your profile/i)).toBeInTheDocument();
-    expect(screen.getByText(/currently under officer review/i)).toBeInTheDocument();
+    expect(screen.getByText(/parcel\(s\) are pending verification/i)).toBeInTheDocument();
   });
 
   it("lists only the citizen's registered parcels in the dropdown", async () => {
     server.use(http.get('*', () => HttpResponse.json({ parcels: [parcelOne, parcelTwo], total: 2 })));
-    renderPage();
+    const client = createTestClient();
+    renderWithClient(client);
 
-    const select = await screen.findByLabelText(/Select Verified Parcel/i);
+    const select = await screen.findByLabelText(/Select a Parcel/i);
     expect(select).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /MH-AH-SH-101\/1/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /MH-AH-SH-102\/2/i })).toBeInTheDocument();
@@ -101,14 +109,15 @@ describe('RaiseRequestPage', () => {
 
   it('selecting a parcel reveals the service actions and shows parcel summary', async () => {
     server.use(http.get('*', () => HttpResponse.json({ parcels: [parcelOne, parcelTwo], total: 2 })));
-    renderPage();
+    const client = createTestClient();
+    renderWithClient(client);
 
-    const select = await screen.findByLabelText(/Select Verified Parcel/i);
+    const select = await screen.findByLabelText(/Select a Parcel/i);
     fireEvent.change(select, { target: { value: 'p1' } });
 
     expect(screen.getAllByText(/MH-AH-SH-101\/1/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Verified Holding/i)).toBeInTheDocument();
+    expect(screen.getByText(/Active Holding/i)).toBeInTheDocument();
     expect(screen.getAllByText(/500/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Certified RoR \/ 7\/12 Extract/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Certified RoR \/ 7-12/i).length).toBeGreaterThanOrEqual(1);
   });
 });

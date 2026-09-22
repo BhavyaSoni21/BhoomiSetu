@@ -30,12 +30,17 @@ from app.models.notification import Notification  # noqa: F401
 from app.models.parcel import (  # noqa: F401
     CitizenParcel,
     CropRecord,
+    DisputeHistoryRecord,
+    EncumbranceHistoryRecord,
     OwnershipHistoryRecord,
     Parcel,
     ParcelDocument,
     ParcelHistoricalState,
     ParcelIdentifier,
     ParcelNeighbour,
+    RegistrationHistoryRecord,
+    RestrictionHistoryRecord,
+    TaxHistoryRecord,
 )
 from app.models.pending_registration import PendingRegistration  # noqa: F401
 from app.models.profile_field import ProfileField  # noqa: F401

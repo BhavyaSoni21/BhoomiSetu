@@ -13,28 +13,101 @@ import apiService from '../../services/apiService';
 // mounts inside the Add/Edit form (see below), so it needs the same inert
 // mock LayerGeometryDrawMap.test.tsx uses for its own maplibre-gl coverage;
 // this file's tests only exercise the surrounding form fields, not drawing.
-vi.mock('maplibre-gl', () => ({
-  Map: vi.fn().mockImplementation(() => ({
-    addControl: vi.fn(),
-    isStyleLoaded: vi.fn(() => true),
-    once: vi.fn(),
-    on: vi.fn(),
-    remove: vi.fn(),
-    fitBounds: vi.fn(),
-  })),
-  NavigationControl: vi.fn(),
-  LngLatBounds: vi.fn().mockImplementation(() => ({
-    extend: vi.fn(),
-    isEmpty: vi.fn(() => true),
-  })),
-}));
-vi.mock('@mapbox/mapbox-gl-draw', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    getAll: vi.fn(() => ({ type: 'FeatureCollection', features: [] })),
-    add: vi.fn(),
-    delete: vi.fn(),
-  })),
-}));
+const mockMapInstances: any[] = [];
+
+vi.mock('maplibre-gl', () => {
+  class MockMap {
+    public options: any;
+    public layers: Record<string, any> = {};
+    public sources: Record<string, any> = {};
+    private listeners: Record<string, Function[]> = {};
+
+    constructor(options: any) {
+      this.options = options;
+      mockMapInstances.push(this);
+    }
+    addControl = vi.fn();
+    addSource = vi.fn((id: string, def: any) => {
+      this.sources[id] = {
+        ...def,
+        setData: vi.fn((data: any) => {
+          this.sources[id].data = data;
+        }),
+      };
+    });
+    addLayer = vi.fn((layer: any) => {
+      this.layers[layer.id] = layer;
+    });
+    getLayer = vi.fn((id: string) => this.layers[id]);
+    setLayoutProperty = vi.fn((id: string, prop: string, value: any) => {
+      if (this.layers[id]) this.layers[id][prop] = value;
+    });
+    setFilter = vi.fn();
+    fitBounds = vi.fn();
+    getBounds = vi.fn(() => ({
+      getWest: () => -1,
+      getSouth: () => -1,
+      getEast: () => 1,
+      getNorth: () => 1,
+    }));
+    getSource = vi.fn((id: string) => this.sources[id]);
+    isStyleLoaded = vi.fn(() => true);
+    getCanvas = vi.fn(() => ({ style: {} }));
+    remove = vi.fn();
+    getCenter = vi.fn(() => ({ lng: 0, lat: 0 }));
+    on(event: string, arg2: any, arg3?: any) {
+      const handler = typeof arg2 === 'function' ? arg2 : arg3;
+      this.listeners[event] = this.listeners[event] || [];
+      if (handler) this.listeners[event].push(handler);
+    }
+    trigger(event: string, payload: any) {
+      (this.listeners[event] || []).forEach((h) => h(payload));
+    }
+    once = vi.fn();
+  }
+
+  class MockNavigationControl {}
+  class MockPopup {
+    setLngLat() { return this; }
+    setHTML() { return this; }
+    addTo() { return this; }
+  }
+  class MockLngLatBounds {
+    points: [number, number][] = [];
+    extend(coord: [number, number]) {
+      this.points.push(coord);
+      return this;
+    }
+    isEmpty() {
+      return this.points.length === 0;
+    }
+    getEast() { return this.points.length > 0 ? Math.max(...this.points.map(p => p[0])) : 1; }
+    getWest() { return this.points.length > 0 ? Math.min(...this.points.map(p => p[0])) : -1; }
+    getNorth() { return this.points.length > 0 ? Math.max(...this.points.map(p => p[1])) : 1; }
+    getSouth() { return this.points.length > 0 ? Math.min(...this.points.map(p => p[1])) : -1; }
+  }
+
+  const named = {
+    Map: MockMap,
+    NavigationControl: MockNavigationControl,
+    Popup: MockPopup,
+    LngLatBounds: MockLngLatBounds,
+  };
+  return { ...named, default: named };
+});
+vi.mock('@mapbox/mapbox-gl-draw', () => {
+  class MockDraw {
+    getAll = vi.fn(() => ({ type: 'FeatureCollection', features: [] }));
+    add = vi.fn();
+    delete = vi.fn();
+    deleteAll = vi.fn();
+    changeMode = vi.fn();
+  }
+  return {
+    default: MockDraw,
+    __esModule: true,
+  };
+});
 
 const zoningConfig: LayerTypeConfig = {
   key: 'zoning-overlays',
@@ -90,7 +163,7 @@ describe('MapLayerManagement', () => {
   });
 
   it('creates a new layer via the Add Layer form, parsing the geometry JSON, without a client-editable parcel-ids field', async () => {
-    server.use(http.post('*', () => HttpResponse.json({})));
+    server.use(http.post('*/gis/zoning-overlays', () => HttpResponse.json({})));
     renderPanel();
     await screen.findByText('Downtown Residential');
 
@@ -99,7 +172,7 @@ describe('MapLayerManagement', () => {
     fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'New Zone' } });
     fireEvent.change(screen.getByPlaceholderText('State Code (e.g. MH)'), { target: { value: 'dl' } });
     fireEvent.change(screen.getByPlaceholderText('District'), { target: { value: 'NEW' } });
-    fireEvent.change(screen.getByPlaceholderText(/Geometry - GeoJSON/), {
+    fireEvent.change(screen.getByPlaceholderText(/Enter Polygon geometry/), {
       target: { value: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1],[0,0]]]}' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create Layer' }));
@@ -116,7 +189,7 @@ describe('MapLayerManagement', () => {
     fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Bad Zone' } });
     fireEvent.change(screen.getByPlaceholderText('State Code (e.g. MH)'), { target: { value: 'DL' } });
     fireEvent.change(screen.getByPlaceholderText('District'), { target: { value: 'NEW' } });
-    fireEvent.change(screen.getByPlaceholderText(/Geometry - GeoJSON/), { target: { value: 'not json' } });
+    fireEvent.change(screen.getByPlaceholderText(/Enter Polygon geometry/), { target: { value: 'not json' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create Layer' }));
 
     expect(await screen.findByText('Geometry must be valid JSON (a GeoJSON geometry object).')).toBeInTheDocument();
@@ -125,6 +198,10 @@ describe('MapLayerManagement', () => {
 
   it('surfaces the backend geometry-type validation message on create', async () => {
     server.resetHandlers();
+    server.use(http.get('*/gis/zoning-overlays', () => HttpResponse.json(featureCollection)));
+    server.use(http.post('*/gis/zoning-overlays', () =>
+      HttpResponse.json({ message: 'geometry.type must be one of: Polygon' }, { status: 400 })
+    ));
     renderPanel();
     await screen.findByText('Downtown Residential');
 
@@ -132,20 +209,16 @@ describe('MapLayerManagement', () => {
     fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Bad Zone' } });
     fireEvent.change(screen.getByPlaceholderText('State Code (e.g. MH)'), { target: { value: 'DL' } });
     fireEvent.change(screen.getByPlaceholderText('District'), { target: { value: 'NEW' } });
-    fireEvent.change(screen.getByPlaceholderText(/Geometry - GeoJSON/), {
+    fireEvent.change(screen.getByPlaceholderText(/Enter Polygon geometry/), {
       target: { value: '{"type":"Point","coordinates":[0,0]}' },
     });
-    // Mock backend validation error for wrong geometry type
-    server.use(http.post('*/gis/zoning-overlays', () =>
-      HttpResponse.json({ message: 'geometry.type must be one of: Polygon' }, { status: 400 })
-    ));
     fireEvent.click(screen.getByRole('button', { name: 'Create Layer' }));
 
     expect(await screen.findByText('geometry.type must be one of: Polygon')).toBeInTheDocument();
   });
 
   it('edits a layer in place, prefilling its current fields', async () => {
-    server.use(http.patch('*', () => HttpResponse.json({})));
+    server.use(http.patch('*/gis/zoning-overlays/*', () => HttpResponse.json({})));
     renderPanel();
     await screen.findByText('Downtown Residential');
 
@@ -159,7 +232,7 @@ describe('MapLayerManagement', () => {
   });
 
   it('deletes a layer after confirming', async () => {
-    server.use(http.delete('*', () => HttpResponse.json(undefined)));
+    server.use(http.delete('*/gis/zoning-overlays/*', () => HttpResponse.json(undefined)));
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPanel();
     await screen.findByText('Downtown Residential');
@@ -222,7 +295,7 @@ describe('MapLayerManagement', () => {
     });
 
     it('creates a note without a type field, including notes text', async () => {
-      server.use(http.post('*', () => HttpResponse.json({})));
+      server.use(http.post('*/gis/admin-notes', () => HttpResponse.json({})));
       renderAdminNotesPanel({ type: 'FeatureCollection', features: [] });
       await screen.findByText('No layers yet.');
 
@@ -231,7 +304,7 @@ describe('MapLayerManagement', () => {
       fireEvent.change(screen.getByPlaceholderText('Notes'), { target: { value: 'Possible boundary dispute' } });
       fireEvent.change(screen.getByPlaceholderText('State Code (e.g. MH)'), { target: { value: 'DL' } });
       fireEvent.change(screen.getByPlaceholderText('District'), { target: { value: 'NEW' } });
-      fireEvent.change(screen.getByPlaceholderText(/Geometry - GeoJSON/), { target: { value: '{"type":"Point","coordinates":[1,1]}' } });
+      fireEvent.change(screen.getByPlaceholderText(/Enter Point or LineString/), { target: { value: '{"type":"Point","coordinates":[1,1]}' } });
       fireEvent.click(screen.getByRole('button', { name: 'Create Layer' }));
 
       await waitFor(() =>

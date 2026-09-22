@@ -6,9 +6,9 @@
     "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
   },
   ".claude/settings.local.json": {
-    "mtime": 1790108162.0526397,
-    "seen": 1790109131.8854554,
-    "ast_hash": "99cf9f549bc179047731faeeb7d97057",
+    "mtime": 1790106723.9122949,
+    "seen": 1790107901.484241,
+    "ast_hash": "40c18564459dbc76ebeb936030c24c7c",
     "semantic_hash": ""
   },
   "backend-py/alembic/env.py": {
@@ -1326,9 +1326,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/map/MapComponent.tsx": {
-    "mtime": 1790108914.7880123,
-    "seen": 1790109131.9371116,
-    "ast_hash": "939cf35c44d716674239d9adbe4ed2bf",
+    "mtime": 1790107746.2938323,
+    "seen": 1790107901.5262284,
+    "ast_hash": "d0b85a394c558c067b75bd53bb34218d",
     "semantic_hash": ""
   },
   "frontend/src/features/notifications/NotificationFeed.test.tsx": {
@@ -1968,9 +1968,9 @@
     "semantic_hash": ""
   },
   "backend-py/alembic/versions/6bd7d308d74c_add_historical_state_tables_phase7.py": {
-    "mtime": 1790108024.2305622,
-    "seen": 1790109131.8875117,
-    "ast_hash": "d3fbdede9bc7dded747f995d007da9cd",
+    "mtime": 1790065215.4307535,
+    "seen": 1790096301.169297,
+    "ast_hash": "14c3660fda24a0c2e31497fd8472e6f3",
     "semantic_hash": ""
   },
   "backend-py/alembic/versions/7c30732a9782_add_verifier_role_evidence.py": {
@@ -2772,15 +2772,15 @@
     "semantic_hash": ""
   },
   "frontend/src/features/map/UnifiedMapWrapper.tsx": {
-    "mtime": 1790108927.1848443,
-    "seen": 1790109131.9371133,
-    "ast_hash": "a54f99aca1f8f8d7838e377d58e0f4e7",
+    "mtime": 1790106362.5513988,
+    "seen": 1790107901.5262303,
+    "ast_hash": "7d5a4d9c4bcfaa7c5d2ed0006fc5a637",
     "semantic_hash": ""
   },
   "frontend/src/features/map/maplibreWorkerUrl.ts": {
-    "mtime": 1790108542.6790464,
-    "seen": 1790109131.9371152,
-    "ast_hash": "1cbaa152c6eb80e087fa4d55e9a93429",
+    "mtime": 1789888056.104908,
+    "seen": 1790096301.170225,
+    "ast_hash": "871150486b7af6d112af34ca71e5b2f0",
     "semantic_hash": ""
   },
   "frontend/src/features/officer/VerifierAssignmentPanel.tsx": {

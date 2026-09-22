@@ -27,7 +27,7 @@ const AiExplanationCard: React.FC<AiExplanationCardProps> = ({ explanation }) =>
         </span>
       </div>
       <p className="text-sm text-ink/80 leading-relaxed">{explanation.summary}</p>
-      {explanation.findings.length > 0 && (
+      {explanation.findings?.length > 0 && (
         <ul className="space-y-1 list-disc list-inside">
           {explanation.findings.map((finding, index) => (
             <li key={index} className="text-xs text-ink/60">

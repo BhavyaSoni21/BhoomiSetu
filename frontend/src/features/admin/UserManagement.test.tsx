@@ -18,7 +18,7 @@ const meAsManaged: ManagedUser = { id: 'u1', email: 'me@test.gov.in', name: 'Cur
 function renderPanel(users: ManagedUser[] = [meAsManaged, otherUser]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   client.setQueryData(['auth-me'], me);
-  server.use(http.get('*/admin/users', () => HttpResponse.json(users)));
+  server.use(http.get('*/users', () => HttpResponse.json(users)));
   return {
     client,
     ...renderWithProviders(

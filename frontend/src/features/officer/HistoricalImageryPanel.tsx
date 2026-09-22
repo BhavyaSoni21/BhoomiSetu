@@ -20,14 +20,16 @@ const HistoricalImageryPanel: React.FC<{ initialClusterId?: string | null }> = (
   
   const { data: clusters = [], isLoading: clustersLoading, error: clustersError } = useHistoricalClusters(selectedState || null, selectedDistrict || null);
   const [clusterId, setClusterId] = useState<string | null>(initialClusterId);
+  const initialClusterIdRef = React.useRef(initialClusterId);
 
   // Once the cluster list loads, settle on a cluster (the deep-linked one if
   // it's actually in the list, else the first available).
   useEffect(() => {
     if (clusters.length === 0) {
-      if (clusterId !== null) setClusterId(null);
-      return;
+      return; // Wait for clusters to load, don't clear the initial value
     }
+    // Only auto-select first cluster if we never had an initialClusterId
+    // or if the initialClusterId is not in the loaded clusters
     const resolved = clusters.find((c) => c.clusterId === clusterId) ?? clusters[0];
     if (resolved.clusterId !== clusterId) setClusterId(resolved.clusterId);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -121,14 +121,17 @@ const FindParcelsPage: React.FC = () => {
             </div>
 
             <div className="rounded-xl overflow-hidden border border-gov-border">
+              {/* No `parcels` prop until a search returns results, so the map
+                  falls back to its own viewport-scoped fetch (+ cluster
+                  overview dots at low zoom) instead of sitting empty. Once a
+                  search runs, show those results. */}
               <UnifiedMapWrapper
-                parcels={searchResults}
+                parcels={searchResults.length > 0 ? searchResults : undefined}
                 selectedParcelId={selectedParcelId}
                 onParcelClick={setSelectedParcelId}
                 showClusterDropdown
                 hideStateDropdown
                 showLayerPanel
-                visibleLayerKeys={['zoning']}
                 className="rounded-xl border border-gov-border"
                 height="h-[500px]"
               />
