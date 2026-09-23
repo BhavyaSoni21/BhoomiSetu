@@ -20,4 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so ${PORT} expands - Render (and most PaaS) inject the port to
+# bind via $PORT; falls back to 8000 for local `docker run`.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

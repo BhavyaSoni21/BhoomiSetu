@@ -299,7 +299,7 @@
     "findParcels": "पार्सल खोजें",
     "raiseRequest": "अनुरोध दर्ज करें",
     "requests": "अनुरोध",
-    "getAssistance": "सहायता प्राप्त करें",
+    "getAssistance": "सेवाएँ",
     "myCases": "मेरे मामले",
     "verifyDocuments": "दस्तावेज़ सत्यापित करें",
     "documents": "दस्तावेज़",
@@ -379,6 +379,9 @@
   "officerNav": {
     "dashboard": "डैशबोर्ड",
     "assignedRequests": "सौंपे गए अनुरोध",
+    "cases": "मामले",
+    "tools": "उपकरण",
+    "analytics": "विश्लेषण",
     "myTasks": "मेरे कार्य",
     "sla": "एसएलए",
     "performance": "प्रदर्शन",
@@ -386,6 +389,8 @@
     "historicalImagery": "ऐतिहासिक इमेजरी",
     "changeDetection": "परिवर्तन पहचान",
     "map": "मानचित्र",
+    "planningMap": "योजना मानचित्र",
+    "surveyMap": "सर्वेक्षण मानचित्र",
     "documents": "दस्तावेज़",
     "notifications": "सूचनाएं",
     "profile": "प्रोफ़ाइल"
@@ -527,10 +532,10 @@
   "adminNav": {
     "dashboard": "डैशबोर्ड",
     "departments": "विभाग",
-    "systemMonitoring": "सिस्टम निगरानी",
+    "systemMonitoring": "सिस्टम",
     "workflows": "वर्कफ़्लो",
-    "mapLayerAuthoring": "मानचित्र परत निर्माण",
-    "officerMonitoring": "अधिकारी निगरानी"
+    "mapLayerAuthoring": "मानचित्र परतें",
+    "officerMonitoring": "अधिकारी"
   },
   "adminPortal": {
     "dashboardWelcome": "स्वागत है, {{name}}",
@@ -544,6 +549,7 @@
     "departmentsSubtitle": "पूरे प्लेटफ़ॉर्म पर दिखाई जाने वाली विभाग निर्देशिका प्रबंधित करें।",
     "departmentDirectoryHeading": "विभाग निर्देशिका",
     "departmentDirectoryDesc": "प्रत्येक विभाग का नाम, विवरण और संपर्क जानकारी - एडमिन पोर्टल के लिए प्रदर्शन मेटाडेटा, उन विभाग कोडों से अलग जिनके अनुसार वर्कफ़्लो और भूमिकाएँ पहले से रूट होती हैं।",
+    "systemMonitoringTitle": "सिस्टम मॉनिटरिंग",
     "systemMonitoringSubtitle": "प्लेटफ़ॉर्म स्वास्थ्य और संपूर्ण अधिकारी/प्रशासक गतिविधि लॉग।",
     "systemOverviewHeading": "सिस्टम अवलोकन",
     "totalUsersLabel": "कुल उपयोगकर्ता",
@@ -664,6 +670,7 @@
     "drawMapHelperText": "मानचित्र पर {{types}} बनाएं (इसे हटाने के लिए ट्रैश टूल का उपयोग करें), या नीचे GeoJSON सीधे संपादित करें।",
     "addZoneCta": "ज़ोन जोड़ें",
     "addZoneHelperText": "\"ज़ोन जोड़ें\" मानचित्र के केंद्र में एक तैयार आयत जोड़ देता है, जो पहले से चयनित है - उसका आकार बदलने और स्थान बदलने के लिए कोने के हैंडल खींचें।",
+    "officerMonitoringTitle": "अधिकारी मॉनिटरिंग",
     "officerMonitoringSubtitle": "अधिकारी अपने सौंपे गए कार्यभार को कैसे संभाल रहे हैं - लंबित कतार का आकार, लिए गए निर्णय, और निर्णय लेने का औसत समय, वास्तविक वर्कफ़्लो और ऑडिट डेटा से तैयार किया गया।",
     "officerWorkloadHeading": "अधिकारी कार्यभार",
     "loadingOfficerMonitoring": "अधिकारी निगरानी लोड हो रही है...",

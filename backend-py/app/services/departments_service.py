@@ -348,6 +348,50 @@ def tax_analytics(db: Session) -> dict:
     }
 
 
+# --- Officer department dashboard metric cards ---
+# Replaces the hardcoded constants OfficerDashboardPage.tsx used to display.
+# Each number is a live count over the department's own records; where a
+# department has no dedicated source for a card, a documented row-count proxy
+# is used rather than a fabricated constant. Only the requested department's
+# fields are filled; the rest stay null so the page falls back gracefully.
+def department_stats(db: Session, code: str) -> dict:
+    stats: dict = {"department": code}
+    if code == "REGISTRATION":
+        stats["duplicate_flags"] = len(list_duplicate_registrations(db))
+    elif code == "PLANNING":
+        # ponytail: no dedicated zoning-conflict source; pending building
+        # permissions are the real zoning cases needing attention. Swap for a
+        # master-plan-mismatch count if Layer 5 gets persisted per parcel.
+        stats["zoning_conflicts"] = len(find_pending_building_permissions(db, 0, 10_000))
+    elif code == "TAX":
+        recs = list(db.scalars(select(TaxRecord)).all())
+        stats["overdue_parcels"] = sum(1 for r in recs if r.tax_status == "OVERDUE")
+        stats["reassessments_pending"] = len(list_tax_reassessment_queue(db))
+        today = date.today()
+        stats["collected_today"] = sum(
+            float(r.annual_tax_amount or 0) - float(r.outstanding_amount or 0)
+            for r in recs if r.last_payment_date == today
+        )
+    elif code == "RESTRICTION":
+        restr = list(db.scalars(select(RestrictionRecord)).all())
+        stats["active_restrictions"] = sum(1 for r in restr if r.has_restriction)
+        fraud = list_fraud_prevention(db)
+        stats["blocks_triggered"] = sum(1 for f in fraud if f["restrictionStatus"]["hasActiveRestriction"])
+    elif code == "ENCUMBRANCE":
+        encs = list(db.scalars(select(EncumbranceRecord).where(EncumbranceRecord.has_encumbrance.is_(True))).all())
+        stats["new_mortgages"] = sum(1 for e in encs if (e.encumbrance_type or "MORTGAGE") == "MORTGAGE" and not e.discharge_date)
+        stats["fraud_prevented"] = len(list_fraud_prevention(db))
+    elif code == "DISPUTE":
+        disp = list(db.scalars(select(DisputeRecord)).all())
+        stats["escalated_to_collector"] = sum(1 for d in disp if d.has_active_dispute and d.case_status == "UNDER_REVIEW")
+        stats["evidence_complete"] = sum(1 for d in disp if d.resolution_summary)
+    elif code == "SURVEY":
+        surv = list(db.scalars(select(SurveyRecord)).all())
+        stats["in_progress_fieldwork"] = sum(1 for s in surv if s.survey_status == "IN_PROGRESS")
+        stats["geometry_updated"] = sum(1 for s in surv if s.geometry_updated)
+    return stats
+
+
 # --- Encumbrance certificates (#12a) ---
 # ponytail: no separate certificate-request table. A "request" is derived live
 # from any encumbered parcel that has no issued certificate yet, so the officer

@@ -30,7 +30,7 @@ const sampleParcel = {
   canonicalParcelId: 'CAN1',
   ulpin: 'ULPIN123',
   stateCode: 'DL',
-  districtCode: 'ND',
+  districtCode: 'NEW',
   localBodyCode: 'DLLB1',
   areaSqM: 250,
   geometry: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}',
@@ -56,7 +56,7 @@ describe('ParcelSearch', () => {
 
     expect(await screen.findByText(/CAN1|abcdef12/i)).toBeTruthy();
     expect(screen.getByText(/ULPIN: ULPIN123/)).toBeInTheDocument();
-    expect(screen.getByText('DL-ND')).toBeInTheDocument();
+    expect(screen.getByText('New Delhi, Delhi')).toBeInTheDocument();
   });
 
   it('shows an empty state when no parcels match', async () => {

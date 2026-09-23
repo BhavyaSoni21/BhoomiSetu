@@ -1,7 +1,8 @@
 // Single shared source of truth for the Citizen/Officer Portal page lists,
  // consumed by App.tsx's one merged navbar.
  export interface NavItem {
-   to: string;
+   /** Omitted for group headers (Tools, Analytics) that only open a submenu. */
+   to?: string;
    end?: boolean;
    labelKey?: string;
    label?: string;
@@ -9,6 +10,8 @@
    iconOnly?: boolean;
    /** Lucide icon name for icon-only items */
    iconName?: 'Bell' | 'UserCircle2';
+   /** Dropdown children (Officer Tools / Analytics). Group header itself has no `to`. */
+   children?: NavItem[];
  }
 
  // Documents/Verify Documents used to be their own entries here - both moved
@@ -23,26 +26,33 @@
    { to: '/citizen/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'citizenNav.profile' },
  ];
 
-  // Base tabs for all officers
-  const BASE_OFFICER_TABS: NavItem[] = [
+  // Common tabs for every officer (workspace-level, always visible).
+  const OFFICER_COMMON_TABS: NavItem[] = [
     { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
-    { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
+    { to: '/officer/requests', labelKey: 'officerNav.cases' },
     { to: '/officer/tasks', labelKey: 'officerNav.myTasks' },
-    { to: '/officer/sla', labelKey: 'officerNav.sla' },
-    { to: '/officer/performance', labelKey: 'officerNav.performance' },
   ];
 
- // Department-specific tabs mapping based on OFFICER_DASHBOARD_PLAN.md tab access matrix
- const DEPARTMENT_TABS: Record<string, NavItem[]> = {
-   LAND_RECORDS: [
-     { to: '/officer/map', labelKey: 'officerNav.map' },
-   ],
+  // Analytics group (SLA + Performance) - kept as a submenu, not primary peers.
+  const OFFICER_ANALYTICS_GROUP: NavItem = {
+    labelKey: 'officerNav.analytics',
+    children: [
+      { to: '/officer/sla', labelKey: 'officerNav.sla' },
+      { to: '/officer/performance', labelKey: 'officerNav.performance' },
+    ],
+  };
+
+ // Department-specific Tools, keyed by department (derived from role). Rendered
+ // as a single "Tools" dropdown - never duplicated 8x in the navbar. Land Records
+ // has none (operates via Cases / Tasks / Parcel 360).
+ export const OFFICER_TOOLS: Record<string, NavItem[]> = {
+   LAND_RECORDS: [],
    REGISTRATION: [
      { to: '/officer/duplicate-registry', labelKey: 'officerNav.duplicateRegistry' },
      { to: '/officer/registration-chain', labelKey: 'officerNav.registrationChain' },
    ],
    PLANNING: [
-     { to: '/officer/map', labelKey: 'officerNav.map' },
+     { to: '/officer/map', labelKey: 'officerNav.planningMap' },
    ],
    TAX: [
      { to: '/officer/reassessment-queue', labelKey: 'officerNav.reassessmentQueue' },
@@ -61,7 +71,7 @@
      { to: '/officer/historical-imagery', labelKey: 'officerNav.historicalImagery' },
    ],
    SURVEY: [
-     { to: '/officer/map', labelKey: 'officerNav.map' },
+     { to: '/officer/map', labelKey: 'officerNav.surveyMap' },
      { to: '/officer/change-detection', labelKey: 'officerNav.changeDetection' },
      { to: '/officer/documents', labelKey: 'officerNav.documents' },
      { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
@@ -75,16 +85,20 @@
    { to: '/officer/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'officerNav.profile' },
  ];
 
- // Get officer nav items based on department (derived from role)
+ // Officer navbar: Dashboard / Cases / Tasks / Tools / Analytics / Notifications / Profile.
+ // Tools appears only when the department actually has any (Land Records has none).
  export function getOfficerNavItems(department: string): NavItem[] {
-   const deptTabs = DEPARTMENT_TABS[department] || [];
-   return [...BASE_OFFICER_TABS, ...deptTabs, ...SHARED_OFFICER_TABS];
+   const tools = OFFICER_TOOLS[department] || [];
+   const items: NavItem[] = [...OFFICER_COMMON_TABS];
+   if (tools.length) items.push({ labelKey: 'officerNav.tools', children: tools });
+   items.push(OFFICER_ANALYTICS_GROUP, ...SHARED_OFFICER_TABS);
+   return items;
  }
 
  // For backward compatibility - returns all tabs (used by Admin)
   export const OFFICER_NAV_ITEMS: NavItem[] = [
     { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
-    { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
+    { to: '/officer/requests', labelKey: 'officerNav.cases' },
     { to: '/officer/tasks', labelKey: 'officerNav.myTasks' },
     { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
    { to: '/officer/historical-imagery', labelKey: 'officerNav.historicalImagery' },
@@ -112,9 +126,9 @@
  export const ADMIN_NAV_ITEMS: NavItem[] = [
    { to: '/admin', end: true, labelKey: 'adminNav.dashboard' },
    { to: '/admin/departments', labelKey: 'adminNav.departments' },
-   { to: '/admin/system-monitoring', labelKey: 'adminNav.systemMonitoring' },
    { to: '/admin/workflows', labelKey: 'adminNav.workflows' },
-   { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
    { to: '/admin/officer-monitoring', labelKey: 'adminNav.officerMonitoring' },
+   { to: '/admin/system-monitoring', labelKey: 'adminNav.systemMonitoring' },
+   { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
    { to: '/admin/profile', iconOnly: true, iconName: 'UserCircle2', label: 'Profile' },
  ];

@@ -996,3 +996,26 @@ export const STATES_AND_DISTRICTS: StateData[] = [
         ],
     },
 ];
+// Code -> display-name lookups, built once. Parcels carry short codes
+// (stateCode "MH", districtCode "PUN"); the UI should show full names.
+const STATE_NAME_BY_CODE = new Map(STATES_AND_DISTRICTS.map((s) => [s.code, s.name]));
+const DISTRICT_NAME_BY_CODE = new Map(
+    STATES_AND_DISTRICTS.flatMap((s) => s.districts.map((d) => [d.code, d.name] as const)),
+);
+
+/** "PUN", "MH" -> "Pune, Maharashtra". Falls back to the raw code if unknown. */
+export function resolveLocationName(stateCode?: string | null, districtCode?: string | null): string {
+    const state = stateCode ? STATE_NAME_BY_CODE.get(stateCode) ?? stateCode : '';
+    const district = districtCode ? DISTRICT_NAME_BY_CODE.get(districtCode) ?? districtCode : '';
+    return [district, state].filter(Boolean).join(', ');
+}
+
+/** "MH" -> "Maharashtra". Falls back to the raw code if unknown. */
+export function resolveStateName(stateCode?: string | null): string {
+    return stateCode ? STATE_NAME_BY_CODE.get(stateCode) ?? stateCode : '';
+}
+
+/** "PUN" -> "Pune". Falls back to the raw code if unknown. */
+export function resolveDistrictName(districtCode?: string | null): string {
+    return districtCode ? DISTRICT_NAME_BY_CODE.get(districtCode) ?? districtCode : '';
+}

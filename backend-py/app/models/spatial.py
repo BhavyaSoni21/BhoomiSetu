@@ -54,7 +54,6 @@ class RestrictionZone(Base):
     district: Mapped[str] = mapped_column(String(40), index=True)
     geometry: Mapped[WKBElement] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326))
     affected_parcel_ids: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
-    cross_checked_against_permission: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

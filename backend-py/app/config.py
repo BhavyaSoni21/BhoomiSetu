@@ -61,10 +61,13 @@ class Settings(BaseSettings):
 
     # Google Earth Engine - real Sentinel-2 imagery for Change Detection's
     # satellite-sourced analysis path (app/services/earth_engine_service.py).
-    # Service-account auth (no user in the loop) - the JSON key file itself
-    # is never committed (see .gitignore), only its path lives here.
+    # Service-account auth (no user in the loop). Provide the key EITHER as a
+    # file path (local dev) OR as the raw JSON string (GEE_SERVICE_ACCOUNT_KEY_JSON)
+    # for hosts like Render where you paste secrets as env vars, not files.
+    # The JSON key itself is never committed (see .gitignore).
     gee_service_account_email: str = ""
     gee_service_account_key_path: str = ""
+    gee_service_account_key_json: str = ""
 
     # Redis for Celery background jobs
     redis_host: str = "localhost"

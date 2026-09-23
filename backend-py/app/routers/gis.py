@@ -91,8 +91,6 @@ def get_parcel_restrictions(id: UUID, db: Session = Depends(get_db)):
     return []
 
 
-_clusters_cache = None
-
 @router.get("/clusters-hierarchical")
 def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     """
@@ -100,10 +98,6 @@ def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, A
     Each cluster includes its bounds for map viewport fitting.
     Used by the unified map's hierarchical dropdown selector.
     """
-    global _clusters_cache
-    if _clusters_cache is not None:
-        return _clusters_cache
-
     rows = (
         db.query(
             Parcel.cluster_id,
@@ -154,5 +148,8 @@ def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, A
             "districts": districts_list,
         })
 
-    _clusters_cache = result
+    # No server-side cache: this is one grouped aggregate query, and a
+    # module-global cache silently served a stale/incomplete cluster list
+    # forever once populated (never invalidated on re-seed). The frontend
+    # React Query already caches this for 30 min.
     return result

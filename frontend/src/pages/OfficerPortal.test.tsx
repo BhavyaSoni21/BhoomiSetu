@@ -23,6 +23,7 @@ vi.mock('../features/map/MapComponent', () => ({
 
 const landRecordOfficer: AuthUser = { id: 'u1', email: 'lr@test.gov.in', name: 'Asha', role: 'LAND_RECORD_OFFICER' };
 const planningOfficer: AuthUser = { id: 'u2', email: 'planning@test.gov.in', name: 'Priya', role: 'PLANNING_OFFICER' };
+const disputeOfficer: AuthUser = { id: 'u3', email: 'dispute@test.gov.in', name: 'Ravi', role: 'DISPUTE_OFFICER' };
 
 // OfficerPortal assumes route-level RequireAuth already resolved a session
 // (see App.tsx) - tests seed the shared auth-me query cache directly rather
@@ -124,9 +125,29 @@ describe('OfficerPortal', () => {
   });
 
   it('the historical-imagery route renders with a deep-linked cluster preselected from ?cluster=', async () => {
-    renderPortal(landRecordOfficer, ['/historical-imagery?cluster=MH-PUNE-01']);
+    // Dispute department owns Historical Imagery (OFFICER_TOOLS.DISPUTE).
+    renderPortal(disputeOfficer, ['/historical-imagery?cluster=MH-PUNE-01']);
 
     expect(await screen.findByRole('heading', { name: /Historical Imagery/i })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Cluster')).toHaveValue('MH-PUNE-01'));
+  });
+
+  // Phase 18 route guard: a department that doesn't own a tool cannot reach it
+  // by typing the URL - it redirects to the officer dashboard (index route).
+  // Land Records owns no specialized tool, so /change-detection is off-limits.
+  it('redirects an officer to the dashboard when they URL-hop to a tool their department does not own', async () => {
+    renderPortal(landRecordOfficer, ['/change-detection']);
+
+    // Lands on the dashboard (index) instead of the Change Detection page.
+    expect(await screen.findByText('Welcome, Asha (Land Record Officer)')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Change Detection/i })).not.toBeInTheDocument();
+  });
+
+  it('allows an officer to reach a tool their department does own', async () => {
+    // Survey department owns Change Detection (OFFICER_TOOLS.SURVEY).
+    const surveyOfficer: AuthUser = { id: 'u4', email: 's@test.gov.in', name: 'Meera', role: 'SURVEY_OFFICER' };
+    renderPortal(surveyOfficer, ['/change-detection']);
+
+    expect((await screen.findAllByRole('heading', { name: /Change Detection/i })).length).toBeGreaterThan(0);
   });
 });

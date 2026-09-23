@@ -105,6 +105,9 @@ export interface Parcel360Response {
   // Not part of Tech.md #15's canonical envelope - only present so the UI
   // can offer a "View Historical Imagery" link for this parcel's cluster.
   clusterId: string | null;
+  // Zoning overlay polygon this parcel geometrically overlaps most (PostGIS),
+  // camelCase like clusterId. `overlapPct` is already a percentage (e.g. 82.5).
+  zoneMembership?: { zoneId: string; zoneType: string; name: string; overlapPct: number } | null;
   departments: {
     landRecords: AdaptedLandRecord | null;
     registration: RegistrationRecord | null;

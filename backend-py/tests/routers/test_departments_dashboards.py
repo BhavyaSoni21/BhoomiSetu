@@ -112,3 +112,30 @@ def test_dashboards_require_staff_auth(db, client):
     assert client.get("/api/v1/tax/analytics").status_code == 401
     _, _, citizen = create_authenticated_user(db, "CITIZEN")
     assert client.get("/api/v1/tax/analytics", headers=citizen).status_code == 403
+
+
+def test_department_stats_are_live_counts_not_constants(db, client):
+    """GET /stats/:code — the officer dashboard metric cards, computed from real
+    records (was hardcoded). Seed has 1 MORTGAGE encumbrance that also carries a
+    dispute + restriction, so fraud/restriction proxies are exactly 1."""
+    _seed(db)
+    _, _, enc = create_authenticated_user(db, "ENCUMBRANCE_OFFICER")
+    _, _, restr = create_authenticated_user(db, "RESTRICTION_OFFICER")
+
+    e = client.get("/api/v1/stats/ENCUMBRANCE", headers=enc)
+    assert e.status_code == 200, e.text  # 422 => shadowed by a /{parcel_id} catch-all
+    body = e.json()
+    assert body["department"] == "ENCUMBRANCE"
+    assert body["newMortgages"] == 1
+    assert body["fraudPrevented"] == 1
+    assert body["overdueParcels"] is None  # unrelated field stays null
+
+    r = client.get("/api/v1/stats/RESTRICTION", headers=restr).json()
+    assert r["activeRestrictions"] == 1
+    assert r["blocksTriggered"] == 1
+
+
+def test_department_stats_require_staff_auth(db, client):
+    assert client.get("/api/v1/stats/TAX").status_code == 401
+    _, _, citizen = create_authenticated_user(db, "CITIZEN")
+    assert client.get("/api/v1/stats/TAX", headers=citizen).status_code == 403

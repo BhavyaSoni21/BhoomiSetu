@@ -38,6 +38,7 @@ from app.services.spatial_service import (
     create_overlap_alerts,
     geojson_to_geometry,
     reject_if_overlapping,
+    snap_zone_to_shared_edges,
 )
 
 router = APIRouter(prefix="/gis", tags=["spatial"])
@@ -115,7 +116,7 @@ from app.tasks.masterplan_tasks import recompute_all_masterplan_mismatches
 def create_zoning_overlay(dto: CreateZoningOverlay, db: Session = Depends(get_db), _admin: User = Depends(require_roles("ADMIN"))):
     assert_geometry_type(dto.geometry, ["Polygon"])
     geom = geojson_to_geometry(dto.geometry)
-    reject_if_overlapping(db, ZoningOverlay, geom)
+    geom = snap_zone_to_shared_edges(db, ZoningOverlay, geom)
     parcel_ids = compute_affected_parcel_ids(db, geom)
     row = ZoningOverlay(
         name=dto.name, 
@@ -143,7 +144,7 @@ def update_zoning_overlay(id: UUID, dto: UpdateZoningOverlay, db: Session = Depe
     if dto.geometry is not None:
         assert_geometry_type(dto.geometry, ["Polygon"])
         geom = geojson_to_geometry(dto.geometry)
-        reject_if_overlapping(db, ZoningOverlay, geom, exclude_id=id)
+        geom = snap_zone_to_shared_edges(db, ZoningOverlay, geom, exclude_id=id)
         row.parcel_ids = compute_affected_parcel_ids(db, geom)
         row.geometry = geom
         updates.pop("geometry", None)

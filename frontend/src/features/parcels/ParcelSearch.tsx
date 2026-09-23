@@ -6,7 +6,7 @@ import { RotateCcw, Search } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import MicButton from '../../components/MicButton';
-import { STATES_AND_DISTRICTS } from '../../data/locationData';
+import { STATES_AND_DISTRICTS, resolveLocationName } from '../../data/locationData';
 
 interface ParcelSearchProps {
   onResultsChange?: (parcels: ParcelSummary[]) => void;
@@ -143,10 +143,10 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
+      <div className="bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-4 sm:p-5">
         <h2 className="text-lg font-black uppercase tracking-tight font-display text-ink mb-4">{t('parcelSearch.title')}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>
                 {t('parcelSearch.ulpinLabel')}
@@ -188,7 +188,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className={labelClass.replace('mb-1', '')}>
@@ -244,7 +244,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 <option value="">-- All States --</option>
                 {STATES_AND_DISTRICTS.map((st) => (
                   <option key={st.code} value={st.code}>
-                    {st.name} ({st.code})
+                    {st.name}
                   </option>
                 ))}
               </select>
@@ -265,7 +265,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 </option>
                 {availableDistricts.map((dst) => (
                   <option key={dst.code} value={dst.code}>
-                    {dst.name} ({dst.code})
+                    {dst.name}
                   </option>
                 ))}
               </select>
@@ -338,7 +338,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                       {parcel.ulpin ? `${t('parcelSearch.ulpinLabel')}: ${parcel.ulpin}` : t('parcelSearch.noUlpin')}
                     </p>
                     <p className="text-sm text-ink/60">
-                      {parcel.stateCode}-{parcel.districtCode}
+                      {resolveLocationName(parcel.stateCode, parcel.districtCode)}
                     </p>
                   </div>
                   <div className="text-right shrink-0">

@@ -8,13 +8,43 @@ pointer saying data exists). This is what GET /api/v1/parcels/:id/360
 calls - see app/routers/parcels.py.
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.common.canonical_transformer import build_canonical_envelope
 from app.common.land_record_adapters import adapt_land_records_result
 from app.models.parcel import Parcel, ParcelIdentifier
+from app.models.spatial import ZoningOverlay
 from app.services import departments_service, land_records_lookup_service
+
+
+def _resolve_zone_membership(db: Session, parcel: Parcel) -> dict | None:
+    """Which zoning overlay this parcel geometrically falls in, by greatest
+    area overlap (PostGIS), not the stored PlanningRecord text label. Ratio
+    is intersection_area / parcel_area; both areas are in the same (degree)
+    units so the ratio is unit-independent.
+    """
+    row = (
+        db.query(
+            ZoningOverlay.id,
+            ZoningOverlay.name,
+            ZoningOverlay.zone_type,
+            func.ST_Area(func.ST_Intersection(ZoningOverlay.geometry, Parcel.geometry)).label("inter_area"),
+            func.ST_Area(Parcel.geometry).label("parcel_area"),
+        )
+        .join(Parcel, Parcel.id == parcel.id)
+        .filter(func.ST_Intersects(ZoningOverlay.geometry, Parcel.geometry))
+        .order_by(func.ST_Area(func.ST_Intersection(ZoningOverlay.geometry, Parcel.geometry)).desc())
+        .first()
+    )
+    if row is None or not row.parcel_area:
+        return None
+    return {
+        "zoneId": str(row.id),
+        "zoneType": row.zone_type,
+        "name": row.name,
+        "overlapPct": round(float(row.inter_area) / float(row.parcel_area) * 100, 1),
+    }
 
 
 def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
@@ -63,6 +93,7 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
     return {
         **envelope,
         "cluster_id": parcel.cluster_id,
+        "zone_membership": _resolve_zone_membership(db, parcel),
         "departments": {
             "land_records": land_records,
             "registration": registration,

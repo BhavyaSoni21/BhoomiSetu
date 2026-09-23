@@ -10,6 +10,7 @@ import OfficialPdfViewerModal from './OfficialPdfViewerModal';
 import AiExplanationCard from '../ai/AiExplanationCard';
 import { OwnershipHistoryRecord, Parcel360Response } from '../../types/parcel360';
 import { ParcelSummary } from '../../types/parcel';
+import { resolveStateName, resolveDistrictName } from '../../data/locationData';
 import { AiExplanation } from '../../types/aiExplanation';
 import { RiskScore } from '../../types/riskScore';
 import { useAuthUser } from '../auth/auth';
@@ -190,7 +191,7 @@ const Parcel360View: React.FC = () => {
   // docs/ADMIN_PANEL_ISSUES.md #2).
   const { data: myParcelsData } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
     ['my-parcels'],
-    async () => (await apiService.get('/parcels/mine')).data,
+    async () => (await apiService.get('/parcels/mine', { skipAuthRedirect: true })).data,
     { enabled: isCitizen },
   );
   const isOwnParcel = isCitizen && !!myParcelsData?.parcels.some((p) => p.id === parcel360?.parcel_id);
@@ -257,7 +258,7 @@ const Parcel360View: React.FC = () => {
     return <div className="flex h-[600px] items-center justify-center text-ink/60 font-medium">{t('parcel360.notFound')}</div>;
   }
 
-  const { identifiers, location, spatial, sources, departments } = parcel360;
+  const { identifiers, location, spatial, sources, departments, zoneMembership } = parcel360;
   const statusByDepartment = Object.fromEntries(sources.map((s) => [s.department, s.status]));
   const visibleTabs = parcel360.restrictedForViewer ? TABS.filter((tab) => !OWNER_ONLY_TAB_KEYS.includes(tab.key)) : TABS;
 
@@ -426,8 +427,8 @@ const Parcel360View: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">{t('parcel360.location')}</h2>
-              <Field label={t('jurisdictionCard.state')} value={location.state} />
-              <Field label={t('jurisdictionCard.district')} value={location.district} />
+              <Field label={t('jurisdictionCard.state')} value={resolveStateName(location.state)} />
+              <Field label={t('jurisdictionCard.district')} value={resolveDistrictName(location.district)} />
               <Field label={t('parcel360.field.locality')} value={location.locality} />
             </div>
             <div>
@@ -510,8 +511,8 @@ const Parcel360View: React.FC = () => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
                   recenterSignal={recenterSignal}
-                  // Citizens only get the Zoning overlay; staff get the full legend.
-                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
+                  // Every role sees the full layer legend; adminNotes stays
+                  // gated (admin-only server-side + filtered in UnifiedMapWrapper).
                   showLayerPanel
                   showLayerButtonsBelowMap
                   userRole={authUser?.role}
@@ -554,6 +555,12 @@ const Parcel360View: React.FC = () => {
             <div className="space-y-1">
               <Field label={t('parcel360.field.landUse')} value={departments.planning.landUse} />
               <Field label={t('parcel360.field.zoningClassification')} value={departments.planning.zoningClassification} />
+              {zoneMembership && (
+                <Field
+                  label={t('parcel360.field.zoneByOverlap')}
+                  value={`${zoneMembership.name} (${zoneMembership.zoneType}) - ${zoneMembership.overlapPct.toFixed(1)}%`}
+                />
+              )}
               <Field label={t('parcel360.field.masterPlanReference')} value={departments.planning.masterPlanReference} />
               <Field label={t('parcel360.field.buildingPermission')} value={departments.planning.buildingPermissionStatus} />
             </div>

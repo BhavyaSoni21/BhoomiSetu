@@ -322,7 +322,7 @@
     "findParcels": "Find Parcels",
     "raiseRequest": "Raise Request",
     "requests": "Requests",
-    "getAssistance": "Get Assistance",
+    "getAssistance": "Services",
     "myCases": "My Cases",
     "verifyDocuments": "Verify Documents",
     "documents": "Documents",
@@ -402,6 +402,9 @@
   "officerNav": {
     "dashboard": "Dashboard",
     "assignedRequests": "My Cases",
+    "cases": "Cases",
+    "tools": "Tools",
+    "analytics": "Analytics",
     "myTasks": "My Tasks",
     "sla": "SLA",
     "performance": "Performance",
@@ -409,6 +412,8 @@
     "historicalImagery": "Historical Imagery",
     "changeDetection": "Change Detection",
     "map": "Map",
+    "planningMap": "Planning Map",
+    "surveyMap": "Survey Map",
     "documents": "Documents",
     "notifications": "Notifications",
     "profile": "Profile"
@@ -551,10 +556,10 @@
   "adminNav": {
     "dashboard": "Dashboard",
     "departments": "Departments",
-    "systemMonitoring": "System Monitoring",
+    "systemMonitoring": "System",
     "workflows": "Workflows",
-    "mapLayerAuthoring": "Map Layer Authoring",
-    "officerMonitoring": "Officer Monitoring"
+    "mapLayerAuthoring": "Map Layers",
+    "officerMonitoring": "Officers"
   },
   "adminPortal": {
     "dashboardWelcome": "Welcome, {{name}}",
@@ -568,6 +573,7 @@
     "departmentsSubtitle": "Manage the department directory shown across the platform.",
     "departmentDirectoryHeading": "Department Directory",
     "departmentDirectoryDesc": "Name, description, and contact info for each department - display metadata for the Admin Portal, separate from the department codes workflows and roles already route by.",
+    "systemMonitoringTitle": "System Monitoring",
     "systemMonitoringSubtitle": "Platform health and the full officer/admin activity log.",
     "systemOverviewHeading": "System Overview",
     "totalUsersLabel": "Total Users",
@@ -689,6 +695,7 @@
     "drawMapHelperText": "Draw a {{types}} on the map (use the trash tool to clear it), or edit the GeoJSON directly below.",
     "addZoneCta": "Add Zone",
     "addZoneHelperText": "\"Add Zone\" drops a ready-made rectangle at the map's center, already selected - drag its corner handles to resize and reposition it.",
+    "officerMonitoringTitle": "Officer Monitoring",
     "officerMonitoringSubtitle": "How officers are handling their assigned workload - pending queue size, decisions made, and average time to decide, built from real workflow and audit data.",
     "officerWorkloadHeading": "Officer Workload",
     "loadingOfficerMonitoring": "Loading officer monitoring...",

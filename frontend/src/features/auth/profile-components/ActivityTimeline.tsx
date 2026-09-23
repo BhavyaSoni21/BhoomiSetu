@@ -1,23 +1,44 @@
 import React from 'react';
 import { Clock, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ProfileCard } from './ProfileCard';
 import { StatusPill } from './StatusPill';
+import apiService from '../../../services/apiService';
+import { AuditLogEntry } from '../../../types/auditLog';
 
-interface ActivityItem {
-  id: string;
-  action: string;
-  timestamp: string;
-  status: 'Completed' | 'Successful' | 'Failed';
+// Same underscore-to-title-case treatment AdminActivitySummary uses.
+function formatAction(action: string): string {
+  return action
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Audit rows are recorded facts; only reject/delete actions read as "Failed".
+function statusFor(action: string): string {
+  return /REJECT|DELETE|FAIL/.test(action) ? 'Failed' : 'Completed';
 }
 
 export const ActivityTimeline: React.FC = () => {
-  const activities: ActivityItem[] = [
-    { id: '1', action: 'Signed in from Pune office', timestamp: '11 Sep 2026, 10:24 AM', status: 'Successful' },
-    { id: '2', action: 'Verified an ownership request', timestamp: '10 Sep 2026, 04:18 PM', status: 'Completed' },
-    { id: '3', action: 'Reviewed a cadastral parcel', timestamp: '10 Sep 2026, 02:32 PM', status: 'Completed' },
-    { id: '4', action: 'Downloaded land-record report', timestamp: '09 Sep 2026, 05:46 PM', status: 'Completed' },
-  ];
+  const { data: entries = [], isLoading } = useQuery<AuditLogEntry[]>(['profile-recent-activity'], async () => {
+    const response = await apiService.get('/audit', { params: { limit: 4 } });
+    return response.data;
+  });
+  const activities = entries.map((entry) => ({
+    id: entry.id,
+    action: formatAction(entry.action),
+    timestamp: formatTimestamp(entry.createdAt),
+    status: statusFor(entry.action),
+  }));
 
   return (
     <ProfileCard
@@ -25,6 +46,8 @@ export const ActivityTimeline: React.FC = () => {
       title="RECENT ACTIVITY"
     >
       <div className="space-y-3">
+        {isLoading && <p className="text-xs text-text-muted">Loading...</p>}
+        {!isLoading && activities.length === 0 && <p className="text-xs text-text-muted">No activity recorded yet.</p>}
         {activities.map((item) => (
           <div
             key={item.id}

@@ -29,6 +29,24 @@ _initialized = False
 _init_lock = threading.Lock()
 
 
+def gee_credentials() -> "ee.ServiceAccountCredentials | None":
+    """Earth Engine service-account credentials, or None if unconfigured.
+
+    Accepts the key as either a raw JSON string (GEE_SERVICE_ACCOUNT_KEY_JSON,
+    for hosts like Render/Vercel where secrets are env vars, not files) or a
+    file path (GEE_SERVICE_ACCOUNT_KEY_PATH, for local dev). JSON wins if both
+    are set.
+    """
+    settings = get_settings()
+    if not settings.gee_service_account_email:
+        return None
+    if settings.gee_service_account_key_json:
+        return ee.ServiceAccountCredentials(settings.gee_service_account_email, key_data=settings.gee_service_account_key_json)
+    if settings.gee_service_account_key_path:
+        return ee.ServiceAccountCredentials(settings.gee_service_account_email, settings.gee_service_account_key_path)
+    return None
+
+
 def _ensure_initialized() -> None:
     global _initialized
     if _initialized:
@@ -36,13 +54,12 @@ def _ensure_initialized() -> None:
     with _init_lock:
         if _initialized:
             return
-        settings = get_settings()
-        if not settings.gee_service_account_email or not settings.gee_service_account_key_path:
+        credentials = gee_credentials()
+        if credentials is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Earth Engine is not configured (GEE_SERVICE_ACCOUNT_EMAIL / GEE_SERVICE_ACCOUNT_KEY_PATH are not set)",
+                detail="Earth Engine is not configured (set GEE_SERVICE_ACCOUNT_EMAIL and GEE_SERVICE_ACCOUNT_KEY_JSON or _KEY_PATH)",
             )
-        credentials = ee.ServiceAccountCredentials(settings.gee_service_account_email, settings.gee_service_account_key_path)
         try:
             ee.Initialize(credentials)
         except ee.EEException as exc:

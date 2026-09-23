@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { OfficerRole, ROLE_DEPARTMENT } from '../features/officer/officerAuth';
+import { OFFICER_TOOLS } from '../navConfig';
 import { useAuthUser } from '../features/auth/auth';
 import OfficerDashboardPage from './officer/OfficerDashboardPage';
 import OfficerTasksPage from './officer/OfficerTasksPage';
@@ -39,6 +40,19 @@ const OfficerPortal: React.FC = () => {
 
   const department = ROLE_DEPARTMENT[user.role as OfficerRole];
 
+  // Phase 18 route guard: department-specific pages are reachable by URL only
+  // if the officer's department actually owns that tool (OFFICER_TOOLS is the
+  // single source of truth the navbar uses too). Common workspace tabs
+  // (dashboard/tasks/sla/performance/requests/notifications/profile) are
+  // always allowed. Backend still enforces API-level authz independently
+  // (Phase 14) - this is the SPA-level gate so e.g. TAX_OFFICER typing
+  // /officer/change-detection is redirected home instead of rendering it.
+  const allowed = new Set(
+    (OFFICER_TOOLS[department] || []).map((t) => t.to!.replace('/officer/', '')),
+  );
+  const gate = (sub: string, el: React.ReactElement) =>
+    allowed.has(sub) ? el : <Navigate to=".." replace />;
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
       <Routes>
@@ -47,17 +61,17 @@ const OfficerPortal: React.FC = () => {
          <Route path="sla" element={<OfficerSlaPage />} />
          <Route path="performance" element={<OfficerPerformancePage />} />
          <Route path="requests" element={<AssignedRequestsPage department={department} />} />
-        <Route path="alerts" element={<GovernanceAlertsPage />} />
-        <Route path="historical-imagery" element={<HistoricalImageryPage />} />
-        <Route path="change-detection" element={<ChangeDetectionPage />} />
-        <Route path="map" element={<OfficerMapPage />} />
-        <Route path="documents" element={<DocumentsPage />} />
-        <Route path="duplicate-registry" element={<DuplicateRegistryPage />} />
-        <Route path="registration-chain" element={<RegistrationChainPage />} />
-        <Route path="reassessment-queue" element={<ReassessmentQueuePage />} />
-        <Route path="tax-analytics" element={<TaxAnalyticsPage />} />
-        <Route path="fraud-prevention" element={<FraudPreventionPage />} />
-        <Route path="certificate-generator" element={<CertificateGeneratorPage />} />
+        <Route path="alerts" element={gate('alerts', <GovernanceAlertsPage />)} />
+        <Route path="historical-imagery" element={gate('historical-imagery', <HistoricalImageryPage />)} />
+        <Route path="change-detection" element={gate('change-detection', <ChangeDetectionPage />)} />
+        <Route path="map" element={gate('map', <OfficerMapPage />)} />
+        <Route path="documents" element={gate('documents', <DocumentsPage />)} />
+        <Route path="duplicate-registry" element={gate('duplicate-registry', <DuplicateRegistryPage />)} />
+        <Route path="registration-chain" element={gate('registration-chain', <RegistrationChainPage />)} />
+        <Route path="reassessment-queue" element={gate('reassessment-queue', <ReassessmentQueuePage />)} />
+        <Route path="tax-analytics" element={gate('tax-analytics', <TaxAnalyticsPage />)} />
+        <Route path="fraud-prevention" element={gate('fraud-prevention', <FraudPreventionPage />)} />
+        <Route path="certificate-generator" element={gate('certificate-generator', <CertificateGeneratorPage />)} />
         <Route path="notifications" element={<OfficerNotificationsPage />} />
         <Route path="profile" element={<OfficerProfilePage />} />
       </Routes>

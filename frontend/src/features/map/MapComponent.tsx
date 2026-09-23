@@ -39,6 +39,8 @@ interface MapComponentProps {
   clusterOverview?: GeoJSON.FeatureCollection;
   /** Whether to fetch the ADMIN-only /gis/admin-notes layer. Off for everyone but admins, or the request just 403s. */
   canViewAdminNotes?: boolean;
+  /** Fetch GIS overlays nationwide (no state/district params, enabled with no parcel selected) — for authoring maps that show every overlay across India. */
+  fetchOverlaysNationwide?: boolean;
 }
 
 type LayerKey =
@@ -101,7 +103,7 @@ export const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   zoning: false,
   restriction: false,
   taxStatus: false,
-  infrastructure: false,
+  infrastructure: true,
   changeDetection: false,
   adminNotes: false,
   roads: false,
@@ -285,6 +287,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   onLayerVisibilityChange,
   clusterOverview,
   canViewAdminNotes = false,
+  fetchOverlaysNationwide = false,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -389,13 +392,16 @@ const MapComponent: React.FC<MapComponentProps> = ({
   );
 
   function useSpatialLayer(layerPath: string, extraEnabled = true) {
+    // Nationwide authoring mode: no parcel selected, so fetch every overlay
+    // unscoped (the /gis/* reads are public and accept no state/district).
     return useQuery<SpatialFeatureCollection>(
-      [layerPath, district?.state, district?.district],
+      [layerPath, fetchOverlaysNationwide ? 'nationwide' : district?.state, district?.district],
       async () => {
-        const response = await apiService.get(`/gis/${layerPath}`, { params: { state: district!.state, district: district!.district } });
+        const params = fetchOverlaysNationwide ? undefined : { state: district!.state, district: district!.district };
+        const response = await apiService.get(`/gis/${layerPath}`, { params });
         return response.data;
       },
-      { enabled: !!district && extraEnabled },
+      { enabled: (fetchOverlaysNationwide || !!district) && extraEnabled },
     );
   }
   const { data: zoningFC = EMPTY_FC } = useSpatialLayer('zoning-overlays');
@@ -562,7 +568,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
           paint: {
             'line-color': ['match', ['get', 'road_type'], 'HIGHWAY', '#dc2626', 'PRIMARY', '#ea580c', 'SECONDARY', '#f97316', 'TERTIARY', '#fbbf24', 'RESIDENTIAL', '#9ca3af', '#6b7280'],
-            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 12, 3],
+            'line-width': ['match', ['get', 'road_type'], 'HIGHWAY', 3, 'PRIMARY', 2.5, 'SECONDARY', 2, 'TERTIARY', 1.5, 'RESIDENTIAL', 1, 1],
             'line-opacity': 0.8,
           },
         });
@@ -690,13 +696,16 @@ const MapComponent: React.FC<MapComponentProps> = ({
         paint: { 'fill-color': '#db2777', 'fill-opacity': 0.3, 'fill-outline-color': '#9d174d' },
       });
 
-      // Infrastructure from admin (still GeoJSON)
+      // Infrastructure from admin (still GeoJSON) - synthetic 2-point placeholder
+      // lines, kept out of the Infrastructure toggle (which now shows real OSM
+      // roads/buildings) so they never render. ponytail: layers left in place
+      // but pinned hidden; delete the source too if the seed is ever dropped.
       ensureLayer(map, 'infrastructure-source', {
         id: 'infrastructure-line-layer',
         type: 'line',
         source: 'infrastructure-source',
         filter: ['==', ['geometry-type'], 'LineString'],
-        layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
+        layout: { visibility: 'none' },
         paint: {
           'line-color': ['match', ['get', 'featureType'], 'ROAD', '#78716c', 'WATER_LINE', '#0ea5e9', '#78716c'],
           'line-width': 3,
@@ -708,7 +717,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           type: 'circle',
           source: 'infrastructure-source',
           filter: ['==', ['geometry-type'], 'Point'],
-          layout: { visibility: DEFAULT_LAYER_VISIBILITY.infrastructure ? 'visible' : 'none' },
+          layout: { visibility: 'none' },
           paint: { 'circle-color': '#eab308', 'circle-radius': 6, 'circle-stroke-color': '#78350f', 'circle-stroke-width': 1 },
         });
       }
@@ -1138,7 +1147,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       zoning: ['zoning-layer', 'landcover-layer', 'elevation-layer'],
       restriction: ['restriction-layer'],
       taxStatus: ['tax-status-layer'],
-      infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
+      infrastructure: ['roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
       adminNotes: ['admin-notes-fill-layer', 'admin-notes-line-layer', 'admin-notes-point-layer'],
       roads: ['roads-layer'],
@@ -1173,7 +1182,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   }, [basemap, mapReady]);
 
   return (
-    <div className="relative h-[500px] w-full border-2 sm:border-4 border-ink">
+    <div className="relative h-full w-full border-2 sm:border-4 border-ink">
       <div ref={containerRef} className="h-full w-full" />
       {showLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface/85 text-ink font-bold uppercase tracking-wide text-sm">

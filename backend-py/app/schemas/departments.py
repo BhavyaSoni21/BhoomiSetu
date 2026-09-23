@@ -88,6 +88,28 @@ class SurveyRecordOut(CamelModel):
     reference_document: str | None
 
 
+class DepartmentStatsOut(CamelModel):
+    """Officer dashboard metric cards (was hardcoded in OfficerDashboardPage.tsx).
+    Every field is a live row-count over the department's own records; only the
+    fields relevant to the requested department are populated, the rest stay null
+    so the frontend renders a graceful fallback. collected_today is in rupees."""
+
+    department: str
+    duplicate_flags: int | None = None
+    zoning_conflicts: int | None = None
+    overdue_parcels: int | None = None
+    reassessments_pending: int | None = None
+    collected_today: float | None = None
+    active_restrictions: int | None = None
+    blocks_triggered: int | None = None
+    new_mortgages: int | None = None
+    fraud_prevented: int | None = None
+    escalated_to_collector: int | None = None
+    evidence_complete: int | None = None
+    in_progress_fieldwork: int | None = None
+    geometry_updated: int | None = None
+
+
 class IdentifierUsed(CamelModel):
     type: str
     value: str

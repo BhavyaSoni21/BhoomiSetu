@@ -15,9 +15,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_roles
+from app.auth.roles import ALL_STAFF_ROLES
 from app.database import get_db
 from app.models.user import User
 from app.schemas.departments import (
+    DepartmentStatsOut,
     DisputeRecordOut,
     EncumbranceRecordOut,
     LandRecordsLookupOut,
@@ -57,6 +59,13 @@ def list_pending_registrations(skip: int = 0, limit: int = 10, db: Session = Dep
 @router.get("/survey/pending", response_model=list[SurveyRecordOut])
 def list_pending_surveys(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
     return service.find_pending_surveys(db, skip, limit)
+
+
+# Officer dashboard metric cards. Literal "/stats" prefix keeps it clear of the
+# /{parcel_id} catch-alls below; any staff role may read any department's stats.
+@router.get("/stats/{code}", response_model=DepartmentStatsOut)
+def get_department_stats(code: str, db: Session = Depends(get_db), _staff: User = Depends(require_roles(*ALL_STAFF_ROLES))):
+    return service.department_stats(db, code)
 
 
 # Officer department dashboards (BACKLOG item 12). Literal paths, so - like the

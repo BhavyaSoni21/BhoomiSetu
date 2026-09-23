@@ -15,7 +15,7 @@ const SystemMonitoringPage: React.FC = () => {
     <div className="space-y-6">
       <BackButton variant="ink" />
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminNav.systemMonitoring')}</h1>
+        <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink">{t('adminPortal.systemMonitoringTitle')}</h1>
         <p className="text-ink/60 mt-1">{t('adminPortal.systemMonitoringSubtitle')}</p>
       </div>
 

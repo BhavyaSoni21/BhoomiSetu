@@ -27,6 +27,7 @@ from app.document_verification.ocr import extract_text
 from app.common.supabase_storage import ensure_storage_bucket_exists, upload_to_storage
 from app.database import SessionLocal
 from app.models.admin import Department
+from app.models.case import Case, DepartmentTask
 from app.models.department_record import (
     DisputeRecord,
     EncumbranceRecord,
@@ -152,32 +153,25 @@ def bounds_of_rings(rings: list[Ring]) -> Bounds:
     return Bounds(min_lng, min_lat, max_lng, max_lat)
 
 
-def build_zone_rectangle_from_bounds(bounds: Bounds, lat_frac_range: tuple[float, float]) -> Ring:
-    """A rectangle spanning a fraction-of-bounds window (e.g. lat_frac_range
-    (0, 0.5) = the southern half of the cluster's actual generated
-    footprint) - works regardless of the cluster's actual irregular
-    shape/orientation.
+def build_stacked_zone_rings(bounds: Bounds, boundaries: list[float]) -> list["Ring"]:
+    """Contiguous stacked rectangles that share EXACT horizontal edges.
+
+    Each interior boundary latitude is read once and reused by both zones
+    that touch it, so their common edge is coordinate-identical - no jitter,
+    no per-zone margin (which would make neighbours overlap by 2*margin and
+    never share a vertex). Satisfies the shared-edge invariant enforced on
+    write by spatial_service.snap_zone_to_shared_edges: seeded data already
+    valid, no slivers, no interior overlap.
     """
     lat_span = bounds.max_lat - bounds.min_lat
-
-    def jitter() -> float:
-        return (random.random() - 0.5) * lat_span * 0.02
-
-    margin = lat_span * 0.03
-    min_lat = bounds.min_lat + lat_frac_range[0] * lat_span - margin
-    max_lat = bounds.min_lat + lat_frac_range[1] * lat_span + margin
     lng_span = bounds.max_lng - bounds.min_lng
     min_lng = bounds.min_lng - lng_span * 0.03
     max_lng = bounds.max_lng + lng_span * 0.03
-
-    ring: Ring = [
-        (min_lng + jitter(), min_lat + jitter()),
-        (max_lng + jitter(), min_lat + jitter()),
-        (max_lng + jitter(), max_lat + jitter()),
-        (min_lng + jitter(), max_lat + jitter()),
+    lats = [bounds.min_lat + f * lat_span for f in boundaries]
+    return [
+        [(min_lng, lo), (max_lng, lo), (max_lng, hi), (min_lng, hi), (min_lng, lo)]
+        for lo, hi in zip(lats, lats[1:])
     ]
-    ring.append(ring[0])
-    return ring
 
 
 def build_zone_around_point(center: Point, radius_meters: float, ref_lat: float) -> Ring:
@@ -358,6 +352,7 @@ def seed_database() -> None:
         # (Postgres refuses to delete a row another table's live FK still
         # points at).
         tables_to_clear = [
+            DepartmentTask, Case,
             VerificationEvidence, WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
             PlanningRecord, TaxRecord, RestrictionRecord, EncumbranceRecord, OwnershipHistoryRecord, CropRecord,
             ParcelHistoricalState,
@@ -836,21 +831,26 @@ def seed_database() -> None:
                 if predicate((p.centroid[1] - pune_bounds.min_lat) / (pune_bounds.max_lat - pune_bounds.min_lat))
             ]
 
+        # Three stacked zones sharing exact horizontal edges (boundaries at
+        # frac 0.5 and 0.7). build_stacked_zone_rings reuses each boundary
+        # latitude for both neighbours, so the touching edges are identical -
+        # satisfies the shared-edge invariant, no overlap/sliver.
+        zone_rings = build_stacked_zone_rings(pune_bounds, [0, 0.5, 0.7, 1])
         db.add_all(
             [
                 ZoningOverlay(
                     name="Pune Residential Zone", zone_type="RESIDENTIAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(build_zone_rectangle_from_bounds(pune_bounds, (0, 0.5))),
+                    geometry=_polygon(zone_rings[0]),
                     parcel_ids=find_pune_parcel_ids(lambda f: f < 0.5),
                 ),
                 ZoningOverlay(
                     name="Pune Commercial Zone", zone_type="COMMERCIAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(build_zone_rectangle_from_bounds(pune_bounds, (0.5, 0.7))),
+                    geometry=_polygon(zone_rings[1]),
                     parcel_ids=find_pune_parcel_ids(lambda f: 0.5 <= f < 0.7),
                 ),
                 ZoningOverlay(
                     name="Pune Agricultural / Open Zone", zone_type="AGRICULTURAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(build_zone_rectangle_from_bounds(pune_bounds, (0.7, 1))),
+                    geometry=_polygon(zone_rings[2]),
                     parcel_ids=find_pune_parcel_ids(lambda f: f >= 0.7),
                 ),
             ]
@@ -940,22 +940,22 @@ def seed_database() -> None:
         # Demo accounts for real login - one per officer role plus one
         # admin, all sharing one demo password. Never real credentials.
         DEMO_PASSWORD_HASH = bcrypt.hashpw(b"Demo@123", bcrypt.gensalt(10)).decode()
-        db.add_all(
-            [
-                User(email="admin@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Admin User", role="ADMIN", email_verified=True),
-                User(email="landrecords.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Asha Kulkarni", role="LAND_RECORD_OFFICER", email_verified=True),
-                User(email="registration.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Rohan Mehta", role="REGISTRATION_OFFICER", email_verified=True),
-                User(email="planning.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Priya Nair", role="PLANNING_OFFICER", email_verified=True),
-                User(email="dispute.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Vikram Singh", role="DISPUTE_OFFICER", email_verified=True),
-                # So every department in the admin Department directory has
-                # at least one real officer to receive AI-routed requests
-                # and governance-alert notifications.
-                User(email="tax.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Meera Iyer", role="TAX_OFFICER", email_verified=True),
-                User(email="restriction.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Arjun Deshmukh", role="RESTRICTION_OFFICER", email_verified=True),
-                User(email="encumbrance.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Kavita Rao", role="ENCUMBRANCE_OFFICER", email_verified=True),
-                User(email="survey.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Sanjay Patil", role="SURVEY_OFFICER", email_verified=True),
-            ]
-        )
+        officer_accounts = [
+            User(email="admin@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Admin User", role="ADMIN", email_verified=True),
+            User(email="landrecords.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Asha Kulkarni", role="LAND_RECORD_OFFICER", email_verified=True),
+            User(email="registration.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Rohan Mehta", role="REGISTRATION_OFFICER", email_verified=True),
+            User(email="planning.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Priya Nair", role="PLANNING_OFFICER", email_verified=True),
+            User(email="dispute.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Vikram Singh", role="DISPUTE_OFFICER", email_verified=True),
+            # So every department in the admin Department directory has
+            # at least one real officer to receive AI-routed requests
+            # and governance-alert notifications.
+            User(email="tax.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Meera Iyer", role="TAX_OFFICER", email_verified=True),
+            User(email="restriction.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Arjun Deshmukh", role="RESTRICTION_OFFICER", email_verified=True),
+            User(email="encumbrance.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Kavita Rao", role="ENCUMBRANCE_OFFICER", email_verified=True),
+            User(email="survey.officer@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Sanjay Patil", role="SURVEY_OFFICER", email_verified=True),
+        ]
+        db.add_all(officer_accounts)
+        officer_by_role = {u.role: u for u in officer_accounts}
         verifiers = [
             User(email="verifier1@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Sunil Patwardhan", role="VERIFIER", email_verified=True),
             User(email="verifier2@bhoomisetu.gov.in", password_hash=DEMO_PASSWORD_HASH, name="Neha Joshi", role="VERIFIER", email_verified=True),
@@ -1187,6 +1187,59 @@ def seed_database() -> None:
         db.add_all(departments)
         db.flush()
         print(f"Saved {len(departments)} departments")
+
+        # Mock Case + DepartmentTask data (the newer Case system; the legacy
+        # Workflow queue above is separate). One Case per request type, each
+        # fanned out to EVERY department so all officer dashboards and
+        # /cases/tasks/my have a realistic mix across all case types. Status/
+        # priority/resolution_mode cycle so the boards aren't monochrome.
+        dept_by_code = {d.code: d for d in departments}
+        dept_role = {
+            "LAND_RECORDS": "LAND_RECORD_OFFICER", "REGISTRATION": "REGISTRATION_OFFICER",
+            "PLANNING": "PLANNING_OFFICER", "TAX": "TAX_OFFICER", "RESTRICTION": "RESTRICTION_OFFICER",
+            "DISPUTE": "DISPUTE_OFFICER", "ENCUMBRANCE": "ENCUMBRANCE_OFFICER", "SURVEY": "SURVEY_OFFICER",
+        }
+        case_types = list(request_pipelines)  # the 5 supported request/case types
+        case_statuses = ["CREATED", "ACTIVE", "RESOLUTION", "FEEDBACK", "CLOSED"]
+        priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        task_statuses = ["PENDING", "ASSIGNED", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"]
+        resolution_modes = ["DIGITAL", "FIELD_VERIFICATION", "OFFLINE_APPOINTMENT", "HYBRID", "MANUAL_REVIEW"]
+        case_tasks_to_save: list[DepartmentTask] = []
+        seeded_cases = []
+        for ci, case_type in enumerate(case_types):
+            parcel = all_saved_parcels[ci % len(all_saved_parcels)]
+            citizen = citizens[ci % len(citizens)]
+            case = Case(
+                case_no=f"CASE-2026-{ci + 1:04d}",
+                citizen_id=str(citizen.id),
+                parcel_id=str(parcel.id),
+                intent=case_type,
+                status=case_statuses[ci % len(case_statuses)],
+                priority=priorities[ci % len(priorities)],
+            )
+            db.add(case)
+            db.flush()
+            seeded_cases.append(case)
+            for di, dept in enumerate(departments):
+                status = task_statuses[(ci + di) % len(task_statuses)]
+                # Assign the matching-role officer for any status past PENDING,
+                # so /cases/tasks/my returns data for every officer role.
+                officer = officer_by_role.get(dept_role.get(dept.code, ""))
+                assigned = status != "PENDING" and officer is not None
+                case_tasks_to_save.append(
+                    DepartmentTask(
+                        case_id=case.id,
+                        department_id=dept.id,
+                        status=status,
+                        stage=di,
+                        stage_name=dept.name,
+                        assigned_officer_id=str(officer.id) if assigned else None,
+                        resolution_mode=resolution_modes[(ci + di) % len(resolution_modes)],
+                    )
+                )
+        db.add_all(case_tasks_to_save)
+        db.flush()
+        print(f"Saved {len(seeded_cases)} demo cases with {len(case_tasks_to_save)} department tasks (every department x every case type)")
 
         db.commit()
         total_parcels = db.query(Parcel).count()

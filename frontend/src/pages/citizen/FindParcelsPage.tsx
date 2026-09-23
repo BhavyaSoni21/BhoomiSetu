@@ -76,22 +76,13 @@ const FindParcelsPage: React.FC = () => {
             activeTab === 'map' ? 'hidden' : activeTab === 'list' ? 'lg:col-span-12' : 'lg:col-span-5'
           } space-y-4`}
         >
-          <div className="gov-card p-5">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gov-border">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-brand-900 flex items-center gap-1.5">
-                <Search className="w-4 h-4 text-action-600" />
-                Query Parameters
-              </span>
-              <span className="text-[11px] font-mono text-text-muted">
-                {searchResults.length} {searchResults.length === 1 ? 'record' : 'records'} found
-              </span>
-            </div>
-            <ParcelSearch
-              onResultsChange={setSearchResults}
-              selectedParcelId={selectedParcelId}
-              onSelectParcel={setSelectedParcelId}
-            />
-          </div>
+          {/* ParcelSearch renders its own card + results heading, so no extra
+              wrapper here (that produced the nested double-border card). */}
+          <ParcelSearch
+            onResultsChange={setSearchResults}
+            selectedParcelId={selectedParcelId}
+            onSelectParcel={setSelectedParcelId}
+          />
         </div>
 
         {/* GIS Map Panel */}

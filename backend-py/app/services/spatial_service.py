@@ -17,11 +17,20 @@ from fastapi import HTTPException, status
 from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import from_shape
 from shapely.geometry import shape
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.parcel import Parcel
 from app.services.governance_rules_service import evaluate_rules_and_create_alerts
+
+# Snap tolerance for keeping adjacent zoning overlays edge-shared, in SRID
+# 4326 degrees (~0.0005° ≈ 55 m at India's latitudes). A zone boundary
+# drawn or edited to within this distance of a neighbour snaps onto the
+# neighbour's exact edge, so the two keep a common boundary instead of
+# leaving a sliver gap or a thin overlap (the "zones collapse / don't share
+# a boundary" symptom). ponytail: single global tolerance — make it
+# per-district only if zone scales vary enough for one value to misbehave.
+ZONE_SNAP_TOLERANCE_DEG = 0.0005
 
 
 def geojson_to_geometry(geojson: dict[str, Any]) -> WKBElement:
@@ -51,6 +60,47 @@ def reject_if_overlapping(db: Session, model, geom: WKBElement, exclude_id: UUID
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'This zone\'s geometry overlaps an existing zone: "{existing.name}". Adjust the geometry or edit the existing zone instead.',
         )
+
+
+def snap_zone_to_shared_edges(db: Session, model, geom: WKBElement, exclude_id: UUID | None = None) -> WKBElement:
+    """Keep adjacent zoning overlays sharing an exact boundary instead of
+    forbidding all contact the way reject_if_overlapping does.
+
+    1. Snap the incoming geometry onto every same-type zone within
+       ZONE_SNAP_TOLERANCE_DEG, so an edge meant to be shared becomes
+       geometrically identical to the neighbour's edge (removes sliver gaps
+       and thin overlaps - the symptom the user reported).
+    2. A shared edge (a zero-area touch) is then allowed; only a genuine
+       interior *overlap* is rejected.
+
+    ponytail: this is snap-to-coverage, not full planar topology. Editing a
+    shared edge does NOT drag the neighbour's edge along with it, and
+    shrinking a zone away from its neighbour leaves a gap. If zones must
+    stay a gapless coverage under arbitrary edits, upgrade to the PostGIS
+    topology extension (TopoGeometry) where faces share stored edges.
+    """
+    neighbours = db.query(model.geometry).filter(
+        func.ST_DWithin(model.geometry, geom, ZONE_SNAP_TOLERANCE_DEG)
+    )
+    if exclude_id is not None:
+        neighbours = neighbours.filter(model.id != exclude_id)
+
+    snapped = geom
+    for (neighbour_geom,) in neighbours.all():
+        snapped = db.scalar(select(func.ST_Snap(snapped, neighbour_geom, ZONE_SNAP_TOLERANCE_DEG)))
+
+    # Allow a shared edge; reject only a real interior overlap. ST_Overlaps
+    # is false for a pure edge-touch, true when interiors actually intersect.
+    overlapping = db.query(model.name).filter(func.ST_Overlaps(model.geometry, snapped))
+    if exclude_id is not None:
+        overlapping = overlapping.filter(model.id != exclude_id)
+    hit = overlapping.first()
+    if hit is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'This zone overlaps the interior of an existing zone: "{hit[0]}". Adjacent zones may share an edge, but not overlap.',
+        )
+    return snapped
 
 
 def compute_affected_parcel_ids(db: Session, geom: WKBElement) -> list[str]:

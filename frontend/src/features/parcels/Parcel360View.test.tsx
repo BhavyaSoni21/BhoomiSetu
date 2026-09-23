@@ -454,11 +454,11 @@ describe('Parcel360View', () => {
     expect(screen.queryByLabelText('Year')).not.toBeInTheDocument();
   });
 
-  it('gives a citizen only the "View Zoning" layer toggle on the map, not the full staff legend', async () => {
+  it('gives a citizen the full map layer legend too (adminNotes stays gated server-side)', async () => {
     mockGet();
     renderWithProviders('p1', citizen);
 
-    expect(await screen.findByTestId('mock-map')).toHaveAttribute('data-visible-layer-keys', 'zoning');
+    expect(await screen.findByTestId('mock-map')).toHaveAttribute('data-visible-layer-keys', 'all');
   });
 
   it('gives staff the full map layer legend', async () => {

@@ -1,0 +1,77 @@
+# Render blueprint - backend API + worker + Redis. Frontend deploys to Vercel
+# (see DEPLOYMENT.md), so it's not here. Sync via Render dashboard > Blueprints.
+#
+# Secrets (sync: false) are left blank on purpose - set them in the Render
+# dashboard, never commit real values. Paste the GEE key as the raw JSON
+# STRING into GEE_SERVICE_ACCOUNT_KEY_JSON (no file upload needed).
+services:
+  - type: web
+    name: bhoomisetu-api
+    runtime: docker
+    dockerfilePath: ./backend-py/Dockerfile
+    dockerContext: ./backend-py
+    healthCheckPath: /docs
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: bhoomisetu-redis
+          property: connectionString
+      # DB (Supabase pooler or Render Postgres), JWT, and all third-party keys:
+      - { key: DB_HOST, sync: false }
+      - { key: DB_PORT, sync: false }
+      - { key: DB_USERNAME, sync: false }
+      - { key: DB_PASSWORD, sync: false }
+      - { key: DB_NAME, sync: false }
+      - { key: DB_SSL, value: "true" }
+      - { key: JWT_SECRET, sync: false }
+      - { key: CORS_ORIGIN, sync: false }   # your Vercel URL, comma-separated
+      - { key: FRONTEND_URL, sync: false }
+      - { key: GROQ_API_KEY, sync: false }
+      - { key: GEMINI_API_KEY, sync: false }
+      - { key: OPENROUTER_API_KEY, sync: false }
+      - { key: GEE_SERVICE_ACCOUNT_EMAIL, sync: false }
+      - { key: GEE_SERVICE_ACCOUNT_KEY_JSON, sync: false }  # raw JSON string
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_SECRET_KEY, sync: false }
+      - { key: TEXTBEE_API_KEY, sync: false }
+      - { key: TEXTBEE_DEVICE_ID, sync: false }
+      - { key: MAIL_USER, sync: false }
+      - { key: MAIL_PASSWORD, sync: false }
+      - { key: GOOGLE_OAUTH_CLIENT_ID, sync: false }
+      - { key: GOOGLE_OAUTH_CLIENT_SECRET, sync: false }
+      - { key: GOOGLE_OAUTH_REDIRECT_URI, sync: false }
+      - { key: ULCA_USER_ID, sync: false }
+      - { key: ULCA_API_KEY, sync: false }
+
+  # Celery worker - runs background jobs (OCR, Earth Engine, ETL, master-plan
+  # recompute). Same image, different start command. Shares the env group.
+  - type: worker
+    name: bhoomisetu-worker
+    runtime: docker
+    dockerfilePath: ./backend-py/Dockerfile
+    dockerContext: ./backend-py
+    # -Q lists every routed queue (see celery_app.conf.task_routes) plus the
+    # default; a plain worker would ignore the routed ones.
+    dockerCommand: celery -A app.core.celery_app.celery_app worker --loglevel=info -Q celery,earth_engine,ocr,etl,change_detection,terrain
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: bhoomisetu-redis
+          property: connectionString
+      - { key: DB_HOST, sync: false }
+      - { key: DB_PORT, sync: false }
+      - { key: DB_USERNAME, sync: false }
+      - { key: DB_PASSWORD, sync: false }
+      - { key: DB_NAME, sync: false }
+      - { key: DB_SSL, value: "true" }
+      - { key: GEE_SERVICE_ACCOUNT_EMAIL, sync: false }
+      - { key: GEE_SERVICE_ACCOUNT_KEY_JSON, sync: false }
+
+  - type: keyvalue
+    name: bhoomisetu-redis
+    ipAllowList: []   # only reachable from Render services
+    plan: free

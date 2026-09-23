@@ -132,7 +132,7 @@ describe('App navbar is per-role, not just per-guest', () => {
     expect(nav.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'About' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'My Parcels' })).toBeInTheDocument();
-    expect(nav.getByRole('link', { name: 'Get Assistance' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'Services' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Features' })).not.toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Assigned Requests' })).not.toBeInTheDocument();
@@ -144,12 +144,16 @@ describe('App navbar is per-role, not just per-guest', () => {
   });
 
   it("an officer sees their own portal page list only - no Home/About, no citizen pages", () => {
-    // RESTRICTION_OFFICER has governanceAlerts tab
+    // RESTRICTION_OFFICER has governanceAlerts under the Tools dropdown
     renderAs('RESTRICTION_OFFICER');
     const headers = screen.getAllByRole('banner');
     const nav = within(headers[headers.length - 1]);
-    // officerNav.assignedRequests translates to "My Cases"
-    expect(nav.getByRole('link', { name: 'My Cases' })).toBeInTheDocument();
+    // officerNav.cases translates to "Cases"
+    expect(nav.getByRole('link', { name: 'Cases' })).toBeInTheDocument();
+    // Department tools live behind a "Tools" dropdown, not as primary links
+    const tools = nav.getByRole('button', { name: /Tools/i });
+    expect(nav.queryByRole('link', { name: 'Governance Alerts' })).not.toBeInTheDocument();
+    fireEvent.click(tools);
     expect(nav.getByRole('link', { name: 'Governance Alerts' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
@@ -162,7 +166,7 @@ describe('App navbar is per-role, not just per-guest', () => {
     const nav = within(headers[headers.length - 1]);
     expect(nav.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Departments' })).toBeInTheDocument();
-    expect(nav.getByRole('link', { name: 'System Monitoring' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'System' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Assigned Requests' })).not.toBeInTheDocument();
   });

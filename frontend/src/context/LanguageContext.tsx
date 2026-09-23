@@ -1087,6 +1087,7 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'parcel360.field.lastTransactionDate': 'Last Transaction Date',
     'parcel360.field.landUse': 'Land Use',
     'parcel360.field.zoningClassification': 'Zoning Classification',
+    'parcel360.field.zoneByOverlap': 'Zone (by map overlap)',
     'parcel360.field.masterPlanReference': 'Master Plan Reference',
     'parcel360.field.buildingPermission': 'Building Permission',
     'parcel360.field.assessedValue': 'Assessed Value',

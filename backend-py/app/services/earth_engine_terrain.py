@@ -18,7 +18,7 @@ from datetime import date, datetime
 from typing import List, Dict, Any, Optional, Tuple
 from shapely.geometry import Polygon
 
-from app.config import get_settings
+from app.services.earth_engine_service import gee_credentials
 from app.services.image_diff import GeoBounds
 from app.services.eecu_tracker import eecu_tracker, estimate_eecu
 
@@ -34,15 +34,11 @@ def _ensure_initialized() -> None:
     with _init_lock:
         if _initialized:
             return
-        settings = get_settings()
-        if not settings.gee_service_account_email or not settings.gee_service_account_key_path:
+        credentials = gee_credentials()
+        if credentials is None:
             raise RuntimeError(
-                "Earth Engine is not configured (GEE_SERVICE_ACCOUNT_EMAIL / GEE_SERVICE_ACCOUNT_KEY_PATH are not set)"
+                "Earth Engine is not configured (set GEE_SERVICE_ACCOUNT_EMAIL and GEE_SERVICE_ACCOUNT_KEY_JSON or _KEY_PATH)"
             )
-        credentials = ee.ServiceAccountCredentials(
-            settings.gee_service_account_email,
-            settings.gee_service_account_key_path
-        )
         try:
             ee.Initialize(credentials)
         except ee.EEException as exc:

@@ -4,8 +4,14 @@ import uuid
 try:
     from celery import shared_task
 except ImportError:
+    # No celery in this environment: return the function with a no-op .delay /
+    # .apply_async so callers (e.g. spatial.py) can fire-and-forget without a
+    # broker. The recompute just doesn't run async here.
     def shared_task(*args, **kwargs):
-        def decorator(fn): return fn
+        def decorator(fn):
+            fn.delay = lambda *a, **k: None
+            fn.apply_async = lambda *a, **k: None
+            return fn
         return decorator
 
 from sqlalchemy import text

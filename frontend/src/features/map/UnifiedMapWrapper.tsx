@@ -87,6 +87,10 @@ interface UnifiedMapWrapperProps {
   height?: string;
   /** Optional overlay element to render completely over the map area (e.g. for full-bleed satellite photos). */
   overlayElement?: React.ReactNode;
+  /** Layer keys to switch ON at first render (merged over DEFAULT_LAYER_VISIBILITY), e.g. roads/buildings on the admin authoring map. */
+  initialLayersOn?: LayerKey[];
+  /** Fetch GIS overlays nationwide (no state/district scoping) instead of scoping to a selected parcel's district — for nationwide authoring maps with no parcel selected. */
+  fetchOverlaysNationwide?: boolean;
 }
 
 const LAYER_KEYS: LayerKey[] = [
@@ -108,6 +112,8 @@ const LAYER_KEYS: LayerKey[] = [
   'legalStatus',
   'circleRate',
   'riskScore',
+  'mismatch',
+  'unauthorized',
 ];
 
 const LAYER_LABELS: Record<LayerKey, string> = {
@@ -162,6 +168,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   className = '',
   height = 'h-[500px]',
   overlayElement,
+  initialLayersOn,
+  fetchOverlaysNationwide = false,
 }) => {
   const { t } = useTranslation();
   const isOfficerOrAdmin = userRole ? OFFICER_ROLES.includes(userRole as (typeof OFFICER_ROLES)[number]) : false;
@@ -174,7 +182,11 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
 
   // Layer filter state
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
-    { ...DEFAULT_LAYER_VISIBILITY, taxStatus: userRole === 'TAX_OFFICER' }
+    {
+      ...DEFAULT_LAYER_VISIBILITY,
+      taxStatus: userRole === 'TAX_OFFICER',
+      ...Object.fromEntries((initialLayersOn ?? []).map((k) => [k, true])),
+    }
   );
   const [showLayerFilters, setShowLayerFilters] = useState(false);
   const layerFiltersRef = useRef<HTMLDivElement>(null);
@@ -234,16 +246,21 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     ),
   }), [hierarchicalClusters]);
 
-  // Determine district context for spatial layer availability checks
-  // Uses selected parcel's district, or first parcel's district from props
+  // Determine district context for spatial layer availability checks.
+  // Priority: an explicit parcels prop (Parcel 360 etc.), else the cluster
+  // the user picked from the dropdown (its state+district come straight from
+  // the cascading selectors). Without this second case, picking a cluster
+  // left districtContext null, so no per-district overlay (zoning/restriction/
+  // infrastructure/change-detection) ever loaded for that cluster.
   const districtContext = useMemo(() => {
-    // TODO: This would need the selected parcel's context to get district
-    // For now, we'll check from parcels prop if available
     if (parcelsProp && parcelsProp.length > 0) {
       return { state: parcelsProp[0].stateCode, district: parcelsProp[0].districtCode };
     }
+    if (selectedCluster && selectedState && selectedDistrict) {
+      return { state: selectedState, district: selectedDistrict };
+    }
     return null;
-  }, [parcelsProp]);
+  }, [parcelsProp, selectedCluster, selectedState, selectedDistrict]);
 
   // Check which spatial layers have data in the database for this district
   const { data: zoningFC = EMPTY_FC } = useQuery<SpatialFeatureCollection>(
@@ -346,12 +363,12 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       availableKeys = isOfficerOrAdminMap ? baseKeys : baseKeys.filter(k => k !== 'adminNotes');
     } else if (hasClusterFocus) {
       // Cluster focused: cluster + district overlays + terrain layers + legalStatus + circleRate
-      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
+      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore', 'mismatch', 'unauthorized'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     } else {
       // No selection: only district-level overlay layers + terrain layers + legalStatus + circleRate
-      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
+      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore', 'mismatch', 'unauthorized'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     }
@@ -594,6 +611,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           onLayerVisibilityChange={setLayerVisibility}
           clusterOverview={clusterOverviewFC}
           canViewAdminNotes={isAdmin}
+          fetchOverlaysNationwide={fetchOverlaysNationwide}
         />
         {overlayElement && (
           <div className="absolute inset-0 z-20 bg-surface">

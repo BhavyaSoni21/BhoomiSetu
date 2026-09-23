@@ -241,17 +241,44 @@ function isToday(value: string | null): boolean {
   return date.toDateString() === now.toDateString();
 }
 
+interface DepartmentStats {
+  department: string;
+  duplicateFlags?: number;
+  zoningConflicts?: number;
+  overdueParcels?: number;
+  reassessmentsPending?: number;
+  collectedToday?: number; // rupees
+  activeRestrictions?: number;
+  blocksTriggered?: number;
+  newMortgages?: number;
+  fraudPrevented?: number;
+  escalatedToCollector?: number;
+  evidenceComplete?: number;
+  inProgressFieldwork?: number;
+  geometryUpdated?: number;
+}
+
+function formatRupees(n?: number): string {
+  if (n == null) return '—';
+  return n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : `₹${Math.round(n).toLocaleString()}`;
+}
+
 interface StatsData {
   pendingWorkflows: number;
   decidedSteps: number;
   verifiedToday: number;
   alerts: number;
   isLoading: boolean;
+  deptStats?: DepartmentStats;
+  statsLoading: boolean;
 }
 
 function renderStatsCards(department: string, data: StatsData) {
   const { t } = useTranslation();
-  const { pendingWorkflows, decidedSteps, verifiedToday, alerts, isLoading } = data;
+  const { pendingWorkflows, decidedSteps, verifiedToday, isLoading, deptStats, statsLoading } = data;
+  // Metric cards previously hardcoded now read live counts from GET /stats/:code;
+  // '...' while loading, 0 if the field is absent, so the UI never crashes.
+  const d = (v?: number): number | string => (statsLoading ? '...' : v ?? 0);
 
   const statsConfig: Record<string, { label: string; value: number | string; icon: React.ReactNode; color: string; bgColor: string; subLabel: string; link?: string }[]> = {
     LAND_RECORDS: [
@@ -262,45 +289,45 @@ function renderStatsCards(department: string, data: StatsData) {
     ],
     REGISTRATION: [
       { label: t('officerDashboard.pendingRegistrationsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <FileText className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.duplicateFlagsLabel'), value: 12, icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.flaggedForReviewLabel') },
+      { label: t('officerDashboard.duplicateFlagsLabel'), value: d(deptStats?.duplicateFlags), icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.flaggedForReviewLabel') },
       { label: t('officerDashboard.approvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
       { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
     ],
     PLANNING: [
       { label: t('officerDashboard.pendingPermissionsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <MapPin className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.zoningConflictsLabel'), value: 3, icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.requiresAttentionLabel') },
+      { label: t('officerDashboard.zoningConflictsLabel'), value: d(deptStats?.zoningConflicts), icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.requiresAttentionLabel') },
       { label: t('officerDashboard.approvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
       { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
     ],
     TAX: [
-      { label: t('officerDashboard.overdueParcelsLabel'), value: 47, icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.outstandingArrearsLabel') },
-      { label: t('officerDashboard.reassessmentsPendingLabel'), value: 8, icon: <TrendingUp className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.mutationTriggeredLabel') },
-      { label: t('officerDashboard.collectedTodayLabel'), value: '₹12.5L', icon: <DollarSign className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.revenueCollectedLabel') },
+      { label: t('officerDashboard.overdueParcelsLabel'), value: d(deptStats?.overdueParcels), icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.outstandingArrearsLabel') },
+      { label: t('officerDashboard.reassessmentsPendingLabel'), value: d(deptStats?.reassessmentsPending), icon: <TrendingUp className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.mutationTriggeredLabel') },
+      { label: t('officerDashboard.collectedTodayLabel'), value: statsLoading ? '...' : formatRupees(deptStats?.collectedToday), icon: <DollarSign className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.revenueCollectedLabel') },
       { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : Math.floor(decidedSteps * 0.9), icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
     ],
     RESTRICTION: [
       { label: t('officerDashboard.flagChangeRequestsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Flag className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.activeRestrictionsLabel'), value: 23, icon: <Shield className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.currentlyEnforcedLabel') },
+      { label: t('officerDashboard.activeRestrictionsLabel'), value: d(deptStats?.activeRestrictions), icon: <Shield className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.currentlyEnforcedLabel') },
       { label: t('officerDashboard.reviewedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
-      { label: t('officerDashboard.blocksTriggeredLabel'), value: 5, icon: <AlertCircle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.transfersBlockedLabel') },
+      { label: t('officerDashboard.blocksTriggeredLabel'), value: d(deptStats?.blocksTriggered), icon: <AlertCircle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.transfersBlockedLabel') },
     ],
     ENCUMBRANCE: [
       { label: t('officerDashboard.pendingCertificatesLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.newMortgagesLabel'), value: 15, icon: <Building2 className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.registeredThisPeriodLabel') },
-      { label: t('officerDashboard.fraudPreventedLabel'), value: 7, icon: <ShieldAlert className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.blockedByDisputeRestrictionLabel') },
+      { label: t('officerDashboard.newMortgagesLabel'), value: d(deptStats?.newMortgages), icon: <Building2 className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.registeredThisPeriodLabel') },
+      { label: t('officerDashboard.fraudPreventedLabel'), value: d(deptStats?.fraudPrevented), icon: <ShieldAlert className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.blockedByDisputeRestrictionLabel') },
       { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.cumulativeTotalLabel') },
     ],
     DISPUTE: [
       { label: t('officerDashboard.activeDisputesLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Gavel className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.escalatedToCollectorLabel'), value: 4, icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.highPriorityLabel') },
+      { label: t('officerDashboard.escalatedToCollectorLabel'), value: d(deptStats?.escalatedToCollector), icon: <AlertCircle className="w-5 h-5" />, color: 'text-red-700', bgColor: 'bg-red-100', subLabel: t('officerDashboard.highPriorityLabel') },
       { label: t('officerDashboard.resolvedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
-      { label: t('officerDashboard.evidenceCompleteLabel'), value: 12, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.readyForHearingLabel') },
+      { label: t('officerDashboard.evidenceCompleteLabel'), value: d(deptStats?.evidenceComplete), icon: <FileCheck2 className="w-5 h-5" />, color: 'text-brand-900', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.readyForHearingLabel') },
     ],
     SURVEY: [
       { label: t('officerDashboard.pendingSurveysLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <MapPin className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
-      { label: t('officerDashboard.inProgressFieldworkLabel'), value: 6, icon: <Upload className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.surveyorsInFieldLabel') },
+      { label: t('officerDashboard.inProgressFieldworkLabel'), value: d(deptStats?.inProgressFieldwork), icon: <Upload className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.surveyorsInFieldLabel') },
       { label: t('officerDashboard.completedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
-      { label: t('officerDashboard.geometryUpdatedLabel'), value: 9, icon: <Radio className="w-5 h-5" />, color: 'text-indigo-700', bgColor: 'bg-indigo-100', subLabel: t('officerDashboard.parcelsGeometrySyncedLabel') },
+      { label: t('officerDashboard.geometryUpdatedLabel'), value: d(deptStats?.geometryUpdated), icon: <Radio className="w-5 h-5" />, color: 'text-indigo-700', bgColor: 'bg-indigo-100', subLabel: t('officerDashboard.parcelsGeometrySyncedLabel') },
     ],
   };
 
@@ -360,21 +387,28 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
     { enabled: showAlertsCard },
   );
 
+  // Live department metric cards (was hardcoded). See GET /stats/:code.
+  const { data: deptStats, isLoading: statsLoading } = useQuery<DepartmentStats>(
+    ['department-stats', department],
+    async () => (await apiService.get(`/stats/${department}`)).data,
+  );
+
   const myStepOf = (workflow: Workflow) => workflow.steps.find((s) => s.department === department);
   const pendingWorkflows = workflows.filter((w) => myStepOf(w)?.status === 'PENDING');
   const decidedSteps = workflows.map(myStepOf).filter((s) => s && (s.status === 'APPROVED' || s.status === 'REJECTED'));
   const verifiedToday = decidedSteps.filter((s) => isToday(s!.completedAt)).length;
 
-  // Department-specific stats - would come from dedicated endpoints in production
+  // Department-specific stats - hardcoded constants replaced by live counts
+  // from GET /stats/:code (deptStats); workflow-derived fields stay client-side.
   const departmentStats = {
     LAND_RECORDS: { pendingMutations: pendingWorkflows.length, approvedToday: verifiedToday, totalDecided: decidedSteps.length, withinSla: Math.floor(decidedSteps.length * 0.85) },
-    REGISTRATION: { pendingRegistrations: pendingWorkflows.length, duplicateFlags: 12, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
-    PLANNING: { pendingPermissions: pendingWorkflows.length, zoningConflicts: 3, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
-    TAX: { overdueParcels: 47, reassessmentsPending: 8, collectedToday: '₹12.5L', withinSla: Math.floor(decidedSteps.length * 0.9) },
-    RESTRICTION: { flagChangeRequests: pendingWorkflows.length, activeRestrictions: 23, reviewedToday: verifiedToday, blocksTriggered: 5 },
-    ENCUMBRANCE: { pendingCertificates: pendingWorkflows.length, newMortgages: 15, fraudPrevented: 7, totalDecided: decidedSteps.length },
-    DISPUTE: { activeDisputes: pendingWorkflows.length, escalatedToCollector: 4, resolvedToday: verifiedToday, evidenceComplete: 12 },
-    SURVEY: { pendingSurveys: pendingWorkflows.length, inProgressFieldwork: 6, completedToday: verifiedToday, geometryUpdated: 9 },
+    REGISTRATION: { pendingRegistrations: pendingWorkflows.length, duplicateFlags: deptStats?.duplicateFlags ?? 0, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
+    PLANNING: { pendingPermissions: pendingWorkflows.length, zoningConflicts: deptStats?.zoningConflicts ?? 0, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
+    TAX: { overdueParcels: deptStats?.overdueParcels ?? 0, reassessmentsPending: deptStats?.reassessmentsPending ?? 0, collectedToday: formatRupees(deptStats?.collectedToday), withinSla: Math.floor(decidedSteps.length * 0.9) },
+    RESTRICTION: { flagChangeRequests: pendingWorkflows.length, activeRestrictions: deptStats?.activeRestrictions ?? 0, reviewedToday: verifiedToday, blocksTriggered: deptStats?.blocksTriggered ?? 0 },
+    ENCUMBRANCE: { pendingCertificates: pendingWorkflows.length, newMortgages: deptStats?.newMortgages ?? 0, fraudPrevented: deptStats?.fraudPrevented ?? 0, totalDecided: decidedSteps.length },
+    DISPUTE: { activeDisputes: pendingWorkflows.length, escalatedToCollector: deptStats?.escalatedToCollector ?? 0, resolvedToday: verifiedToday, evidenceComplete: deptStats?.evidenceComplete ?? 0 },
+    SURVEY: { pendingSurveys: pendingWorkflows.length, inProgressFieldwork: deptStats?.inProgressFieldwork ?? 0, completedToday: verifiedToday, geometryUpdated: deptStats?.geometryUpdated ?? 0 },
   };
 
   const stats = departmentStats[department as keyof typeof departmentStats] || departmentStats.LAND_RECORDS;
@@ -439,6 +473,8 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
           verifiedToday,
           alerts: alerts.length,
           isLoading,
+          deptStats,
+          statsLoading,
         })}
       </div>
 

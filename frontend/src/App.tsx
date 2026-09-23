@@ -46,6 +46,61 @@ const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-xl ${isActive ? 'bg-emerald-50 dark:bg-emerald-900/20 text-[var(--bhashini-accent)] font-bold' : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
   }`;
 
+// Desktop-only Tools/Analytics dropdown. Children are only real <a> links while
+// open; a child's route is still reachable by URL regardless (backend enforces).
+function DesktopNavGroup({
+  item,
+  t,
+  open,
+  onToggle,
+  onNavigate,
+}: {
+  item: NavItem;
+  t: (key: string) => string;
+  open: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  const label = item.labelKey ? t(item.labelKey) : item.label ?? '';
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={`shrink-0 inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all duration-150 rounded-xl whitespace-nowrap ${open
+          ? 'text-[var(--bhashini-accent)] bg-emerald-50/80 dark:bg-emerald-900/20 font-bold'
+          : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
+        }`}
+      >
+        {label}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 min-w-[200px] py-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg z-50">
+          {item.children!.map((child) => (
+            <NavLink
+              key={child.to}
+              to={child.to!}
+              end={child.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `block px-4 py-2 text-xs font-semibold whitespace-nowrap ${isActive
+                  ? 'text-[var(--bhashini-accent)] bg-emerald-50/80 dark:bg-emerald-900/20'
+                  : 'text-[var(--text-primary)] hover:text-[var(--bhashini-accent)] hover:bg-[var(--surface-2)]'
+                }`
+              }
+            >
+              {child.labelKey ? t(child.labelKey) : child.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function navItemsFor(role: string | undefined, department?: string): NavItem[] {
   const home: NavItem = { to: '/', end: true, labelKey: 'nav.home' };
   const about: NavItem = { to: '/about', labelKey: 'nav.about' };
@@ -69,8 +124,8 @@ function AppShell() {
   const location = useLocation();
   const { t, currentLang, setLanguage } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [portalsDropdownOpen, setPortalsDropdownOpen] = useState(false);
-  const portalsRef = useRef<HTMLDivElement>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const [theme, toggleTheme] = useTheme();
   const { data: authUser } = useAuthUser();
   const logout = useLogout();
@@ -81,8 +136,18 @@ function AppShell() {
 
   useEffect(() => {
     setMobileMenuOpen(false);
-    setPortalsDropdownOpen(false);
+    setOpenMenu(null);
   }, [location.pathname]);
+
+  // Close an open Tools/Analytics dropdown on outside click.
+  useEffect(() => {
+    if (!openMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [openMenu]);
 
 
   useEffect(() => {
@@ -265,13 +330,33 @@ function AppShell() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-12 sm:h-13">
                 {/* Desktop Navigation Links */}
-                <nav className="hidden lg:flex items-center flex-1 min-w-0">
-                  <div className="flex items-center gap-1 overflow-x-auto py-1">
-                    {navItems.filter((item) => !item.iconOnly).map((item) => (
-                      <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
-                        {item.labelKey ? t(item.labelKey) : item.label}
-                      </NavLink>
-                    ))}
+                <nav ref={navRef} className="hidden lg:flex items-center flex-1 min-w-0">
+                  {/* No overflow-x here: an overflow container clips the
+                      absolute Tools/Analytics dropdown (overflow-x:auto forces
+                      overflow-y:auto), which showed a scrollbar instead of
+                      letting the menu overlap the navbar and main body. At lg+
+                      the bounded per-role item counts fit without scrolling. */}
+                  <div className="flex items-center gap-1 py-1 min-w-0">
+                    {navItems.filter((item) => !item.iconOnly).map((item) =>
+                      item.children ? (
+                        <DesktopNavGroup
+                          key={item.labelKey ?? item.label}
+                          item={item}
+                          t={t}
+                          open={openMenu === (item.labelKey ?? item.label)}
+                          onToggle={() =>
+                            setOpenMenu((cur) =>
+                              cur === (item.labelKey ?? item.label) ? null : (item.labelKey ?? item.label!),
+                            )
+                          }
+                          onNavigate={() => setOpenMenu(null)}
+                        />
+                      ) : (
+                        <NavLink key={item.to} to={item.to!} end={item.end} className={navLinkClass}>
+                          {item.labelKey ? t(item.labelKey) : item.label}
+                        </NavLink>
+                      ),
+                    )}
 
                   </div>
 
@@ -284,7 +369,7 @@ function AppShell() {
                         return (
                           <NavLink
                             key={item.to}
-                            to={item.to}
+                            to={item.to!}
                             end={item.end}
                             title={ariaLabel}
                             aria-label={ariaLabel}
@@ -335,10 +420,33 @@ function AppShell() {
                 {navItems.map((item) => {
                   const label = item.labelKey ? t(item.labelKey) : item.label ?? item.to;
                   const Icon = item.iconName === 'Bell' ? Bell : item.iconName === 'UserCircle2' ? UserCircle2 : null;
+                  // Tools / Analytics groups: header label + indented child links.
+                  if (item.children) {
+                    return (
+                      <div key={item.labelKey ?? item.label} className="pt-1">
+                        <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                          {label}
+                        </div>
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.to}
+                            to={child.to!}
+                            end={child.end}
+                            className={mobileNavLinkClass}
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            <span className="flex items-center gap-2 pl-4">
+                              {child.labelKey ? t(child.labelKey) : child.label}
+                            </span>
+                          </NavLink>
+                        ))}
+                      </div>
+                    );
+                  }
                   return (
                     <NavLink
                       key={item.to}
-                      to={item.to}
+                      to={item.to!}
                       end={item.end}
                       className={mobileNavLinkClass}
                       onClick={() => setMobileMenuOpen(false)}
