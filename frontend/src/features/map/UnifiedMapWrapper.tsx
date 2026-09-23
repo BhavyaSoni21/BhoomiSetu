@@ -430,7 +430,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                   <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
                     {t('unifiedMap.layerFilters')}
                   </p>
-                  {effectiveLayerKeys.map((key) => (
+                  {effectiveLayerKeys.filter(key => !['legalStatus', 'riskScore', 'circleRate', 'taxStatus'].includes(key)).map((key) => (
                     <label key={key} className="flex items-center gap-1.5 py-1 text-ink/80 font-medium cursor-pointer text-xs">
                       <input
                         type="checkbox"
