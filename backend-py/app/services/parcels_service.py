@@ -53,6 +53,9 @@ def _to_parcel_feature(parcel: Parcel) -> dict[str, Any]:
             "locality": parcel.locality,
             "landmark": parcel.landmark,
             "pincode": parcel.pincode,
+            "legal_status_severity": parcel.legal_status_severity or 0,
+            "value_band": parcel.value_band or 0,
+            "risk_score": float(parcel.risk_score or 0),
         },
         "geometry": geometry_to_geojson(parcel.geometry),
     }

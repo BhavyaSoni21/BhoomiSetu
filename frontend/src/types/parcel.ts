@@ -14,6 +14,14 @@ export interface ParcelSummary {
   status?: string; // 'Registered' | 'Pending Verification' | 'Rejected'
   localId?: string | null;
   verificationReport?: string | null;
+  legalStatusSeverity?: number;
+  legal_status_severity?: number;
+  /** Circle Rate Heatmap layer (Layer 3). 0=no data, 1–5 increasing ₹/sqm. */
+  valueBand?: number;
+  value_band?: number;
+  /** Composite Risk Score layer (Layer 4). 0.0 to 100.0. */
+  riskScore?: number;
+  risk_score?: number;
 }
 
 export interface FieldMatchResult {

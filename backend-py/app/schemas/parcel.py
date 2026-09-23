@@ -38,6 +38,9 @@ class ParcelOut(CamelModel):
     status: str = "Registered"
     local_id: str | None = None
     verification_report: str | None = None
+    legal_status_severity: int = 0
+    value_band: int = 0
+    risk_score: float = 0.0
     created_at: datetime
     updated_at: datetime
 
