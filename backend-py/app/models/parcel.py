@@ -42,6 +42,9 @@ class Parcel(Base):
     landmark: Mapped[str | None] = mapped_column(String(100), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Denormalized property tax status (PAID | PENDING | OVERDUE) for map tile rendering speed
+    tax_status: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True, default="unknown")
+
     # Current state snapshot (§41) — quick-access summary of current
     # values across domains (tax, dispute, encumbrance, restriction,
     # survey, registration). Full history lives in OwnershipHistoryRecord,

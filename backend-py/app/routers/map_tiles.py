@@ -32,6 +32,7 @@ def get_parcels_tile(z: int, x: int, y: int, db: Session = Depends(get_db)):
                 canonical_parcel_id,
                 state_code,
                 district_code,
+                tax_status,
                 ST_AsMVTGeom(
                     ST_Transform(geometry, 3857),
                     ST_TileEnvelope(:z, :x, :y),

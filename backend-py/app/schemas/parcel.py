@@ -36,6 +36,7 @@ class ParcelOut(CamelModel):
     landmark: str | None = None
     pincode: str | None = None
     status: str = "Registered"
+    tax_status: str | None = None
     local_id: str | None = None
     verification_report: str | None = None
     created_at: datetime
