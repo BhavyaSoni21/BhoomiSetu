@@ -248,7 +248,32 @@
       "restriction": "Restriction Layer",
       "taxStatus": "Property Tax Status",
       "infrastructure": "Infrastructure Layer",
-      "changeDetection": "Change Detection Layer"
+      "changeDetection": "Change Detection Layer",
+      "adminNotes": "Admin Notes",
+      "roads": "Roads Layer",
+      "buildings": "Buildings Layer",
+      "landcover": "Land Cover Layer",
+      "elevation": "Elevation Layer",
+      "legalStatus": "Legal Status (Dispute + Encumbrance)",
+      "legalStatusLegend": "Severity",
+      "legalStatus0": "Clear",
+      "legalStatus1": "Encumbered",
+      "legalStatus2": "Disputed (Low)",
+      "legalStatus3": "Disputed (High)",
+      "circleRate": "Circle Rate Heatmap",
+      "circleRateLegend": "Guidance Value (₹/sq.m)",
+      "circleRate0": "No Data",
+      "circleRate1": "< ₹500 / sq.m",
+      "circleRate2": "₹500 - ₹1,200 / sq.m",
+      "circleRate3": "₹1,200 - ₹2,000 / sq.m",
+      "circleRate4": "₹2,000 - ₹3,000 / sq.m",
+      "circleRate5": "≥ ₹3,000 / sq.m",
+      "riskScore": "Composite Risk Score (AI)",
+      "riskScoreLegend": "Risk Level",
+      "riskScoreLow": "Low (0 - 24)",
+      "riskScoreMedium": "Moderate (25 - 49)",
+      "riskScoreHigh": "High (50 - 74)",
+      "riskScoreCritical": "Critical (75 - 100)"
     },
     "popup": {
       "title": "Parcel Details",
@@ -257,7 +282,13 @@
       "notAvailable": "N/A",
       "state": "State",
       "district": "District",
-      "area": "Area"
+      "area": "Area",
+      "activeLayerInsights": "Active Layer Insights",
+      "riskScoreTitle": "AI Risk Score",
+      "riskScoreBadge": "Score",
+      "legalStatusTitle": "Legal Status",
+      "circleRateTitle": "Guidance Rate",
+      "viewDetails": "Click parcel to open details"
     }
   },
   "serviceRequest": {

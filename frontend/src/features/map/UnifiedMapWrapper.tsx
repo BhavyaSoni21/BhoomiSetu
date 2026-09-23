@@ -41,6 +41,7 @@ interface UnifiedMapWrapperProps {
     | 'sameDistrict'
     | 'zoning'
     | 'restriction'
+    | 'taxStatus'
     | 'infrastructure'
     | 'changeDetection'
     | 'adminNotes'
@@ -48,6 +49,9 @@ interface UnifiedMapWrapperProps {
     | 'buildings'
     | 'landcover'
     | 'elevation'
+    | 'legalStatus'
+    | 'circleRate'
+    | 'riskScore'
   >;
   /** Hide the bottom-left layer-toggle legend entirely. */
   showLayerPanel?: boolean;
@@ -93,6 +97,7 @@ const LAYER_KEYS: LayerKey[] = [
   'sameDistrict',
   'zoning',
   'restriction',
+  'taxStatus',
   'infrastructure',
   'changeDetection',
   'adminNotes',
@@ -100,6 +105,9 @@ const LAYER_KEYS: LayerKey[] = [
   'buildings',
   'landcover',
   'elevation',
+  'legalStatus',
+  'circleRate',
+  'riskScore',
 ];
 
 const LAYER_LABELS: Record<LayerKey, string> = {
@@ -118,6 +126,9 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   buildings: 'Buildings (MS)',
   landcover: 'Land Cover',
   elevation: 'Elevation',
+  legalStatus: 'Legal Status (Dispute + Encumbrance)',
+  circleRate: 'Circle Rate Heatmap',
+  riskScore: 'Composite Risk Score (AI)',
 };
 
 const OFFICER_ROLES = ['OFFICER', 'ADMIN', 'VERIFIER', 'CHECKER', 'APPROVER'] as const;
@@ -323,13 +334,13 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       // Parcel selected: all contextual layers available (including adminNotes for officers)
       availableKeys = isOfficerOrAdminMap ? baseKeys : baseKeys.filter(k => k !== 'adminNotes');
     } else if (hasClusterFocus) {
-      // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
-      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      // Cluster focused: cluster + district overlays + terrain layers + legalStatus + circleRate
+      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     } else {
-      // No selection: only district-level overlay layers + terrain layers
-      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      // No selection: only district-level overlay layers + terrain layers + legalStatus + circleRate
+      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     }
@@ -415,7 +426,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showLayerFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>
               {showLayerFilters && (
-                <div className="absolute left-0 top-full mt-1 z-30 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[180px] max-h-[300px] overflow-y-auto">
+                <div className="absolute left-0 top-full mt-1 z-30 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[220px] max-h-[350px] overflow-y-auto">
                   <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
                     {t('unifiedMap.layerFilters')}
                   </p>
@@ -430,6 +441,85 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                       {LAYER_LABELS[key]}
                     </label>
                   ))}
+                  {layerVisibility.legalStatus && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.legalStatusLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm border border-ink/30 flex-shrink-0" style={{ background: 'rgba(0,0,0,0)', outline: '1.5px solid #6b7280' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus0')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f59e0b', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus1')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f97316', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus2')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#dc2626', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus3')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {layerVisibility.circleRate && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.circleRateLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm border border-ink/30 flex-shrink-0" style={{ background: '#ffffcc' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate1')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#a1dab4' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate2')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#41b6c4' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate3')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#2c7fb8' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate4')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#253494' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate5')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {layerVisibility.riskScore && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.riskScoreLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#10b981' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreLow')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f59e0b' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreMedium')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f97316' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreHigh')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#ef4444' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreCritical')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -499,6 +589,88 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
             {overlayElement}
           </div>
         )}
+        {/* Floating Legends on map when layers are visible */}
+        <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-2 max-w-[210px] pointer-events-none">
+          {layerVisibility.legalStatus && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.legalStatus')} {t('map.layer.legalStatusLegend')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: 'rgba(0,0,0,0)', outline: '1.5px solid #6b7280' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus0')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#dc2626', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus3')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.circleRate && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.circleRate')} ({t('map.layer.circleRateLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: '#ffffcc' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#a1dab4' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#41b6c4' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate3')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#2c7fb8' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate4')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#253494' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate5')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.riskScore && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.riskScore')} ({t('map.layer.riskScoreLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#10b981' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreLow')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreMedium')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreHigh')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#ef4444' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreCritical')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
 

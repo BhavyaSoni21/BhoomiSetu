@@ -504,6 +504,7 @@ const Parcel360View: React.FC = () => {
                     localBodyCode: location.locality,
                     areaSqM: spatial.area_sq_m,
                     geometry: JSON.stringify(spatial.geometry),
+                    legalStatusSeverity: (parcel360 as any).legal_status_severity ?? 0,
                   }]}
                   selectedParcelId={parcel360.parcel_id}
                   // Zoom straight to this parcel's own bounds so opening a

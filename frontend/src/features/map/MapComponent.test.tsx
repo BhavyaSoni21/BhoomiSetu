@@ -351,6 +351,17 @@ describe('MapComponent', () => {
   });
 
   describe('layer controls', () => {
+    it('renders the composite risk-score layer and exposes its legend text when toggled on', async () => {
+      mockApiRoutes();
+      renderWithClient(<MapComponent parcels={[]} />);
+
+      const riskCheckbox = screen.getByLabelText('Composite Risk Score (AI)') as HTMLInputElement;
+      expect(riskCheckbox).toBeInTheDocument();
+
+      fireEvent.click(riskCheckbox);
+      await waitFor(() => expect(screen.getByText('Risk Level')).toBeInTheDocument());
+    });
+
     it('renders a checkbox for every contextual layer', async () => {
       mockApiRoutes();
       renderWithClient(<MapComponent parcels={[]} />);
