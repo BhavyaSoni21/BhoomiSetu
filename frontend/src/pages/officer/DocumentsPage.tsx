@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { Upload, FileText, MapPin, Camera, Save, ChevronRight, X, CheckCircle2, AlertTriangle, Loader2, Eye } from 'lucide-react';
+import { Upload, FileText, MapPin, Camera, Save, X, CheckCircle2, AlertTriangle, Loader2, Eye } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import BackButton from '../../components/BackButton';
@@ -96,10 +96,18 @@ const DocumentsPage: React.FC = () => {
     formData.append('documentType', uploadForm.documentType);
     formData.append('description', uploadForm.description);
     if (uploadForm.gpsLat && uploadForm.gpsLng) {
-      formData.append('gpsCoordinates', JSON.stringify({ lat: parseFloat(uploadForm.gpsLat), lng: parseFloat(uploadForm.gpsLng) }));
+      formData.append('gpsLat', uploadForm.gpsLat);
+      formData.append('gpsLng', uploadForm.gpsLng);
     }
 
     uploadMutation.mutate(formData);
+  };
+
+  const viewDocument = async (doc: SurveyDocument) => {
+    const res = await apiService.get(doc.fileUrl, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const getDocTypeColor = (type: SurveyDocument['documentType']) => {
@@ -308,15 +316,13 @@ const DocumentsPage: React.FC = () => {
                   </div>
 
                   <div className="pt-2 border-t border-gov-border flex items-center justify-end gap-2">
-                    <a
-                      href={doc.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => viewDocument(doc)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-brand-900 bg-brand-100 hover:bg-brand-200 transition"
                     >
                       <Eye className="w-3 h-3" />
                       {t('officerDashboard.viewButton')}
-                    </a>
+                    </button>
                   </div>
                 </div>
               ))}

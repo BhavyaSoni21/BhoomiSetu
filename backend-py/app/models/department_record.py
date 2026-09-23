@@ -7,9 +7,9 @@ merely happen to reference the same identifier.
 """
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Numeric, String
+from sqlalchemy import JSON, Boolean, DateTime, Float, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -138,3 +138,48 @@ class SurveyRecord(Base):
     survey_date: Mapped[date | None] = mapped_column(nullable=True)
     surveyor_notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     reference_document: Mapped[str | None] = mapped_column(String(60), nullable=True)  # e.g. FIELD_BOOK_REF | GPS_LOG | DRONE_IMAGERY
+
+
+class EncumbranceCertificate(Base):
+    """An issued encumbrance certificate (#12a). The generated PDF is stored in
+    object storage under `storage_key`; `encumbrances_snapshot` freezes the
+    encumbrance rows as of issuance so the certificate stays reproducible even
+    if the underlying records later change.
+    """
+
+    __tablename__ = "encumbrance_certificates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    certificate_number: Mapped[str] = mapped_column(String(40), unique=True)
+    period_from: Mapped[date | None] = mapped_column(nullable=True)
+    period_to: Mapped[date | None] = mapped_column(nullable=True)
+    has_encumbrance: Mapped[bool] = mapped_column(Boolean, default=False)
+    encumbrances_snapshot: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(200))
+    issued_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SurveyDocument(Base):
+    """A field/survey document (#12b) uploaded by a survey officer. The file
+    itself lives in object storage under `storage_key`; this row is the index.
+    """
+
+    __tablename__ = "survey_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parcel_id: Mapped[str] = mapped_column(String, index=True)
+    survey_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    document_type: Mapped[str] = mapped_column(String(40), default="FIELD_MEASUREMENT")  # FIELD_MEASUREMENT | GPS_LOG | DRONE_IMAGERY | SKETCH | OTHER
+    file_name: Mapped[str] = mapped_column(String(200))
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gps_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gps_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    uploaded_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { server } from '../../mocks/server';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor, fireEvent, within } from '@testing-library/react';

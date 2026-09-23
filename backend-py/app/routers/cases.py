@@ -44,6 +44,7 @@ from app.schemas.case import (
     VerifierFindingOut,
     VerifierFindingsIn,
     VerifierPackageOut,
+    VerifierWithWorkloadOut,
 )
 from app.services import audit_service, case_service as service
 
@@ -121,6 +122,86 @@ def list_cases(
     total = query.count()
     cases = query.order_by(Case.created_at.desc()).offset(offset).limit(limit).all()
     return CaseListResponse(cases=cases, total=total)
+
+
+@router.get("/verifiers", response_model=list[VerifierWithWorkloadOut])
+def list_verifiers_with_workload(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(*ALL_STAFF_ROLES)),
+):
+    """List VERIFIER-role users with their active-task counts, for the officer's
+    verifier-assignment picker (§29).
+
+    Officers can't read the admin-only ``GET /users`` listing, so the picker
+    previously showed an empty list (403) and always-zero workload (it hit a
+    non-existent ``/cases/tasks/all``). This is the officer-scoped, VERIFIER-only
+    replacement: it never exposes non-verifier accounts. Declared before the
+    ``/{case_id}`` catch-all so the literal path wins the route match.
+    """
+    from sqlalchemy import func
+
+    from app.models.case import DepartmentTask
+
+    verifiers = (
+        db.query(User).filter(User.role == VERIFIER_ROLE).order_by(User.name).all()
+    )
+    counts = dict(
+        db.query(DepartmentTask.assigned_verifier_id, func.count(DepartmentTask.id))
+        .filter(
+            DepartmentTask.assigned_verifier_id.isnot(None),
+            DepartmentTask.status.notin_(["COMPLETED", "CANCELLED"]),
+        )
+        .group_by(DepartmentTask.assigned_verifier_id)
+        .all()
+    )
+    return [
+        VerifierWithWorkloadOut(
+            id=v.id,
+            name=v.name,
+            email=v.email,
+            district=v.district,
+            role=v.role,
+            active_task_count=counts.get(str(v.id), 0),
+        )
+        for v in verifiers
+    ]
+
+
+# NOTE: literal-path routes (/my, /verifier/tasks, /tasks/my, /parcel/...) must be
+# declared before the /{case_id}* catch-alls below, or Starlette matches the
+# catch-all first and 422s on UUID validation.
+@router.get("/my", response_model=list[CaseOut])
+def get_my_cases(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(CITIZEN_ROLE)),
+):
+    """Get all cases for the authenticated citizen (bare array — both frontend
+    callers consume it as CaseOut[])."""
+    cases = service.get_cases_by_citizen(db, str(user.id))
+    paginated = cases[offset : offset + limit]
+    return [CaseOut.model_validate(c) for c in paginated]
+
+
+@router.get("/verifier/tasks", response_model=list[DepartmentTaskOut])
+def get_verifier_tasks(
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(VERIFIER_ROLE)),
+):
+    """Get department tasks assigned to the currently authenticated verifier (§29, §30)."""
+    from app.models.case import DepartmentTask
+    tasks = (
+        db.query(DepartmentTask)
+        .filter(DepartmentTask.assigned_verifier_id == str(user.id))
+        .order_by(DepartmentTask.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return tasks
 
 
 @router.get("/{case_id}", response_model=CaseOut)
@@ -807,23 +888,6 @@ def get_active_case_for_parcel(
     return {"hasActiveCase": True, "case": CaseOut.model_validate(result)}
 
 
-@router.get("/my", response_model=CaseListResponse)
-def get_my_cases(
-    limit: int = 50,
-    offset: int = 0,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_roles(CITIZEN_ROLE)),
-):
-    """Get all cases for the authenticated citizen."""
-    cases = service.get_cases_by_citizen(db, str(user.id))
-    total = len(cases)
-    paginated = cases[offset : offset + limit]
-    return CaseListResponse(
-        cases=[CaseOut.model_validate(c) for c in paginated],
-        total=total,
-    )
-
-
 @router.post("/from-application", response_model=CaseOut, status_code=status.HTTP_201_CREATED)
 def create_case_from_application(
     request: Request,
@@ -915,24 +979,15 @@ def get_my_tasks(
     return [DepartmentTaskOut.model_validate(t) for t in tasks]
 
 
-@router.get("/verifier/tasks", response_model=list[DepartmentTaskOut])
-def get_verifier_tasks(
-    skip: int = 0,
-    limit: int = 20,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_roles(VERIFIER_ROLE)),
-):
-    """Get department tasks assigned to the currently authenticated verifier (§29, §30)."""
-    from app.models.case import DepartmentTask
-    tasks = (
-        db.query(DepartmentTask)
-        .filter(DepartmentTask.assigned_verifier_id == str(user.id))
-        .order_by(DepartmentTask.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-    return tasks
+@router.get("/tasks/my/sla")
+def get_my_tasks_sla(db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES))):
+    """SLA status for each task assigned to the signed-in officer (§56) - powers
+    the officer SLA tab. `sla` is null for tasks with no configured SLA."""
+    tasks = service.get_tasks_for_officer(db, str(user.id), 0, 100)
+    return [
+        {"taskId": str(t.id), "caseId": str(t.case_id), "status": t.status, "sla": service.check_task_sla(db, str(t.id))}
+        for t in tasks
+    ]
 
 
 @router.patch("/{task_id}/assign-verifier", response_model=VerifierAssignmentOut)

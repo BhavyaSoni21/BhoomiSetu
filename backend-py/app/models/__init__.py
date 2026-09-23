@@ -17,10 +17,12 @@ from app.models.case import (  # noqa: F401
 )
 from app.models.department_record import (  # noqa: F401
     DisputeRecord,
+    EncumbranceCertificate,
     EncumbranceRecord,
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyDocument,
     SurveyRecord,
     TaxRecord,
 )

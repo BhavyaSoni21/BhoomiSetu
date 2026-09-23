@@ -406,6 +406,24 @@ class TestGetDocuments:
         res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/{doc.id}/file", headers=f["other_citizen_headers"])
         assert res.status_code == 403
 
+    def test_citizen_cannot_download_only_view(self, db, client, tmp_path):
+        f = _base_fixtures(db)
+        doc = self._seed(db, tmp_path, f["citizen_linked"])
+        base = f"/api/v1/parcels/{f['citizen_linked'].id}/documents/{doc.id}/file"
+        # inline view is allowed for the linked citizen...
+        view = client.get(base, headers=f["citizen_headers"])
+        assert view.status_code == 200 and "inline" in view.headers["content-disposition"]
+        # ...but downloading (attachment) is officer-only
+        assert client.get(f"{base}?download=true", headers=f["citizen_headers"]).status_code == 403
+
+    def test_officer_can_download_as_attachment(self, db, client, tmp_path):
+        f = _base_fixtures(db)
+        doc = self._seed(db, tmp_path, f["citizen_linked"])
+        _, _, officer_headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
+        res = client.get(f"/api/v1/parcels/{f['citizen_linked'].id}/documents/{doc.id}/file?download=true", headers=officer_headers)
+        assert res.status_code == 200
+        assert "attachment" in res.headers["content-disposition"]
+
     def test_rejects_an_unauthenticated_request_with_401(self, db, client, tmp_path):
         f = _base_fixtures(db)
         doc = self._seed(db, tmp_path, f["citizen_linked"])

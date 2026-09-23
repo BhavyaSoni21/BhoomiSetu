@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '../../context/LanguageContext';
-import { CaseOut, DepartmentTaskOut, CaseTimelineEventOut, ApplicationOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn } from '../../types/aiFlow';
+import { CaseOut, DepartmentTaskOut, CaseTimelineEventOut, ApplicationOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn, AppointmentOut } from '../../types/aiFlow';
 import { Parcel360Response } from '../../types/parcel360';
 import apiService from '../../services/apiService';
-import { X, User, Send, ShieldCheck, Download, MapPin, UserCheck, AlertCircle, FileText, Clock, User as UserIcon, Package, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import VerifierAssignmentPanel from '../../features/officer/VerifierAssignmentPanel';
+import { VerifierFindingsSection } from '../../features/officer/WorkflowReviewPanel';
+import { X, User, Send, ShieldCheck, Download, MapPin, UserCheck, AlertCircle, FileText, Clock, User as UserIcon, Package, CheckCircle2, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
 
 interface OfficerTaskDetailModalProps {
   taskId: string;
@@ -188,6 +190,22 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     () => apiService.get(`/parcels/${parcelId}/360`).then(res => res.data),
     { enabled: !!parcelId && activeTab === 'overview' },
   );
+
+  // Officer reviews the original documents the citizen brings to a booked
+  // appointment (§45) - the citizen lists them in required_documents; the
+  // officer confirms the slot and marks it COMPLETED once the originals have
+  // been reviewed in person. PATCH /appointments/{id} is staff-writable.
+  const { data: appointments = [] } = useQuery<AppointmentOut[]>(
+    ['case-appointments', caseId],
+    () => apiService.get(`/cases/${caseId}/appointments`).then(res => res.data),
+    { enabled: isOpen && activeTab === 'overview' },
+  );
+
+  const appointmentMutation = useMutation({
+    mutationFn: (payload: { appointmentId: string; status: string }) =>
+      apiService.patch(`/appointments/${payload.appointmentId}`, { status: payload.status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case-appointments', caseId] }),
+  });
 
   const handleParcel360 = () => {
     if (parcelId) {
@@ -413,10 +431,8 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                         <UserCheck className="w-4 h-4 text-brand-900" />
                         {t('officerTaskDetail.assignVerifierHeading', 'Assign Field Verifier')}
                       </h3>
-                      <AssignVerifierTask
-                        taskId={taskId}
-                        caseId={caseId}
-                        assignedVerifierId={task.assigned_verifier_id}
+                      <VerifierAssignmentPanel
+                        task={task}
                         onAssigned={() => queryClient.invalidateQueries({ queryKey: ['task', taskId] })}
                       />
                     </div>
@@ -429,10 +445,70 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                         <FileText className="w-4 h-4 text-brand-900" />
                         {t('officerTaskDetail.verifierFindingsHeading', 'Verifier Findings & Evidence')}
                       </h3>
-                      <VerifierFindingsTask
+                      <VerifierFindingsSection
+                        workflowId={task.workflow_id ?? ''}
                         caseId={caseId}
-                        taskId={taskId}
                       />
+                    </div>
+                  )}
+
+                  {appointments.length > 0 && (
+                    <div className="gov-card p-4">
+                      <h3 className="font-heading font-bold text-sm text-text-heading mb-3 flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-brand-900" />
+                        {t('officerTaskDetail.appointmentsHeading', 'Appointments & Original Documents')}
+                      </h3>
+                      <div className="space-y-3">
+                        {appointments.map((appt) => {
+                          const isClosed = appt.status === 'COMPLETED' || appt.status === 'CANCELLED' || appt.status === 'NO_SHOW';
+                          return (
+                            <div key={appt.id} className="border border-gov-border rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-text-heading">{new Date(appt.date).toLocaleDateString()}{appt.time_slot ? ` · ${appt.time_slot}` : ''}</span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-surface-2 text-text-secondary">{appt.status}</span>
+                              </div>
+                              {appt.purpose && <p className="text-xs text-text-secondary mt-1.5">{appt.purpose}</p>}
+                              <div className="mt-2">
+                                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.originalDocumentsLabel', 'Original documents to review')}</div>
+                                {appt.required_documents && appt.required_documents.length > 0 ? (
+                                  <ul className="list-disc list-inside text-sm text-text-secondary space-y-0.5">
+                                    {appt.required_documents.map((doc, i) => <li key={i}>{doc}</li>)}
+                                  </ul>
+                                ) : (
+                                  <p className="text-xs text-text-muted">{t('officerTaskDetail.noOriginalDocuments', 'None specified by the citizen.')}</p>
+                                )}
+                              </div>
+                              {!isClosed && (
+                                <div className="mt-3 flex gap-2 flex-wrap">
+                                  {appt.status === 'REQUESTED' && (
+                                    <button
+                                      onClick={() => appointmentMutation.mutate({ appointmentId: appt.id, status: 'CONFIRMED' })}
+                                      disabled={appointmentMutation.isPending}
+                                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gov-border text-text-secondary hover:bg-surface-2 transition disabled:opacity-50 flex items-center gap-1.5"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />{t('officerTaskDetail.confirmAppointment', 'Confirm')}
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => appointmentMutation.mutate({ appointmentId: appt.id, status: 'COMPLETED' })}
+                                    disabled={appointmentMutation.isPending}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-900 text-white hover:bg-brand-700 transition disabled:opacity-50 flex items-center gap-1.5"
+                                  >
+                                    <ShieldCheck className="w-3 h-3" />{t('officerTaskDetail.markDocumentsReviewed', 'Mark Documents Reviewed')}
+                                  </button>
+                                  <button
+                                    onClick={() => appointmentMutation.mutate({ appointmentId: appt.id, status: 'NO_SHOW' })}
+                                    disabled={appointmentMutation.isPending}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gov-border text-text-secondary hover:bg-surface-2 transition disabled:opacity-50 flex items-center gap-1.5"
+                                  >
+                                    <AlertTriangle className="w-3 h-3" />{t('officerTaskDetail.markNoShow', 'No Show')}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 

@@ -131,7 +131,7 @@ describe('App navbar is per-role, not just per-guest', () => {
     expect(nav.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'About' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'My Parcels' })).toBeInTheDocument();
-    expect(nav.getByRole('link', { name: 'Raise Request' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'Get Assistance' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Features' })).not.toBeInTheDocument();
     expect(nav.queryByRole('link', { name: 'Assigned Requests' })).not.toBeInTheDocument();
@@ -235,6 +235,11 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
     expect(screen.getByAltText('BhoomiSetu Official Logo')).toBeInTheDocument();
   });
 
+  // Higher timeout: the About/Features pages are lazy() + <Suspense>, and under
+  // full-suite load the dynamic-import resolution + Suspense commit can exceed
+  // the default 5s test timeout (passes in ~200ms in isolation). Bumping the
+  // test + findBy timeouts removes the load-dependent flake without masking a
+  // real failure (a genuinely missing heading still fails fast on the query).
   it('navigates to the About and Features pages', async () => {
     renderAsGuest();
 
@@ -244,11 +249,11 @@ describe('App guest navbar (docs/FRONTEND_UPGRADE_SPEC.md §2)', () => {
     const navHeader = headers[headers.length - 1];
 
     fireEvent.click(within(navHeader).getByRole('link', { name: 'About' }));
-    expect(await screen.findByRole('heading', { name: 'About BhoomiSetu' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'About BhoomiSetu' }, { timeout: 12000 })).toBeInTheDocument();
 
     fireEvent.click(within(navHeader).getByRole('link', { name: 'Features' }));
-    expect(await screen.findByRole('heading', { name: 'What BhoomiSetu Does' })).toBeInTheDocument();
-  });
+    expect(await screen.findByRole('heading', { name: 'What BhoomiSetu Does' }, { timeout: 12000 })).toBeInTheDocument();
+  }, 20000);
 });
 
 describe('App auth pages get no main navbar (docs/FRONTEND_UPGRADE_SPEC.md §3)', () => {

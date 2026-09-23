@@ -1667,6 +1667,7 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'citizenNav.myParcels': 'मेरे भूखंड',
     'citizenNav.findParcels': 'भूखंड खोजें',
     'citizenNav.getAssistance': 'सहायता प्राप्त करें',
+    'citizenNav.myCases': 'मेरे मामले',
     'citizenNav.raiseRequest': 'अनुरोध दर्ज करें',
     'citizenNav.requests': 'मेरे अनुरोध',
     'citizenNav.notifications': 'सूचनाएं',

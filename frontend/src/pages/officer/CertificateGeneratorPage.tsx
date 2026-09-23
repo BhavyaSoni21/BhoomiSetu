@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { Search, FileCheck2, Eye, ChevronRight, Download, FileText, ShieldCheck, AlertTriangle, Calendar } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Search, FileCheck2, Eye, Download, FileText, ShieldCheck, AlertTriangle, Calendar } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import BackButton from '../../components/BackButton';
 
@@ -35,6 +35,7 @@ interface CertificateRequest {
 
 const CertificateGeneratorPage: React.FC = () => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'generate' | 'issued'>('generate');
 
   const { data: certificates = [], isLoading: loadingCerts } = useQuery<EncumbranceCertificate[]>(
@@ -45,6 +46,17 @@ const CertificateGeneratorPage: React.FC = () => {
   const { data: requests = [], isLoading: loadingRequests } = useQuery<CertificateRequest[]>(
     ['certificate-requests'],
     async () => (await apiService.get('/encumbrance/certificate-requests')).data,
+  );
+
+  const generateMutation = useMutation(
+    async (parcelId: string) => (await apiService.post('/encumbrance/certificates/generate', { parcelId })).data,
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['encumbrance-certificates']);
+        queryClient.invalidateQueries(['certificate-requests']);
+        setActiveTab('issued');
+      },
+    },
   );
 
   const activeCerts = certificates.filter(c => c.status === 'ACTIVE').length;
@@ -81,9 +93,22 @@ const CertificateGeneratorPage: React.FC = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const handleGenerateCertificate = async (request: CertificateRequest) => {
-    // In real implementation, this would call the backend to generate PDF
-    alert(`${t('officerDashboard.generatingCertificate', 'Generating certificate for')} ${request.parcelId}`);
+  const handleGenerateCertificate = (request: CertificateRequest) => {
+    generateMutation.mutate(request.parcelId);
+  };
+
+  const openCertificatePdf = async (cert: EncumbranceCertificate, download: boolean) => {
+    const res = await apiService.get(`/encumbrance/certificates/${cert.id}/pdf`, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    if (download) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${cert.certificateNumber}.pdf`;
+      a.click();
+    } else {
+      window.open(url, '_blank');
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   return (
@@ -214,7 +239,8 @@ const CertificateGeneratorPage: React.FC = () => {
                           <td className="py-3 text-right">
                             <button
                               onClick={() => handleGenerateCertificate(req)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition"
+                              disabled={generateMutation.isLoading}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition disabled:opacity-50"
                             >
                               <ShieldCheck className="w-3 h-3" />
                               {t('officerDashboard.generateButton')}
@@ -302,11 +328,11 @@ const CertificateGeneratorPage: React.FC = () => {
                           </td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-brand-900 bg-brand-100 hover:bg-brand-200 transition">
+                              <button onClick={() => openCertificatePdf(cert, false)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-brand-900 bg-brand-100 hover:bg-brand-200 transition">
                                 <Eye className="w-3 h-3" />
                                 {t('officerDashboard.viewButton')}
                               </button>
-                              <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition">
+                              <button onClick={() => openCertificatePdf(cert, true)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition">
                                 <Download className="w-3 h-3" />
                                 {t('officerDashboard.downloadPdfButton')}
                               </button>

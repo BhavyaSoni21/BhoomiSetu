@@ -337,6 +337,18 @@ class VerifierAssignmentOut(CamelModel):
     assigned_at: datetime | None = None
 
 
+class VerifierWithWorkloadOut(CamelModel):
+    """A VERIFIER-role user plus their active-task count, for the officer's
+    assignment picker (§29). `active_task_count` = tasks assigned to them that
+    aren't COMPLETED/CANCELLED — lets the officer balance load."""
+    id: UUID
+    name: str
+    email: str | None = None
+    district: str | None = None
+    role: str
+    active_task_count: int = 0
+
+
 class EvidenceCaptureRequest(CamelModel):
     """Input for capturing GPS + photo evidence by a verifier (§31)."""
     latitude: float

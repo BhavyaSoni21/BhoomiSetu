@@ -172,6 +172,7 @@ export interface DepartmentTaskOut {
   workflow_id?: string | null;
   status: string;
   assigned_officer_id?: string | null;
+  assigned_verifier_id?: string | null;
   stage: number;
   stage_name?: string | null;
   resolution_mode?: string | null;

@@ -58,6 +58,9 @@ export interface Workflow {
   createdAt: string;
   updatedAt: string;
   steps: WorkflowStep[];
+  // Set once this workflow is linked to a unified case (§33) - drives the
+  // Verifier Findings & Evidence review section. Null/absent until then.
+  caseId?: string | null;
 }
 
 // A Verifier's field-visit evidence for one workflow - geotagged photo +

@@ -28,7 +28,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
   );
 
   const mutation = useMutation({
-    mutationFn: (payload: AppointmentCreate) => apiService.post('/cases/${caseItem.id}/appointments', payload),
+    mutationFn: (payload: AppointmentCreate) => apiService.post(`/cases/${caseItem.id}/appointments`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments', caseItem.id] });
       onClose();

@@ -1,22 +1,11 @@
 import React from 'react';
-import NotificationFeed from '../../features/notifications/NotificationFeed';
-import BackButton from '../../components/BackButton';
-import { useTranslation } from '../../context/LanguageContext';
+import NotificationsPageShell from '../../features/notifications/NotificationsPageShell';
 
-// The real in-app notification feed (docs/FRONTEND_UPGRADE_SPEC.md §11 item
-// 5, resolved 2026-09-09: in-app only) - replaces the old ComingSoonCard
-// placeholder. Shared with the Officer Portal's own Notifications page (see
-// features/notifications/NotificationFeed.tsx).
-const NotificationsPage: React.FC = () => {
-  const { t } = useTranslation();
-  return (
-    <div className="max-w-2xl">
-      <BackButton variant="ink" className="mb-3" />
-      <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight font-display text-ink mb-1">{t('notificationsPage.heading')}</h1>
-      <p className="text-ink/60 mb-4">{t('citizenNotificationsPage.subtitle')}</p>
-      <NotificationFeed />
-    </div>
-  );
-};
+// Thin citizen wrapper - all markup lives in the shared shell; this only
+// picks the citizen subtitle. (Officer Portal has its own wrapper with the
+// officer subtitle.)
+const NotificationsPage: React.FC = () => (
+  <NotificationsPageShell subtitleKey="citizenNotificationsPage.subtitle" />
+);
 
 export default NotificationsPage;

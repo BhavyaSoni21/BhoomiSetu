@@ -21,7 +21,7 @@ const AdminCombinedLayerMap: React.FC = () => {
         showClusterDropdown={false}
         showLayerPanel={true}
         userRole={userRole}
-        visibleLayerKeys={ADMIN_COMBINED_VISIBLE_LAYERS}
+        visibleLayerKeys={[...ADMIN_COMBINED_VISIBLE_LAYERS]}
         showYearSelector={false}
         height="h-[500px]"
         className="border-0"

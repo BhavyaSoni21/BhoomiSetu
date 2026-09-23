@@ -2,7 +2,7 @@
 
 **Derived from:** `docs/BhoomiSetu_Unified_Workflow_Specification.md` (72 sections)
 **Created:** 2026-09-20
-**Status:** Phase 1 Foundation complete. Phase 2 (Citizen-Facing AI Workflow) — backend complete, frontend complete (Get Assistance flow). Phase 3.2 (Department Capabilities) complete. Phase 3.3 (Department Task Execution Engine) complete — task state machine, SLA timer, notification dispatch, multi-department resolution. Phase 3.4 (Resolution Modes) partially complete. **Phase 4 (Officer Workspace) complete.** **Phase 5 (Verifier Field Workflow) complete — verifier assignment, case package, GPS/photo capture, findings, offline sync, officer review all implemented.** Phase 6 (Resolution & Documents) complete. **Phase 7 (Historical Records & Audit) complete — 5 history tables created via migration 6bd7d308d74c.** Phase 8 (Citizen Feedback & Admin Oversight) complete. Phase 9.1 (Unified Map Migration) — 3 of 4 components migrated to UnifiedMapWrapper (HistoricalMapView, AdminCombinedLayerMap, AssignedVisitsPage); AdminMapLayerAuthoringPage not directly migrated but delegates through AdminCombinedLayerMap which is UnifiedMapWrapper-backed. Phase 9.2 (Frontend Test Infrastructure) — React Query mocks, MSW handlers, and component test setup pattern all complete (17 sub-checks done). **Current test suite: 323 tests, 216 passed, 107 failed, 20 failed test files.**
+**Status:** Phase 1 Foundation complete. Phase 2 (Citizen-Facing AI Workflow) — backend complete, frontend complete (Get Assistance flow). Phase 3.2 (Department Capabilities) complete. Phase 3.3 (Department Task Execution Engine) complete — task state machine, SLA timer, notification dispatch, multi-department resolution. Phase 3.4 (Resolution Modes) partially complete. **Phase 4 (Officer Workspace) complete.** **Phase 5 (Verifier Field Workflow) complete — verifier assignment, case package, GPS/photo capture, findings, offline sync, officer review all implemented.** Phase 6 (Resolution & Documents) complete. **Phase 7 (Historical Records & Audit) complete — 5 history tables created via migration 6bd7d308d74c.** Phase 8 (Citizen Feedback & Admin Oversight) complete. Phase 9.1 (Unified Map Migration) — 3 of 4 components migrated to UnifiedMapWrapper (HistoricalMapView, AdminCombinedLayerMap, AssignedVisitsPage); AdminMapLayerAuthoringPage not directly migrated but delegates through AdminCombinedLayerMap which is UnifiedMapWrapper-backed. Phase 9.2 (Frontend Test Infrastructure) — React Query mocks, MSW handlers, and component test setup pattern all complete (17 sub-checks done). **Current test suite: 313 tests, all 313 passing across 32 test files (2026-09-23).**
 **Cross-referenced with:** `docs/architecture/FEATURES.md`, `docs/architecture/BACKLOG.md`, `docs/architecture/SYSTEM_ARCHITECTURE.md`
 
 ---
@@ -403,7 +403,7 @@ Create or verify the following models exist with correct fields, relationships, 
 - [x] Appointment fields: Case, Citizen, Department, Officer, Office/location, Date, Time, Purpose, Required documents, Status (§46) — `Appointment` model in `models/case.py`; `AppointmentCreate` + `AppointmentOut` + `AppointmentUpdate` schemas in `schemas/case.py`
 - [x] Appointment statuses: REQUESTED, CONFIRMED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW (§46) — `APPOINTMENT_STATUSES` in `case_service.py` with `completed_at` auto-set on COMPLETED
 - [x] Citizen books appointment (§45) — `AppointmentBookingModal.tsx` integrated into `MyCasesPage.tsx` with date/department/purpose/document selection; `GET /cases/{case_id}/appointments`, `GET /appointments/{id}`, `PATCH /appointments/{id}` endpoints
-- [ ] Officer reviews original documents (§45) — pending officer workspace integration
+- [x] Officer reviews original documents (§45) — `OfficerTaskDetailModal` Overview tab now lists each booked appointment with its `required_documents` (the originals the citizen brings); officer confirms the slot and marks it COMPLETED once reviewed, via `PATCH /appointments/{id}` (staff-writable, `_can_manage_case`-gated)
 
 ### 6.3 Decision Document Generation (Backend)
 
@@ -536,7 +536,7 @@ Create or verify the following models exist with correct fields, relationships, 
 - [x] React Query mocks setup — `setup.ts` patches QueryClient to auto-populate default query data for all common query keys
 - [x] MSW handlers setup — `mocks/handlers.ts` with handlers for `/auth/me`, `/parcels`, `/notifications`, `/users`, admin endpoints, and generic POST/PATCH/PUT/DELETE fallbacks
 - [x] Component test setup pattern migration — `setup.ts` mocks `useTranslation()` with LanguageContext fallback strings, stubs ResizeObserver/matchMedia, sets up `createTestQueryClient()`/`testQueryClient` utilities
-- [~] Resolve failing tests — 107 of 323 still failing (20 of 34 test files). Key patterns: MapComponent.test.tsx needs `maplibre-gl` + worker mocks; some tests need param-aware MSW handlers (e.g. `/gis/parcels?bbox=`)
+- [x] Resolve failing tests — all 313 tests pass across 32 files (2026-09-23). MapComponent maplibre/worker mocks and param-aware MSW handlers landed; last remaining flake (App.test.tsx About/Features nav timing out under full-suite load) fixed by raising that test's lazy-page findBy timeout.
 
 **Existing:** `frontend/src/test/setup.ts`, `frontend/src/test/utils.tsx`, `frontend/src/mocks/server.ts`, `frontend/src/mocks/handlers.ts`
 
@@ -575,7 +575,7 @@ Create or verify the following models exist with correct fields, relationships, 
 | Item | Status | Spec Reference |
 |---|---|---|
 | Bhashini OCR / ALD | **Blocked** — account provisioning needed. Returns "Requested pipeline does not exist" / "TaskType is not valid" | BACKLOG P2 |
-| Frontend test infrastructure | **In Progress** — HistoricalImageryPanel.test.tsx ✅ (8/8). AskAiWidget.test.tsx ✅ (14/14). GovernanceAlertsPanel.test.tsx ✅ (19/19). 107 of 323 tests still failing across 20 test files; root causes: MapComponent.test.tsx needs maplibre-gl + worker mocks + param-aware MSW handlers for `/gis/parcels?bbox=` (11/12 passing, 1 failing on district-context test); LinkedParcelsCard areaSqM undefined in ProfilePage.test.tsx; other tests need data-shape alignment | BACKLOG P0 #1 |
+| Frontend test infrastructure | **Complete** — all 313 tests pass across 32 files (2026-09-23). maplibre-gl + worker mocks, param-aware MSW handlers, and data-shape fixes all landed; final App.test.tsx nav flake fixed via a raised lazy-page findBy timeout | BACKLOG P0 #1 |
 | Unified Map migration | **In Progress** — HistoricalMapView, AdminCombinedLayerMap, AssignedVisitsPage migrated to UnifiedMapWrapper. AdminMapLayerAuthoringPage not directly migrated (delegates via AdminCombinedLayerMap) | BACKLOG P0 #2 |
 | Celery/Redis compose topology | **Needs update** — Original Compose topology missing Redis, worker, beat, migration job declarations | PERFORMANCE_AUDIT.md |
 | Phase 1 Foundation | **Complete** — data models, auth, case engine, API endpoints implemented | Phase 1 |

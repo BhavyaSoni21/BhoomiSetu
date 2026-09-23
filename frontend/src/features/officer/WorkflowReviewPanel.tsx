@@ -681,7 +681,7 @@ interface VerifierFindingsSectionProps {
   caseId?: string;
 }
 
-const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = ({ workflowId, caseId }) => {
+export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = ({ workflowId, caseId }) => {
   const { t } = useTranslation();
 
   // Try to get case_id from workflow if not provided
@@ -922,6 +922,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                         alt={doc.documentType}
                         className="w-28 h-36 object-cover border-2 border-ink"
                         zoomable
+                        downloadUrl={`/parcels/${workflow.parcelId}/documents/${doc.id}/file?download=true`}
                       />
                       <span className="mt-1 block text-center border-2 border-ink/20 px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink/70">
                         {doc.registrationStatus}

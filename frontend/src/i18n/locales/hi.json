@@ -274,6 +274,8 @@
     "findParcels": "पार्सल खोजें",
     "raiseRequest": "अनुरोध दर्ज करें",
     "requests": "अनुरोध",
+    "getAssistance": "सहायता प्राप्त करें",
+    "myCases": "मेरे मामले",
     "verifyDocuments": "दस्तावेज़ सत्यापित करें",
     "documents": "दस्तावेज़",
     "notifications": "सूचनाएं",
@@ -352,6 +354,9 @@
   "officerNav": {
     "dashboard": "डैशबोर्ड",
     "assignedRequests": "सौंपे गए अनुरोध",
+    "myTasks": "मेरे कार्य",
+    "sla": "एसएलए",
+    "performance": "प्रदर्शन",
     "governanceAlerts": "शासन चेतावनियाँ",
     "historicalImagery": "ऐतिहासिक इमेजरी",
     "changeDetection": "परिवर्तन पहचान",

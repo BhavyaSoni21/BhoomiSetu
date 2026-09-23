@@ -277,11 +277,11 @@ const ProfilePage: React.FC = () => {
       )}
 
       {/* ── Bottom Action Bar ── */}
+      {/* Editing is done per-card (ProfileDetailsCard / ContactMethodCard, each
+          with its own save mutation); this bar is utilities only. */}
       <ProfileActionBar
         infoMessage="Your profile information helps BhoomiSetu provide better services and securely manage your land records."
         onEdit={() => document.getElementById('profile-details')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })}
-        onSave={() => showToast('Profile changes saved successfully.')}
-        onCancel={() => {}}
         onDownloadSummary={handleDownloadSummary}
         onContactSupport={() => window.location.assign('/contact-us')}
       />

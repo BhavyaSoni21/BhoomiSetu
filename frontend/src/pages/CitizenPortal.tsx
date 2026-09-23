@@ -3,10 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import CitizenDashboardPage from './citizen/CitizenDashboardPage';
 import MyParcelsPage from './citizen/MyParcelsPage';
 import FindParcelsPage from './citizen/FindParcelsPage';
-import RaiseRequestPage from './citizen/RaiseRequestPage';
 import GetAssistancePage from './citizen/GetAssistancePage';
 import MyCasesPage from './citizen/MyCasesPage';
-import RequestsPage from './citizen/RequestsPage';
 import NotificationsPage from './citizen/NotificationsPage';
 import ProfilePage from './citizen/ProfilePage';
 
@@ -18,24 +16,23 @@ import ProfilePage from './citizen/ProfilePage';
 // below is reachable from the single global navbar in App.tsx instead (the
 // user's explicit "i dont want 2 diffrent navbars").
 //
-// `documents`/`verify` used to be their own top-level pages - `documents`
-// moved into Profile as a tab 2026-09-09 (the user's follow-up: "documents
-// tabs should also be part of profile"); `verify` was later folded into
-// Raise Request entirely (a Verify Documents request against an
-// already-linked parcel, not a standalone instant-verify feature) - see
-// docs/FRONTEND_UPGRADE_SPEC.md follow-up. Old links/bookmarks redirect
-// instead of 404ing.
+// Consolidated 2026-09-23: "Raise Request" (legacy structured form) folded
+// into "Get Assistance" (the AI-assisted §3 entry point), and the old
+// workflow-based "Requests" list folded into "My Cases" (the go-forward
+// case model per spec §65). Old routes redirect so bookmarks/inbound links
+// still resolve. `documents`/`verify` were folded earlier (documents → a
+// Profile tab; verify → the assistance flow).
 const CitizenPortal: React.FC = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <Routes>
       <Route index element={<CitizenDashboardPage />} />
       <Route path="parcels" element={<MyParcelsPage />} />
       <Route path="find" element={<FindParcelsPage />} />
-      <Route path="raise-request" element={<RaiseRequestPage />} />
       <Route path="get-assistance" element={<GetAssistancePage />} />
       <Route path="my-cases" element={<MyCasesPage />} />
-      <Route path="requests" element={<RequestsPage />} />
-      <Route path="verify" element={<Navigate to="/citizen/raise-request" replace />} />
+      <Route path="raise-request" element={<Navigate to="/citizen/get-assistance" replace />} />
+      <Route path="requests" element={<Navigate to="/citizen/my-cases" replace />} />
+      <Route path="verify" element={<Navigate to="/citizen/get-assistance" replace />} />
       <Route path="documents" element={<Navigate to="/citizen/profile?tab=documents" replace />} />
       <Route path="notifications" element={<NotificationsPage />} />
       <Route path="profile" element={<ProfilePage />} />

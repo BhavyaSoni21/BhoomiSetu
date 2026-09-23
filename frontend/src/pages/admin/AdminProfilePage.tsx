@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from '../../context/LanguageContext';
 import { useAuthUser } from '../../features/auth/auth';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
@@ -26,11 +25,9 @@ function formatDate(value?: string): string {
 }
 
 const AdminProfilePage: React.FC = () => {
-  const { t } = useTranslation();
   const { data: user } = useAuthUser();
   const navigate = useNavigate();
   const [notice, setNotice] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
 
   if (!user) return null;
 
@@ -169,19 +166,12 @@ const AdminProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Action Bar */}
+      {/* Bottom Action Bar - editing is done per-card (ProfileDetailsCard /
+          ContactMethodCard, each with its own working save mutation); this bar
+          is utilities only. "Edit Profile" jumps to the editable details card. */}
       <ProfileActionBar
         infoMessage="Your profile information helps BhoomiSetu maintain a secure and transparent land-governance platform."
-        isEditing={isEditing}
-        onEdit={() => {
-          setIsEditing(true);
-          document.getElementById('admin-profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }}
-        onSave={() => {
-          setIsEditing(false);
-          showToast('Profile changes saved successfully.');
-        }}
-        onCancel={() => setIsEditing(false)}
+        onEdit={() => document.getElementById('admin-profile-details')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
         onDownloadSummary={handleDownloadSummary}
         onContactSupport={() => navigate('/contact-us')}
       />

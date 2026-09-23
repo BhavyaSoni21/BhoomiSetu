@@ -429,14 +429,22 @@ def summarise_document(
 # not a doc_id UUID, so it must be matched before this {doc_id}: UUID
 # route or FastAPI would try (and fail) to parse it as one.
 @router.get("/{id}/documents/{doc_id}/file")
-def get_document_file(id: UUID, doc_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
+def get_document_file(id: UUID, doc_id: UUID, download: bool = Query(False), db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
     if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only visible for parcels associated with your account")
+    # Citizens may only view documents inline; downloading (attachment) is
+    # reserved for staff so the source file never leaves the citizen's browser.
+    if download and user.role == CITIZEN_ROLE:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only officers may download documents; you can view them inline")
     result = service.get_document_file(db, str(id), str(doc_id))
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document not found: {doc_id}")
     buffer, mime_type = result
-    return Response(content=buffer, media_type=mime_type)
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=buffer, media_type=mime_type,
+        headers={"Content-Disposition": f'{disposition}; filename="document-{doc_id}"'},
+    )
 
 
 @router.get("/{id}/history", response_model=list[ParcelHistoricalStateOut])

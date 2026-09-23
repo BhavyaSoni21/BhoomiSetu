@@ -153,12 +153,11 @@ const OfficerProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Action Bar */}
+      {/* Bottom Action Bar - editing is done per-card (ProfileDetailsCard /
+          ContactMethodCard, each with its own save mutation); utilities only. */}
       <ProfileActionBar
         infoMessage="Your profile information helps BhoomiSetu route land-governance requests to the correct authorized team."
         onEdit={() => document.getElementById('profile-details')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })}
-        onSave={() => setNotice('Profile changes saved successfully.')}
-        onCancel={() => {}}
         onDownloadSummary={downloadSummary}
         onContactSupport={() => navigate('/contact-us')}
       />

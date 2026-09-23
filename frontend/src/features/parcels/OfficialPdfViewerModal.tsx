@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, X, ZoomIn, ZoomOut, Sparkles, Loader2 } from 'lucide-react';
+import apiService from '../../services/apiService';
 
 interface OfficialPdfViewerModalProps {
   url: string;
@@ -22,14 +23,10 @@ const OfficialPdfViewerModal: React.FC<OfficialPdfViewerModalProps> = ({ url, fi
     setError(null);
     setSummary(null);
     try {
-      const response = await fetch(`/api/parcels/${parcelId}/documents/summarise`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, fileName }),
-      });
-      if (!response.ok) throw new Error('Failed to summarise');
-      const data = await response.json();
-      setSummary(data.summary);
+      // Was a raw fetch('/api/...') — wrong prefix (real route is /api/v1) and
+      // no auth header, so it 404'd. apiService carries the baseURL + bearer.
+      const response = await apiService.post(`/parcels/${parcelId}/documents/summarise`, { url, fileName });
+      setSummary(response.data.summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Summarisation failed');
     } finally {

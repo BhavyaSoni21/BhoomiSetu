@@ -315,6 +315,7 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
                   alt={doc.documentType}
                   className="w-16 h-20 object-cover rounded-lg border border-gov-border shadow-xs"
                   zoomable
+                  downloadUrl={`/parcels/${parcelId}/documents/${doc.id}/file?download=true`}
                 />
                 <span className="mt-0.5 block text-center rounded text-[8px] font-mono font-bold uppercase truncate text-text-muted">
                   {doc.registrationStatus}

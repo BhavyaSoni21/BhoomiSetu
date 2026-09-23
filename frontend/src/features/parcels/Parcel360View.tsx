@@ -16,6 +16,7 @@ import { useAuthUser } from '../auth/auth';
 import { OFFICER_ROLES } from '../officer/officerAuth';
 import { useHistoricalClusters } from '../officer/historicalImagery';
 import HistoricalYearCompare from '../officer/HistoricalYearCompare';
+import HistoricalMapView from '../officer/HistoricalMapView';
 import { useTranslation } from '../../context/LanguageContext';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
@@ -478,7 +479,8 @@ const Parcel360View: React.FC = () => {
                 {historicalCluster && ' ' + t('parcel360.mapDescHistorical')}
               </p>
               {historicalCluster ? (
-                <UnifiedMapWrapper
+                <HistoricalMapView
+                  key={historicalCluster.clusterId}
                   clusterId={historicalCluster.clusterId}
                   years={historicalCluster.years}
                   selectedParcelId={parcel360.parcel_id}
@@ -486,11 +488,6 @@ const Parcel360View: React.FC = () => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
                   recenterSignal={recenterSignal}
-                  showYearSelector
-                  historicalYears={historicalCluster.years}
-                  onYearChange={(year) => {}}
-                  showLayerPanel
-                  userRole={authUser?.role}
                 />
               ) : (
                 <UnifiedMapWrapper

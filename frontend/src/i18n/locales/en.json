@@ -281,6 +281,8 @@
     "findParcels": "Find Parcels",
     "raiseRequest": "Raise Request",
     "requests": "Requests",
+    "getAssistance": "Get Assistance",
+    "myCases": "My Cases",
     "verifyDocuments": "Verify Documents",
     "documents": "Documents",
     "notifications": "Notifications",
@@ -359,6 +361,9 @@
   "officerNav": {
     "dashboard": "Dashboard",
     "assignedRequests": "My Cases",
+    "myTasks": "My Tasks",
+    "sla": "SLA",
+    "performance": "Performance",
     "governanceAlerts": "Governance Alerts",
     "historicalImagery": "Historical Imagery",
     "changeDetection": "Change Detection",

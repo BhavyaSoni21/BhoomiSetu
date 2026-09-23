@@ -49,21 +49,12 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
   const { data: verifiers = [], isLoading: verifiersLoading } = useQuery<VerifierWithWorkload[]>({
     queryKey: ['verifiers-with-workload'],
     queryFn: async () => {
-      const [usersRes, tasksRes] = await Promise.all([
-        apiService.get<Verifier[]>('/users?role=VERIFIER'),
-        apiService.get<DepartmentTaskOut[]>('/cases/tasks/all?role=VERIFIER').catch(() => ({ data: [] as DepartmentTaskOut[] })),
-      ]);
-      const users: Verifier[] = usersRes.data ?? [];
-      const allTasks: DepartmentTaskOut[] = tasksRes.data ?? [];
-
-      // Count active tasks per verifier
-      const workloadMap: Record<string, number> = {};
-      for (const t of allTasks) {
-        if (t.assigned_verifier_id && ['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(t.status)) {
-          workloadMap[t.assigned_verifier_id] = (workloadMap[t.assigned_verifier_id] ?? 0) + 1;
-        }
-      }
-      return users.map((u) => ({ ...u, activeTaskCount: workloadMap[u.id] ?? 0 }));
+      // One officer-readable endpoint returns VERIFIER users + their active
+      // task counts. (Was two calls: admin-only `/users` — 403 for officers —
+      // plus a non-existent `/cases/tasks/all`, so the list was always empty
+      // and every workload showed 0.)
+      const res = await apiService.get<VerifierWithWorkload[]>('/cases/verifiers');
+      return res.data ?? [];
     },
     enabled: needsVerifier,
     staleTime: 2 * 60 * 1000,

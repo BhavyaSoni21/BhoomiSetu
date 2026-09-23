@@ -18,6 +18,8 @@ import TaxAnalyticsPage from './officer/TaxAnalyticsPage';
 import FraudPreventionPage from './officer/FraudPreventionPage';
 import CertificateGeneratorPage from './officer/CertificateGeneratorPage';
 import DocumentsPage from './officer/DocumentsPage';
+import OfficerSlaPage from './officer/OfficerSlaPage';
+import OfficerPerformancePage from './officer/OfficerPerformancePage';
 
 // Multi-page Officer Portal (docs/FRONTEND_UPGRADE_SPEC.md §5), mounted once
 // at /officer/* by App.tsx (already wrapped in RequireAuth roles={OFFICER_ROLES}
@@ -42,6 +44,8 @@ const OfficerPortal: React.FC = () => {
       <Routes>
          <Route index element={<OfficerDashboardPage department={department} />} />
          <Route path="tasks" element={<OfficerTasksPage />} />
+         <Route path="sla" element={<OfficerSlaPage />} />
+         <Route path="performance" element={<OfficerPerformancePage />} />
          <Route path="requests" element={<AssignedRequestsPage department={department} />} />
         <Route path="alerts" element={<GovernanceAlertsPage />} />
         <Route path="historical-imagery" element={<HistoricalImageryPage />} />

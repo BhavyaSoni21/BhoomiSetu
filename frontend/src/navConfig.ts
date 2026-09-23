@@ -19,8 +19,6 @@
     { to: '/citizen/find', labelKey: 'citizenNav.findParcels' },
     { to: '/citizen/get-assistance', labelKey: 'citizenNav.getAssistance' },
     { to: '/citizen/my-cases', labelKey: 'citizenNav.myCases' },
-    { to: '/citizen/raise-request', labelKey: 'citizenNav.raiseRequest' },
-   { to: '/citizen/requests', labelKey: 'citizenNav.requests' },
    { to: '/citizen/notifications', iconOnly: true, iconName: 'Bell', labelKey: 'citizenNav.notifications' },
    { to: '/citizen/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'citizenNav.profile' },
  ];
@@ -30,6 +28,8 @@
     { to: '/officer', end: true, labelKey: 'officerNav.dashboard' },
     { to: '/officer/requests', labelKey: 'officerNav.assignedRequests' },
     { to: '/officer/tasks', labelKey: 'officerNav.myTasks' },
+    { to: '/officer/sla', labelKey: 'officerNav.sla' },
+    { to: '/officer/performance', labelKey: 'officerNav.performance' },
   ];
 
  // Department-specific tabs mapping based on OFFICER_DASHBOARD_PLAN.md tab access matrix

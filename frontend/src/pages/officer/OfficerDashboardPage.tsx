@@ -31,6 +31,54 @@ import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 import { useAuthUser } from '../../features/auth/auth';
 import { OfficerRole, ROLE_LABELS } from '../../features/officer/officerAuth';
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
+} from 'recharts';
+
+// Graphical summary of a department's live data - a status pie (from the
+// officer's own workflow queue) + a bar of the department's key numeric
+// metrics. Non-numeric stat values (e.g. TAX's "₹12.5L") are skipped so the
+// bar chart stays honest. Request B: "dashboard of each department must be a
+// graphical representation of the data".
+const STATUS_COLORS = ['#f59e0b', '#10b981', '#ef4444']; // pending / approved / rejected
+
+const DepartmentCharts: React.FC<{
+  statusData: { name: string; value: number }[];
+  metricData: { name: string; value: number }[];
+}> = ({ statusData, metricData }) => {
+  const hasStatus = statusData.some((d) => d.value > 0);
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="gov-card p-6">
+        <h3 className="font-heading font-bold text-lg text-text-heading mb-4">Case Status Breakdown</h3>
+        {hasStatus ? (
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                {statusData.map((_, i) => <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />)}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[240px] flex items-center justify-center text-sm text-text-muted">No cases in your queue yet.</div>
+        )}
+      </div>
+      <div className="gov-card p-6">
+        <h3 className="font-heading font-bold text-lg text-text-heading mb-4">Department Metrics</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={metricData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={50} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Bar dataKey="value" fill="var(--brand-700, #047857)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 
 // Not every department has a governance-alert type that maps to it
 // (backend's governance_alerts_service.py's _ALERT_TYPE_DEPARTMENT only
@@ -331,6 +379,18 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
 
   const stats = departmentStats[department as keyof typeof departmentStats] || departmentStats.LAND_RECORDS;
 
+  // Chart inputs derived from the same live data the cards use.
+  const approved = decidedSteps.filter((s) => s!.status === 'APPROVED').length;
+  const rejected = decidedSteps.filter((s) => s!.status === 'REJECTED').length;
+  const statusData = [
+    { name: 'Pending', value: pendingWorkflows.length },
+    { name: 'Approved', value: approved },
+    { name: 'Rejected', value: rejected },
+  ];
+  const metricData = Object.entries(stats)
+    .filter(([, v]) => typeof v === 'number')
+    .map(([k, v]) => ({ name: k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim(), value: v as number }));
+
   return (
     <div className="space-y-8 animate-fade-up max-w-7xl">
       {/* ── Officer Command Header ── */}
@@ -381,6 +441,9 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
           isLoading,
         })}
       </div>
+
+      {/* ── Graphical Data Summary ── */}
+      <DepartmentCharts statusData={statusData} metricData={metricData} />
 
       {/* ── Action Queue Table ── */}
       <div className="gov-card p-6">

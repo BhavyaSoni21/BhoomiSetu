@@ -88,7 +88,7 @@ const EvidenceCapturePage: React.FC = () => {
         } catch (_err) {
           setUploadStatus('failed');
           saveLocalEvidence({
-            case_id: taskId,
+            case_id: taskId ?? '',
             verifier_id: '',
             latitude: location.lat!,
             longitude: location.lng!,

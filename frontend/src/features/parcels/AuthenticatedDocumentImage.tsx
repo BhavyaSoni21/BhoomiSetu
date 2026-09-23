@@ -16,9 +16,14 @@ interface AuthenticatedDocumentImageProps {
   // already-fetched object URL - no re-fetch (docs/FRONTEND_UPGRADE_SPEC.md
   // follow-up, "officer must be able to zoom to the papers").
   zoomable?: boolean;
+  // When set, an officer-only "Download" button is shown that fetches this
+  // (staff-gated `?download=true`) URL as a blob and saves it. Citizens are
+  // never passed this prop, so they get view-only images (the backend also
+  // 403s a citizen hitting ?download=true - defence in depth).
+  downloadUrl?: string;
 }
 
-const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({ src, alt, className, zoomable }) => {
+const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({ src, alt, className, zoomable, downloadUrl }) => {
   const { t } = useTranslation();
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -53,7 +58,25 @@ const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({
 
   const image = <img src={objectUrl} alt={alt} className={className} />;
 
-  if (!zoomable) return image;
+  const downloadBtn = downloadUrl ? (
+    <button
+      type="button"
+      onClick={async () => {
+        const res = await apiService.get(downloadUrl, { responseType: 'blob' });
+        const url = URL.createObjectURL(res.data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = alt || 'document';
+        a.click();
+        URL.revokeObjectURL(url);
+      }}
+      className="mt-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900 dark:text-emerald-400"
+    >
+      {t('documentImage.download', 'Download')}
+    </button>
+  ) : null;
+
+  if (!zoomable) return <>{image}{downloadBtn}</>;
 
   return (
     <>
@@ -65,6 +88,7 @@ const AuthenticatedDocumentImage: React.FC<AuthenticatedDocumentImageProps> = ({
       >
         {image}
       </button>
+      {downloadBtn}
       {zoomOpen && <ImageLightbox src={objectUrl} alt={alt} onClose={() => setZoomOpen(false)} />}
     </>
   );

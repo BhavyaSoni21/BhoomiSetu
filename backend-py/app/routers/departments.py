@@ -11,7 +11,7 @@ and resolves it to whichever state-specific record applies.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_roles
@@ -57,6 +57,115 @@ def list_pending_registrations(skip: int = 0, limit: int = 10, db: Session = Dep
 @router.get("/survey/pending", response_model=list[SurveyRecordOut])
 def list_pending_surveys(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
     return service.find_pending_surveys(db, skip, limit)
+
+
+# Officer department dashboards (BACKLOG item 12). Literal paths, so - like the
+# widgets above - they MUST stay above the /{parcel_id} catch-alls or Starlette
+# treats "fraud-prevention"/"analytics"/etc. as a parcel id and 422s. Responses
+# are built as plain camelCase dicts (no response_model) to match each page's
+# TS interface directly; feature-incomplete ones return [] honestly.
+@router.get("/encumbrance/fraud-prevention")
+def encumbrance_fraud_prevention(db: Session = Depends(get_db), _staff: User = Depends(require_roles("ENCUMBRANCE_OFFICER", "ADMIN"))):
+    return service.list_fraud_prevention(db)
+
+
+@router.get("/encumbrance/certificates")
+def encumbrance_certificates(db: Session = Depends(get_db), _staff: User = Depends(require_roles("ENCUMBRANCE_OFFICER", "ADMIN"))):
+    return service.list_encumbrance_certificates(db)
+
+
+@router.get("/encumbrance/certificate-requests")
+def encumbrance_certificate_requests(db: Session = Depends(get_db), _staff: User = Depends(require_roles("ENCUMBRANCE_OFFICER", "ADMIN"))):
+    return service.list_certificate_requests(db)
+
+
+@router.post("/encumbrance/certificates/generate", status_code=status.HTTP_201_CREATED)
+def generate_encumbrance_certificate(body: dict, db: Session = Depends(get_db), staff: User = Depends(require_roles("ENCUMBRANCE_OFFICER", "ADMIN"))):
+    parcel_id = (body or {}).get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="parcelId required")
+    cert = service.generate_encumbrance_certificate(db, str(parcel_id), issued_by=staff.name)
+    db.commit()
+    return service._certificate_to_dict(cert)
+
+
+@router.get("/encumbrance/certificates/{cert_id}/pdf")
+def get_encumbrance_certificate_pdf(cert_id: UUID, db: Session = Depends(get_db), _staff: User = Depends(require_roles("ENCUMBRANCE_OFFICER", "ADMIN"))):
+    pdf = service.get_certificate_pdf(db, str(cert_id))
+    if pdf is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Certificate not found: {cert_id}")
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="encumbrance-certificate-{cert_id}.pdf"'},
+    )
+
+
+@router.get("/survey/records")
+def survey_records(db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
+    return service.list_survey_records_for_officer(db)
+
+
+@router.get("/survey/documents")
+def survey_documents(parcelId: str | None = None, db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
+    return service.list_survey_documents(db, parcelId)
+
+
+@router.post("/survey/documents/upload", status_code=status.HTTP_201_CREATED)
+async def upload_survey_document(
+    parcelId: str = Form(...),
+    documentType: str = Form("FIELD_MEASUREMENT"),
+    description: str | None = Form(None),
+    surveyId: str | None = Form(None),
+    gpsLat: float | None = Form(None),
+    gpsLng: float | None = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN")),
+):
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds the 15MB size limit")
+    doc = service.create_survey_document(
+        db, parcel_id=parcelId, file_name=file.filename or "document",
+        content_type=file.content_type, data=data, document_type=documentType,
+        description=description, survey_id=surveyId, gps_lat=gpsLat, gps_lng=gpsLng,
+        uploaded_by=staff.name,
+    )
+    db.commit()
+    return service._survey_document_to_dict(doc)
+
+
+@router.get("/survey/documents/{doc_id}/file")
+def get_survey_document_file(doc_id: UUID, download: bool = Query(False), db: Session = Depends(get_db), _staff: User = Depends(require_roles("SURVEY_OFFICER", "ADMIN"))):
+    result = service.get_survey_document_file(db, str(doc_id))
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Survey document not found: {doc_id}")
+    data, content_type, file_name = result
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=data, media_type=content_type,
+        headers={"Content-Disposition": f'{disposition}; filename="{file_name}"'},
+    )
+
+
+@router.get("/tax/reassessment-queue")
+def tax_reassessment_queue(db: Session = Depends(get_db), _staff: User = Depends(require_roles("TAX_OFFICER", "ADMIN"))):
+    return service.list_tax_reassessment_queue(db)
+
+
+@router.get("/tax/analytics")
+def tax_analytics(db: Session = Depends(get_db), _staff: User = Depends(require_roles("TAX_OFFICER", "ADMIN"))):
+    return service.tax_analytics(db)
+
+
+@router.get("/registration/chain")
+def registration_chain(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
+    return service.list_registration_chain(db)
+
+
+@router.get("/registration/duplicate-registry")
+def registration_duplicate_registry(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
+    return service.list_duplicate_registrations(db)
 
 
 @router.get("/land-records/{parcel_id}", response_model=LandRecordsLookupOut)

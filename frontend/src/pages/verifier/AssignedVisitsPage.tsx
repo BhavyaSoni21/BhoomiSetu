@@ -77,7 +77,7 @@ const AssignedVisitsPage: React.FC = () => {
       const results = await Promise.all(
         parcelIds.map(async (id) => {
           try {
-            const response = await apiService.get(`/parcels/${id}/summary`);
+            const response = await apiService.get(`/parcels/${id}`);
             return response.data;
           } catch {
             return null;
