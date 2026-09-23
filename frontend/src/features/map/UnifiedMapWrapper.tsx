@@ -108,6 +108,7 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   sameDistrict: 'Same District',
   zoning: 'Zoning',
   restriction: 'Restriction Zones',
+  taxStatus: 'Property Tax Status',
   infrastructure: 'Infrastructure',
   changeDetection: 'Change Detection',
   adminNotes: 'Admin Notes',
@@ -320,12 +321,12 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       availableKeys = baseKeys;
     } else if (hasClusterFocus) {
       // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
-      const keys = ['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     } else {
       // No selection: only district-level overlay layers + terrain layers
-      const keys = ['zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     }

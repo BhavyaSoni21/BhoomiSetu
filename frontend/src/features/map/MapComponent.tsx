@@ -47,6 +47,7 @@ type LayerKey =
   | 'sameDistrict'
   | 'zoning'
   | 'restriction'
+  | 'taxStatus'
   | 'infrastructure'
   | 'changeDetection'
   | 'adminNotes'
@@ -66,6 +67,7 @@ const LAYER_KEYS: LayerKey[] = [
   'sameDistrict',
   'zoning',
   'restriction',
+  'taxStatus',
   'infrastructure',
   'changeDetection',
   'adminNotes',
@@ -86,6 +88,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   sameDistrict: false,
   zoning: false,
   restriction: false,
+  taxStatus: false,
   infrastructure: false,
   changeDetection: false,
   adminNotes: false,
@@ -500,6 +503,24 @@ const MapComponent: React.FC<MapComponentProps> = ({
         layout: { visibility: DEFAULT_LAYER_VISIBILITY.restriction ? 'visible' : 'none' },
         paint: { 'fill-color': '#dc2626', 'fill-opacity': 0.25, 'fill-outline-color': '#991b1b' },
       });
+
+      ensureLayer(map, 'parcels-source', {
+        id: 'tax-status-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.taxStatus ? 'visible' : 'none' },
+        paint: {
+          'fill-color': ['match', ['get', 'taxStatus'], 
+            'PAID', '#22c55e', 
+            'PENDING', '#f59e0b', 
+            'OVERDUE', '#ef4444', 
+            '#94a3b8'
+          ],
+          'fill-opacity': 0.7,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
       ensureLayer(map, 'change-detection-source', {
         id: 'change-detection-layer',
         type: 'fill',
@@ -718,6 +739,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         districtCode: parcel.districtCode,
         localBodyCode: parcel.localBodyCode,
         areaSqM: parcel.areaSqM,
+        taxStatus: parcel.taxStatus,
         fillColor: parcelColors?.[parcel.id] ?? DEFAULT_STATE_COLORS[parcel.stateCode] ?? DEFAULT_PARCEL_COLOR,
         extraLabel: parcelLabels?.[parcel.id] ?? null,
       },
@@ -857,6 +879,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       sameDistrict: ['district-layer'],
       zoning: ['zoning-layer', 'landcover-layer', 'elevation-layer'],
       restriction: ['restriction-layer'],
+      taxStatus: ['tax-status-layer'],
       infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
       adminNotes: ['admin-notes-fill-layer', 'admin-notes-line-layer', 'admin-notes-point-layer'],
@@ -872,6 +895,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         }
       }
     }
+    map.triggerRepaint();
   }, [layerVisibility, mapReady]);
 
   // Street/Satellite/Terrain basemap toggle - only one of the three background
@@ -882,6 +906,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
     map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
     map.setLayoutProperty('terrain-background', 'visibility', basemap === 'terrain' ? 'visible' : 'none');
+    map.triggerRepaint();
   }, [basemap, mapReady]);
 
   return (

@@ -246,6 +246,7 @@
       "sameDistrict": "Same District Parcels",
       "zoning": "Zoning Layer",
       "restriction": "Restriction Layer",
+      "taxStatus": "Property Tax Status",
       "infrastructure": "Infrastructure Layer",
       "changeDetection": "Change Detection Layer"
     },
