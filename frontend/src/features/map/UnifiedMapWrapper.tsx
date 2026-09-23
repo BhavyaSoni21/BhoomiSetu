@@ -695,10 +695,10 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         </p>
         <div className="flex flex-wrap gap-2">
           {[
-            { label: 'Legal Status', key: 'legalStatus', implemented: false },
+            { label: 'Legal Status', key: 'legalStatus', implemented: true },
             { label: 'Tax Status', key: 'taxStatus', implemented: true },
-            { label: 'Risk Score', key: 'riskScore', implemented: false },
-            { label: 'Circle Rate / Valuation', key: 'valuation', implemented: false },
+            { label: 'Risk Score', key: 'riskScore', implemented: true },
+            { label: 'Circle Rate / Valuation', key: 'circleRate', implemented: true },
             { label: 'Master Plan Mismatch', key: 'mismatch', implemented: false },
             { label: 'Unauthorized Activity', key: 'unauthorized', implemented: false },
           ].map((toggle) => (
