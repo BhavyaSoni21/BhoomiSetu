@@ -179,6 +179,20 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
 
   const toggleLayer = (key: LayerKey) => setLayerVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  const toggleAnalyticalLayer = (clickedKey: LayerKey) => {
+    setLayerVisibility((prev) => {
+      const isTurningOn = !prev[clickedKey];
+      const newState = { ...prev, [clickedKey]: isTurningOn };
+      if (isTurningOn) {
+        const analyticalKeys = ['legalStatus', 'taxStatus', 'riskScore', 'circleRate', 'mismatch', 'unauthorized'];
+        analyticalKeys.forEach((k) => {
+          if (k !== clickedKey) newState[k as LayerKey] = false;
+        });
+      }
+      return newState;
+    });
+  };
+
   // Close layer filters when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -731,7 +745,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
               key={toggle.key}
               type="button"
               onClick={() => {
-                if (toggle.implemented) toggleLayer(toggle.key as LayerKey);
+                if (toggle.implemented) toggleAnalyticalLayer(toggle.key as LayerKey);
               }}
               className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 transition-colors rounded ${
                 !toggle.implemented
