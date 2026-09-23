@@ -35,7 +35,7 @@
  // Department-specific tabs mapping based on OFFICER_DASHBOARD_PLAN.md tab access matrix
  const DEPARTMENT_TABS: Record<string, NavItem[]> = {
    LAND_RECORDS: [
-     // No additional tabs - only base tabs
+     { to: '/officer/map', labelKey: 'officerNav.map' },
    ],
    REGISTRATION: [
      { to: '/officer/duplicate-registry', labelKey: 'officerNav.duplicateRegistry' },
@@ -47,6 +47,7 @@
    TAX: [
      { to: '/officer/reassessment-queue', labelKey: 'officerNav.reassessmentQueue' },
      { to: '/officer/tax-analytics', labelKey: 'officerNav.taxAnalytics' },
+     { to: '/officer/map', labelKey: 'officerNav.map' },
    ],
    RESTRICTION: [
      { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },

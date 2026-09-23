@@ -12,7 +12,7 @@ import uuid
 from datetime import date, datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import ForeignKey, Numeric, String, Text, func
+from sqlalchemy import ForeignKey, Numeric, SmallInteger, String, Text, func
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,12 +42,39 @@ class Parcel(Base):
     landmark: Mapped[str | None] = mapped_column(String(100), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Denormalized property tax status (PAID | PENDING | OVERDUE) for map tile rendering speed
+    tax_status: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True, default="unknown")
+    masterplan_mismatch: Mapped[bool] = mapped_column(default=False, server_default="false", index=True)
+    unauthorized_construction_suspected: Mapped[bool] = mapped_column(default=False, server_default="false")
+
     # Current state snapshot (§41) — quick-access summary of current
     # values across domains (tax, dispute, encumbrance, restriction,
     # survey, registration). Full history lives in OwnershipHistoryRecord,
     # ParcelHistoricalState, and the department_record_* tables.
     # Never overwritten — new values go into history tables first.
     current_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Precomputed legal-status severity for the Legal Status map layer
+    # (NEW_MAP_LAYERS_PLAN.md Layer 1). Updated by the
+    # recompute_legal_status_severity Celery task on every write to
+    # DisputeRecord or EncumbranceRecord for this parcel, and by a nightly
+    # full-sweep as a backstop. Never computed inside a tile request.
+    # 0=clear, 1=encumbered, 2=disputed-low, 3=disputed-high
+    legal_status_severity: Mapped[int] = mapped_column(SmallInteger, default=0, server_default='0')
+
+    # Precomputed circle-rate / guidance-value band for the Circle Rate
+    # Heatmap layer (NEW_MAP_LAYERS_PLAN.md Layer 3). Updated by the
+    # recompute_value_band Celery task on every write to TaxRecord for this
+    # parcel, and by a nightly full-sweep as a backstop. Never computed
+    # inside a tile request.
+    # 0=no data, 1=<₹500/sqm, 2=₹500-1199, 3=₹1200-1999, 4=₹2000-2999, 5=≥₹3000
+    value_band: Mapped[int] = mapped_column(SmallInteger, default=0, server_default='0')
+
+    # Precomputed composite predictive risk score for the Composite Risk Score
+    # map layer (NEW_MAP_LAYERS_PLAN.md Layer 4). Range 0.0 to 100.0.
+    # Updated by recompute_risk_score Celery task on any dispute, encumbrance,
+    # tax, or alert change, and by nightly full sweep.
+    risk_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0.0, server_default='0')
 
     identifiers: Mapped[list["ParcelIdentifier"]] = relationship(back_populates="parcel", cascade="all, delete-orphan")
 

@@ -37,5 +37,8 @@ def build_canonical_envelope(
             "area_sq_m": parcel.area_sq_m,
             "geometry": geometry_to_geojson(parcel.geometry),
         },
+        "legal_status_severity": parcel.legal_status_severity or 0,
+        "value_band": parcel.value_band or 0,
+        "risk_score": float(parcel.risk_score or 0),
         "sources": [{"department": department, "status": "AVAILABLE" if available else "NOT_AVAILABLE"} for department, available in source_availability.items()],
     }

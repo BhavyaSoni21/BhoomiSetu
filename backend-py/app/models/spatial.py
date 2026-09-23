@@ -12,7 +12,7 @@ from datetime import datetime
 
 from geoalchemy2 import Geometry
 from geoalchemy2.elements import WKBElement
-from sqlalchemy import String, Text, func
+from sqlalchemy import String, Text, func, SmallInteger
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +29,8 @@ class ZoningOverlay(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100))
     zone_type: Mapped[str] = mapped_column(String(30))  # RESIDENTIAL | COMMERCIAL | AGRICULTURAL
+    proposed_land_use: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    proposed_effective_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     state_code: Mapped[str] = mapped_column(String(10), index=True)
     district: Mapped[str] = mapped_column(String(40), index=True)
     geometry: Mapped[WKBElement] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326))
@@ -52,6 +54,7 @@ class RestrictionZone(Base):
     district: Mapped[str] = mapped_column(String(40), index=True)
     geometry: Mapped[WKBElement] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326))
     affected_parcel_ids: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    cross_checked_against_permission: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

@@ -9,6 +9,8 @@ import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
 import { ParcelContextResponse, SpatialFeatureCollection } from '../../types/spatial';
 
 interface MapComponentProps {
+  /** User role for customizing map features (e.g. TAX_OFFICER). */
+  userRole?: string;
   /** When provided, render exactly these parcels instead of fetching all of them. */
   parcels?: ParcelSummary[];
   /** Parcel id to highlight and load spatial context (neighbours, district, overlays) for. */
@@ -47,13 +49,19 @@ type LayerKey =
   | 'sameDistrict'
   | 'zoning'
   | 'restriction'
+  | 'taxStatus'
   | 'infrastructure'
   | 'changeDetection'
   | 'adminNotes'
   | 'roads'
   | 'buildings'
   | 'landcover'
-  | 'elevation';
+  | 'elevation'
+  | 'legalStatus'
+  | 'circleRate'
+  | 'riskScore'
+  | 'mismatch'
+  | 'unauthorized';
 
 export type { LayerKey };
 
@@ -66,6 +74,7 @@ const LAYER_KEYS: LayerKey[] = [
   'sameDistrict',
   'zoning',
   'restriction',
+  'taxStatus',
   'infrastructure',
   'changeDetection',
   'adminNotes',
@@ -73,12 +82,17 @@ const LAYER_KEYS: LayerKey[] = [
   'buildings',
   'landcover',
   'elevation',
+  'legalStatus',
+  'circleRate',
+  'riskScore',
+  'mismatch',
+  'unauthorized',
 ];
 
 // Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
 // network (the whole point of this component) must never be hidden by
 // default. Same-district and the overlay layers stay opt-in.
-const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
+export const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   selected: true,
   adjacent: true,
   nearby: true,
@@ -86,6 +100,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   sameDistrict: false,
   zoning: false,
   restriction: false,
+  taxStatus: false,
   infrastructure: false,
   changeDetection: false,
   adminNotes: false,
@@ -93,6 +108,11 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   buildings: false,
   landcover: false,
   elevation: false,
+  legalStatus: false,
+  circleRate: false,
+  riskScore: false,
+  mismatch: false,
+  unauthorized: false,
 };
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -235,7 +255,22 @@ function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.Feat
 const DEFAULT_STATE_COLORS: Record<string, string> = { DL: '#ef4444', MH: '#f97316', KA: '#10b981' };
 const DEFAULT_PARCEL_COLOR = '#6b7280';
 
+function getRiskScoreLabel(score: number): string {
+  if (score >= 75) return 'Critical';
+  if (score >= 50) return 'High';
+  if (score >= 25) return 'Medium';
+  return 'Low';
+}
+
+function getRiskScoreColor(score: number): string {
+  if (score >= 75) return '#ef4444';
+  if (score >= 50) return '#f97316';
+  if (score >= 25) return '#f59e0b';
+  return '#10b981';
+}
+
 const MapComponent: React.FC<MapComponentProps> = ({
+  userRole,
   parcels: parcelsProp,
   selectedParcelId,
   onParcelClick,
@@ -268,6 +303,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // switches.
   const tRef = useRef(t);
   tRef.current = t;
+  
+  const userRoleRef = useRef(userRole);
+  userRoleRef.current = userRole;
 
   // Selection is internally owned so the component works standalone (e.g. the
   // bare /map route) but stays in sync with a controlling parent when one
@@ -414,6 +452,106 @@ const MapComponent: React.FC<MapComponentProps> = ({
         },
       });
 
+      // Legal Status layer — semi-transparent fill on the same parcels source,
+      // coloring by legal_status_severity (0=clear/no fill, 1=encumbered/amber,
+      // 2=disputed-low/orange, 3=disputed-high/red). Sits on top of the base
+      // parcels fill so state-code colors are still visible underneath.
+      ensureLayer(map, 'parcels-source', {
+        id: 'legal-status-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.legalStatus ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'legal_status_severity'],
+            1, '#f59e0b', // encumbered — amber
+            2, '#f97316', // disputed low — orange
+            3, '#dc2626', // disputed high — red
+            'rgba(0,0,0,0)', // 0 = clear — fully transparent, no extra fill
+          ],
+          'fill-opacity': 0.55,
+          'fill-outline-color': [
+            'match',
+            ['get', 'legal_status_severity'],
+            1, '#b45309', // encumbered — dark amber border
+            2, '#ea580c', // disputed low — dark orange border
+            3, '#991b1b', // disputed high — dark red border
+            'rgba(0,0,0,0)',
+          ],
+        },
+      });
+
+      // Circle Rate / Guidance Value Heatmap layer (NEW_MAP_LAYERS_PLAN.md Layer 3)
+      // Sequential fill on the same parcels source, coloring by value_band (0=transparent,
+      // 1=light yellow, 2=mint green, 3=teal, 4=blue, 5=dark navy).
+      ensureLayer(map, 'parcels-source', {
+        id: 'circleRate-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.circleRate ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'value_band'],
+            1, '#ffffcc',
+            2, '#a1dab4',
+            3, '#41b6c4',
+            4, '#2c7fb8',
+            5, '#253494',
+            'rgba(0,0,0,0)',
+          ],
+          'fill-opacity': 0.65,
+          'fill-outline-color': [
+            'match',
+            ['get', 'value_band'],
+            1, '#d9d99a',
+            2, '#76b38c',
+            3, '#288f9c',
+            4, '#1e5982',
+            5, '#17205c',
+            'rgba(0,0,0,0)',
+          ],
+        },
+      });
+
+      // Composite Risk Score layer — green to red by severity (Low, Medium, High, Critical)
+      ensureLayer(map, 'parcels-source', {
+        id: 'riskScore-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.riskScore ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'risk_score'],
+            0, '#10b981',
+            24.99, '#10b981',
+            25, '#f59e0b',
+            49.99, '#f59e0b',
+            50, '#f97316',
+            74.99, '#f97316',
+            75, '#ef4444',
+            100, '#ef4444',
+          ],
+          'fill-opacity': 0.7,
+          'fill-outline-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'risk_score'],
+            0, '#059669',
+            24.99, '#059669',
+            25, '#d97706',
+            49.99, '#d97706',
+            50, '#c2410c',
+            74.99, '#c2410c',
+            75, '#b91c1c',
+            100, '#b91c1c',
+          ],
+        },
+      });
+
       // Roads - vector tiles
       if (!map.getLayer('roads-layer')) {
         map.addLayer({
@@ -500,6 +638,50 @@ const MapComponent: React.FC<MapComponentProps> = ({
         layout: { visibility: DEFAULT_LAYER_VISIBILITY.restriction ? 'visible' : 'none' },
         paint: { 'fill-color': '#dc2626', 'fill-opacity': 0.25, 'fill-outline-color': '#991b1b' },
       });
+
+      ensureLayer(map, 'parcels-source', {
+        id: 'tax-status-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.taxStatus ? 'visible' : 'none' },
+        paint: {
+          'fill-color': ['match', ['get', 'taxStatus'], 
+            'PAID', '#22c55e', 
+            'PENDING', '#eab308', 
+            'OVERDUE', '#ef4444', 
+            '#94a3b8'
+          ],
+          'fill-opacity': 0.9,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
+      ensureLayer(map, 'parcels-source', {
+        id: 'mismatch-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        filter: ['==', ['get', 'masterplan_mismatch'], true],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.mismatch ? 'visible' : 'none' },
+        paint: {
+          'fill-color': '#c026d3', // Fuchsia
+          'fill-opacity': 0.85,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
+      ensureLayer(map, 'parcels-source', {
+        id: 'unauthorized-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        filter: ['==', ['get', 'unauthorized_construction_suspected'], true],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.unauthorized ? 'visible' : 'none' },
+        paint: {
+          'fill-color': '#e11d48', // Rose
+          'fill-opacity': 0.85,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
       ensureLayer(map, 'change-detection-source', {
         id: 'change-detection-layer',
         type: 'fill',
@@ -631,7 +813,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         paint: { 'line-color': '#2563eb', 'line-width': 4 },
       });
 
-      const selectableLayers = ['parcels-layer', 'district-layer', 'cluster-layer', 'nearby-layer', 'adjacent-layer'];
+      const selectableLayers = ['parcels-layer', 'district-layer', 'cluster-layer', 'nearby-layer', 'adjacent-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer', 'mismatch-layer', 'unauthorized-layer'];
       for (const layerId of selectableLayers) {
         map.on('click', layerId, (e) => {
           const feature = e.features?.[0];
@@ -646,28 +828,122 @@ const MapComponent: React.FC<MapComponentProps> = ({
         });
       }
 
-      // Popups only on the base layer, to keep interaction simple.
-      map.on('click', 'parcels-layer', (e) => {
-        const feature = e.features?.[0];
-        if (!feature) return;
-        const props = feature.properties as Record<string, string | number | null>;
+      const renderLayerInsightCards = (props: Record<string, string | number | null>, popupT: ReturnType<typeof useTranslation>['t']) => {
+        const sections: string[] = [];
 
-        const popupT = tRef.current;
-        new maplibregl.Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(`
+        if (layerVisibility.unauthorized && props.unauthorized_construction_suspected) {
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.unauthorized'))}</p>
+              <div class="flex items-center gap-2 text-secondary-strong">
+                <span class="w-2 h-2 rounded-full" style="background:#e11d48"></span>
+                <span class="text-[10px] font-bold">${escapeHtml(popupT('map.layer.unauthorizedLegend'))}</span>
+              </div>
+            </div>
+          `);
+        }
+
+        if (layerVisibility.mismatch && props.masterplan_mismatch) {
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.mismatch'))}</p>
+              <div class="flex items-center gap-2 text-secondary-strong">
+                <span class="w-2 h-2 rounded-full" style="background:#c026d3"></span>
+                <span class="text-[10px] font-bold">${escapeHtml(popupT('map.layer.mismatchLegend'))}</span>
+              </div>
+            </div>
+          `);
+        }
+
+
+        if (layerVisibility.riskScore) {
+          const score = Number(props.risk_score ?? props.riskScore ?? 0);
+          const label = getRiskScoreLabel(score);
+          const color = getRiskScoreColor(score);
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.riskScore'))}</p>
+              <div class="flex items-center justify-between gap-2">
+                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${color}; color:${color}; background:rgba(255,255,255,0.7);">${escapeHtml(label)}</span>
+                <span class="font-mono text-xs font-bold">${score.toFixed(0)}/100</span>
+              </div>
+            </div>
+          `);
+        }
+
+        if (layerVisibility.legalStatus) {
+          const severity = Number(props.legal_status_severity ?? props.legalStatusSeverity ?? 0);
+          const severityLabelMap: Record<number, string> = {
+            0: popupT('map.layer.legalStatus0'),
+            1: popupT('map.layer.legalStatus1'),
+            2: popupT('map.layer.legalStatus2'),
+            3: popupT('map.layer.legalStatus3'),
+          };
+          const severityColorMap: Record<number, string> = { 0: '#6b7280', 1: '#f59e0b', 2: '#f97316', 3: '#dc2626' };
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.legalStatus'))}</p>
+              <div class="flex items-center justify-between gap-2">
+                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${severityColorMap[severity] ?? '#6b7280'}; color:${severityColorMap[severity] ?? '#6b7280'}; background:rgba(255,255,255,0.7);">${escapeHtml(severityLabelMap[severity] ?? popupT('map.layer.legalStatus0'))}</span>
+                <span class="text-[10px] text-ink/70">${severity}/3</span>
+              </div>
+            </div>
+          `);
+        }
+
+        if (layerVisibility.circleRate) {
+          const band = Number(props.value_band ?? props.valueBand ?? 0);
+          const bandLabelMap: Record<number, string> = {
+            0: popupT('map.layer.circleRate0'),
+            1: popupT('map.layer.circleRate1'),
+            2: popupT('map.layer.circleRate2'),
+            3: popupT('map.layer.circleRate3'),
+            4: popupT('map.layer.circleRate4'),
+            5: popupT('map.layer.circleRate5'),
+          };
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.circleRate'))}</p>
+              <div class="text-[10px] text-ink/80">${escapeHtml(bandLabelMap[band] ?? popupT('map.layer.circleRate0'))}</div>
+            </div>
+          `);
+        }
+
+        return sections.join('');
+      };
+
+      for (const layerId of ['parcels-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer']) {
+        map.on('click', layerId, (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+          const props = feature.properties as Record<string, string | number | null>;
+
+          const popupT = tRef.current;
+          const currentUserRole = userRoleRef.current;
+          
+          const taxStatusHtml = currentUserRole === 'TAX_OFFICER' && props.taxStatus
+            ? `<div class="mb-2 p-1.5 rounded bg-surface-alt border border-gov-border">
+                 <p class="text-ink text-xs"><strong class="uppercase tracking-wide text-brand-700">Tax Status:</strong> <span class="font-bold">${escapeHtml(String(props.taxStatus))}</span></p>
+               </div>`
+            : '';
+
+          const content = `
             <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
               <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
+              ${taxStatusHtml}
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.district'))}:</strong> ${escapeHtml(String(props.districtCode))}</p>
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM).toLocaleString()} m&sup2;</p>
+              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM ?? 0).toLocaleString()} m&sup2;</p>
+              ${renderLayerInsightCards(props, popupT)}
               ${props.extraLabel ? `<p class="text-ink text-xs py-0.5 mt-1 pt-1 border-t-2 border-ink/10">${escapeHtml(String(props.extraLabel))}</p>` : ''}
             </div>
-          `)
-          .addTo(map);
-      });
+          `;
+
+          new maplibregl.Popup().setLngLat(e.lngLat).setHTML(content).addTo(map);
+        });
+      }
 
       mapReadyRef.current = true;
       setMapReady(true);
@@ -718,8 +994,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
         districtCode: parcel.districtCode,
         localBodyCode: parcel.localBodyCode,
         areaSqM: parcel.areaSqM,
+        taxStatus: parcel.taxStatus,
         fillColor: parcelColors?.[parcel.id] ?? DEFAULT_STATE_COLORS[parcel.stateCode] ?? DEFAULT_PARCEL_COLOR,
         extraLabel: parcelLabels?.[parcel.id] ?? null,
+        legal_status_severity: parcel.legalStatusSeverity ?? parcel.legal_status_severity ?? 0,
+        value_band: parcel.valueBand ?? parcel.value_band ?? 0,
+        risk_score: parcel.riskScore ?? parcel.risk_score ?? 0,
       },
       geometry: parseParcelGeometry(parcel.geometry),
     }));
@@ -857,6 +1137,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       sameDistrict: ['district-layer'],
       zoning: ['zoning-layer', 'landcover-layer', 'elevation-layer'],
       restriction: ['restriction-layer'],
+      taxStatus: ['tax-status-layer'],
       infrastructure: ['infrastructure-line-layer', 'infrastructure-point-layer', 'roads-layer', 'buildings-layer'],
       changeDetection: ['change-detection-layer'],
       adminNotes: ['admin-notes-fill-layer', 'admin-notes-line-layer', 'admin-notes-point-layer'],
@@ -864,6 +1145,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
       buildings: ['buildings-layer'],
       landcover: ['landcover-layer'],
       elevation: ['elevation-layer'],
+      legalStatus: ['legal-status-layer'],
+      circleRate: ['circleRate-layer'],
+      riskScore: ['riskScore-layer'],
+      mismatch: ['mismatch-layer'],
+      unauthorized: ['unauthorized-layer'],
     };
     for (const [key, layerIds] of Object.entries(layerIdsByKey) as [LayerKey, string[]][]) {
       for (const layerId of layerIds) {
@@ -872,6 +1158,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         }
       }
     }
+    map.triggerRepaint();
   }, [layerVisibility, mapReady]);
 
   // Street/Satellite/Terrain basemap toggle - only one of the three background
@@ -882,6 +1169,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
     map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
     map.setLayoutProperty('terrain-background', 'visibility', basemap === 'terrain' ? 'visible' : 'none');
+    map.triggerRepaint();
   }, [basemap, mapReady]);
 
   return (
@@ -938,6 +1226,81 @@ const MapComponent: React.FC<MapComponentProps> = ({
               {t(`map.layer.${key}`)}
             </label>
           ))}
+          {/* Legal Status legend — only shown when the layer is toggled on */}
+          {layerVisibility.legalStatus && (
+            <div className="mt-1.5 pt-1.5 border-t border-ink/15">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/50 mb-1">{t('map.layer.legalStatusLegend')}</p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/20 flex-shrink-0" style={{ background: 'rgba(0,0,0,0)', outline: '1.5px solid #6b7280' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.legalStatus0')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b', opacity: 0.8 }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.legalStatus1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316', opacity: 0.8 }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.legalStatus2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#dc2626', opacity: 0.8 }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.legalStatus3')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Circle Rate legend — only shown when the layer is toggled on */}
+          {layerVisibility.circleRate && (
+            <div className="mt-1.5 pt-1.5 border-t border-ink/15">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/50 mb-1">{t('map.layer.circleRateLegend')}</p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/20 flex-shrink-0" style={{ background: '#ffffcc' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.circleRate1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#a1dab4' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.circleRate2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#41b6c4' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.circleRate3')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#2c7fb8' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.circleRate4')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#253494' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.circleRate5')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.riskScore && (
+            <div className="mt-1.5 pt-1.5 border-t border-ink/15">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/50 mb-1">{t('map.layer.riskScoreLegend')}</p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#10b981' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.riskScoreLow')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.riskScoreMedium')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.riskScoreHigh')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#ef4444' }} />
+                  <span className="text-[10px] text-ink/70">{t('map.layer.riskScoreCritical')}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

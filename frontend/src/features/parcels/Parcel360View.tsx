@@ -500,6 +500,7 @@ const Parcel360View: React.FC = () => {
                     localBodyCode: location.locality,
                     areaSqM: spatial.area_sq_m,
                     geometry: JSON.stringify(spatial.geometry),
+                    legalStatusSeverity: (parcel360 as any).legal_status_severity ?? 0,
                   }]}
                   selectedParcelId={parcel360.parcel_id}
                   // Zoom straight to this parcel's own bounds so opening a
@@ -508,13 +509,9 @@ const Parcel360View: React.FC = () => {
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
-                  // A citizen sees just a "View Zoning" toggle instead of the
-                  // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
-                  // follow-up, per the user's explicit "zoning layer addition
-                  // just the view option for citizens").
-                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
                   recenterSignal={recenterSignal}
                   showLayerPanel
+                  showLayerButtonsBelowMap
                   userRole={authUser?.role}
                 />
               )}

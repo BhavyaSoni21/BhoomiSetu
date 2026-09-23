@@ -109,15 +109,28 @@ def get_change_detection_events(state: str | None = None, district: str | None =
 # --- Zoning overlays (admin write) ---------------------------------------
 
 
+from app.tasks.masterplan_tasks import recompute_all_masterplan_mismatches
+
 @router.post("/zoning-overlays", response_model=ZoningOverlayOut, status_code=status.HTTP_201_CREATED)
 def create_zoning_overlay(dto: CreateZoningOverlay, db: Session = Depends(get_db), _admin: User = Depends(require_roles("ADMIN"))):
     assert_geometry_type(dto.geometry, ["Polygon"])
     geom = geojson_to_geometry(dto.geometry)
     reject_if_overlapping(db, ZoningOverlay, geom)
     parcel_ids = compute_affected_parcel_ids(db, geom)
-    row = ZoningOverlay(name=dto.name, zone_type=dto.zone_type, state_code=dto.state_code, district=dto.district, geometry=geom, parcel_ids=parcel_ids)
+    row = ZoningOverlay(
+        name=dto.name, 
+        zone_type=dto.zone_type, 
+        proposed_land_use=dto.proposed_land_use,
+        proposed_effective_year=dto.proposed_effective_year,
+        state_code=dto.state_code, 
+        district=dto.district, 
+        geometry=geom, 
+        parcel_ids=parcel_ids
+    )
     db.add(row)
     db.flush()
+    db.commit() # Needed before triggering task
+    recompute_all_masterplan_mismatches.delay()
     return row
 
 
@@ -137,6 +150,8 @@ def update_zoning_overlay(id: UUID, dto: UpdateZoningOverlay, db: Session = Depe
     for key, value in updates.items():
         setattr(row, key, value)
     db.flush()
+    db.commit()
+    recompute_all_masterplan_mismatches.delay()
     return row
 
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
-import MapComponent, { type LayerKey } from './MapComponent';
+import MapComponent, { type LayerKey, DEFAULT_LAYER_VISIBILITY } from './MapComponent';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
@@ -41,6 +41,7 @@ interface UnifiedMapWrapperProps {
     | 'sameDistrict'
     | 'zoning'
     | 'restriction'
+    | 'taxStatus'
     | 'infrastructure'
     | 'changeDetection'
     | 'adminNotes'
@@ -48,6 +49,9 @@ interface UnifiedMapWrapperProps {
     | 'buildings'
     | 'landcover'
     | 'elevation'
+    | 'legalStatus'
+    | 'circleRate'
+    | 'riskScore'
   >;
   /** Hide the bottom-left layer-toggle legend entirely. */
   showLayerPanel?: boolean;
@@ -75,6 +79,8 @@ interface UnifiedMapWrapperProps {
   userRole?: string;
   /** Extra action rendered inline (e.g. Parcel 360's "Locate" button). */
   actionSlot?: React.ReactNode;
+  /** Show layer toggle buttons below the map for quicker access. */
+  showLayerButtonsBelowMap?: boolean;
   /** Custom className for the wrapper. */
   className?: string;
   /** Fixed height class (e.g. h-[500px] or h-full) */
@@ -91,6 +97,7 @@ const LAYER_KEYS: LayerKey[] = [
   'sameDistrict',
   'zoning',
   'restriction',
+  'taxStatus',
   'infrastructure',
   'changeDetection',
   'adminNotes',
@@ -98,6 +105,9 @@ const LAYER_KEYS: LayerKey[] = [
   'buildings',
   'landcover',
   'elevation',
+  'legalStatus',
+  'circleRate',
+  'riskScore',
 ];
 
 const LAYER_LABELS: Record<LayerKey, string> = {
@@ -108,6 +118,7 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   sameDistrict: 'Same District',
   zoning: 'Zoning',
   restriction: 'Restriction Zones',
+  taxStatus: 'Property Tax Status',
   infrastructure: 'Infrastructure',
   changeDetection: 'Change Detection',
   adminNotes: 'Admin Notes',
@@ -115,6 +126,11 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   buildings: 'Buildings (MS)',
   landcover: 'Land Cover',
   elevation: 'Elevation',
+  legalStatus: 'Legal Status (Dispute + Encumbrance)',
+  circleRate: 'Circle Rate Heatmap',
+  riskScore: 'Composite Risk Score (AI)',
+  mismatch: 'Master Plan Mismatch',
+  unauthorized: 'Unauthorized Construction',
 };
 
 const OFFICER_ROLES = ['OFFICER', 'ADMIN', 'VERIFIER', 'CHECKER', 'APPROVER'] as const;
@@ -142,6 +158,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   years,
   userRole,
   actionSlot,
+  showLayerButtonsBelowMap = false,
   className = '',
   height = 'h-[500px]',
   overlayElement,
@@ -157,7 +174,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
 
   // Layer filter state
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
-    LAYER_KEYS.reduce((acc, key) => ({ ...acc, [key]: true }), {} as Record<LayerKey, boolean>)
+    { ...DEFAULT_LAYER_VISIBILITY, taxStatus: userRole === 'TAX_OFFICER' }
   );
   const [showLayerFilters, setShowLayerFilters] = useState(false);
   const layerFiltersRef = useRef<HTMLDivElement>(null);
@@ -276,6 +293,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   );
 
   // Determine which layers actually have data
+  const hasParcels = parcelsProp !== undefined || !!selectedParcelId || !!focusBounds || !!selectedCluster;
   const layerHasData = useMemo<Record<LayerKey, boolean>>(() => ({
     zoning: zoningFC.features.length > 0,
     restriction: restrictionFC.features.length > 0,
@@ -291,7 +309,15 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     buildings: true,
     landcover: true,
     elevation: true,
-  }), [zoningFC, restrictionFC, infrastructureFC, changeDetectionFC, adminNotesFC, parcelsProp, districtContext, selectedParcelId, focusBounds, selectedCluster]);
+    // Parcel-attribute overlays (recolor/flag the parcels already on the map),
+    // so they're available whenever any parcel is rendered.
+    taxStatus: hasParcels,
+    legalStatus: hasParcels,
+    circleRate: hasParcels,
+    riskScore: hasParcels,
+    mismatch: hasParcels,
+    unauthorized: hasParcels,
+  }), [zoningFC, restrictionFC, infrastructureFC, changeDetectionFC, adminNotesFC, parcelsProp, districtContext, selectedParcelId, focusBounds, selectedCluster, hasParcels]);
 
   // Build state/district lookup from locationData for full names
   const getStateName = (stateCode: string) => {
@@ -317,15 +343,15 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     
     if (hasParcelSelected) {
       // Parcel selected: all contextual layers available (including adminNotes for officers)
-      availableKeys = baseKeys;
+      availableKeys = isOfficerOrAdminMap ? baseKeys : baseKeys.filter(k => k !== 'adminNotes');
     } else if (hasClusterFocus) {
-      // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
-      const keys = ['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      // Cluster focused: cluster + district overlays + terrain layers + legalStatus + circleRate
+      const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     } else {
-      // No selection: only district-level overlay layers + terrain layers
-      const keys = ['zoning', 'restriction', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
+      // No selection: only district-level overlay layers + terrain layers + legalStatus + circleRate
+      const keys = ['zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation', 'legalStatus', 'circleRate', 'riskScore'];
       if (isOfficerOrAdminMap) keys.push('adminNotes');
       availableKeys = baseKeys.filter((key) => keys.includes(key));
     }
@@ -391,7 +417,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     : [];
 
   return (
-    <div className={`flex flex-col ${height} w-full ${className}`}>
+    <>
+      <div className={`flex flex-col ${height} w-full ${className}`}>
       {/* Controls bar above map - layer filters + locate button */}
       {showLayerPanel && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-surface border-b-2 border-ink p-2 shrink-0">
@@ -410,11 +437,11 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showLayerFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>
               {showLayerFilters && (
-                <div className="absolute left-0 top-full mt-1 z-30 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[180px] max-h-[300px] overflow-y-auto">
+                <div className="absolute left-0 top-full mt-1 z-30 bg-surface border-2 border-ink shadow-hard-sm p-2 min-w-[220px] max-h-[350px] overflow-y-auto">
                   <p className="mb-1.5 font-black uppercase tracking-widest text-[10px] text-ink border-b-2 border-ink/15 pb-1">
                     {t('unifiedMap.layerFilters')}
                   </p>
-                  {effectiveLayerKeys.map((key) => (
+                  {effectiveLayerKeys.filter(key => !['legalStatus', 'riskScore', 'circleRate', 'taxStatus'].includes(key)).map((key) => (
                     <label key={key} className="flex items-center gap-1.5 py-1 text-ink/80 font-medium cursor-pointer text-xs">
                       <input
                         type="checkbox"
@@ -425,6 +452,85 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                       {LAYER_LABELS[key]}
                     </label>
                   ))}
+                  {layerVisibility.legalStatus && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.legalStatusLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm border border-ink/30 flex-shrink-0" style={{ background: 'rgba(0,0,0,0)', outline: '1.5px solid #6b7280' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus0')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f59e0b', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus1')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f97316', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus2')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#dc2626', opacity: 0.85 }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.legalStatus3')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {layerVisibility.circleRate && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.circleRateLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm border border-ink/30 flex-shrink-0" style={{ background: '#ffffcc' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate1')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#a1dab4' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate2')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#41b6c4' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate3')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#2c7fb8' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate4')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#253494' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.circleRate5')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {layerVisibility.riskScore && (
+                    <div className="mt-2 pt-2 border-t border-ink/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink/60 mb-1.5">
+                        {t('map.layer.riskScoreLegend')}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#10b981' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreLow')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f59e0b' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreMedium')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#f97316' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreHigh')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: '#ef4444' }} />
+                          <span className="text-[11px] text-ink/80">{t('map.layer.riskScoreCritical')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -473,6 +579,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       {/* Map Component - fills remaining space */}
       <div className="flex-1 relative min-h-0">
         <MapComponent
+          userRole={userRole}
           parcels={parcelsProp}
           selectedParcelId={selectedParcelId}
           onParcelClick={onParcelClick}
@@ -493,7 +600,141 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
             {overlayElement}
           </div>
         )}
+        {/* Floating Legends on map when layers are visible */}
+        <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-2 max-w-[210px] pointer-events-none">
+          {layerVisibility.taxStatus && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.taxStatus')} ({t('map.layer.taxStatusLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#22c55e', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusPaid')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#eab308', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusPending')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#ef4444', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusDefaulter')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: '#9ca3af', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusUnknown')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.legalStatus && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.legalStatus')} {t('map.layer.legalStatusLegend')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: 'rgba(0,0,0,0)', outline: '1.5px solid #6b7280' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus0')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#dc2626', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.legalStatus3')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.circleRate && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.circleRate')} ({t('map.layer.circleRateLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: '#ffffcc' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate1')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#a1dab4' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate2')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#41b6c4' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate3')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#2c7fb8' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate4')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#253494' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.circleRate5')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.riskScore && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.riskScore')} ({t('map.layer.riskScoreLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#10b981' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreLow')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f59e0b' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreMedium')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#f97316' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreHigh')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#ef4444' }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.riskScoreCritical')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.mismatch && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.mismatch')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#c026d3', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.mismatchLegend')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.unauthorized && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.unauthorized')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#e11d48', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.unauthorizedLegend')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
 
       {/* Cluster lock indicator */}
       {effectiveFocusBounds && (
@@ -508,6 +749,57 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         </div>
       )}
     </div>
+
+    {showLayerButtonsBelowMap && effectiveLayerKeys.length > 0 && (
+      <div className="mt-4 bg-surface border-2 border-ink p-3 rounded">
+        <p className="mb-2 font-black uppercase tracking-widest text-xs text-ink/70">
+          {t('unifiedMap.quickToggles', 'Map Layers')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'Legal Status', key: 'legalStatus', implemented: true },
+            { label: 'Tax Status', key: 'taxStatus', implemented: true },
+            { label: 'Risk Score', key: 'riskScore', implemented: true },
+            { label: 'Circle Rate / Valuation', key: 'circleRate', implemented: true },
+            { label: 'Master Plan Mismatch', key: 'mismatch', implemented: true },
+            { label: 'Unauthorized Activity', key: 'unauthorized', implemented: true },
+          ].map((toggle) => (
+            <button
+              key={toggle.key}
+              type="button"
+              onClick={() => {
+                if (toggle.implemented) {
+                  setLayerVisibility((prev) => {
+                    const isCurrentlyOn = prev[toggle.key as LayerKey];
+                    return {
+                      ...prev,
+                      legalStatus: false,
+                      taxStatus: false,
+                      riskScore: false,
+                      circleRate: false,
+                      mismatch: false,
+                      unauthorized: false,
+                      [toggle.key]: !isCurrentlyOn,
+                    };
+                  });
+                }
+              }}
+              className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 transition-colors rounded ${
+                !toggle.implemented
+                  ? 'border-ink/20 bg-surface text-ink/40 cursor-not-allowed'
+                  : layerVisibility[toggle.key as LayerKey]
+                  ? 'border-ink bg-primary text-surface'
+                  : 'border-ink bg-surface text-ink hover:bg-muted'
+              }`}
+              disabled={!toggle.implemented}
+            >
+              {toggle.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+  </>
   );
 };
 

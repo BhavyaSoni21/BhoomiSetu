@@ -27,7 +27,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # --- Parcel current_state (§41) ---
-    op.add_column('parcels', sa.Column('current_state', JSON(), nullable=True))
+    # op.add_column('parcels', sa.Column('current_state', JSON(), nullable=True))
 
     # --- SLA Configs (§56) ---
     op.create_table(

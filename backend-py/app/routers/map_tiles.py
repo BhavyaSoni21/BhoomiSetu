@@ -32,6 +32,12 @@ def get_parcels_tile(z: int, x: int, y: int, db: Session = Depends(get_db)):
                 canonical_parcel_id,
                 state_code,
                 district_code,
+                tax_status,
+                COALESCE(legal_status_severity, 0) AS legal_status_severity,
+                COALESCE(value_band, 0)            AS value_band,
+                COALESCE(risk_score, 0)::float     AS risk_score,
+                masterplan_mismatch,
+                unauthorized_construction_suspected,
                 ST_AsMVTGeom(
                     ST_Transform(geometry, 3857),
                     ST_TileEnvelope(:z, :x, :y),

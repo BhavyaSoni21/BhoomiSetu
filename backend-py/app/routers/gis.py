@@ -58,7 +58,9 @@ def get_parcels(
     if district:
         query = query.filter(Parcel.district_code == district)
 
-    total = query.count()
+    # Omit slow exact count(*) - ST_Intersects count takes seconds on millions of parcels
+    # The map frontend only needs the limited array anyway.
+    total = -1
     if limit:
         query = query.limit(limit)
     if offset:
@@ -89,6 +91,8 @@ def get_parcel_restrictions(id: UUID, db: Session = Depends(get_db)):
     return []
 
 
+_clusters_cache = None
+
 @router.get("/clusters-hierarchical")
 def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     """
@@ -96,6 +100,10 @@ def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, A
     Each cluster includes its bounds for map viewport fitting.
     Used by the unified map's hierarchical dropdown selector.
     """
+    global _clusters_cache
+    if _clusters_cache is not None:
+        return _clusters_cache
+
     rows = (
         db.query(
             Parcel.cluster_id,
@@ -146,4 +154,5 @@ def get_clusters_hierarchical(db: Session = Depends(get_db)) -> list[dict[str, A
             "districts": districts_list,
         })
 
+    _clusters_cache = result
     return result
