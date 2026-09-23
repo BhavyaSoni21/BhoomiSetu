@@ -23,6 +23,7 @@ export interface LayerTypeConfig {
   notesLabel?: string;
   idsField?: string; // e.g. 'parcelIds' | 'affectedParcelIds'
   idsLabel?: string;
+  hasProposedUse?: boolean; // For Layer 5: Master Plan Mismatch
   geometryTypes: string[]; // allowed GeoJSON geometry.type values
   geometryExample: string;
   // Visible/editable by Admin only (docs/ADMIN_PANEL_ISSUES.md Coming Soon
@@ -49,10 +50,16 @@ interface LayerForm {
   stateCode: string;
   district: string;
   geometryText: string;
+  proposedLandUse: string;
+  proposedEffectiveYear: string;
 }
 
 function emptyForm(config: LayerTypeConfig): LayerForm {
-  return { name: '', type: config.typeOptions?.[0] ?? '', notes: '', stateCode: '', district: '', geometryText: '' };
+  return { 
+    name: '', type: config.typeOptions?.[0] ?? '', notes: '', 
+    stateCode: '', district: '', geometryText: '',
+    proposedLandUse: '', proposedEffectiveYear: ''
+  };
 }
 
 function parseGeometry(text: string): GeoJSON.Geometry | null {
@@ -73,6 +80,10 @@ function buildPayload(config: LayerTypeConfig, form: LayerForm, geometry: Record
   };
   if (config.typeField) payload[config.typeField] = form.type;
   if (config.notesField) payload[config.notesField] = form.notes || undefined;
+  if (config.hasProposedUse) {
+    if (form.proposedLandUse) payload.proposedLandUse = form.proposedLandUse;
+    if (form.proposedEffectiveYear) payload.proposedEffectiveYear = parseInt(form.proposedEffectiveYear, 10);
+  }
   // idsField (parcelIds/affectedParcelIds) is intentionally NOT sent - the
   // backend now computes it authoritatively from real spatial intersection
   // (SpatialService.computeAffectedParcelIds), so a client-typed value would
@@ -138,6 +149,29 @@ const LayerFormFields: React.FC<LayerFormFieldsProps> = ({ config, form, onChang
         className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
         required
       />
+      {config.hasProposedUse && (
+        <>
+          <select
+            value={form.proposedLandUse}
+            onChange={(e) => onChange({ ...form, proposedLandUse: e.target.value })}
+            className="px-3 py-2 border-2 border-ink bg-surface text-ink text-sm focus:outline-none focus:border-primary"
+          >
+            <option value="">-- No Proposed Change --</option>
+            {(config.typeOptions ?? []).map((option) => (
+              <option key={option} value={option}>
+                {option.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            placeholder="Proposed Effective Year (optional)"
+            value={form.proposedEffectiveYear}
+            onChange={(e) => onChange({ ...form, proposedEffectiveYear: e.target.value })}
+            className="px-3 py-2 border-2 border-ink bg-surface text-ink placeholder:text-ink/40 text-sm focus:outline-none focus:border-primary"
+          />
+        </>
+      )}
       {config.idsField && (
         <p className="text-[11px] text-ink/50 md:col-span-2">{t('adminPortal.idsComputedNotice', { label: config.idsLabel ?? t('adminPortal.affectedParcelIdsLabel') })}</p>
       )}
@@ -252,6 +286,8 @@ const MapLayerManagement: React.FC<MapLayerManagementProps> = ({ config }) => {
       stateCode: (feature.properties.stateCode as string | undefined) ?? '',
       district: (feature.properties.district as string | undefined) ?? '',
       geometryText: JSON.stringify(feature.geometry, null, 2),
+      proposedLandUse: (feature.properties.proposedLandUse as string | undefined) ?? '',
+      proposedEffectiveYear: feature.properties.proposedEffectiveYear ? String(feature.properties.proposedEffectiveYear) : '',
     });
   };
 

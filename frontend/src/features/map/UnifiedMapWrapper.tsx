@@ -695,6 +695,32 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
               </div>
             </div>
           )}
+          {layerVisibility.mismatch && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.mismatch')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#c026d3', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.mismatchLegend')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {layerVisibility.unauthorized && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.unauthorized')}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#e11d48', opacity: 0.85 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.unauthorizedLegend')}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -724,8 +750,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
             { label: 'Tax Status', key: 'taxStatus', implemented: true },
             { label: 'Risk Score', key: 'riskScore', implemented: true },
             { label: 'Circle Rate / Valuation', key: 'circleRate', implemented: true },
-            { label: 'Master Plan Mismatch', key: 'mismatch', implemented: false },
-            { label: 'Unauthorized Activity', key: 'unauthorized', implemented: false },
+            { label: 'Master Plan Mismatch', key: 'mismatch', implemented: true },
+            { label: 'Unauthorized Activity', key: 'unauthorized', implemented: true },
           ].map((toggle) => (
             <button
               key={toggle.key}
@@ -740,6 +766,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                       taxStatus: false,
                       riskScore: false,
                       circleRate: false,
+                      mismatch: false,
+                      unauthorized: false,
                       [toggle.key]: !isCurrentlyOn,
                     };
                   });

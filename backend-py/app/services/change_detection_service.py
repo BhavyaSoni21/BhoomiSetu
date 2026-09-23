@@ -22,6 +22,8 @@ from sqlalchemy.orm import Session
 from app.models.governance import GovernanceAlert
 from app.models.parcel import Parcel
 from app.models.spatial import ChangeDetectionEvent
+from app.models.department_record import PlanningRecord
+from sqlalchemy import text
 from app.services.governance_rules_service import evaluate_rules_and_create_alerts
 from app.services.image_diff import GeoBounds, diff_images, pixel_box_to_geo_box
 
@@ -81,10 +83,24 @@ def analyze(db: Session, before: bytes, after: bytes, bounds: GeoBounds, descrip
     db.add(event)
     db.flush()
 
-    # GOVERNANCE ALERTS: use admin-editable rules instead of hardcoded logic
+    # LAYER 6 CROSS-CHECK: Unauthorized Construction
+    event.cross_checked_against_permission = True
     alerts_created = 0
     if affected_parcel_ids:
         for parcel_id in affected_parcel_ids:
+            planning_record = db.query(PlanningRecord).filter(PlanningRecord.parcel_id == parcel_id).first()
+            is_unauthorized = False
+            if not planning_record:
+                is_unauthorized = True
+            elif planning_record.building_permission_status not in ("APPROVED", "NOT_REQUIRED"):
+                is_unauthorized = True
+
+            if is_unauthorized:
+                db.execute(
+                    text("UPDATE parcels SET unauthorized_construction_suspected = TRUE WHERE id::text = :pid"),
+                    {"pid": parcel_id}
+                )
+                
             created_alerts = evaluate_rules_and_create_alerts(
                 db,
                 alert_type="UNAUTHORIZED_CHANGE_DETECTED",
@@ -93,6 +109,7 @@ def analyze(db: Session, before: bytes, after: bytes, bounds: GeoBounds, descrip
                     "changed_pixel_ratio": diff.changed_pixel_ratio,
                     "change_region": change_region,
                     "parcel_id": parcel_id,
+                    "is_unauthorized": is_unauthorized
                 },
             )
             alerts_created += len(created_alerts)

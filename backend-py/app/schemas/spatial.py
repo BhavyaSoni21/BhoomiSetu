@@ -42,6 +42,8 @@ class _GeometryStringMixin(CamelModel):
 class CreateZoningOverlay(CamelModel):
     name: str = Field(max_length=100)
     zone_type: Literal["RESIDENTIAL", "COMMERCIAL", "AGRICULTURAL"]
+    proposed_land_use: str | None = Field(default=None, max_length=50)
+    proposed_effective_year: int | None = None
     state_code: str = Field(max_length=10)
     district: str = Field(max_length=40)
     geometry: dict[str, Any]
@@ -51,6 +53,8 @@ class CreateZoningOverlay(CamelModel):
 class UpdateZoningOverlay(CamelModel):
     name: str | None = Field(default=None, max_length=100)
     zone_type: Literal["RESIDENTIAL", "COMMERCIAL", "AGRICULTURAL"] | None = None
+    proposed_land_use: str | None = Field(default=None, max_length=50)
+    proposed_effective_year: int | None = None
     state_code: str | None = Field(default=None, max_length=10)
     district: str | None = Field(default=None, max_length=40)
     geometry: dict[str, Any] | None = None
@@ -61,6 +65,8 @@ class ZoningOverlayOut(_GeometryStringMixin):
     id: UUID
     name: str
     zone_type: str
+    proposed_land_use: str | None
+    proposed_effective_year: int | None
     state_code: str
     district: str
     parcel_ids: list[str] | None

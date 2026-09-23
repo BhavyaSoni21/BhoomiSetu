@@ -44,6 +44,8 @@ class Parcel(Base):
 
     # Denormalized property tax status (PAID | PENDING | OVERDUE) for map tile rendering speed
     tax_status: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True, default="unknown")
+    masterplan_mismatch: Mapped[bool] = mapped_column(default=False, server_default="false", index=True)
+    unauthorized_construction_suspected: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     # Current state snapshot (§41) — quick-access summary of current
     # values across domains (tax, dispute, encumbrance, restriction,

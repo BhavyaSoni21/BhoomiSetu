@@ -11,3 +11,4 @@ from app.tasks import terrain_tasks  # noqa: F401
 from app.tasks import legal_status_tasks  # noqa: F401
 from app.tasks import value_band_tasks  # noqa: F401
 from app.tasks import risk_score_tasks  # noqa: F401
+from app.tasks import masterplan_tasks  # noqa: F401

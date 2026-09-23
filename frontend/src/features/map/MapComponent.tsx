@@ -59,7 +59,9 @@ type LayerKey =
   | 'elevation'
   | 'legalStatus'
   | 'circleRate'
-  | 'riskScore';
+  | 'riskScore'
+  | 'mismatch'
+  | 'unauthorized';
 
 export type { LayerKey };
 
@@ -83,6 +85,8 @@ const LAYER_KEYS: LayerKey[] = [
   'legalStatus',
   'circleRate',
   'riskScore',
+  'mismatch',
+  'unauthorized',
 ];
 
 // Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
@@ -107,6 +111,8 @@ export const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   legalStatus: false,
   circleRate: false,
   riskScore: false,
+  mismatch: false,
+  unauthorized: false,
 };
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -650,6 +656,32 @@ const MapComponent: React.FC<MapComponentProps> = ({
         }
       });
 
+      ensureLayer(map, 'parcels-source', {
+        id: 'mismatch-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        filter: ['==', ['get', 'masterplan_mismatch'], true],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.mismatch ? 'visible' : 'none' },
+        paint: {
+          'fill-color': '#c026d3', // Fuchsia
+          'fill-opacity': 0.85,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
+      ensureLayer(map, 'parcels-source', {
+        id: 'unauthorized-layer',
+        type: 'fill',
+        source: 'parcels-source',
+        filter: ['==', ['get', 'unauthorized_construction_suspected'], true],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.unauthorized ? 'visible' : 'none' },
+        paint: {
+          'fill-color': '#e11d48', // Rose
+          'fill-opacity': 0.85,
+          'fill-outline-color': '#ffffff'
+        }
+      });
+
       ensureLayer(map, 'change-detection-source', {
         id: 'change-detection-layer',
         type: 'fill',
@@ -781,7 +813,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         paint: { 'line-color': '#2563eb', 'line-width': 4 },
       });
 
-      const selectableLayers = ['parcels-layer', 'district-layer', 'cluster-layer', 'nearby-layer', 'adjacent-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer'];
+      const selectableLayers = ['parcels-layer', 'district-layer', 'cluster-layer', 'nearby-layer', 'adjacent-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer', 'mismatch-layer', 'unauthorized-layer'];
       for (const layerId of selectableLayers) {
         map.on('click', layerId, (e) => {
           const feature = e.features?.[0];
@@ -798,6 +830,30 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       const renderLayerInsightCards = (props: Record<string, string | number | null>, popupT: ReturnType<typeof useTranslation>['t']) => {
         const sections: string[] = [];
+
+        if (layerVisibility.unauthorized && props.unauthorized_construction_suspected) {
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.unauthorized'))}</p>
+              <div class="flex items-center gap-2 text-secondary-strong">
+                <span class="w-2 h-2 rounded-full" style="background:#e11d48"></span>
+                <span class="text-[10px] font-bold">${escapeHtml(popupT('map.layer.unauthorizedLegend'))}</span>
+              </div>
+            </div>
+          `);
+        }
+
+        if (layerVisibility.mismatch && props.masterplan_mismatch) {
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.mismatch'))}</p>
+              <div class="flex items-center gap-2 text-secondary-strong">
+                <span class="w-2 h-2 rounded-full" style="background:#c026d3"></span>
+                <span class="text-[10px] font-bold">${escapeHtml(popupT('map.layer.mismatchLegend'))}</span>
+              </div>
+            </div>
+          `);
+        }
 
 
         if (layerVisibility.riskScore) {
@@ -1092,6 +1148,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
       legalStatus: ['legal-status-layer'],
       circleRate: ['circleRate-layer'],
       riskScore: ['riskScore-layer'],
+      mismatch: ['mismatch-layer'],
+      unauthorized: ['unauthorized-layer'],
     };
     for (const [key, layerIds] of Object.entries(layerIdsByKey) as [LayerKey, string[]][]) {
       for (const layerId of layerIds) {

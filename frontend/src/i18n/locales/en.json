@@ -278,7 +278,11 @@
       "riskScoreLow": "Low (0 - 24)",
       "riskScoreMedium": "Moderate (25 - 49)",
       "riskScoreHigh": "High (50 - 74)",
-      "riskScoreCritical": "Critical (75 - 100)"
+      "riskScoreCritical": "Critical (75 - 100)",
+      "mismatch": "Master Plan Mismatch",
+      "mismatchLegend": "Proposed Use Differs",
+      "unauthorized": "Unauthorized Activity",
+      "unauthorizedLegend": "Unapproved Construction"
     },
     "popup": {
       "title": "Parcel Details",

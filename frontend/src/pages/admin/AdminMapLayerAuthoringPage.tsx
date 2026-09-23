@@ -35,6 +35,7 @@ const AdminMapLayerAuthoringPage: React.FC = () => {
       typeOptions: ['RESIDENTIAL', 'COMMERCIAL', 'AGRICULTURAL'],
       idsField: 'parcelIds',
       idsLabel: t('adminPortal.parcelIdsLabel'),
+      hasProposedUse: true,
       geometryTypes: ['Polygon'],
       geometryExample: '{"type":"Polygon","coordinates":[[[73.85,18.52],[73.86,18.52],[73.86,18.53],[73.85,18.53],[73.85,18.52]]]}',
     },
