@@ -591,6 +591,31 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         )}
         {/* Floating Legends on map when layers are visible */}
         <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-2 max-w-[210px] pointer-events-none">
+          {layerVisibility.taxStatus && (
+            <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
+                {t('map.layer.taxStatus')} ({t('map.layer.taxStatusLegend')})
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#22c55e', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusPaid')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#eab308', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusPending')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: '#ef4444', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusDefaulter')}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm border border-ink/40 flex-shrink-0" style={{ background: '#9ca3af', opacity: 0.9 }} />
+                  <span className="text-[10px] text-ink/80">{t('map.layer.taxStatusUnknown')}</span>
+                </div>
+              </div>
+            </div>
+          )}
           {layerVisibility.legalStatus && (
             <div className="pointer-events-auto bg-surface/95 backdrop-blur-sm border-2 border-ink shadow-hard-sm p-2 text-xs">
               <p className="text-[9px] font-black uppercase tracking-widest text-ink/60 mb-1">
