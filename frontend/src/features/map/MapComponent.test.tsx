@@ -48,6 +48,7 @@ vi.mock('maplibre-gl', () => {
     getSource = vi.fn((id: string) => this.sources[id]);
     isStyleLoaded = vi.fn(() => true);
     getCanvas = vi.fn(() => ({ style: {} }));
+    triggerRepaint = vi.fn();
     remove = vi.fn();
     on(event: string, arg2: any, arg3?: any) {
       const handler = typeof arg2 === 'function' ? arg2 : arg3;

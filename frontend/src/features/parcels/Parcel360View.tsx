@@ -510,6 +510,8 @@ const Parcel360View: React.FC = () => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
                   recenterSignal={recenterSignal}
+                  // Citizens only get the Zoning overlay; staff get the full legend.
+                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
                   showLayerPanel
                   showLayerButtonsBelowMap
                   userRole={authUser?.role}

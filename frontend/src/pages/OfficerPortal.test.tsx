@@ -18,6 +18,7 @@ import { AuthUser } from '../features/auth/auth';
 // already uses.
 vi.mock('../features/map/MapComponent', () => ({
   default: () => <div data-testid="map-stub" />,
+  DEFAULT_LAYER_VISIBILITY: {},
 }));
 
 const landRecordOfficer: AuthUser = { id: 'u1', email: 'lr@test.gov.in', name: 'Asha', role: 'LAND_RECORD_OFFICER' };
