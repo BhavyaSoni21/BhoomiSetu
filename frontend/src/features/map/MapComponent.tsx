@@ -274,6 +274,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // switches.
   const tRef = useRef(t);
   tRef.current = t;
+  
+  const userRoleRef = useRef(userRole);
+  userRoleRef.current = userRole;
 
   // Selection is internally owned so the component works standalone (e.g. the
   // bare /map route) but stays in sync with a controlling parent when one
@@ -677,8 +680,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
         const props = feature.properties as Record<string, string | number | null>;
 
         const popupT = tRef.current;
+        const currentUserRole = userRoleRef.current;
         
-        const taxStatusHtml = userRole === 'TAX_OFFICER' && props.taxStatus
+        const taxStatusHtml = currentUserRole === 'TAX_OFFICER' && props.taxStatus
           ? `<div class="mb-2 p-1.5 rounded bg-surface-alt border border-gov-border">
                <p class="text-ink text-xs"><strong class="uppercase tracking-wide text-brand-700">Tax Status:</strong> <span class="font-bold">${escapeHtml(String(props.taxStatus))}</span></p>
              </div>`
