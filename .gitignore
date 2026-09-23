@@ -98,3 +98,8 @@ backend-py/delete_osm_pbf.py
 # Temporary auth page files in root
 auth_login_page.tsx
 auth_register_page.tsx
+
+# Stray local SQLite DBs — backend is Postgres/Supabase-only
+*.db
+*.sqlite
+*.sqlite3

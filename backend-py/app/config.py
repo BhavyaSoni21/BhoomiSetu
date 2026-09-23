@@ -95,6 +95,11 @@ class Settings(BaseSettings):
     def configure_redis_url(self) -> "Settings":
         if not self.redis_url:
             self.redis_url = f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        # Celery refuses a rediss:// broker without ssl_cert_reqs. Hosted Redis
+        # (Upstash etc.) serves valid certs, so require verification by default.
+        if self.redis_url.startswith("rediss://") and "ssl_cert_reqs" not in self.redis_url:
+            sep = "&" if "?" in self.redis_url else "?"
+            self.redis_url = f"{self.redis_url}{sep}ssl_cert_reqs=required"
         return self
 
     @property

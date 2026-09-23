@@ -13010,7 +13010,7 @@
       "file_type": "code",
       "norm_label": ".cors_origins()",
       "source_file": "backend-py/app/config.py",
-      "source_location": "L105"
+      "source_location": "L110"
     },
     {
       "id": "backend_py_app_config_settings_is_production",
@@ -13022,7 +13022,7 @@
       "file_type": "code",
       "norm_label": ".is_production()",
       "source_file": "backend-py/app/config.py",
-      "source_location": "L101"
+      "source_location": "L106"
     },
     {
       "id": "backend_py_app_config_settings_sqlalchemy_database_uri",
@@ -13034,7 +13034,7 @@
       "file_type": "code",
       "norm_label": ".sqlalchemy_database_uri()",
       "source_file": "backend-py/app/config.py",
-      "source_location": "L117"
+      "source_location": "L122"
     },
     {
       "id": "backend_py_tests_routers_test_auth_testgoogleoauth_test_google_callback_rejects_invalid_state",
@@ -13118,7 +13118,7 @@
       "file_type": "code",
       "norm_label": "get_settings()",
       "source_file": "backend-py/app/config.py",
-      "source_location": "L126"
+      "source_location": "L131"
     },
     {
       "id": "backend_py_app_services_email_service_is_configured",
@@ -76552,7 +76552,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend-py/app/config.py",
-      "source_location": "L127",
+      "source_location": "L132",
       "weight": 1.0
     },
     {
@@ -163812,7 +163812,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend-py/app/config.py",
-      "source_location": "L126",
+      "source_location": "L131",
       "weight": 1.0
     },
     {
@@ -211440,7 +211440,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend-py/app/config.py",
-      "source_location": "L101",
+      "source_location": "L106",
       "weight": 1.0
     },
     {
@@ -211451,7 +211451,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend-py/app/config.py",
-      "source_location": "L105",
+      "source_location": "L110",
       "weight": 1.0
     },
     {
@@ -211462,7 +211462,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend-py/app/config.py",
-      "source_location": "L117",
+      "source_location": "L122",
       "weight": 1.0
     },
     {
@@ -235771,5 +235771,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "804f66b77dbc9042aba758d7a4858eb130a29dd1"
+  "built_at_commit": "65ce48ccff2cba9e8fccdd39912904b3f931b4f0"
 }

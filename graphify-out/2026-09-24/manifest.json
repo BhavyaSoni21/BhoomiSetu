@@ -965,12 +965,6 @@
     "ast_hash": "4a135259d0ef610fd779adfa82b7dc4d",
     "semantic_hash": "4a135259d0ef610fd779adfa82b7dc4d"
   },
-  "frontend/src/components/landing/BhoomiSetuLogo.tsx": {
-    "mtime": 1789286747.4519649,
-    "seen": 1789370481.2863011,
-    "ast_hash": "baf49fbb92a36b117d8c6e30b3b89f9f",
-    "semantic_hash": "baf49fbb92a36b117d8c6e30b3b89f9f"
-  },
   "frontend/src/components/landing/ParcelSearchModal.tsx": {
     "mtime": 1789668504.8284855,
     "seen": 1790096301.16986,
@@ -1175,12 +1169,6 @@
     "ast_hash": "6e0a10cc1f036235f561c8976cbf8211",
     "semantic_hash": ""
   },
-  "frontend/src/features/auth/profile-components/DocumentsCredentialsCard.tsx": {
-    "mtime": 1789668467.159944,
-    "seen": 1790096301.1701899,
-    "ast_hash": "405744f71392e591234e5c6b80fb7273",
-    "semantic_hash": ""
-  },
   "frontend/src/features/auth/profile-components/GISMapPreview.tsx": {
     "mtime": 1789668467.159944,
     "seen": 1790096301.1701918,
@@ -1227,12 +1215,6 @@
     "mtime": 1789668467.1784272,
     "seen": 1790096301.170203,
     "ast_hash": "7f5c528df7c5dd82d716ebdf5af523fb",
-    "semantic_hash": ""
-  },
-  "frontend/src/features/auth/profile-components/ProfilePageHeader.tsx": {
-    "mtime": 1789668467.1784272,
-    "seen": 1790096301.1702046,
-    "ast_hash": "12363ab9af4f74d5fa6de82a661d3828",
     "semantic_hash": ""
   },
   "frontend/src/features/auth/profile-components/ProfileSummaryCard.tsx": {
@@ -1283,12 +1265,6 @@
     "ast_hash": "c632b65f3b0f6839902c506ce01ab69e",
     "semantic_hash": ""
   },
-  "frontend/src/features/citizen/ComingSoonCard.tsx": {
-    "mtime": 1789668504.8532796,
-    "seen": 1790096301.1702158,
-    "ast_hash": "ebfb3d2c5fba641a6ded9df72704da43",
-    "semantic_hash": ""
-  },
   "frontend/src/features/citizen/LandClaimPanel.test.tsx": {
     "mtime": 1790019184.0107615,
     "seen": 1790096301.170217,
@@ -1299,12 +1275,6 @@
     "mtime": 1789668504.8542812,
     "seen": 1790096301.1702178,
     "ast_hash": "4e6f9cef6b40e77806c8f15c762e96ee",
-    "semantic_hash": ""
-  },
-  "frontend/src/features/citizen/LandingHero.tsx": {
-    "mtime": 1789668504.8542812,
-    "seen": 1790096301.1702185,
-    "ast_hash": "d738e01b439f15deb70893a969cc135c",
     "semantic_hash": ""
   },
   "frontend/src/features/citizen/MyParcels.test.tsx": {
@@ -1342,12 +1312,6 @@
     "seen": 1790096301.170227,
     "ast_hash": "fd1bf74b3c408656b34c4ee48e66df25",
     "semantic_hash": ""
-  },
-  "frontend/src/features/officer/ComingSoonCard.tsx": {
-    "mtime": 1789286747.4918237,
-    "seen": 1789370481.286394,
-    "ast_hash": "e9d49703d2eac3d3f6363e45e74b3a55",
-    "semantic_hash": "e9d49703d2eac3d3f6363e45e74b3a55"
   },
   "frontend/src/features/officer/GovernanceAlertDetailModal.tsx": {
     "mtime": 1789668504.8594818,
@@ -2777,12 +2741,6 @@
     "ast_hash": "b29ffe5b8e71cca47eb78fda15d3058e",
     "semantic_hash": ""
   },
-  "frontend/src/features/verifier/FieldEvidenceCaptureForm.tsx": {
-    "mtime": 1789668467.1982665,
-    "seen": 1790096301.170662,
-    "ast_hash": "7181b68cfa1616fd8a595551bf1fa96b",
-    "semantic_hash": ""
-  },
   "frontend/src/features/verifier/VerifierFindingsPage.tsx": {
     "mtime": 1789989342.611931,
     "seen": 1790096301.1706629,
@@ -3219,12 +3177,6 @@
     "mtime": 1789668467.0794399,
     "seen": 1790096301.173278,
     "ast_hash": "71be9923ef91488ccb7a09c0a602f717",
-    "semantic_hash": ""
-  },
-  "frontend/design.md": {
-    "mtime": 1789668306.248398,
-    "seen": 1790096301.173279,
-    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
   "frontend/index.html": {
