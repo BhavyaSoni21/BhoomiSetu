@@ -522,18 +522,30 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           {t('unifiedMap.quickToggles', 'Map Layers')}
         </p>
         <div className="flex flex-wrap gap-2">
-          {effectiveLayerKeys.filter(k => k !== 'selected' && k !== 'adjacent' && k !== 'nearby' && k !== 'sameDistrict').map((key) => (
+          {[
+            { label: 'Legal Status', key: 'legalStatus', implemented: false },
+            { label: 'Tax Status', key: 'taxStatus', implemented: true },
+            { label: 'Risk Score', key: 'riskScore', implemented: false },
+            { label: 'Circle Rate / Valuation', key: 'valuation', implemented: false },
+            { label: 'Master Plan Mismatch', key: 'mismatch', implemented: false },
+            { label: 'Unauthorized Activity', key: 'unauthorized', implemented: false },
+          ].map((toggle) => (
             <button
-              key={key}
+              key={toggle.key}
               type="button"
-              onClick={() => toggleLayer(key)}
-              className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 border-ink transition-colors rounded ${
-                layerVisibility[key]
-                  ? 'bg-primary text-surface'
-                  : 'bg-surface text-ink hover:bg-muted'
+              onClick={() => {
+                if (toggle.implemented) toggleLayer(toggle.key as LayerKey);
+              }}
+              className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 transition-colors rounded ${
+                !toggle.implemented
+                  ? 'border-ink/20 bg-surface text-ink/40 cursor-not-allowed'
+                  : layerVisibility[toggle.key as LayerKey]
+                  ? 'border-ink bg-primary text-surface'
+                  : 'border-ink bg-surface text-ink hover:bg-muted'
               }`}
+              disabled={!toggle.implemented}
             >
-              {LAYER_LABELS[key]}
+              {toggle.label}
             </button>
           ))}
         </div>
