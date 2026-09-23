@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
-import MapComponent, { type LayerKey } from './MapComponent';
+import MapComponent, { type LayerKey, DEFAULT_LAYER_VISIBILITY } from './MapComponent';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
@@ -158,7 +158,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
 
   // Layer filter state
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
-    LAYER_KEYS.reduce((acc, key) => ({ ...acc, [key]: true }), {} as Record<LayerKey, boolean>)
+    { ...DEFAULT_LAYER_VISIBILITY, taxStatus: userRole === 'TAX_OFFICER' }
   );
   const [showLayerFilters, setShowLayerFilters] = useState(false);
   const layerFiltersRef = useRef<HTMLDivElement>(null);
@@ -474,6 +474,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
       {/* Map Component - fills remaining space */}
       <div className="flex-1 relative min-h-0">
         <MapComponent
+          userRole={userRole}
           parcels={parcelsProp}
           selectedParcelId={selectedParcelId}
           onParcelClick={onParcelClick}

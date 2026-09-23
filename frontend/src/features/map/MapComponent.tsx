@@ -9,6 +9,8 @@ import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
 import { ParcelContextResponse, SpatialFeatureCollection } from '../../types/spatial';
 
 interface MapComponentProps {
+  /** User role for customizing map features (e.g. TAX_OFFICER). */
+  userRole?: string;
   /** When provided, render exactly these parcels instead of fetching all of them. */
   parcels?: ParcelSummary[];
   /** Parcel id to highlight and load spatial context (neighbours, district, overlays) for. */
@@ -80,7 +82,7 @@ const LAYER_KEYS: LayerKey[] = [
 // Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
 // network (the whole point of this component) must never be hidden by
 // default. Same-district and the overlay layers stay opt-in.
-const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
+export const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   selected: true,
   adjacent: true,
   nearby: true,
@@ -239,6 +241,7 @@ const DEFAULT_STATE_COLORS: Record<string, string> = { DL: '#ef4444', MH: '#f973
 const DEFAULT_PARCEL_COLOR = '#6b7280';
 
 const MapComponent: React.FC<MapComponentProps> = ({
+  userRole,
   parcels: parcelsProp,
   selectedParcelId,
   onParcelClick,
@@ -512,11 +515,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
         paint: {
           'fill-color': ['match', ['get', 'taxStatus'], 
             'PAID', '#22c55e', 
-            'PENDING', '#f59e0b', 
+            'PENDING', '#eab308', 
             'OVERDUE', '#ef4444', 
             '#94a3b8'
           ],
-          'fill-opacity': 0.7,
+          'fill-opacity': 0.9,
           'fill-outline-color': '#ffffff'
         }
       });
@@ -674,11 +677,19 @@ const MapComponent: React.FC<MapComponentProps> = ({
         const props = feature.properties as Record<string, string | number | null>;
 
         const popupT = tRef.current;
+        
+        const taxStatusHtml = userRole === 'TAX_OFFICER' && props.taxStatus
+          ? `<div class="mb-2 p-1.5 rounded bg-surface-alt border border-gov-border">
+               <p class="text-ink text-xs"><strong class="uppercase tracking-wide text-brand-700">Tax Status:</strong> <span class="font-bold">${escapeHtml(String(props.taxStatus))}</span></p>
+             </div>`
+          : '';
+
         new maplibregl.Popup()
           .setLngLat(e.lngLat)
           .setHTML(`
             <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
               <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
+              ${taxStatusHtml}
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
