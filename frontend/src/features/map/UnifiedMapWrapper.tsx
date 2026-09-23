@@ -395,7 +395,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     : [];
 
   return (
-    <div className={`flex flex-col ${height} w-full ${className}`}>
+    <>
+      <div className={`flex flex-col ${height} w-full ${className}`}>
       {/* Controls bar above map - layer filters + locate button */}
       {showLayerPanel && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-surface border-b-2 border-ink p-2 shrink-0">
@@ -500,29 +501,6 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         )}
       </div>
 
-      {showLayerButtonsBelowMap && effectiveLayerKeys.length > 0 && (
-        <div className="bg-surface border-t-2 border-ink p-2 shrink-0">
-          <p className="mb-2 font-black uppercase tracking-widest text-[10px] text-ink/70">
-            {t('unifiedMap.quickToggles', 'Map Layers')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {effectiveLayerKeys.filter(k => k !== 'selected' && k !== 'adjacent' && k !== 'nearby' && k !== 'sameDistrict').map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleLayer(key)}
-                className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 border-ink transition-colors rounded ${
-                  layerVisibility[key]
-                    ? 'bg-primary text-surface'
-                    : 'bg-surface text-ink hover:bg-muted'
-                }`}
-              >
-                {LAYER_LABELS[key]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Cluster lock indicator */}
       {effectiveFocusBounds && (
@@ -537,6 +515,31 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         </div>
       )}
     </div>
+
+    {showLayerButtonsBelowMap && effectiveLayerKeys.length > 0 && (
+      <div className="mt-4 bg-surface border-2 border-ink p-3 rounded">
+        <p className="mb-2 font-black uppercase tracking-widest text-xs text-ink/70">
+          {t('unifiedMap.quickToggles', 'Map Layers')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {effectiveLayerKeys.filter(k => k !== 'selected' && k !== 'adjacent' && k !== 'nearby' && k !== 'sameDistrict').map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleLayer(key)}
+              className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 border-ink transition-colors rounded ${
+                layerVisibility[key]
+                  ? 'bg-primary text-surface'
+                  : 'bg-surface text-ink hover:bg-muted'
+              }`}
+            >
+              {LAYER_LABELS[key]}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+  </>
   );
 };
 
