@@ -490,6 +490,7 @@ const Parcel360View: React.FC = () => {
                   historicalYears={historicalCluster.years}
                   onYearChange={(year) => {}}
                   showLayerPanel
+                  showLayerButtonsBelowMap
                   userRole={authUser?.role}
                 />
               ) : (
@@ -511,13 +512,9 @@ const Parcel360View: React.FC = () => {
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
-                  // A citizen sees just a "View Zoning" toggle instead of the
-                  // full staff-oriented legend (docs/ADMIN_PANEL_ISSUES.md
-                  // follow-up, per the user's explicit "zoning layer addition
-                  // just the view option for citizens").
-                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
                   recenterSignal={recenterSignal}
                   showLayerPanel
+                  showLayerButtonsBelowMap
                   userRole={authUser?.role}
                 />
               )}

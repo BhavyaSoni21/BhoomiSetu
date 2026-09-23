@@ -75,6 +75,8 @@ interface UnifiedMapWrapperProps {
   userRole?: string;
   /** Extra action rendered inline (e.g. Parcel 360's "Locate" button). */
   actionSlot?: React.ReactNode;
+  /** Show layer toggle buttons below the map for quicker access. */
+  showLayerButtonsBelowMap?: boolean;
   /** Custom className for the wrapper. */
   className?: string;
   /** Fixed height class (e.g. h-[500px] or h-full) */
@@ -143,6 +145,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   years,
   userRole,
   actionSlot,
+  showLayerButtonsBelowMap = false,
   className = '',
   height = 'h-[500px]',
   overlayElement,
@@ -318,7 +321,7 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     
     if (hasParcelSelected) {
       // Parcel selected: all contextual layers available (including adminNotes for officers)
-      availableKeys = baseKeys;
+      availableKeys = isOfficerOrAdminMap ? baseKeys : baseKeys.filter(k => k !== 'adminNotes');
     } else if (hasClusterFocus) {
       // Cluster focused: cluster + district overlays + terrain layers (no parcel-specific layers)
       const keys = ['cluster', 'zoning', 'restriction', 'taxStatus', 'infrastructure', 'changeDetection', 'roads', 'buildings', 'landcover', 'elevation'];
@@ -496,6 +499,30 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           </div>
         )}
       </div>
+
+      {showLayerButtonsBelowMap && effectiveLayerKeys.length > 0 && (
+        <div className="bg-surface border-t-2 border-ink p-2 shrink-0">
+          <p className="mb-2 font-black uppercase tracking-widest text-[10px] text-ink/70">
+            {t('unifiedMap.quickToggles', 'Map Layers')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {effectiveLayerKeys.filter(k => k !== 'selected' && k !== 'adjacent' && k !== 'nearby' && k !== 'sameDistrict').map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleLayer(key)}
+                className={`px-3 py-1.5 text-xs font-bold tracking-wide border-2 border-ink transition-colors rounded ${
+                  layerVisibility[key]
+                    ? 'bg-primary text-surface'
+                    : 'bg-surface text-ink hover:bg-muted'
+                }`}
+              >
+                {LAYER_LABELS[key]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cluster lock indicator */}
       {effectiveFocusBounds && (
