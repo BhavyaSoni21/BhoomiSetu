@@ -47,6 +47,7 @@
    TAX: [
      { to: '/officer/reassessment-queue', labelKey: 'officerNav.reassessmentQueue' },
      { to: '/officer/tax-analytics', labelKey: 'officerNav.taxAnalytics' },
+     { to: '/officer/map', labelKey: 'officerNav.map' },
    ],
    RESTRICTION: [
      { to: '/officer/alerts', labelKey: 'officerNav.governanceAlerts' },
