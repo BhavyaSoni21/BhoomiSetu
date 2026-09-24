@@ -73,11 +73,12 @@ if settings.is_production:
 
     if not settings.cors_origin:
         print(
-            "WARNING: CORS_ORIGIN is unset while ENVIRONMENT=production - accepting cross-origin "
-            "requests from any website. Set CORS_ORIGIN to your real deployed frontend URL before "
-            "exposing this to real users.",
+            "Refusing to start: CORS_ORIGIN is unset while ENVIRONMENT=production - the app would "
+            "otherwise accept credentialed cross-origin requests from any website. Set CORS_ORIGIN "
+            "to your real deployed frontend URL before starting the app.",
             file=sys.stderr,
         )
+        sys.exit(1)
 
 app = FastAPI(
     title="BhoomiSetu API (Python)",

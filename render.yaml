@@ -10,7 +10,7 @@ services:
     runtime: docker
     dockerfilePath: ./backend-py/Dockerfile
     dockerContext: ./backend-py
-    healthCheckPath: /docs
+    healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT
         value: production
