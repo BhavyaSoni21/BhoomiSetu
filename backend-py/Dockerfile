@@ -19,6 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Drop root: run as an unprivileged user. Render injects $PORT (>1024) so a
+# non-root process can still bind it; the app writes only to /tmp, not /app,
+# so no chown is needed.
+RUN useradd --create-home --uid 10001 appuser
+USER appuser
+
 EXPOSE 8000
 # Shell form so ${PORT} expands - Render (and most PaaS) inject the port to
 # bind via $PORT; falls back to 8000 for local `docker run`.
