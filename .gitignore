@@ -103,3 +103,6 @@ auth_register_page.tsx
 *.db
 *.sqlite
 *.sqlite3
+
+# Vite PWA dev build output (regenerated on every dev run)
+frontend/dev-dist/

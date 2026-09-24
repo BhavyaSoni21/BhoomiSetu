@@ -67,7 +67,10 @@ export default defineConfig({
           },
         ],
       },
-      devOptions: { enabled: false },
+      // Enabled so `virtual:pwa-register` resolves in the dev server too, not
+      // just in `vite build`. registerType stays 'prompt', so the dev SW won't
+      // auto-update tabs.
+      devOptions: { enabled: true, type: 'module' },
     }),
   ],
   server: {
