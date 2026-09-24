@@ -36,6 +36,7 @@ from app.routers import (
     profile_fields,
     public,
     spatial,
+    sync,
     users,
     workflows,
 )
@@ -144,3 +145,4 @@ app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(cases.router, prefix="/api/v1")
+app.include_router(sync.router, prefix="/api/v1")

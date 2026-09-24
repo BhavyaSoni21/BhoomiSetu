@@ -173,35 +173,33 @@ export async function autoSyncQueue(
       // Update progress
       updateLocalEvidence(originalIndex, { upload_state: 'uploading', upload_progress: 0 });
 
-      const formData = new FormData();
-      if (record.photo) {
-        formData.append('photo', record.photo);
-      }
-      formData.append('latitude', String(record.latitude));
-      formData.append('longitude', String(record.longitude));
-      if (record.accuracy_m != null) formData.append('accuracy_m', String(record.accuracy_m));
-      formData.append('captured_at', record.captured_at || new Date().toISOString());
-      if (record.photo_hash) formData.append('photo_hash', record.photo_hash);
-      if (record.sequence != null) formData.append('sequence', String(record.sequence));
-      if (record.notes) formData.append('notes', record.notes);
-      if (record.task_id) formData.append('task_id', record.task_id);
+      // Mirror the ONLINE submit (EvidenceCapturePage): POST /cases/{id}/evidence/
+      // capture takes a JSON body (EvidenceCaptureRequest) — GPS + metadata +
+      // photo_hash, not the photo bytes. Sending multipart here 422'd. The
+      // backend model is populate_by_name, so snake_case keys are accepted.
+      const payload = {
+        case_id: record.case_id,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        accuracy_m: record.accuracy_m ?? null,
+        captured_at: record.captured_at || new Date().toISOString(),
+        photo_hash: record.photo_hash ?? null,
+        sequence: record.sequence ?? null,
+        notes: record.notes ?? null,
+        task_id: record.task_id ?? null,
+      };
 
-      const response = await apiService.post(`/cases/${record.case_id}/evidence/capture`, formData, {
-        headers: { 'Content-Type': undefined },
-        onUploadProgress: (progressEvent: any) => {
-          const progress = progressEvent.total ? Math.round((progressEvent.loaded * 100) / progressEvent.total) : 0;
-          updateLocalEvidence(originalIndex, { upload_progress: progress });
-        },
-      });
+      const response = await apiService.post(`/cases/${record.case_id}/evidence/capture`, payload);
 
-      if (response.data?.evidence_id) {
+      // Response is CamelModel → `evidenceId` (no snake conversion interceptor).
+      if (response.data?.evidenceId || response.data?.evidence_id) {
         updateLocalEvidence(originalIndex, {
           upload_state: 'uploaded',
           upload_progress: 100,
         });
         synced++;
       } else {
-        throw new Error('No evidence_id returned');
+        throw new Error('No evidenceId returned');
       }
     } catch (err) {
       const retryCount = (record.retry_count || 0) + 1;

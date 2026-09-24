@@ -151,7 +151,7 @@ def create_case(
     citizen + parcel. Verifies parcel exists and citizen has access.
     """
     # Verify parcel exists
-    if not parcels_service.parcel_exists(db, parcel_id):
+    if parcels_service.find_one(db, parcel_id) is None:
         return PARCEL_NOT_FOUND
 
     # Verify citizen has access to this parcel (§7)

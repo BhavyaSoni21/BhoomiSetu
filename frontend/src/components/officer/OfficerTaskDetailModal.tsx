@@ -307,7 +307,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-16 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden animate-fade-up">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] overflow-hidden animate-fade-up">
         <div className="p-5 border-b border-gov-border flex items-center justify-between">
           <h2 className="text-xl font-heading font-bold text-text-heading">
             {t('officerTaskDetail.modalTitle', 'Task Detail')}

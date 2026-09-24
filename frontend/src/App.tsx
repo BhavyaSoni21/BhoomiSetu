@@ -3,6 +3,7 @@ import { useTranslation, SupportedLanguage } from './context/LanguageContext';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock } from 'lucide-react';
 import Footer from './components/Footer';
+import OfflineStatusIndicator from './components/OfflineStatusIndicator';
 
 // Route-level code splitting - each page (and everything it only itself
 // imports, e.g. maplibre-gl via Parcel360View/CitizenPortal's map views) now
@@ -214,6 +215,10 @@ function AppShell() {
                   <Phone className="w-3.5 h-3.5 text-action-500" aria-hidden="true" />
                   <span>Toll-Free Helpline: <strong>1800-11-2026</strong></span>
                 </span>
+
+                <span className="text-white/20 hidden sm:inline">|</span>
+
+                <OfflineStatusIndicator />
 
                 <span className="text-white/20 hidden sm:inline">|</span>
 

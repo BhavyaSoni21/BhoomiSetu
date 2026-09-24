@@ -7,6 +7,7 @@ import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
 import { SpatialFeatureCollection } from '../../types/spatial';
+import OfflineAreaButton from '../../components/OfflineAreaButton';
 
 interface HierarchicalCluster {
   stateCode: string;
@@ -579,6 +580,13 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
               </div>
             )}
             {actionSlot}
+            {effectiveFocusBounds && (
+              <OfflineAreaButton
+                bounds={effectiveFocusBounds}
+                areaId={selectedCluster || `${effectiveFocusBounds.minLng.toFixed(3)},${effectiveFocusBounds.minLat.toFixed(3)}`}
+                label={selectedCluster ? getDistrictName(selectedState, selectedDistrict) + ' · ' + selectedCluster : 'Map area'}
+              />
+            )}
             <button
               type="button"
               onClick={handleLocate}

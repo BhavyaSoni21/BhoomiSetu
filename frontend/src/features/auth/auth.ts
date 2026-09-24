@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import apiService from '../../services/apiService';
+import { clearOfflineData } from '../../offline/db';
 import { OfficerRole } from '../officer/officerAuth';
 
 export type UserRole = OfficerRole | 'ADMIN' | 'CITIZEN' | 'VERIFIER';
@@ -294,6 +295,10 @@ export function useLogout() {
     clearToken();
     try { localStorage.removeItem('demo_auth_user'); } catch {}
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
+    // spec §37: shared field device — drop cached reads + this user's queued
+    // offline work so the next sign-in never sees the previous user's data.
+    queryClient.clear();
+    void clearOfflineData();
   };
 }
 

@@ -83,7 +83,7 @@ const EvidenceCapturePage: React.FC = () => {
 
         try {
           const response = await apiService.post(`/cases/${taskId}/evidence/capture`, payload);
-          evidenceId = response.data.evidence_id;
+          evidenceId = response.data.evidenceId ?? response.data.evidence_id;
           setUploadStatus('uploaded');
         } catch (_err) {
           setUploadStatus('failed');

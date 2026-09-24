@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import apiService from '../services/apiService';
+import { enqueue } from '../offline/queue';
+import { useNetworkStore } from '../offline/network';
 import {
   UnderstandRequestIn,
   UnderstandRequestOut,
@@ -52,6 +54,11 @@ interface UseChatReturn {
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+
+// Spec §: AI features need the server; offline they degrade gracefully instead
+// of surfacing a generic "try again". Case submission still queues (below) —
+// only the AI reasoning steps are hard-blocked when unreachable.
+const AI_OFFLINE_MSG = 'AI assistance needs an internet connection. Reconnect and try again — your progress is kept.';
 
 const CHAT_STEPS: ChatStep[] = [
   'parcel_select',
@@ -122,6 +129,11 @@ export function useChat(): UseChatReturn {
     async (text: string) => {
       if (!text.trim() || isLoading) return;
       setError(null);
+      if (!useNetworkStore.getState().reachable) {
+        setError(AI_OFFLINE_MSG);
+        addAssistantMessage(AI_OFFLINE_MSG);
+        return;
+      }
 
       const userConvTurn: Record<string, unknown> = {
         role: conversation.length === 0 ? 'citizen' : 'user',
@@ -199,6 +211,11 @@ export function useChat(): UseChatReturn {
     async (text: string) => {
       if (!text.trim() || isLoading || !parcelId) return;
       setError(null);
+      if (!useNetworkStore.getState().reachable) {
+        setError(AI_OFFLINE_MSG);
+        addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+        return;
+      }
       const conv: Array<Record<string, unknown>> = [
         { role: 'citizen', text: text.trim(), timestamp: new Date().toISOString() },
       ];
@@ -239,6 +256,11 @@ export function useChat(): UseChatReturn {
   const requestDraft = useCallback(async () => {
     if (!understanding || isLoading) return;
     setError(null);
+    if (!useNetworkStore.getState().reachable) {
+      setError(AI_OFFLINE_MSG);
+      addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -272,6 +294,11 @@ export function useChat(): UseChatReturn {
   const confirmAndCreate = useCallback(async () => {
     if (!understanding || !draft || isLoading) return;
     setError(null);
+    if (!useNetworkStore.getState().reachable) {
+      setError(AI_OFFLINE_MSG);
+      addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -316,6 +343,21 @@ export function useChat(): UseChatReturn {
         conversation,
         routing_result: routing as unknown as Record<string, unknown>,
       };
+
+      // Offline (or API unreachable): stage the submission in the queue instead
+      // of failing (spec §7). The AI steps above already ran while online; the
+      // server re-validates Invariant-1 on sync, so no duplicate is created.
+      if (!useNetworkStore.getState().reachable) {
+        await enqueue({ entityType: 'case', action: 'CREATE', payload: createDto, parcelId: understanding.parcel_id });
+        setStep('success');
+        addMessage({
+          type: 'text',
+          role: 'assistant',
+          text: 'Saved offline. Your case will be submitted automatically when you are back online.',
+        });
+        return;
+      }
+
       const caseResp = await apiService.post<CaseOut>('/cases/from-application', createDto);
       setCaseResult(caseResp.data);
       setStep('success');

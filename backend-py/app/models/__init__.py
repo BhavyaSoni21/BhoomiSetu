@@ -47,6 +47,7 @@ from app.models.parcel import (  # noqa: F401
 from app.models.pending_registration import PendingRegistration  # noqa: F401
 from app.models.profile_field import ProfileField  # noqa: F401
 from app.models.processing_job import ProcessingJob  # noqa: F401
+from app.models.processed_sync_operation import ProcessedSyncOperation  # noqa: F401
 from app.models.spatial import (  # noqa: F401
     AdminMapNote,
     ChangeDetectionEvent,
