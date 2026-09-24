@@ -89,7 +89,7 @@ backend-py/_img.png
 graphify-out/cache/
 
 #maps pbf
-/map/
+map/*.osm.pbf
 
 # Temporary check/debug scripts
 backend-py/check_*.py
