@@ -42,7 +42,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword]         = useState('');
   const [showPwd, setShowPwd]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const [demoOpen, setDemoOpen]         = useState(true);
+  const [demoOpen, setDemoOpen]         = useState(false); // collapsed by default so the ~12-account list doesn't dominate mobile; one tap opens it
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {

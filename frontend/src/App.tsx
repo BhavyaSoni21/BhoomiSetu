@@ -204,11 +204,13 @@ function AppShell() {
       {!isAuthPage && (
         <>
           <div className="utility-bar text-white/85 text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-white/10">
-            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            {/* flex-nowrap keeps this a single row on mobile; the gov label
+                truncates rather than wrapping the whole bar into extra rows. */}
+            <div className="max-w-7xl mx-auto flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
               {/* Left: Indian National Flag & Government Header */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-heading font-bold text-white tracking-wide text-[11px] uppercase">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-heading font-bold text-white tracking-wide text-[11px] uppercase truncate">
                     Government of India · State Land Records
                   </span>
                 </div>
@@ -219,7 +221,7 @@ function AppShell() {
               </div>
 
               {/* Right: Citizen Helpline, Language, Theme, User badge */}
-              <div className="flex items-center gap-4 text-[11px] sm:text-xs">
+              <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs shrink-0">
                 <span className="hidden sm:flex items-center gap-1.5 text-white/90">
                   <Phone className="w-3.5 h-3.5 text-action-500" aria-hidden="true" />
                   <span>Toll-Free Helpline: <strong>1800-11-2026</strong></span>
@@ -315,7 +317,8 @@ function AppShell() {
               {/* Left: Ashoka Lion Capital + Ministry */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <SvgIndianEmblem width="50" height="70" className="text-[var(--text-heading)]" />
+                  {/* CSS height overrides the intrinsic attrs: smaller row on mobile, full 70px on ≥sm. */}
+                  <SvgIndianEmblem width="50" height="70" className="text-[var(--text-heading)] h-11 w-auto sm:h-[70px]" />
                   <div className="border-l border-[var(--border)] pl-2 sm:pl-2.5">
                     <span className="block text-[10px] font-bold text-[var(--text-heading)] leading-tight">
                       पंचायती राज मंत्रालय
