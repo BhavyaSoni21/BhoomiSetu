@@ -112,7 +112,5 @@ frontend/dev-dist/
 # frontend/public/ (still tracked); only the stray root copy is ignored.
 .claude/
 .kilo/
-.github/
-CLAUDE.md
 check.bat
 /sample_verified_712.pdf
