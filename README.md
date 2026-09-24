@@ -424,6 +424,8 @@ The PS requires *secure authentication, RBAC, and audit trails* **(PS-FACT)**. A
 
 > **Honesty note:** the no-token-expiry choice and the heuristic (not forensic) document check are labelled as demo-appropriate with named production-hardening upgrades. We do not present the prototype's posture as production-grade.
 
+**Reporting vulnerabilities:** see [`SECURITY.md`](SECURITY.md) for the responsible-disclosure policy, supported versions, and the current list of security measures.
+
 ---
 
 ## 16. Reliability & Offline / PWA
@@ -747,7 +749,7 @@ Ordered by dependency and value (all **TEAM DESIGN**):
 
 ## 30. License
 
-> No `LICENSE` file exists in the repository and no license is specified in the source document. License terms are **to be determined** — add a `LICENSE` file before public release.
+Released under the **MIT License** — see [`LICENSE`](LICENSE). Copyright (c) 2026 BhoomiSetu.
 
 ---
 
