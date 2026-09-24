@@ -1296,9 +1296,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/map/MapComponent.tsx": {
-    "mtime": 1790256886.7097957,
-    "seen": 1790258272.2111337,
-    "ast_hash": "3fb13d90072388d81880d5306a48eb99",
+    "mtime": 1790258402.9433453,
+    "seen": 1790260501.6303842,
+    "ast_hash": "1a2acda81cd4e3aa109096f950224420",
     "semantic_hash": ""
   },
   "frontend/src/features/notifications/NotificationFeed.test.tsx": {
@@ -2922,9 +2922,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1789767988.507587,
-    "seen": 1790096301.1732345,
-    "ast_hash": "077ff51eee6a291d42dd140a461b79d0",
+    "mtime": 1790259439.6606228,
+    "seen": 1790260501.7174146,
+    "ast_hash": "5ee64fdbc387c91a4cf0d7d72726c1bc",
     "semantic_hash": ""
   },
   "Tech.md": {
@@ -3666,9 +3666,9 @@
     "semantic_hash": ""
   },
   "frontend/src/offline/gis.ts": {
-    "mtime": 1790256938.8145065,
-    "seen": 1790258272.2379076,
-    "ast_hash": "41a6aa9b54d7e83c808b94ef5628468d",
+    "mtime": 1790258730.379595,
+    "seen": 1790260501.6585927,
+    "ast_hash": "10e7f8a7b7587b84d50313bcd271440a",
     "semantic_hash": ""
   },
   "backend-py/alembic/versions/c1e2f3a40003_add_onboarding_completed.py": {

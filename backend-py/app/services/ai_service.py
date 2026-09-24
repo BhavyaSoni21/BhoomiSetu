@@ -157,6 +157,7 @@ def explain_parcel(db: Session, parcel_id: str, user: User | None) -> AiExplanat
     system_prompt = (
         "You explain a land parcel's aggregated records to a citizen in plain, simple language. Respond with ONLY a JSON object of this exact shape:\n"
         '{"summary": string, "risk_level": "LOW"|"MEDIUM"|"HIGH", "findings": [{"type": string, "description": string}], "recommended_action": string}\n'
+        "Be concise. Keep summary to one or two short sentences covering only the most important facts. Give at most 4 findings, each description a short phrase (not a paragraph). Keep recommended_action to one short sentence.\n"
         "Base findings strictly on the data given - do not invent facts, ownership changes, or legal conclusions. Some department fields may be null because "
         'they\'re withheld from this viewer, not because nothing was found - never claim or imply "no restrictions/disputes/encumbrances" for a null field.'
     )

@@ -1,16 +1,4 @@
 {
-  ".claude/settings.json": {
-    "mtime": 1789668466.9431665,
-    "seen": 1790096301.1688907,
-    "ast_hash": "63b92b7474cc7976041bb70c7fdc9254",
-    "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
-  },
-  ".claude/settings.local.json": {
-    "mtime": 1790254578.2747397,
-    "seen": 1790254644.2589424,
-    "ast_hash": "429dbd67bb317d51efd8d3a630300c61",
-    "semantic_hash": ""
-  },
   "backend-py/alembic/env.py": {
     "mtime": 1789668466.9490812,
     "seen": 1790096301.169272,
@@ -516,9 +504,9 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "backend-py/app/services/ai_service.py": {
-    "mtime": 1790227218.1717155,
-    "seen": 1790231765.91358,
-    "ast_hash": "f3f733cff00975464faaa3ac1fcc3cd0",
+    "mtime": 1790270748.723289,
+    "seen": 1790270889.1967063,
+    "ast_hash": "6436a2470afb9084bfb029b0d8f50ca2",
     "semantic_hash": ""
   },
   "backend-py/app/services/analytics_service.py": {
@@ -2885,18 +2873,6 @@
     "ast_hash": "098fb1b061b3a28fed6600b0e896c7ee",
     "semantic_hash": ""
   },
-  "frontend/vitest-results4.json": {
-    "mtime": 1789839073.0375106,
-    "seen": 1790096301.173112,
-    "ast_hash": "00a0f4a9339a1e17cdca04f3d3069b59",
-    "semantic_hash": ""
-  },
-  "frontend/vitest-results5.json": {
-    "mtime": 1789839073.0395124,
-    "seen": 1790096301.1731136,
-    "ast_hash": "bc9f008fd326a9b9170393f175829545",
-    "semantic_hash": ""
-  },
   ".github/workflows/backend-py-ci.yml": {
     "mtime": 1789668466.9431665,
     "seen": 1790096301.1732292,
@@ -2915,16 +2891,10 @@
     "ast_hash": "8a6643a420fdad6bfb583523bc6cef16",
     "semantic_hash": ""
   },
-  "PERFORMANCE_AUDIT.md": {
-    "mtime": 1789848795.3535085,
-    "seen": 1790096301.1732337,
-    "ast_hash": "f4b2900fcdc39631d7a2c2009d0f1cfc",
-    "semantic_hash": ""
-  },
   "README.md": {
-    "mtime": 1790259439.6606228,
-    "seen": 1790260501.7174146,
-    "ast_hash": "5ee64fdbc387c91a4cf0d7d72726c1bc",
+    "mtime": 1790269986.7162757,
+    "seen": 1790270889.241498,
+    "ast_hash": "b34a568e0291e8d81961044c77cced0e",
     "semantic_hash": ""
   },
   "Tech.md": {
@@ -2945,28 +2915,10 @@
     "ast_hash": "bcbd402482e932908d7c3b21cb8ac2e3",
     "semantic_hash": ""
   },
-  "bhoomisetu-frontend-redesign-prompt.md": {
-    "mtime": 1789668467.0710511,
-    "seen": 1790096301.17324,
-    "ast_hash": "3b5d751e6cc214abb077b09d9cb82397",
-    "semantic_hash": ""
-  },
   "docker-compose.yml": {
     "mtime": 1789851764.9530494,
     "seen": 1790096301.1732414,
     "ast_hash": "104fc181d06d7dcddd596caa9741c677",
-    "semantic_hash": ""
-  },
-  "docs/BhoomiSetu_Unified_Workflow_Implementation_Plan.md": {
-    "mtime": 1790227218.199084,
-    "seen": 1790231765.9789495,
-    "ast_hash": "f86861553d7ace9e25335ed04b7af767",
-    "semantic_hash": ""
-  },
-  "docs/BhoomiSetu_Unified_Workflow_Specification.md": {
-    "mtime": 1789913513.5639553,
-    "seen": 1790096301.1732433,
-    "ast_hash": "c37db73d1141503f1bb0febf6ae7f0b0",
     "semantic_hash": ""
   },
   "docs/SIH26014_Hidden_Insights_Strategy.md": {
@@ -3024,21 +2976,21 @@
     "semantic_hash": ""
   },
   "docs/architecture/FEATURES.md": {
-    "mtime": 1789923478.295782,
-    "seen": 1790096301.1732538,
-    "ast_hash": "edf88f70e2658f94703dfc729bf73d95",
+    "mtime": 1790266727.0747075,
+    "seen": 1790270889.2433631,
+    "ast_hash": "c9f76e14d07fd9663455b625da11c237",
     "semantic_hash": ""
   },
   "docs/architecture/FEATURE_TECH_MAP.md": {
-    "mtime": 1789668504.8053057,
-    "seen": 1790096301.173255,
-    "ast_hash": "9c2216d655e1b4052503486d3f751bec",
+    "mtime": 1790266714.820052,
+    "seen": 1790270889.2433643,
+    "ast_hash": "a403fb80d46b1c2bc8418fbd394e19bd",
     "semantic_hash": ""
   },
   "docs/architecture/KNOWN_RISKS.md": {
-    "mtime": 1789224066.520756,
-    "seen": 1790096301.1732562,
-    "ast_hash": "30c6236fdeecfbe85d37092aeffb99a2",
+    "mtime": 1790266536.559795,
+    "seen": 1790270889.2433655,
+    "ast_hash": "0838fb19af5d08565b29412b7dd94a20",
     "semantic_hash": ""
   },
   "docs/architecture/OFFICER_DASHBOARD_PLAN.md": {
@@ -3054,9 +3006,9 @@
     "semantic_hash": ""
   },
   "docs/architecture/SYSTEM_ARCHITECTURE.md": {
-    "mtime": 1789668504.821424,
-    "seen": 1790096301.173259,
-    "ast_hash": "c29335b43285ac909ae1a2c3e0143b49",
+    "mtime": 1790266699.272719,
+    "seen": 1790270889.2437446,
+    "ast_hash": "2d82f4fd802fde53078e3a791763687c",
     "semantic_hash": ""
   },
   "docs/architecture/official-document-code-review.md": {
@@ -3161,18 +3113,6 @@
     "ast_hash": "fe093c494e0da0d16bbd125302550137",
     "semantic_hash": ""
   },
-  "docs/bhoomisetu_officer_roles.md": {
-    "mtime": 1789814385.4965193,
-    "seen": 1790096301.1732764,
-    "ast_hash": "5b0d9d92ecf2267b71b172e92ae7b986",
-    "semantic_hash": ""
-  },
-  "docs/context_aware_parcel_generation_upgrade.md": {
-    "mtime": 1789668467.0794399,
-    "seen": 1790096301.1732771,
-    "ast_hash": "01caffd7ced5dab79264d39b6f75e7b5",
-    "semantic_hash": ""
-  },
   "docs/reference/ENV_CONFIGURATION.md": {
     "mtime": 1789668467.0794399,
     "seen": 1790096301.173278,
@@ -3225,12 +3165,6 @@
     "mtime": 1789668467.1427567,
     "seen": 1790096301.1732879,
     "ast_hash": "0d94feec3e490a80b89893ed7d6f3691",
-    "semantic_hash": ""
-  },
-  "sample_verified_712.pdf": {
-    "mtime": 1789668467.4421299,
-    "seen": 1790096301.1732893,
-    "ast_hash": "cbdc74807e6e03419517dea185f7634b",
     "semantic_hash": ""
   },
   "docs/Logo.png": {
@@ -3503,12 +3437,6 @@
     "ast_hash": "34a0fc1a7ef43186a8ac40a8ad4706b5",
     "semantic_hash": ""
   },
-  "docs/SIH_2026_BhoomiSetu_Data_Reference.md": {
-    "mtime": 1790227218.2010846,
-    "seen": 1790231765.9791753,
-    "ast_hash": "5b476c13f275f257e096929641981e44",
-    "semantic_hash": ""
-  },
   "docs/SIH_2026_BhoomiSetu_Master_PPT_Data.md": {
     "mtime": 1790227218.2030876,
     "seen": 1790231765.9791772,
@@ -3543,12 +3471,6 @@
     "mtime": 1790227218.210857,
     "seen": 1790231765.980498,
     "ast_hash": "7dae0f3d0cc6c8d98f3cc6e01613f8bb",
-    "semantic_hash": ""
-  },
-  "docs/BhoomiSetu_Master_Project_Document.md": {
-    "mtime": 1790258205.3889558,
-    "seen": 1790258272.2967296,
-    "ast_hash": "bd697a0fee4669b266b79c63e647d584",
     "semantic_hash": ""
   },
   "backend-py/tests/scripts/test_zone_rings.py": {
@@ -3743,10 +3665,112 @@
     "ast_hash": "866ff1d5d068a5093395117d9279270e",
     "semantic_hash": ""
   },
-  "docs/Readmeplan.md": {
-    "mtime": 1790256344.0454538,
-    "seen": 1790258272.2989028,
+  "package.json": {
+    "mtime": 1790261640.2882302,
+    "seen": 1790270889.2409885,
+    "ast_hash": "8cce926e4361679d2323861ab9955a7a",
+    "semantic_hash": ""
+  },
+  "scripts/screenshots.mjs": {
+    "mtime": 1790264095.3976424,
+    "seen": 1790270889.2409906,
+    "ast_hash": "d94a836af4bf7f27d1ed57d5e50219b3",
+    "semantic_hash": ""
+  },
+  "SECURITY.md": {
+    "mtime": 1790265627.5968566,
+    "seen": 1790270889.2414997,
+    "ast_hash": "838534feb786bbca1b4c323e79df0bba",
+    "semantic_hash": ""
+  },
+  "docs/architecture/BhoomiSetu_Unified_Workflow_Specification.md": {
+    "mtime": 1790265534.3907278,
+    "seen": 1790270889.2429066,
+    "ast_hash": "4d9b3d419067ba1f74a94bbe1e4d2a48",
+    "semantic_hash": ""
+  },
+  "docs/architecture/bhoomisetu_officer_roles.md": {
+    "mtime": 1790265534.3907278,
+    "seen": 1790270889.243746,
+    "ast_hash": "07a16dbb846f128dda8729cda188843d",
+    "semantic_hash": ""
+  },
+  "docs/architecture/context_aware_parcel_generation_upgrade.md": {
+    "mtime": 1790265534.3907278,
+    "seen": 1790270889.243747,
+    "ast_hash": "01caffd7ced5dab79264d39b6f75e7b5",
+    "semantic_hash": ""
+  },
+  "docs/archive/BhoomiSetu_Unified_Workflow_Implementation_Plan.md": {
+    "mtime": 1790265534.3917325,
+    "seen": 1790270889.244801,
+    "ast_hash": "f86861553d7ace9e25335ed04b7af767",
+    "semantic_hash": ""
+  },
+  "docs/archive/PERFORMANCE_AUDIT.md": {
+    "mtime": 1790265534.3922534,
+    "seen": 1790270889.2452526,
+    "ast_hash": "0be526d4d0de035324374b714cb9f5cb",
+    "semantic_hash": ""
+  },
+  "docs/archive/Readmeplan.md": {
+    "mtime": 1790265534.3922534,
+    "seen": 1790270889.245669,
     "ast_hash": "333d6cc2b78cbe46ea0cb6253c7c1459",
+    "semantic_hash": ""
+  },
+  "docs/archive/bhoomisetu-frontend-redesign-prompt.md": {
+    "mtime": 1790265534.3922534,
+    "seen": 1790270889.24567,
+    "ast_hash": "3b5d751e6cc214abb077b09d9cb82397",
+    "semantic_hash": ""
+  },
+  "docs/reference/BhoomiSetu_Master_Project_Document.md": {
+    "mtime": 1790258205.3889558,
+    "seen": 1790270889.2457733,
+    "ast_hash": "bd697a0fee4669b266b79c63e647d584",
+    "semantic_hash": ""
+  },
+  "docs/reference/SIH_2026_BhoomiSetu_Data_Reference.md": {
+    "mtime": 1790265534.3932707,
+    "seen": 1790270889.2458823,
+    "ast_hash": "5b476c13f275f257e096929641981e44",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/01-gis-map.png": {
+    "mtime": 1790260133.1804388,
+    "seen": 1790270889.2470102,
+    "ast_hash": "b7667c31b191e5de39814c5a8583f4f1",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/01b-gis-map-fullwidth.png": {
+    "mtime": 1790260870.4862936,
+    "seen": 1790270889.2470121,
+    "ast_hash": "214c3ada9dd8ede42f808ca7057992df",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/02-parcel-360.png": {
+    "mtime": 1790264134.473533,
+    "seen": 1790270889.2470136,
+    "ast_hash": "737270af3271399500072053160bb702",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/03-officer-evidence-chain.png": {
+    "mtime": 1790264147.0681245,
+    "seen": 1790270889.2470152,
+    "ast_hash": "3fe05a05ef25aceb424f9e3d3f6307fe",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/04-citizen-get-assistance.png": {
+    "mtime": 1790264151.1909416,
+    "seen": 1790270889.2470164,
+    "ast_hash": "6d65ee75929cc9cf7d1b07ee1e58ae72",
+    "semantic_hash": ""
+  },
+  "docs/screenshots/05-admin-dashboard.png": {
+    "mtime": 1790264164.807395,
+    "seen": 1790270889.2470174,
+    "ast_hash": "cb731f79904e12b4395d8afa5be2a8b6",
     "semantic_hash": ""
   }
 }
