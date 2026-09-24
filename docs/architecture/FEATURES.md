@@ -1,5 +1,7 @@
 # BhoomiSetu — Feature Reference
 
+> **⚠ Stack note (added 2026-09-24 — read first):** The backend has since been ported from NestJS/TypeORM to **FastAPI + SQLAlchemy 2.0 + GeoAlchemy2** with Alembic migrations (`backend-py/app/**`). This file is partially reconciled — some entries already carry `backend-py` notes, others still describe the NestJS as-built (`@nestjs/throttler`, TypeORM, `backend/src/**` paths, `main.ts`, SQLite/JS spatial fallback). Where a backend detail here conflicts with the current code, the FastAPI code and [`KNOWN_RISKS.md`](KNOWN_RISKS.md) §2 / `README.md` §10 are authoritative. Frontend descriptions remain current.
+
 A feature-by-feature index of everything currently built: what it does, the backend logic behind it, and where it lives in the frontend. For system architecture/API standards/schemas see `docs/architecture/SYSTEM_ARCHITECTURE.md`; for a per-feature library/endpoint/file lookup see `docs/architecture/FEATURE_TECH_MAP.md`; for what's still open see `docs/architecture/BACKLOG.md`. Historical planning/audit records (including the original requirement-vs-built gap analysis) live in `docs/archive/`. This file is the "what exists and where" reference.
 
 All backend paths are relative to `backend/src/`, all frontend paths to `frontend/src/`. All API paths are relative to `/api/v1`.
