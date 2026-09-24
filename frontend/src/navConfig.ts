@@ -10,6 +10,8 @@
    iconOnly?: boolean;
    /** Lucide icon name for icon-only items */
    iconName?: 'Bell' | 'UserCircle2';
+   /** Stable hook for the onboarding product tour - emitted as data-tour="…". */
+   tourId?: string;
    /** Dropdown children (Officer Tools / Analytics). Group header itself has no `to`. */
    children?: NavItem[];
  }
@@ -17,13 +19,13 @@
  // Documents/Verify Documents used to be their own entries here - both moved
  // into Profile as tabs 2026-09-09.
  export const CITIZEN_NAV_ITEMS: NavItem[] = [
-   { to: '/citizen', end: true, labelKey: 'citizenNav.dashboard' },
-   { to: '/citizen/parcels', labelKey: 'citizenNav.myParcels' },
-    { to: '/citizen/find', labelKey: 'citizenNav.findParcels' },
-    { to: '/citizen/get-assistance', labelKey: 'citizenNav.getAssistance' },
-    { to: '/citizen/my-cases', labelKey: 'citizenNav.myCases' },
-   { to: '/citizen/notifications', iconOnly: true, iconName: 'Bell', labelKey: 'citizenNav.notifications' },
-   { to: '/citizen/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'citizenNav.profile' },
+   { to: '/citizen', end: true, labelKey: 'citizenNav.dashboard', tourId: 'citizen-nav-dashboard' },
+   { to: '/citizen/parcels', labelKey: 'citizenNav.myParcels', tourId: 'citizen-nav-parcels' },
+    { to: '/citizen/find', labelKey: 'citizenNav.findParcels', tourId: 'citizen-nav-find' },
+    { to: '/citizen/get-assistance', labelKey: 'citizenNav.getAssistance', tourId: 'citizen-nav-assistance' },
+    { to: '/citizen/my-cases', labelKey: 'citizenNav.myCases', tourId: 'citizen-nav-cases' },
+   { to: '/citizen/notifications', iconOnly: true, iconName: 'Bell', labelKey: 'citizenNav.notifications', tourId: 'citizen-nav-notifications' },
+   { to: '/citizen/profile', iconOnly: true, iconName: 'UserCircle2', labelKey: 'citizenNav.profile', tourId: 'citizen-nav-profile' },
  ];
 
   // Common tabs for every officer (workspace-level, always visible).

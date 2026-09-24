@@ -985,6 +985,10 @@ def seed_database() -> None:
                 password_hash=DEMO_PASSWORD_HASH,
                 name=random_person_name(),
                 role="CITIZEN",
+                # Obviously-fake government ID for the demo, valid against the
+                # profile_fields regex ^[A-Z0-9]{10,20}$ so the profile card
+                # shows a populated, editable ID out of the box.
+                government_id_number=f"DEMOPAN{i + 1:05d}",
                 # Demo citizens have never gone through the real
                 # registration/OTP flow - marked verified so the Profile
                 # page shows them as such rather than nudging every demo

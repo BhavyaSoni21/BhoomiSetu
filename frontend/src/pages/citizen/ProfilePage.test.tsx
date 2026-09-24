@@ -160,7 +160,7 @@ describe('ProfilePage', () => {
       expect(await screen.findByText('UL123')).toBeInTheDocument();
       expect(await screen.findByText('REGISTERED')).toBeInTheDocument();
       expect(screen.getByText('UL456')).toBeInTheDocument();
-      expect(screen.getByText(/No documents are on file for this parcel yet/)).toBeInTheDocument();
+      expect(screen.getByText(/No other documents are on file for this parcel yet/)).toBeInTheDocument();
     });
 
     it('deep-links to the Documents tab via ?tab=documents', () => {

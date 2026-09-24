@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from pydantic.alias_generators import to_snake
 from sqlalchemy.orm import Session
 
 from app.auth.deps import create_access_token
@@ -290,11 +291,24 @@ def add_or_change_contact(db: Session, user: User, dto: ContactRequest) -> User:
 
 
 def update_profile_details(db: Session, user: User, dto: DynamicProfileData) -> User:
+    # The frontend sends camelCase (governmentIdNumber, homeLatitude, ...) but the
+    # model attrs are snake_case, so setattr must use the snake key or multi-word
+    # fields silently never persist. to_snake is a no-op for single-word keys.
     fields = dto.model_dump(exclude_unset=True, by_alias=False)
     for key, value in fields.items():
-        if hasattr(user, key):
-            setattr(user, key, value)
+        attr = to_snake(key)
+        if hasattr(user, attr):
+            setattr(user, attr, value)
     db.flush()
+    return user
+
+
+def complete_onboarding(db: Session, user: User) -> User:
+    # Idempotent: only ever sets the flag True, never False, so a repeated or
+    # retried call can't un-complete or duplicate anything (spec §11).
+    if not user.onboarding_completed:
+        user.onboarding_completed = True
+        db.flush()
     return user
 
 

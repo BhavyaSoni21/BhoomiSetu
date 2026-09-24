@@ -130,7 +130,10 @@ class AuthPublicUserOut(CamelModel):
     address: str | None
     government_id_number: str | None
     occupation: str | None
+    home_latitude: float | None = None
+    home_longitude: float | None = None
     preferred_language: str
+    onboarding_completed: bool = False
     created_at: datetime
     # Google OAuth fields
     google_id: str | None = None

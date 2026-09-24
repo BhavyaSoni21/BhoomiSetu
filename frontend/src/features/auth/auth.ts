@@ -30,10 +30,18 @@ export interface AuthUser {
   address?: string | null;
   governmentIdNumber?: string | null;
   occupation?: string | null;
+  // Home coords from browser geolocation at onboarding; default the Find
+  // Parcels map to the nearest cluster and pre-filter search to their region.
+  homeLatitude?: number | null;
+  homeLongitude?: number | null;
   // Google OAuth fields
   googleId?: string | null;
   googlePicture?: string | null;
   googleEmailVerified?: boolean;
+  // First-login onboarding gate (docs spec). Optional/treat-missing-as-unknown
+  // like the fields above; the OnboardingGate only triggers on an explicit
+  // `false` so a stale fixture without the field never forces onboarding.
+  onboardingCompleted?: boolean;
 }
 
 // apiService's request interceptor already looks for a token under this
@@ -87,7 +95,11 @@ export function useAuthUser() {
       }
 
       try {
-        const response = await apiService.get('/auth/me');
+        // skipAuthRedirect: a 401 here just means "not signed in" - we handle
+        // it below (clear token, return null). Without this, the global 401
+        // handler force-navigates a guest/expired-session visitor to /login on
+        // first load instead of letting them land on the public home page.
+        const response = await apiService.get('/auth/me', { skipAuthRedirect: true });
         return response.data;
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 401) {
@@ -278,9 +290,26 @@ export function useUpdateContact() {
 // send the fields that changed.
 export function useUpdateProfileDetails() {
   const queryClient = useQueryClient();
-  return useMutation<AuthUser, Error, { name?: string; address?: string; governmentIdNumber?: string; occupation?: string }>(
+  return useMutation<AuthUser, Error, { name?: string; address?: string; governmentIdNumber?: string; occupation?: string; homeLatitude?: number; homeLongitude?: number }>(
     async (params) => {
       const response = await apiService.post('/auth/profile/details', params);
+      return response.data;
+    },
+    {
+      onSuccess: (user) => queryClient.setQueryData(AUTH_QUERY_KEY, user),
+    },
+  );
+}
+
+// Marks first-login onboarding done on the current account (spec §10/§17) -
+// the backend resolves the user from the token, so no id is sent. onSuccess
+// updates the auth-me cache so the OnboardingGate closes immediately; a
+// failure leaves the flag false so the gate stays up for a retry (spec §11).
+export function useCompleteOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation<AuthUser, Error, void>(
+    async () => {
+      const response = await apiService.post('/auth/onboarding/complete');
       return response.data;
     },
     {

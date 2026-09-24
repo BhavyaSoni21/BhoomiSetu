@@ -8,6 +8,8 @@ import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
 import { SpatialFeatureCollection } from '../../types/spatial';
 import OfflineAreaButton from '../../components/OfflineAreaButton';
+import { useAuthUser } from '../auth/auth';
+import { nearestCluster } from './nearestCluster';
 
 interface HierarchicalCluster {
   stateCode: string;
@@ -222,6 +224,30 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     },
     { staleTime: 1000 * 60 * 30 }, // 30 minutes - clusters rarely change
   );
+
+  // Default the view to the cluster nearest the citizen's captured home coords
+  // (onboarding geolocation): pre-selects state/district/cluster so the map
+  // focuses there AND the dropdown search is pre-filtered to their region. One
+  // shot, and only when the caller hasn't already scoped the map (explicit
+  // focusBounds/parcels) and no cluster is picked yet. Officers/admins have no
+  // home coords, so their maps are untouched.
+  const { data: authUser } = useAuthUser();
+  const appliedHomeDefault = useRef(false);
+  useEffect(() => {
+    if (appliedHomeDefault.current) return;
+    if (focusBounds || parcelsProp || selectedCluster) return;
+    if (!hierarchicalClusters.length) return;
+    const lat = authUser?.homeLatitude;
+    const lng = authUser?.homeLongitude;
+    if (lat == null || lng == null) return;
+    const match = nearestCluster(hierarchicalClusters, lat, lng);
+    if (!match) return;
+    appliedHomeDefault.current = true;
+    setSelectedState(match.stateCode);
+    setSelectedDistrict(match.districtCode);
+    setSelectedCluster(match.clusterId);
+    setClusterBounds(match.bounds);
+  }, [authUser, hierarchicalClusters, focusBounds, parcelsProp, selectedCluster]);
 
   // Flatten clusters into low-zoom overview markers (centroid of each
   // cluster's bounds). Only meaningful in the "show all" mode - when a

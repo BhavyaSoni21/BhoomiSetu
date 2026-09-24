@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation, SupportedLanguage } from './context/LanguageContext';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock } from 'lucide-react';
+import { Menu, X, ArrowLeft, ArrowRight, Moon, Sun, Phone, ShieldCheck, Bell, UserCircle2, ChevronDown, Users, Building2, Lock, HelpCircle } from 'lucide-react';
 import Footer from './components/Footer';
 import OfflineStatusIndicator from './components/OfflineStatusIndicator';
 
@@ -23,6 +23,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfUsePage = lazy(() => import('./pages/TermsOfUsePage'));
 const ContactUsPage = lazy(() => import('./pages/ContactUsPage'));
 const AskAiWidget = lazy(() => import('./features/ai/AskAiWidget'));
+const OnboardingGate = lazy(() => import('./features/onboarding/OnboardingGate'));
 import RequireAuth from './features/auth/RequireAuth';
 import { useAuthUser, useLogout } from './features/auth/auth';
 import { OFFICER_ROLES, ROLE_LABELS, ROLE_DEPARTMENT } from './features/officer/officerAuth';
@@ -159,6 +160,14 @@ function AppShell() {
     window.addEventListener('bhoomisetu:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('bhoomisetu:unauthorized', handleUnauthorized);
   }, [logout, navigate]);
+
+  // The onboarding tour opens the mobile menu before spotlighting nav items so
+  // its targets are rendered/visible on small screens (desktop nav is hidden).
+  useEffect(() => {
+    const open = () => setMobileMenuOpen(true);
+    window.addEventListener('bhoomisetu:open-mobile-menu', open);
+    return () => window.removeEventListener('bhoomisetu:open-mobile-menu', open);
+  }, []);
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -253,6 +262,22 @@ function AppShell() {
                 >
                   {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
                 </button>
+
+                {isCitizen && (
+                  <>
+                    <span className="text-white/20 hidden sm:inline">|</span>
+                    {/* Replay the guided tour on demand (spec §13) - never
+                        resets onboarding_completed; OnboardingGate listens. */}
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new Event('bhoomisetu:start-tour'))}
+                      className="hidden sm:flex items-center gap-1 text-white/80 hover:text-action-500 font-semibold transition"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t('onboarding.takeATour', 'Take a tour')}
+                    </button>
+                  </>
+                )}
 
                 <span className="text-white/20">|</span>
 
@@ -357,7 +382,7 @@ function AppShell() {
                           onNavigate={() => setOpenMenu(null)}
                         />
                       ) : (
-                        <NavLink key={item.to} to={item.to!} end={item.end} className={navLinkClass}>
+                        <NavLink key={item.to} to={item.to!} end={item.end} data-tour={item.tourId} className={navLinkClass}>
                           {item.labelKey ? t(item.labelKey) : item.label}
                         </NavLink>
                       ),
@@ -378,6 +403,7 @@ function AppShell() {
                             end={item.end}
                             title={ariaLabel}
                             aria-label={ariaLabel}
+                            data-tour={item.tourId}
                             className={({ isActive }) =>
                               `shrink-0 w-8 h-8 flex items-center justify-center rounded-[4px] transition-all duration-150 ${isActive
                                 ? 'bg-emerald-100 dark:bg-emerald-900/20 text-[var(--bhashini-accent)] shadow-xs'
@@ -453,6 +479,7 @@ function AppShell() {
                       key={item.to}
                       to={item.to!}
                       end={item.end}
+                      data-tour={item.tourId}
                       className={mobileNavLinkClass}
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -542,6 +569,13 @@ function AppShell() {
             <AskAiWidget />
           </Suspense>
         )}
+
+      {/* First-login onboarding gate (citizen accounts only) - reads the
+          backend onboarding flag, so it covers password login, registration
+          and Google OAuth without touching each navigate-on-success site. */}
+      <Suspense fallback={null}>
+        <OnboardingGate />
+      </Suspense>
     </div>
   );
 }

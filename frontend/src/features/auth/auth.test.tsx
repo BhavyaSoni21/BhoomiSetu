@@ -39,7 +39,7 @@ describe('useAuthUser', () => {
     const { result } = renderHook(() => useAuthUser(), { wrapper: wrapper(client) });
 
     await waitFor(() => expect(result.current.data).toEqual(sampleUser));
-    expect(apiService.get).toHaveBeenCalledWith('/auth/me');
+    expect(apiService.get).toHaveBeenCalledWith('/auth/me', { skipAuthRedirect: true });
   });
 
   it('clears the stored token and resolves null when /auth/me rejects (expired/invalid token)', async () => {

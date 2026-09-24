@@ -141,6 +141,16 @@ def get_profile_config(db: Session = Depends(get_db), user: User = Depends(_requ
     return get_profile_form_config(db, user.role)
 
 
+# Marks first-login onboarding done for the CURRENT authenticated user only
+# (spec §17: the account comes from the token, never a client-supplied id).
+# Idempotent - safe to retry after a failed completion (spec §11).
+@router.post("/onboarding/complete", response_model=AuthPublicUserOut)
+def complete_onboarding(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    updated = service.complete_onboarding(db, user)
+    audit_service.log(db, user_id=str(user.id), user_role=user.role, action="AUTH_ONBOARDING_COMPLETED", entity_type="USER", entity_id=str(user.id))
+    return updated
+
+
 # Lets the frontend rehydrate a session from a stored token on page load
 # (or reject an expired/invalid one) without re-sending credentials.
 @router.get("/me", response_model=AuthPublicUserOut)

@@ -176,15 +176,20 @@ export const BhoomiSetuLanding: React.FC = () => {
         <section className="relative w-full overflow-hidden bg-[var(--page-bg)]">
           {/* Background image spans the complete viewport-width section. */}
           <div className="absolute inset-0 h-full w-full pointer-events-none">
-              <img 
-                src="/hero-team.jpg" 
-                alt="Hero Background" 
-                className="w-full h-full object-cover object-right"
-              />
+              <picture>
+                {/* Mobile gets a dedicated composition; desktop keeps the wide team shot */}
+                <source media="(max-width: 640px)" srcSet="/mobile-landing.png" />
+                <img
+                  src="/hero-team.jpg"
+                  alt="Hero Background"
+                  className="w-full h-full object-cover object-center sm:object-right"
+                />
+              </picture>
             </div>
 
-            {/* Gradient overlay: uses color-mix to properly apply opacity to the CSS variable */}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, var(--page-bg) 30%, color-mix(in srgb, var(--page-bg) 80%, transparent) 50%, transparent 65%)' }} />
+            {/* Gradient overlay: top-down fade on mobile (portrait hero), side fade on desktop */}
+            <div className="absolute inset-0 sm:hidden" style={{ background: 'linear-gradient(180deg, var(--page-bg) 8%, color-mix(in srgb, var(--page-bg) 70%, transparent) 42%, transparent 70%)' }} />
+            <div className="absolute inset-0 hidden sm:block" style={{ background: 'linear-gradient(90deg, var(--page-bg) 30%, color-mix(in srgb, var(--page-bg) 80%, transparent) 50%, transparent 65%)' }} />
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-16 sm:pb-24">
               <div className="max-w-2xl space-y-6">

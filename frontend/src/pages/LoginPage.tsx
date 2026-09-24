@@ -92,7 +92,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+    <div className="min-h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-3.5rem)] flex lg:overflow-hidden" style={{ background: 'var(--page-bg)' }}>
       {/* ── Left decorative column (desktop only) ─────────────────────────── */}
       <div
         className="hidden lg:flex flex-col w-[480px] shrink-0 relative overflow-hidden p-12"
@@ -181,16 +181,16 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* ── Right: Login form ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 lg:overflow-y-auto">
         {/* Top bar: mobile logo + language toggle */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="lg:hidden flex items-center gap-2.5">
-            <div style={{ color: 'var(--brand-900)' }}><BsIcon className="w-9 h-9" /></div>
-            <span className="font-heading font-bold text-4xl" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="lg:hidden flex items-center gap-2 min-w-0">
+            <div style={{ color: 'var(--brand-900)' }}><BsIcon className="w-7 h-7" /></div>
+            <span className="font-heading font-bold text-2xl truncate" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
           </div>
           <div className="lg:block hidden" />{/* spacer on desktop */}
           {/* Language toggle */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto shrink-0">
             <Globe className="w-4 h-4" style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
             <select
               aria-label={t('nav.languageSelectLabel')}

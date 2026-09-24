@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
-import { UserCircle2, FolderOpen, ShieldCheck } from 'lucide-react';
+import { UserCircle2, FolderOpen, ShieldCheck, FileText, Eye, Loader2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { useAuthUser } from '../../features/auth/auth';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
+import OfficialPdfViewerModal from '../../features/parcels/OfficialPdfViewerModal';
 import AuthenticatedDocumentImage from '../../features/parcels/AuthenticatedDocumentImage';
 import { ParcelSummary } from '../../types/parcel';
 import { Workflow } from '../../types/workflow';
@@ -30,17 +31,82 @@ interface ParcelDocumentsCardProps {
 }
 
 const ParcelDocumentsCard: React.FC<ParcelDocumentsCardProps> = ({ parcel }) => {
-  const { t } = useTranslation();
+  const { t, currentLang } = useTranslation();
   const { data: documents = [] } = useQuery<ParcelDocument[]>(
     ['parcel-documents', parcel.id],
     async () => (await apiService.get(`/parcels/${parcel.id}/documents`)).data,
   );
 
+  // The Record of Rights is generated on demand (backend Python renderer), not
+  // a stored file, so it's fetched as a blob and shown in the shared PDF modal
+  // - the same mechanism Parcel 360 uses. This is the real generated document
+  // for every parcel, shown here alongside any stored (uploaded) documents.
+  const [officialPdfUrl, setOfficialPdfUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const closeOfficialPdf = () => {
+    setOfficialPdfUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+  useEffect(() => () => closeOfficialPdf(), []);
+
+  const viewOfficialPdf = async () => {
+    setPdfError(null);
+    setLoadingPdf(true);
+    try {
+      const lang = currentLang === 'hi' ? 'hi' : 'en';
+      const response = await apiService.get(`/parcels/${parcel.id}/documents/official-pdf`, {
+        params: { lang },
+        responseType: 'blob',
+      });
+      if (!String(response.headers['content-type'] ?? '').includes('application/pdf')) {
+        throw new Error('not a pdf');
+      }
+      const nextUrl = URL.createObjectURL(response.data as Blob);
+      setOfficialPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return nextUrl;
+      });
+    } catch {
+      setPdfError(t('citizenPortal.profileDocumentsPdfError', 'Unable to generate the official document.'));
+    } finally {
+      setLoadingPdf(false);
+    }
+  };
+
   return (
     <div className="bg-surface-1 border border-[var(--border)] rounded-2xl p-5 shadow-xs">
       <h3 className="font-bold text-text-heading mb-3">{parcel.ulpin ?? `Parcel #${parcel.id.substring(0, 8)}...`}</h3>
+
+      {/* Generated Record of Rights - always available for an owned parcel */}
+      <div className="flex items-center justify-between gap-3 p-3 mb-3 rounded-xl border border-[var(--border)] bg-white dark:bg-surface-2/60">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-text-heading truncate">{t('citizenPortal.profileRecordOfRights', 'Record of Rights')}</p>
+            <span className="text-[11px] text-text-muted">{t('citizenPortal.profileGeneratedDoc', 'Official document · generated')}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={viewOfficialPdf}
+          disabled={loadingPdf}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F3D2E] hover:bg-[#166534] px-3 py-2 text-xs font-bold text-white transition disabled:opacity-50 shrink-0"
+        >
+          {loadingPdf ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
+          {t('citizenPortal.profileViewDocument', 'View')}
+        </button>
+      </div>
+      {pdfError && <p className="text-xs font-medium text-rose-600 mb-3">{pdfError}</p>}
+
+      {/* Stored (uploaded) documents for this parcel, if any */}
       {documents.length === 0 ? (
-        <p className="text-sm text-text-muted">{t('citizenPortal.profileDocumentsEmpty', 'No documents are on file for this parcel yet.')}</p>
+        <p className="text-sm text-text-muted">{t('citizenPortal.profileDocumentsNoStored', 'No other documents are on file for this parcel yet.')}</p>
       ) : (
         <div className="flex flex-wrap gap-4">
           {documents.map((doc) => (
@@ -55,6 +121,15 @@ const ParcelDocumentsCard: React.FC<ParcelDocumentsCardProps> = ({ parcel }) => 
             </div>
           ))}
         </div>
+      )}
+
+      {officialPdfUrl && (
+        <OfficialPdfViewerModal
+          url={officialPdfUrl}
+          fileName={`record-of-rights-${parcel.id}.pdf`}
+          parcelId={parcel.id}
+          onClose={closeOfficialPdf}
+        />
       )}
     </div>
   );

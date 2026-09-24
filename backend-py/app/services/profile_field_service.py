@@ -2,6 +2,7 @@
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from pydantic.alias_generators import to_snake
 
 from app.models.profile_field import ProfileField
 from app.schemas.profile_field import ProfileFieldOut, ProfileFieldCreate, ProfileFieldUpdate, ProfileFormConfig
@@ -81,11 +82,22 @@ def get_profile_form_config(db: Session, role: str) -> ProfileFormConfig:
 def validate_profile_data(db: Session, role: str, data: dict) -> tuple[bool, list[str]]:
     """Validate profile data against field configurations.
     Returns (is_valid, list_of_errors).
+
+    This is a partial update: an unsent field keeps its stored value, so a
+    required field simply absent from the payload is NOT an error here (that
+    belongs to registration). We only validate the fields actually submitted.
     """
+    # The frontend sends camelCase (governmentIdNumber); field_name is
+    # snake_case (government_id_number). Normalise so both required and regex
+    # checks actually match the submitted field. to_snake is a no-op for
+    # single-word keys.
+    data = {to_snake(k): v for k, v in data.items()}
     fields = get_active_fields_for_role(db, role)
     errors = []
 
     for field in fields:
+        if field.field_name not in data:
+            continue  # not being changed - leave the stored value untouched
         value = data.get(field.field_name)
         if field.is_required and (value is None or value == ""):
             errors.append(f"{field.field_label} is required")

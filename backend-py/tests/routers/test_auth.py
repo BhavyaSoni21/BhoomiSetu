@@ -81,6 +81,8 @@ class TestLogin:
             "pendingEmail": None, "pendingMobileNumber": None, "name": "Test Officer", "role": "LAND_RECORD_OFFICER",
             "address": None, "governmentIdNumber": None, "occupation": None, "createdAt": officer.created_at.isoformat(),
             "googleId": None, "googlePicture": None, "googleEmailVerified": False,
+            "homeLatitude": None, "homeLongitude": None, "onboardingCompleted": False,
+            "preferredLanguage": officer.preferred_language,
         }
         assert "passwordHash" not in res.text and "password_hash" not in res.text
 
@@ -511,14 +513,24 @@ class TestUpdateProfileDetails:
 
         res = client.post(
             "/api/v1/auth/profile/details", headers={"Authorization": f"Bearer {result['token']}"},
-            json={"name": "Updated Name", "address": "12 MG Road, Pune", "governmentIdNumber": "ABCD1234E", "occupation": "Farmer"},
+            json={"name": "Updated Name", "address": "12 MG Road, Pune", "governmentIdNumber": "ABCDE1234F", "occupation": "Farmer"},
         )
         assert res.status_code == 201
         assert res.json()["name"] == "Updated Name"
         assert res.json()["address"] == "12 MG Road, Pune"
-        assert res.json()["governmentIdNumber"] == "ABCD1234E"
+        assert res.json()["governmentIdNumber"] == "ABCDE1234F"
         assert res.json()["occupation"] == "Farmer"
         assert email_calls["calls"] == []
+
+    def test_rejects_a_malformed_government_id(self, db, client, monkeypatch):
+        _clear(db)
+        email_calls = _mock_email_capture(monkeypatch)
+        result = _register_and_verify_citizen(db, client, email_calls)
+        res = client.post(
+            "/api/v1/auth/profile/details", headers={"Authorization": f"Bearer {result['token']}"},
+            json={"governmentIdNumber": "abc"},  # too short + lowercase - fails ^[A-Z0-9]{10,20}$
+        )
+        assert res.status_code == 400
 
     def test_partially_updates_only_the_fields_sent(self, db, client, monkeypatch):
         _clear(db)

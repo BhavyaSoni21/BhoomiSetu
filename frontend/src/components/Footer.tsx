@@ -41,7 +41,7 @@ export const Footer: React.FC = () => {
                 {t('footer.departmentHeading')}
               </h3>
               <p className="text-white/70 text-[11px] font-medium">
-                Ministry of Panchayati Raj & Department of Land Resources
+                Ministry of Rural Development, Government of India
               </p>
               <p className="text-white/60 text-[11px] flex items-start gap-1.5 pt-1">
                 <MapPin className="w-3.5 h-3.5 text-[var(--action-500)] shrink-0 mt-0.5" />
@@ -90,6 +90,11 @@ export const Footer: React.FC = () => {
               <li>
                 <Link to="/citizen" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
                   <span>{t('footer.linkCitizen')}</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/citizen/get-assistance" className="text-white/75 hover:text-white transition-colors duration-150 flex items-center gap-1">
+                  <span>{t('citizenNav.getAssistance')}</span>
                 </Link>
               </li>
               <li>

@@ -87,6 +87,12 @@ class User(Base):
     government_id_number: Mapped[str | None] = mapped_column(String, nullable=True)
     occupation: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Home coordinates captured from browser geolocation during onboarding.
+    # Used to default the Find Parcels map to the nearest cluster and pre-filter
+    # search to the user's region. Nullable - most accounts never grant GPS.
+    home_latitude: Mapped[float | None] = mapped_column(nullable=True)
+    home_longitude: Mapped[float | None] = mapped_column(nullable=True)
+
 # District assignment for officers - used for jurisdiction-aware request routing.
     # Nullable; only meaningful for staff roles (officers/admin/verifier).
     district: Mapped[str | None] = mapped_column(String(40), nullable=True)
@@ -100,5 +106,11 @@ class User(Base):
 
     # Bilingual notification language preference - defaults to Hindi (hi)
     preferred_language: Mapped[str] = mapped_column(String(10), default="hi")
+
+    # First-login onboarding gate. New accounts start False and see the
+    # onboarding wizard + tour once; set True when they finish or skip it.
+    # Existing accounts are backfilled to True by the migration so a deploy
+    # never forces them through onboarding (spec §12).
+    onboarding_completed: Mapped[bool] = mapped_column(default=False)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
