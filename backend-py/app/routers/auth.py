@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import create_access_token, get_current_user, require_roles
 from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
+from app.auth import login_guard
 from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
@@ -57,9 +58,14 @@ _require_any_role = require_roles(CITIZEN_ROLE, *ALL_STAFF_ROLES)
 @router.post("/login", response_model=LoginResultOut)
 @limiter.limit("20/minute")
 def login(request: Request, dto: LoginRequest, db: Session = Depends(get_db)):
+    identifier = (dto.email or dto.mobile_number or "").strip().lower()
+    if login_guard.is_locked(identifier):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Account temporarily locked due to repeated failed logins. Try again later.")
     user = service.validate_user(db, email=dto.email, mobile_number=dto.mobile_number, password=dto.password)
     if user is None:
+        login_guard.record_failure(identifier)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    login_guard.record_success(identifier)
     result = service.login(user)
     audit_service.log(db, user_id=str(user.id), user_role=user.role, action="AUTH_LOGIN", entity_type="USER", entity_id=str(user.id))
     return result
