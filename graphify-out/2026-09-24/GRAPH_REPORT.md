@@ -1,12 +1,12 @@
 # Graph Report - SIH_2026_BhoomiSetu  (2026-09-24)
 
 ## Corpus Check
-- 582 files · ~1,681,667 words
+- 582 files · ~1,681,764 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 21 file(s) not represented in the graph (top: (none) 7, .ttf 5, .ini 2)
 
 ## Summary
-- 6471 nodes · 14194 edges · 432 communities (349 shown, 19 thin omitted)
+- 6471 nodes · 14199 edges · 424 communities (346 shown, 14 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 911 edges (avg confidence: 0.95)
 - Token cost: 0 input · 0 output
 
@@ -18,10 +18,10 @@
 ## Community Hubs (Navigation)
 - apiService.ts
 - CitizenParcel
-- useTranslation
+- LanguageContext.tsx
 - _clear
 - Session
-- WorkflowReviewPanel.tsx
+- useTranslation
 - react
 - seed.py
 - departments_service.py
@@ -105,15 +105,15 @@
 - Navbar & Route Refactor — Tracked Checklist
 - BHOOMISETU.md
 - ParcelOut
-- scripts
+- parcel360.ts
 - SIH26014_Hidden_Insights_Strategy.md
-- ResizeObserverStub
+- 1. System Architecture
 - BhoomiSetu — Feature → Library / Endpoint / File Map
 - main.tsx
 - navbar_corretion.md
 - land_records_lookup_service.py
 - admin_pipeline_config.py
-- queue.ts
+- sync.ts
 - Bhashini Integration Quick Reference
 - vercel.json
 - Python Migration — Progress
@@ -132,8 +132,7 @@
 - celery_app.py
 - BhoomiSetu — Design System
 - Officer Portal Issues (verification checklist, 2026-09-10)
-- VerifierPortal.tsx
-- OfficerDashboardPage.tsx
+- verifierLocalSyncService.ts
 - env.py
 - WorkflowPipelineConfig
 - BhoomiSetu Feature Audit
@@ -186,8 +185,7 @@
 - ✨ Key Design Decisions
 - Phase 4 — Officer Workspace
 - Phase 5 — Verifier Field Workflow
-- theme.ts
-- MockMap
+- handlers.ts
 - MockLngLatBounds
 - complete_json
 - **42\. UI/UX Guidelines**
@@ -242,13 +240,11 @@
 - SurveyDocument
 - Base
 - **Example: State A**
-- MockLngLatBounds
 - **19\. USER ENDPOINTS**
 - **21\. GIS ENDPOINTS**
 - **31\. GROQ AI ENDPOINTS**
 - **38\. ROLE-BASED ACCESS CONTROL**
 - 16. Feasibility Analysis
-- handlers.ts
 - CreateUser
 - 10. H3
 - 11. H4 / H5 / H6
@@ -373,7 +369,6 @@
 - test_public.py
 - generate_encumbrance_certificate
 - AboutPage.tsx
-- RecentActivity.tsx
 - MockDraw
 - get_my_tasks_sla
 - DynamicProfileData
@@ -381,9 +376,6 @@
 - **An Integrated GIS-Based Land Governance and Interoperability Platform**
 - _clear_audit_logs
 - MockMap
-- MockPopup
-- MockMap
-- MockPopup
 
 ## God Nodes (most connected - your core abstractions)
 1. `User` - 292 edges
@@ -412,19 +404,19 @@
 ## Import Cycles
 - None detected.
 
-## Communities (432 total, 19 thin omitted)
+## Communities (424 total, 14 thin omitted)
 
 ### Community 0 - "apiService.ts"
 Cohesion: 0.03
-Nodes (122): renderApp(), renderAs(), renderAsGuest(), renderAt(), landRecordsDept, renderPanel(), taxDept, featureCollection (+114 more)
+Nodes (116): renderApp(), renderAs(), renderAsGuest(), renderAt(), FALLBACK_STRINGS, DepartmentManagement(), emptyEditForm, emptyForm (+108 more)
 
 ### Community 1 - "CitizenParcel"
 Cohesion: 0.16
 Nodes (28): build_local_id(), canon(), deva_to_latin(), dist_code(), extract(), match_field(), norm(), Document Verification Engine for Land Records (7/12, RoR, etc.). Stateless… (+20 more)
 
-### Community 2 - "useTranslation"
-Cohesion: 0.03
-Nodes (107): AdminPortal, CitizenPortal, OfficerPortal, BackButton(), BackButtonProps, VARIANT_CLASS, ParcelSearchModal(), ParcelSearchModalProps (+99 more)
+### Community 2 - "LanguageContext.tsx"
+Cohesion: 0.04
+Nodes (63): AdminPortal, CitizenPortal, OfficerPortal, BackButton(), BackButtonProps, VARIANT_CLASS, FALLBACK_STRINGS_RAW, flattenLocale() (+55 more)
 
 ### Community 3 - "_clear"
 Cohesion: 0.07
@@ -434,13 +426,13 @@ Nodes (18): SmsOtpResult, _clear(), _mock_email_capture(), _mock_send_otp(), fak
 Cohesion: 0.21
 Nodes (26): AdminMapNote, Admin-only map annotation - unlike ZoningOverlay/RestrictionZone/…, create_admin_map_note(), create_infrastructure_feature(), create_restriction_zone(), create_zoning_overlay(), delete_admin_map_note(), delete_infrastructure_feature() (+18 more)
 
-### Community 5 - "WorkflowReviewPanel.tsx"
-Cohesion: 0.06
-Nodes (47): AdminDecidedStepMode, AdminDecidedStepRow(), AdminDecidedStepRowProps, AdminStepMode, AdminStepRow(), AdminStepRowProps, AssignVerifierControl(), AssignVerifierControlProps (+39 more)
+### Community 5 - "useTranslation"
+Cohesion: 0.05
+Nodes (64): VerifierPortal, MicButton(), MicButtonProps, State, useTranslation(), GISMapPreview(), GISMapPreviewProps, LegendItem (+56 more)
 
 ### Community 6 - "react"
 Cohesion: 0.06
-Nodes (69): SvgIndianEmblem(), useUpdateProfileDetails(), ActivityTimeline(), formatAction(), formatTimestamp(), statusFor(), AdminAccessPermissionsCard(), AdminAccessPermissionsCardProps (+61 more)
+Nodes (81): SvgIndianEmblem(), AuthUser, ContactMethod, useResendOtp(), useUpdateContact(), useUpdateProfileDetails(), useVerifyOtp(), ContactMethodCard() (+73 more)
 
 ### Community 7 - "seed.py"
 Cohesion: 0.08
@@ -451,8 +443,8 @@ Cohesion: 0.08
 Nodes (48): EncumbranceCertificate, Survey measurement, boundary demarcation, and GIS geometry correction records.…, An issued encumbrance certificate (#12a). The generated PDF is stored in object…, SurveyRecord, _certificate_to_dict(), department_has_capability(), department_stats(), find_dispute_by_parcel() (+40 more)
 
 ### Community 9 - "auth.ts"
-Cohesion: 0.04
-Nodes (67): AppShell(), AskAiWidget, ContactUsPage, FeaturesPage, LoginPage, navItemsFor(), OAuthCallbackPage, portalPathForRole() (+59 more)
+Cohesion: 0.03
+Nodes (88): AppShell(), ContactUsPage, FeaturesPage, LoginPage, navItemsFor(), OAuthCallbackPage, Parcel360View, portalPathForRole() (+80 more)
 
 ### Community 10 - "Department"
 Cohesion: 0.08
@@ -527,16 +519,16 @@ Cohesion: 0.05
 Nodes (11): _clear(), _seed(), TestCreate, TestEscalateStep, TestGetMine, TestGetOne, TestGetParcelWorkflows, TestOfficerDashboardListing (+3 more)
 
 ### Community 28 - "Parcel360View.tsx"
-Cohesion: 0.05
-Nodes (47): Parcel360View, resolveDistrictName(), resolveStateName(), RISK_BAND_CLASS, TopRiskParcels(), useCategorizedParcels(), useCompareHistoricalYears(), useHistoricalClusters() (+39 more)
+Cohesion: 0.06
+Nodes (43): resolveDistrictName(), resolveStateName(), RISK_BAND_CLASS, TopRiskParcels(), useCategorizedParcels(), useCompareHistoricalYears(), useHistoricalClusters(), HistoricalImageryPanel() (+35 more)
 
 ### Community 29 - "User"
 Cohesion: 0.09
 Nodes (80): User, add_task(), add_timeline_event(), advance_task(), approve_field_proposal(), assign_task(), assign_verifier_to_task_endpoint(), capture_evidence_endpoint() (+72 more)
 
 ### Community 30 - "aiFlow.ts"
-Cohesion: 0.05
-Nodes (59): AiChat(), AiChatProps, ApplicationDraft(), ApplicationDraftProps, ChatInputBar(), ChatInputBarProps, ChatMessageComp(), ChatMessageProps (+51 more)
+Cohesion: 0.04
+Nodes (66): AiChat(), AiChatProps, ApplicationDraft(), ApplicationDraftProps, ChatInputBar(), ChatInputBarProps, ChatMessageComp(), ChatMessageProps (+58 more)
 
 ### Community 31 - "CamelModel"
 Cohesion: 0.04
@@ -571,8 +563,8 @@ Cohesion: 0.05
 Nodes (18): create_authenticated_user(), Session, _square(), TestGetAudit, TestGetParcelAudit, BACKLOG item 16: /verifier/tasks and /my sit after /{case_id}* in the file;…, test_literal_routes_not_shadowed_by_case_id(), test_requires_staff_auth() (+10 more)
 
 ### Community 39 - "package.json"
-Cohesion: 0.09
-Nodes (22): description, name, private, version, autoprefixer, jsdom, postcss, react-dom (+14 more)
+Cohesion: 0.07
+Nodes (27): description, name, private, scripts, build, dev, preview, test (+19 more)
 
 ### Community 40 - "case_service.py"
 Cohesion: 0.03
@@ -647,8 +639,8 @@ Cohesion: 0.13
 Nodes (30): application_draft(), explain_alert(), explain_parcel(), limit, post, Request, Session, UUID (+22 more)
 
 ### Community 59 - "MapLayerManagement.tsx"
-Cohesion: 0.09
-Nodes (25): ADMIN_COMBINED_VISIBLE_LAYERS, AdminCombinedLayerMap(), BASE_STYLE, boundsOfGeometry(), centeredRectangle(), LayerGeometryDrawMap(), LayerGeometryDrawMapProps, mockDrawInstances (+17 more)
+Cohesion: 0.14
+Nodes (18): BASE_STYLE, boundsOfGeometry(), centeredRectangle(), LayerGeometryDrawMap(), LayerGeometryDrawMapProps, buildPayload(), emptyForm(), extractErrorMessage() (+10 more)
 
 ### Community 60 - "_seed"
 Cohesion: 0.16
@@ -699,8 +691,8 @@ Cohesion: 0.16
 Nodes (23): delete_citizen_parcel(), find_mine(), get_context(), get_document_file(), get_documents(), get_geometry(), get_historical_states(), get_neighbours() (+15 more)
 
 ### Community 72 - "db.ts"
-Cohesion: 0.23
-Nodes (10): CachedArea, CachedCase, CachedParcel, CachedParcel360, CachedTile, CacheMeta, OfflineDB, OpStatus (+2 more)
+Cohesion: 0.21
+Nodes (11): CachedArea, CachedCase, CachedParcel, CachedParcel360, CachedTile, CacheMeta, OfflineDB, OfflineOperation (+3 more)
 
 ### Community 73 - "devDependencies"
 Cohesion: 0.13
@@ -747,8 +739,8 @@ Cohesion: 0.36
 Nodes (7): Ported from backend/src/common/pagination.ts - KNOWN_RISKS.md HIGH-6. Every…, Returns (take, skip)., resolve_pagination(), test_caps_limit_at_the_ceiling(), test_defaults_when_nothing_supplied(), test_honors_a_supplied_limit_and_offset(), test_ignores_a_non_positive_limit_or_offset()
 
 ### Community 84 - "BhoomiSetuLanding.tsx"
-Cohesion: 0.22
-Nodes (9): HomePage, ICON_MAP, SchemeCard(), SchemeCardProps, SchemesMarquee(), SchemesMarqueeProps, GOVT_SCHEMES, BhoomiSetuLanding() (+1 more)
+Cohesion: 0.17
+Nodes (12): HomePage, ParcelSearchModal(), ParcelSearchModalProps, searchByAnyIdentifier(), ICON_MAP, SchemeCard(), SchemeCardProps, SchemesMarquee() (+4 more)
 
 ### Community 85 - "earth_engine_service.py"
 Cohesion: 0.26
@@ -770,21 +762,25 @@ Nodes (35): **10\. Parcel-Centric Architecture**, **11\. Multi-Source Parcel Ide
 Cohesion: 0.15
 Nodes (13): ParcelOut, field_validator, Matches backend/src/parcels/parcel.entity.ts's serialized shape exactly,…, IdentifyFromDocumentResponse, NotImplementedDetail, OwnershipHistoryRecordOut, ParcelDocumentOut, ParcelHistoricalStateOut (+5 more)
 
-### Community 90 - "scripts"
-Cohesion: 0.40
-Nodes (5): scripts, build, dev, preview, test
+### Community 90 - "parcel360.ts"
+Cohesion: 0.18
+Nodes (10): AdaptedLandRecord, CanonicalIdentifiers, CanonicalSource, DisputeRecord, EncumbranceRecord, OwnershipHistoryRecord, PlanningRecord, RegistrationRecord (+2 more)
 
 ### Community 91 - "SIH26014_Hidden_Insights_Strategy.md"
 Cohesion: 0.06
 Nodes (35): 10. AI Document Summary Is Not the Main Feature, 11. Strong Feature: Document ↔ Map Connection, 12. Explain Why System Flagged a Problem, 13. Map Should Have Layers, 14. Performance: Do Not Load Entire City, 15. Location Should Not Permanently Lock the Map, 16. Audit Log Should Be Immutable-ish, 17. Role Separation Is Security Architecture (+27 more)
+
+### Community 92 - "1. System Architecture"
+Cohesion: 0.40
+Nodes (5): 1.1 High-level shape, 1.2 Backend module inventory, 1.3 Frontend architecture, 1.4 Data flow example — Parcel 360, 1. System Architecture
 
 ### Community 93 - "BhoomiSetu — Feature → Library / Endpoint / File Map"
 Cohesion: 0.06
 Nodes (34): 10. Governance Alerts, 11. Authentication (+ Citizen Registration & OTP Verification), 12. Citizen Sign-In / My Parcels, 13. Authorization (RBAC), 14. Audit Logging, 15. Admin Portal, 16. Officer Portal, 17. AI Assistant (Groq) (+26 more)
 
 ### Community 94 - "main.tsx"
-Cohesion: 0.14
-Nodes (14): App(), LanguageProvider(), updateSW, NetworkState, NetworkStatus, startNetworkMonitor(), PERSIST_KEYS, persister (+6 more)
+Cohesion: 0.15
+Nodes (17): App(), LanguageProvider(), updateSW, PERSIST_KEYS, persister, persistOptions, queryClient, applyTheme() (+9 more)
 
 ### Community 95 - "navbar_corretion.md"
 Cohesion: 0.10
@@ -798,9 +794,9 @@ Nodes (13): find_identifier_value(), Session, Ported from backend/src/common/ide
 Cohesion: 0.13
 Nodes (21): create(), find_all(), get_definition(), get_templates(), delete, get, patch, post (+13 more)
 
-### Community 98 - "queue.ts"
-Cohesion: 0.29
-Nodes (15): OfflineStatusIndicator(), db, OfflineOperation, useNetworkStore, currentUserId(), discardOperation(), enqueue(), listOperations() (+7 more)
+### Community 98 - "sync.ts"
+Cohesion: 0.24
+Nodes (17): OfflineStatusIndicator(), db, NetworkState, NetworkStatus, startNetworkMonitor(), useNetworkStore, currentUserId(), discardOperation() (+9 more)
 
 ### Community 99 - "Bhashini Integration Quick Reference"
 Cohesion: 0.06
@@ -827,8 +823,8 @@ Cohesion: 0.15
 Nodes (16): ElevationProfile, _ensure_initialized(), _fetch_elevation_from_dataset(), _fetch(), _fetch_landcover_from_dataset(), fetch_parcel_elevation_stats(), fetch_parcel_land_cover_stats(), LandCoverStats (+8 more)
 
 ### Community 126 - "BhoomiSetu — Standard Technical Document"
-Cohesion: 0.07
-Nodes (30): 1.1 High-level shape, 1.2 Backend module inventory, 1.3 Frontend architecture, 1.4 Data flow example — Parcel 360, 1. System Architecture, 2.1 Endpoint inventory by area, 2. API Standards, 3. Interoperability Standards (+22 more)
+Cohesion: 0.08
+Nodes (25): 2.1 Endpoint inventory by area, 2. API Standards, 3. Interoperability Standards, 4. Data Schemas, 5. GIS Standards, 6.1 Authentication & session, 6.2 Authorization (RBAC), 6.3 Input & AI-output validation (+17 more)
 
 ### Community 127 - "Detailed Workflow — What Each Officer Actually Does"
 Cohesion: 0.07
@@ -866,13 +862,9 @@ Nodes (25): 16. Secondary Button, 39. Tooltips, 49. Charts, 4. Logo / Brand Name
 Cohesion: 0.08
 Nodes (24): 1. Officer Portal → Documents, 1. Remove Quick Actions, 1. Single active session per user + session timeout, 2. Admin Dashboard → Workflow Oversight, 2. Citizen-service actions leaking into Admin, 2. Dedicated Profile section, 3. Admin Dashboard → Map Layer Authoring, 3. "Explain with AI" giving predefined answers (+16 more)
 
-### Community 137 - "VerifierPortal.tsx"
-Cohesion: 0.15
-Nodes (17): VerifierPortal, EvidenceCapturePage(), LocationState, FINDING_OPTIONS, FindingEntry, VerifierFindingsPage(), VerifierLocalSync(), VerifierProfilePage() (+9 more)
-
-### Community 138 - "OfficerDashboardPage.tsx"
-Cohesion: 0.12
-Nodes (17): DEPARTMENT_HAS_ALERTS, DEPARTMENT_WIDGETS, DepartmentFocusWidget(), DepartmentStats, DepartmentWidgetConfig, formatRupees(), isToday(), OfficerDashboardPage() (+9 more)
+### Community 137 - "verifierLocalSyncService.ts"
+Cohesion: 0.31
+Nodes (9): syncOnReconnect(), autoSyncQueue(), fileToDataURL(), getLocalQueue(), isOnline(), LocalEvidenceRecord, removeLocalEvidence(), saveLocalEvidence() (+1 more)
 
 ### Community 139 - "env.py"
 Cohesion: 0.83
@@ -1082,13 +1074,9 @@ Nodes (7): 4.1 Officer Case Workspace (Frontend), 4.2 Application Document for O
 Cohesion: 0.29
 Nodes (7): 5.1 Verifier Assignment (Frontend + Backend), 5.2 Verifier Case Package (Frontend), 5.3 GPS + Photo Capture (Frontend), 5.4 Verification Report (Frontend + Backend), 5.5 Offline Sync (Frontend + Backend), 5.6 Officer Review of Verification (Frontend), Phase 5 — Verifier Field Workflow
 
-### Community 191 - "theme.ts"
-Cohesion: 0.46
-Nodes (7): applyTheme(), getStoredTheme(), getSystemPreference(), initTheme(), setStoredTheme(), Theme, useTheme()
-
-### Community 192 - "MockMap"
-Cohesion: 0.15
-Nodes (3): MockLngLatBounds, MockMap, MockPopup
+### Community 192 - "handlers.ts"
+Cohesion: 0.04
+Nodes (13): MockLngLatBounds, MockPopup, MockMap, MockPopup, MockLngLatBounds, MockMap, MockPopup, adminUserFixture (+5 more)
 
 ### Community 194 - "complete_json"
 Cohesion: 0.27
@@ -1318,10 +1306,6 @@ Nodes (4): **38\. ROLE-BASED ACCESS CONTROL**, **Admin**, **Citizen**, **Officer
 Cohesion: 0.33
 Nodes (6): 16. Feasibility Analysis, Economic feasibility — HIGH, Feasibility summary, Legal / institutional feasibility — MODERATE, acknowledged, Operational feasibility — HIGH, by design, Technical feasibility — PROVEN (PROTOTYPE)
 
-### Community 285 - "handlers.ts"
-Cohesion: 0.29
-Nodes (5): adminUserFixture, citizenParcelA, citizenParcelB, handlers, pendingWorkflow
-
 ### Community 287 - "10. H3"
 Cohesion: 0.67
 Nodes (3): 10. H3, Dark, Light
@@ -1539,8 +1523,8 @@ Cohesion: 0.33
 Nodes (6): 18. Scalability, Level 1 — Data (parcels), Level 2 — Compute (requests), Level 3 — Geography (states / adapters), Level 4 — Organisation (departments / roles), Scaling path
 
 ### Community 350 - "UnifiedMapWrapper.tsx"
-Cohesion: 0.06
-Nodes (37): District, DISTRICT_NAME_BY_CODE, STATE_NAME_BY_CODE, StateData, STATE_NAME_BY_CODE, BASE_STYLE, Basemap, boundsOfFeatures() (+29 more)
+Cohesion: 0.05
+Nodes (59): AskAiWidget, District, DISTRICT_NAME_BY_CODE, resolveLocationName(), STATE_NAME_BY_CODE, StateData, STATES_AND_DISTRICTS, AskAiWidget() (+51 more)
 
 ### Community 351 - "20. Security Architecture"
 Cohesion: 0.33
@@ -1790,10 +1774,6 @@ Nodes (6): generate_encumbrance_certificate(), post, _encumbrance_to_entry(), ge
 Cohesion: 0.40
 Nodes (5): AboutPage, AboutPage(), FEATURE_ICONS, initials(), TEAM
 
-### Community 421 - "RecentActivity.tsx"
-Cohesion: 0.40
-Nodes (5): ACTION_DOT_CLASS, ACTION_LABEL_KEYS, ENTITY_TYPE_OPTIONS, formatDateTime(), RecentActivity()
-
 ### Community 423 - "get_my_tasks_sla"
 Cohesion: 0.50
 Nodes (4): get_my_tasks_sla(), SLA status for each task assigned to the signed-in officer (§56) - powers the…, get_tasks_for_officer(), Tasks assigned to a specific officer (A 59).
@@ -1813,7 +1793,7 @@ Nodes (3): **A Parcel-Centric Prototype Aligned with the Land Stack Vision**, **
 ## Knowledge Gaps
 - **1996 isolated node(s):** `Config`, `Config`, `name`, `version`, `description` (+1991 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3065 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **14 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -1831,4 +1811,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `Config`, `Config`, `name` to the rest of the system?**
   _1996 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `apiService.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0312256049960968 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.031321414168571045 - nodes in this community are weakly interconnected._

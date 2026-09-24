@@ -123,6 +123,7 @@ const FindParcelsPage: React.FC = () => {
                 showClusterDropdown
                 hideStateDropdown
                 showLayerPanel
+                showLayerButtonsBelowMap
                 className="rounded-xl border border-gov-border"
                 height="h-[500px]"
               />

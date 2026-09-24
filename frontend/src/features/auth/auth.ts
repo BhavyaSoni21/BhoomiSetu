@@ -298,7 +298,10 @@ export function useLogout() {
     // spec §37: shared field device — drop cached reads + this user's queued
     // offline work so the next sign-in never sees the previous user's data.
     queryClient.clear();
-    void clearOfflineData();
+    // Fire-and-forget: private-browsing / no-IndexedDB environments reject
+    // here (also jsdom in tests) - a cleared-cache failure must not surface
+    // as an unhandled rejection.
+    void clearOfflineData().catch(() => {});
   };
 }
 

@@ -2616,9 +2616,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/officer/OfficerTaskDetailModal.tsx": {
-    "mtime": 1790165530.4987414,
-    "seen": 1790165652.8399386,
-    "ast_hash": "379ce89e6f926f9d940f1b9081fc50b6",
+    "mtime": 1790226938.1658602,
+    "seen": 1790226989.027847,
+    "ast_hash": "0876206cb276688a618d40f9bae3e300",
     "semantic_hash": ""
   },
   "frontend/src/context/LanguageContext.tsx": {
@@ -2712,9 +2712,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/map/UnifiedMapWrapper.tsx": {
-    "mtime": 1790191923.7339852,
-    "seen": 1790192012.5944808,
-    "ast_hash": "aa7440383c7c720a70b83eee9723718c",
+    "mtime": 1790225600.368543,
+    "seen": 1790226163.5984123,
+    "ast_hash": "b8a992f6682ab183eab9f8c9b25a1a7f",
     "semantic_hash": ""
   },
   "frontend/src/features/map/maplibreWorkerUrl.ts": {
@@ -2736,9 +2736,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/verifier/EvidenceCapturePage.tsx": {
-    "mtime": 1790111095.0124137,
-    "seen": 1790111175.1529233,
-    "ast_hash": "b29ffe5b8e71cca47eb78fda15d3058e",
+    "mtime": 1790226527.5650961,
+    "seen": 1790226989.0377667,
+    "ast_hash": "0c0f6fa516d873b89d874e968460c9f6",
     "semantic_hash": ""
   },
   "frontend/src/features/verifier/VerifierFindingsPage.tsx": {
@@ -2754,9 +2754,9 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/use-chat.ts": {
-    "mtime": 1790208988.5086422,
-    "seen": 1790224092.9498134,
-    "ast_hash": "35a0ed9a07d4f774792ed32e88a748a6",
+    "mtime": 1790225674.4595885,
+    "seen": 1790226163.60159,
+    "ast_hash": "49371e3664f656bfca156b6afa7ae1c0",
     "semantic_hash": ""
   },
   "frontend/src/mocks/handlers.ts": {
@@ -2862,9 +2862,9 @@
     "semantic_hash": ""
   },
   "frontend/src/services/verifierLocalSyncService.ts": {
-    "mtime": 1790072265.3582432,
-    "seen": 1790096301.1708827,
-    "ast_hash": "d0b72573fc84da67b0c59262a11f4913",
+    "mtime": 1790226498.8023677,
+    "seen": 1790226989.0482237,
+    "ast_hash": "b6dd41f12ba2824431a0884120a70205",
     "semantic_hash": ""
   },
   "frontend/src/test/utils.tsx": {
@@ -3594,9 +3594,9 @@
     "semantic_hash": ""
   },
   "frontend/src/offline/network.ts": {
-    "mtime": 1790208971.1864657,
-    "seen": 1790224092.9506338,
-    "ast_hash": "dd415dfbede1648100c9bac308ccc7e7",
+    "mtime": 1790226012.2960527,
+    "seen": 1790226163.602858,
+    "ast_hash": "02153d132c1f2d598a193ff9c556f9cc",
     "semantic_hash": ""
   },
   "frontend/src/offline/persist.ts": {
@@ -3648,9 +3648,27 @@
     "semantic_hash": ""
   },
   "frontend/src/offline/sync.ts": {
-    "mtime": 1790208958.1325476,
-    "seen": 1790224092.950751,
-    "ast_hash": "5c853cefa3633bec170efb9bb3cb1ddd",
+    "mtime": 1790225991.5240397,
+    "seen": 1790226163.6031017,
+    "ast_hash": "0e5adc24f5f3e10743d276b188381db2",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/OfflineAreaButton.tsx": {
+    "mtime": 1790225584.610791,
+    "seen": 1790226163.589333,
+    "ast_hash": "e8af2ec20e61843568d61a1746353ef4",
+    "semantic_hash": ""
+  },
+  "frontend/src/offline/gis.test.ts": {
+    "mtime": 1790225691.963479,
+    "seen": 1790226163.6028538,
+    "ast_hash": "c7948214e17c179d4a185b674192daec",
+    "semantic_hash": ""
+  },
+  "frontend/src/offline/gis.ts": {
+    "mtime": 1790225353.9607625,
+    "seen": 1790226163.6028557,
+    "ast_hash": "b5fcf066b16eafaf06e614dd803d8219",
     "semantic_hash": ""
   }
 }

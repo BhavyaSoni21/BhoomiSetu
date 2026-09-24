@@ -84,6 +84,8 @@ describe('useLogout', () => {
     act(() => result.current());
 
     expect(localStorage.getItem('access_token')).toBeNull();
-    expect(client.getQueryData(['auth-me'])).toBeNull();
+    // useLogout wipes the whole query cache (queryClient.clear(), shared-device
+    // spec §37), which removes the query entirely rather than nulling it.
+    expect(client.getQueryData(['auth-me'])).toBeUndefined();
   });
 });
