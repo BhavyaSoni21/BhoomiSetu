@@ -49,6 +49,7 @@ Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land S
 - [Running the Project](#20-running-the-project)
 - [Docker & Deployment](#21-docker--deployment)
 - [Demo Workflow](#22-demo-workflow)
+- [Screenshots](#-screenshots)
 - [Testing](#23-testing)
 - [Performance & Scalability](#24-performance--scalability)
 - [Challenges & Solutions](#25-challenges--solutions)
@@ -595,6 +596,38 @@ docker compose up --build
 8. **Closure + feedback** — case → RESOLUTION → FEEDBACK; Asha notified (in-app + bilingual SMS/Email), tracks status, leaves feedback. Every step is in the audit log and case timeline.
 
 **Robustness:** even with **no API keys set**, the case engine, GIS, RBAC, and audit all function — AI/imagery/i18n paths degrade to defined fallbacks.
+
+---
+
+## 📸 Screenshots
+
+> Captured against the seeded demo dataset (`backend-py/scripts/seed.py`). PROTOTYPE.
+
+### Cadastral GIS Map — risk & valuation layers
+Citizen *Find Parcels* view: GeoJSON parcel boundaries over street/satellite/terrain basemaps, with toggleable Legal Status, Tax Status, Risk Score, Circle Rate / Valuation, Master Plan Mismatch and Unauthorized Activity layers.
+
+![GIS map with search, results and layer toggles](docs/screenshots/01-gis-map.png)
+![GIS map, full-width map-only view](docs/screenshots/01b-gis-map-fullwidth.png)
+
+### Parcel 360°
+Single-parcel dossier: identifiers (ULPIN, survey no.), location, area, computed risk score, and per-department data-source availability across Overview / Land Records / Registration / Planning / Tax / Restriction / Dispute / Encumbrance / Ownership History tabs.
+
+![Parcel 360 dossier](docs/screenshots/02-parcel-360.png)
+
+### Officer — Case Review & Decision Bench
+Department queue (Land Records) with incoming cases, per-case review panel, workflow steps, field-verifier assignment, and a mandatory-reason approve/reject decision.
+
+![Officer case review and evidence chain](docs/screenshots/03-officer-evidence-chain.png)
+
+### Citizen — AI-Assisted Assistance
+Multilingual, voice-capable intake that classifies intent and routes to the right department(s).
+
+![Citizen Get Assistance AI intake](docs/screenshots/04-citizen-get-assistance.png)
+
+### Admin Dashboard
+System-wide administration and monitoring overview.
+
+![Admin dashboard](docs/screenshots/05-admin-dashboard.png)
 
 ---
 
