@@ -23,7 +23,7 @@ Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land S
 > **PS-FACT** (from the official problem statement) · **PROTOTYPE** (runs in the current codebase) ·
 > **TEAM DESIGN** (designed, not yet fully built) · **VERIFIED METRIC** (measured on a real run;
 > unmeasured slots read **DATA REQUIRED**) · **REFERENCE** (external standard/source). No statistic here is invented.
-> Full source of truth: [`docs/BhoomiSetu_Master_Project_Document.md`](docs/references/BhoomiSetu_Master_Project_Document.md).
+> Full source of truth: [`docs/reference/BhoomiSetu_Master_Project_Document.md`](docs/reference/BhoomiSetu_Master_Project_Document.md).
 
 ## 📑 Table of Contents
 
@@ -93,7 +93,7 @@ The problem the PS names is fragmentation: *"land governance involves multiple i
 | Citizen features: search, ownership verification, status tracking, requests | Citizen portal + case tracking + "Get Assistance" AI intake | PROTOTYPE |
 | AI/ML, satellite change detection, predictive analytics, decision-support | Groq assistant/routing, Earth Engine change detection, risk heuristic, analytics | PROTOTYPE (heuristic) / TEAM DESIGN (trained ML) |
 | Modular, scalable, replicable national framework | Configurable pipelines, per-state adapters, cluster-per-state seeding | PROTOTYPE + TEAM DESIGN |
-| Standard Technical Document | [Master Project Document](docs/BhoomiSetu_Master_Project_Document.md) | PROTOTYPE |
+| Standard Technical Document | [Master Project Document](docs/reference/BhoomiSetu_Master_Project_Document.md) | PROTOTYPE |
 
 ### The fragmentation each department suffers
 
@@ -713,11 +713,14 @@ Ordered by dependency and value (all **TEAM DESIGN**):
 
 ## 28. Team
 
-> Team members, roles, and contributions are **not documented in the source** (`BhoomiSetu_Master_Project_Document.md`). This section is intentionally left as a placeholder rather than fabricated — fill it in before submission.
-
-| Member | Role | Contribution |
-|---|---|---|
-| _TBD_ | _TBD_ | _TBD_ |
+| Member | Role |
+|---|---|
+| Purv Jain | Team Leader |
+| Bhavya Soni | Full Stack Developer |
+| Avadhut Gore | Backend Developer |
+| Ashutosh Amale | Frontend Developer |
+| Rishabh Jain | Researcher |
+| Niharika Kharche | Presenter |
 
 ---
 
@@ -740,8 +743,8 @@ Ordered by dependency and value (all **TEAM DESIGN**):
 - PostGIS — spatial extension for PostgreSQL.
 
 **Internal project documents:**
-- [`docs/BhoomiSetu_Master_Project_Document.md`](docs/BhoomiSetu_Master_Project_Document.md) — Standard Technical Document (single source of truth).
-- `docs/BhoomiSetu_Unified_Workflow_Specification.md`, `docs/bhoomisetu_officer_roles.md`, `docs/architecture/FEATURES.md`.
+- [`docs/reference/BhoomiSetu_Master_Project_Document.md`](docs/reference/BhoomiSetu_Master_Project_Document.md) — Standard Technical Document (single source of truth).
+- `docs/architecture/BhoomiSetu_Unified_Workflow_Specification.md`, `docs/architecture/bhoomisetu_officer_roles.md`, `docs/architecture/FEATURES.md`.
 
 > **Metrics deliberately omitted:** any performance, accuracy, or cost figure not measured on a real run is marked **DATA REQUIRED** in-place rather than cited. No source is invented.
 
