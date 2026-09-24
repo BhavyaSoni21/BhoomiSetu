@@ -62,6 +62,30 @@ class LastActivityMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds standard security response headers to every response. All are
+    additive/defensive and don't change payloads. HSTS is only emitted in
+    production (Render serves HTTPS); locally the app runs over http where a
+    browser would ignore it anyway, and emitting it could pin http-only dev
+    hosts.
+    """
+
+    def __init__(self, app, hsts: bool = False):
+        super().__init__(app)
+        self._hsts = hsts
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        if self._hsts:
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+
 def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
 

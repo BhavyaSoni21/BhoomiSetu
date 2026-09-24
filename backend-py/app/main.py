@@ -8,7 +8,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.middleware import LastActivityMiddleware, RequestIdMiddleware, register_exception_handlers
+from app.middleware import LastActivityMiddleware, RequestIdMiddleware, SecurityHeadersMiddleware, register_exception_handlers
 from app.rate_limit import limiter
 from app.routers import (
     admin,
@@ -92,6 +92,7 @@ app = FastAPI(
 
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(LastActivityMiddleware)
+app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
 register_exception_handlers(app)
 
 # KNOWN_RISKS.md HIGH-1: app-wide 200/min/IP default (app.rate_limit.py),
