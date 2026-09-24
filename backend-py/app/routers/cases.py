@@ -105,9 +105,10 @@ def list_cases(
     user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
 ):
     if user.role == CITIZEN_ROLE:
-        citizen_id = citizen_id or str(user.id)
-        if not citizen_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="citizenId required for citizen role")
+        # A citizen may only ever list their OWN cases. Force it to their id and
+        # ignore any client-supplied citizenId — the `or` form was an IDOR
+        # (?citizenId=<other-uuid> leaked another citizen's cases).
+        citizen_id = str(user.id)
 
     query = db.query(Case)
     if case_no:

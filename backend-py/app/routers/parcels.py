@@ -240,11 +240,6 @@ async def extract_document(
     }
 
 
-@router.get("/citizen/{citizen_id}/parcels", response_model=SearchParcelsResponse)
-def get_citizen_parcels(citizen_id: UUID, db: Session = Depends(get_db)):
-    return service.find_mine(db, str(citizen_id))
-
-
 @router.post("/identify-from-document", response_model=IdentifyFromDocumentResponse)
 async def identify_from_document(
     document: UploadFile = File(...),

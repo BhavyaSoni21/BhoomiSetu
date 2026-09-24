@@ -30,6 +30,12 @@ from app.services.bhashini import (
 router = APIRouter(prefix="/api/v1/multilingual", tags=["Multilingual"])
 logger = logging.getLogger(__name__)
 
+# /asr is intentionally unauthenticated (guests use voice on the public
+# landing via MicButton, which only attaches a token if one exists). So the
+# abuse guard here is a size cap + a lenient audio content-type check, not
+# auth. ponytail: no per-IP rate limit yet — Tier 2 if this endpoint is abused.
+_MAX_AUDIO_BYTES = 10 * 1024 * 1024
+
 
 # Request/Response Models
 class TranslateRequest(BaseModel):
@@ -214,13 +220,29 @@ async def speech_to_text_endpoint(
             language: hi
     """
     try:
+        # Browsers send audio/wav, audio/webm, or (some) application/octet-stream
+        # for a recorded blob; reject anything clearly not audio without breaking
+        # cross-browser recordings.
+        if audio.content_type and not (
+            audio.content_type.startswith("audio/")
+            or audio.content_type == "application/octet-stream"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be an audio recording",
+            )
         audio_bytes = await audio.read()
         if not audio_bytes:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No audio data provided"
             )
-        
+        if len(audio_bytes) > _MAX_AUDIO_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio exceeds the 10MB size limit",
+            )
+
         result = await speech_to_text(
             audio_bytes=audio_bytes,
             language=language
