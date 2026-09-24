@@ -73,6 +73,13 @@ export default defineConfig({
       devOptions: { enabled: true, type: 'module' },
     }),
   ],
+  build: {
+    // MapLibre GL (~880 KB) is already isolated in its own lazy chunk that
+    // only loads when the map opens, so it's off the initial path. Raise the
+    // warning threshold above it rather than chase manualChunks for a chunk
+    // that's already correctly deferred.
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     port: 5173,
     strictPort: true,

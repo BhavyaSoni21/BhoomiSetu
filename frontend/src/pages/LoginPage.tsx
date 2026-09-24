@@ -181,7 +181,7 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* ── Right: Login form ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col px-4 sm:px-8 py-6 lg:overflow-y-auto">
+      <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-8 py-6 lg:overflow-y-auto">
         {/* Top bar: mobile logo + language toggle */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div className="lg:hidden flex items-center gap-2 min-w-0">
@@ -314,7 +314,7 @@ const LoginPage: React.FC = () => {
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="9876543210"
-                    className="flex-1 px-4 py-3 rounded-r-xl text-sm font-mono transition-all duration-150"
+                    className="flex-1 min-w-0 px-4 py-3 rounded-r-xl text-sm font-mono transition-all duration-150"
                     style={{
                       background: 'var(--surface-1)',
                       border: '1.5px solid var(--border)',
@@ -516,7 +516,7 @@ const LoginPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => fillDemo(DEMO_ADMIN_EMAIL)}
-                    className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
+                    className="block w-full truncate text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
                     style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
                   >
                     {DEMO_ADMIN_EMAIL}
@@ -540,7 +540,7 @@ const LoginPage: React.FC = () => {
                         className="flex w-full items-center justify-between text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors hover:opacity-80"
                         style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
                       >
-                        <span className="truncate">{DEMO_OFFICER_EMAILS[role]}</span>
+                        <span className="truncate min-w-0">{DEMO_OFFICER_EMAILS[role]}</span>
                         <span
                           className="ml-2 shrink-0 px-2 py-0.5 rounded-full text-[10px] font-sans font-semibold"
                           style={{ background: '#D1FAE5', color: '#065F46' }}
@@ -566,7 +566,7 @@ const LoginPage: React.FC = () => {
                         key={email}
                         type="button"
                         onClick={() => fillDemo(email)}
-                        className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
+                        className="block w-full truncate text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
                         style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
                       >
                         {email}
@@ -586,7 +586,7 @@ const LoginPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => fillDemo('citizen1@example.com')}
-                    className="block w-full text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
+                    className="block w-full truncate text-left text-xs px-3 py-2 rounded-lg font-mono transition-colors"
                     style={{ color: 'var(--text-primary)', background: 'var(--surface-2)' }}
                   >
                     citizen1@example.com

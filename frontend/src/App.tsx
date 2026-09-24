@@ -211,7 +211,8 @@ function AppShell() {
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-heading font-bold text-white tracking-wide text-[11px] uppercase truncate">
-                    Government of India · State Land Records
+                    <span className="sm:hidden">GoI · Land Records</span>
+                    <span className="hidden sm:inline">Government of India · State Land Records</span>
                   </span>
                 </div>
                 <span className="hidden md:inline text-white/30">•</span>
@@ -253,7 +254,7 @@ function AppShell() {
                   <option value="te" className="bg-[var(--brand-900)] text-white">తెలుగు (Telugu)</option>
                 </select>
 
-                <span className="text-white/20">|</span>
+                <span className="text-white/20 hidden sm:inline">|</span>
 
                 {/* Dark mode toggle */}
                 <button
@@ -281,7 +282,7 @@ function AppShell() {
                   </>
                 )}
 
-                <span className="text-white/20">|</span>
+                <span className="text-white/20 hidden sm:inline">|</span>
 
                 {authUser ? (
                   <div className="flex items-center gap-2">
