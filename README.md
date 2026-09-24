@@ -23,7 +23,7 @@ Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land S
 > **PS-FACT** (from the official problem statement) · **PROTOTYPE** (runs in the current codebase) ·
 > **TEAM DESIGN** (designed, not yet fully built) · **VERIFIED METRIC** (measured on a real run;
 > unmeasured slots read **DATA REQUIRED**) · **REFERENCE** (external standard/source). No statistic here is invented.
-> Full source of truth: [`docs/BhoomiSetu_Master_Project_Document.md`](docs/BhoomiSetu_Master_Project_Document.md).
+> Full source of truth: [`docs/BhoomiSetu_Master_Project_Document.md`](docs/references/BhoomiSetu_Master_Project_Document.md).
 
 ## 📑 Table of Contents
 
