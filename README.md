@@ -478,7 +478,7 @@ SIH_2026_BhoomiSetu/
 │   │   └── ...
 │   ├── public/               # bhoomisetu-logo.png, PWA assets
 │   └── package.json
-├── docs/                     # Master Project Document + specs + Logo.png
+├── docs/                     # reference/ (Master Project Document), architecture/, archive/, Logo.png
 ├── graphify-out/             # knowledge-graph artifacts
 └── docker-compose.yml
 ```
@@ -752,7 +752,7 @@ Ordered by dependency and value (all **TEAM DESIGN**):
 
 ## 30. License
 
-Released under the **MIT License** — see [`LICENSE`](LICENSE). Copyright (c) 2026 BhoomiSetu.
+**All rights reserved.** Proprietary — see [`LICENSE`](LICENSE). Copyright (c) 2026 BhoomiSetu. No use, copying, modification, or distribution without prior written permission.
 
 ---
 
