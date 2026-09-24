@@ -155,7 +155,7 @@ const Parcel360View: React.FC = () => {
       const response = await apiService.get(`/parcels/${id}/360`);
       return response.data;
     },
-    { enabled: !!id },
+    { enabled: !!id, keepPreviousData: true },
   );
 
   const explainMutation = useMutation<AiExplanation, Error>(async () => {
@@ -489,6 +489,7 @@ const Parcel360View: React.FC = () => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
                   recenterSignal={recenterSignal}
+                  showLayerButtonsBelowMap
                 />
               ) : (
                 <UnifiedMapWrapper

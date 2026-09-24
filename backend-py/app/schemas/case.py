@@ -202,7 +202,7 @@ class SLAConfigOut(CamelModel):
 
 class AppointmentCreate(CamelModel):
     citizen_id: str
-    department_id: UUID
+    department_id: str
     officer_id: str | None = None
     office_location: str | None = None
     date: datetime

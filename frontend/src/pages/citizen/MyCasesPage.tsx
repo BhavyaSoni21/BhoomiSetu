@@ -5,7 +5,7 @@ import { CaseOut } from '../../types/aiFlow';
 import apiService from '../../services/apiService';
 import { useTranslation } from '../../context/LanguageContext';
 import AppointmentBookingModal from '../../components/AppointmentBookingModal';
-import { Calendar } from 'lucide-react';
+import { Calendar, Eye } from 'lucide-react';
 
 const statusColor: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -74,7 +74,7 @@ const MyCasesPage: React.FC = () => {
             {caseList.map((c: CaseOut) => (
               <tr key={c.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {c.case_no}
+                  {c.case_no || (c as any).caseNo}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {c.intent ?? '—'}
@@ -89,21 +89,23 @@ const MyCasesPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(c.created_at).toLocaleDateString()}
+                  {new Date(c.created_at || (c as any).createdAt).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm flex items-center justify-end gap-4">
                   <button
                     onClick={() => setAppointmentCase(c)}
-                    className="text-blue-600 hover:text-blue-900 p-1"
+                    className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
                     title={t('appointment.bookingTitle', 'Book an appointment')}
                   >
-                    <Calendar className="w-4 h-4 inline" />
+                    <Calendar className="w-4 h-4" />
+                    <span>{t('appointment.book', 'Book Appointment')}</span>
                   </button>
                   <Link
                     to={`/citizen/get-assistance?case=${c.id}`}
-                    className="text-blue-600 hover:text-blue-900"
+                    className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
                   >
-                    {t('cases.view', 'View')}
+                    <Eye className="w-4 h-4" />
+                    <span>{t('cases.view', 'View')}</span>
                   </Link>
                 </td>
               </tr>

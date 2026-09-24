@@ -121,7 +121,7 @@ def _can_manage_case(user: User, case: Case, db: Session) -> bool:
     if user.role in ALL_STAFF_ROLES:
         return True
     if user.role == CITIZEN_ROLE:
-        return parcels_service.is_citizen_associated_with_parcel(db, str(user.id), case.parcel_id)
+        return case.citizen_id == str(user.id) or parcels_service.is_citizen_associated_with_parcel(db, str(user.id), case.parcel_id)
     return False
 
 
@@ -462,10 +462,22 @@ def create_appointment(
     if isinstance(case, str):
         return case
 
+    # If department_id is not a valid UUID (e.g. it's a code like "DISPUTE"), look it up
+    try:
+        import uuid
+        uuid.UUID(department_id)
+        final_dept_id = department_id
+    except ValueError:
+        from app.models.admin import Department
+        dept = db.query(Department).filter(Department.code == department_id).first()
+        if not dept:
+            return "Department not found"
+        final_dept_id = str(dept.id)
+
     appointment = Appointment(
         case_id=case_id,
         citizen_id=citizen_id,
-        department_id=department_id,
+        department_id=final_dept_id,
         officer_id=officer_id,
         office_location=office_location,
         date=date or _now(),

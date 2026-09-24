@@ -45,7 +45,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
 
   const handleSubmit = () => {
     const payload: AppointmentCreate = {
-      citizen_id: caseItem.citizen_id,
+      citizen_id: caseItem.citizen_id || (caseItem as any).citizenId,
       department_id: selectedDepartment,
       date: new Date(selectedDate).toISOString(),
       purpose: purpose || undefined,
@@ -103,10 +103,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
                         {statusLabels[appt.status] ?? appt.status}
                       </span>
                     </div>
-                    {appt.time_slot && <div className="text-xs text-text-secondary mt-1">{appt.time_slot}</div>}
-                    {appt.officer_id && (
+                    {(appt.time_slot || (appt as any).timeSlot) && <div className="text-xs text-text-secondary mt-1">{appt.time_slot || (appt as any).timeSlot}</div>}
+                    {(appt.officer_id || (appt as any).officerId) && (
                       <div className="text-xs text-text-secondary mt-1 flex items-center gap-1">
-                        <User className="w-3 h-3" /> {appt.officer_id}
+                        <User className="w-3 h-3" /> {appt.officer_id || (appt as any).officerId}
                       </div>
                     )}
                     {appt.purpose && <div className="text-xs text-text-secondary mt-2">{appt.purpose}</div>}
@@ -159,6 +159,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
                 <label className="block text-xs font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
                   <FileText className="w-4 h-4" />
                   {t('appointment.purposeLabel', 'Purpose')}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={purpose}
@@ -200,7 +201,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!selectedDepartment || !selectedDate || mutation.isPending}
+            disabled={!selectedDepartment || !selectedDate || !purpose.trim() || mutation.isPending}
             className="px-4 py-2 text-sm font-bold text-white bg-brand-900 hover:bg-brand-700 disabled:opacity-50 rounded-lg transition"
           >
             {mutation.isPending

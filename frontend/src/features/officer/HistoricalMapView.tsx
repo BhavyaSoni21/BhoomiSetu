@@ -60,6 +60,8 @@ interface HistoricalMapViewProps {
   actionSlot?: React.ReactNode;
   /** Passed straight through to MapComponent - bump to re-fit the map to selectedParcelId's context on demand (Parcel 360's "Locate" button). */
   recenterSignal?: number;
+  /** Whether to show the layer toggles below the map */
+  showLayerButtonsBelowMap?: boolean;
 }
 
 // The real, interactive map for one chosen year - a cluster's actual parcel
@@ -78,7 +80,10 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
   years,
   selectedParcelId,
   onParcelClick,
+  actionSlot,
+  actionSlot: actionSlotProp,
   recenterSignal,
+  showLayerButtonsBelowMap,
 }) => {
   const { t } = useTranslation();
   const [year, setYear] = useState<number>(years[years.length - 1]);
@@ -155,38 +160,43 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
     </div>
   );
 
-  // View mode toggle (Map / Satellite) - officer only
-  const actionSlot = isOfficer ? (
+  // View mode toggle (Map / Satellite) - officer only + whatever actionSlot was passed from parent
+  const combinedActionSlot = (
     <div className="flex items-center gap-3">
-      <div className="flex items-center border-2 border-ink">
-        <button
-          type="button"
-          onClick={() => setViewMode('map')}
-          className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
-        >
-          Parcel Map
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode('satellite')}
-          className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide border-l-2 border-ink ${viewMode === 'satellite' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
-        >
-          Satellite Photo
-        </button>
-      </div>
-      {viewMode === 'satellite' && !satelliteImageUrl && (
-        <button
-          type="button"
-          onClick={() => satelliteQuery.refetch()}
-          disabled={satelliteQuery.isFetching}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink bg-secondary text-white text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
-        >
-          {satelliteQuery.isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Satellite className="w-3.5 h-3.5" aria-hidden="true" />}
-          {satelliteQuery.isFetching ? 'Loading...' : `Load ${year} satellite photo`}
-        </button>
+      {actionSlotProp}
+      {isOfficer && (
+        <>
+          <div className="flex items-center border-2 border-ink">
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+            >
+              Parcel Map
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('satellite')}
+              className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide border-l-2 border-ink ${viewMode === 'satellite' ? 'bg-primary text-white' : 'bg-surface text-ink'}`}
+            >
+              Satellite Photo
+            </button>
+          </div>
+          {viewMode === 'satellite' && !satelliteImageUrl && (
+            <button
+              type="button"
+              onClick={() => satelliteQuery.refetch()}
+              disabled={satelliteQuery.isFetching}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink bg-secondary text-white text-[11px] font-bold uppercase tracking-wide disabled:opacity-50"
+            >
+              {satelliteQuery.isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Satellite className="w-3.5 h-3.5" aria-hidden="true" />}
+              {satelliteQuery.isFetching ? 'Loading...' : `Load ${year} satellite photo`}
+            </button>
+          )}
+        </>
       )}
     </div>
-  ) : undefined;
+  );
 
   const satelliteOverlay = viewMode === 'satellite' && isOfficer ? (
     <>
@@ -226,9 +236,10 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
         selectedYear={year}
         onYearChange={setYear}
         showLayerPanel={showCustomLayerPanel}
-        visibleLayerKeys={['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection']}
+        visibleLayerKeys={['cluster', 'zoning', 'restriction', 'infrastructure', 'changeDetection', 'legalStatus', 'taxStatus', 'circleRate', 'riskScore', 'mismatch', 'unauthorized']}
         userRole={user?.role}
-        actionSlot={actionSlot}
+        actionSlot={combinedActionSlot}
+        showLayerButtonsBelowMap={showLayerButtonsBelowMap}
         height="h-[500px]"
         focusBounds={null}
         overlayElement={satelliteOverlay}

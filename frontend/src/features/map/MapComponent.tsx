@@ -310,6 +310,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const userRoleRef = useRef(userRole);
   userRoleRef.current = userRole;
 
+
   // Selection is internally owned so the component works standalone (e.g. the
   // bare /map route) but stays in sync with a controlling parent when one
   // passes selectedParcelId (e.g. CitizenPortal, Parcel360View).
@@ -334,6 +335,22 @@ const MapComponent: React.FC<MapComponentProps> = ({
       setLayerVisibility(initialLayerVisibility);
     }
   }, [initialLayerVisibility]);
+
+  // Kept in a ref so the popup click handler (inside the mount-only useEffect)
+  // always reads the current toggle state instead of the stale initial snapshot.
+  const layerVisibilityRef = useRef(layerVisibility);
+  const hasFitContextRef = useRef(false);
+  const lastRecenterSignalContextRef = useRef(recenterSignal);
+  const hasFitParcelsRef = useRef(false);
+  const lastRecenterSignalParcelsRef = useRef(recenterSignal);
+  layerVisibilityRef.current = layerVisibility;
+
+  // Track the currently open popup + the parcel it was opened for so we can
+  // re-render it whenever the active layer changes.
+  const activePopupRef = useRef<maplibregl.Popup | null>(null);
+  const lastClickedPropsRef = useRef<Record<string, string | number | null> | null>(null);
+  const lastClickedLngLatRef = useRef<maplibregl.LngLat | null>(null);
+
   const toggleLayer = (key: LayerKey) => {
     const newVisibility = { ...layerVisibility, [key]: !layerVisibility[key] };
     setLayerVisibility(newVisibility);
@@ -839,8 +856,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       const renderLayerInsightCards = (props: Record<string, string | number | null>, popupT: ReturnType<typeof useTranslation>['t']) => {
         const sections: string[] = [];
+        const lv = layerVisibilityRef.current;
 
-        if (layerVisibility.unauthorized && props.unauthorized_construction_suspected) {
+        if (lv.unauthorized && props.unauthorized_construction_suspected) {
           sections.push(`
             <div class="mt-2 pt-2 border-t-2 border-ink/10">
               <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.unauthorized'))}</p>
@@ -852,7 +870,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           `);
         }
 
-        if (layerVisibility.mismatch && props.masterplan_mismatch) {
+        if (lv.mismatch && props.masterplan_mismatch) {
           sections.push(`
             <div class="mt-2 pt-2 border-t-2 border-ink/10">
               <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">${escapeHtml(popupT('map.layer.mismatch'))}</p>
@@ -864,8 +882,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           `);
         }
 
-
-        if (layerVisibility.riskScore) {
+        if (lv.riskScore) {
           const score = Number(props.risk_score ?? props.riskScore ?? 0);
           const label = getRiskScoreLabel(score);
           const color = getRiskScoreColor(score);
@@ -880,7 +897,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           `);
         }
 
-        if (layerVisibility.legalStatus) {
+        if (lv.legalStatus) {
           const severity = Number(props.legal_status_severity ?? props.legalStatusSeverity ?? 0);
           const severityLabelMap: Record<number, string> = {
             0: popupT('map.layer.legalStatus0'),
@@ -900,7 +917,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           `);
         }
 
-        if (layerVisibility.circleRate) {
+        if (lv.circleRate) {
           const band = Number(props.value_band ?? props.valueBand ?? 0);
           const bandLabelMap: Record<number, string> = {
             0: popupT('map.layer.circleRate0'),
@@ -918,28 +935,39 @@ const MapComponent: React.FC<MapComponentProps> = ({
           `);
         }
 
+        if (lv.taxStatus) {
+          const status = String(props.taxStatus ?? props.tax_status ?? '');
+          const taxColorMap: Record<string, string> = {
+            PAID: '#22c55e',
+            PENDING: '#eab308',
+            OVERDUE: '#ef4444',
+          };
+          const taxColor = taxColorMap[status] ?? '#94a3b8';
+          const displayStatus = status || 'Unknown';
+          sections.push(`
+            <div class="mt-2 pt-2 border-t-2 border-ink/10">
+              <p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Tax Status</p>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${taxColor}; color:${taxColor}; background:rgba(255,255,255,0.7);">${escapeHtml(displayStatus)}</span>
+              </div>
+            </div>
+          `);
+        }
+
         return sections.join('');
       };
 
-      for (const layerId of ['parcels-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer']) {
+      for (const layerId of ['parcels-layer', 'legal-status-layer', 'circleRate-layer', 'riskScore-layer', 'tax-status-layer', 'mismatch-layer', 'unauthorized-layer']) {
         map.on('click', layerId, (e) => {
           const feature = e.features?.[0];
           if (!feature) return;
           const props = feature.properties as Record<string, string | number | null>;
 
           const popupT = tRef.current;
-          const currentUserRole = userRoleRef.current;
-          
-          const taxStatusHtml = currentUserRole === 'TAX_OFFICER' && props.taxStatus
-            ? `<div class="mb-2 p-1.5 rounded bg-surface-alt border border-gov-border">
-                 <p class="text-ink text-xs"><strong class="uppercase tracking-wide text-brand-700">Tax Status:</strong> <span class="font-bold">${escapeHtml(String(props.taxStatus))}</span></p>
-               </div>`
-            : '';
 
           const content = `
             <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
               <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
-              ${taxStatusHtml}
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
               <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
@@ -950,7 +978,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           `;
 
-          new maplibregl.Popup().setLngLat(e.lngLat).setHTML(content).addTo(map);
+          // Store so the layer-visibility effect can re-render this popup.
+          lastClickedPropsRef.current = props;
+          lastClickedLngLatRef.current = e.lngLat;
+
+          activePopupRef.current?.remove();
+          const popup = new maplibregl.Popup().setLngLat(e.lngLat).setHTML(content).addTo(map);
+          activePopupRef.current = popup;
+          popup.on('close', () => { activePopupRef.current = null; });
         });
       }
 
@@ -1016,7 +1051,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
     if (fitToParcels && features.length > 0) {
       const bounds = boundsOfFeatures(features);
-      if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
+      if (bounds) {
+        const shouldFit = !hasFitParcelsRef.current || recenterSignal !== lastRecenterSignalParcelsRef.current;
+        if (shouldFit) {
+          map.fitBounds(bounds, { padding: 60, maxZoom: 17 });
+          hasFitParcelsRef.current = true;
+          lastRecenterSignalParcelsRef.current = recenterSignal;
+        }
+      }
     }
   }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady, recenterSignal]);
 
@@ -1103,7 +1145,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
     const bounds =
       boundsOfFeatures(clusterFeatures.length > 0 ? clusterFeatures : [selectedFeature, ...adjacentFeatures, ...nearbyFeatures]);
     if (bounds) {
-      map.fitBounds(bounds, { padding: 60, maxZoom: 18 });
+      // Only fit bounds on the first load of context, or when explicitly requested
+      // via recenterSignal (e.g. clicking Locate). Otherwise, navigating between
+      // adjacent parcels causes the map to constantly jump/re-center.
+      const shouldFit = !hasFitContextRef.current || recenterSignal !== lastRecenterSignalContextRef.current;
+      if (shouldFit) {
+        map.fitBounds(bounds, { padding: 60, maxZoom: 18 });
+        hasFitContextRef.current = true;
+        lastRecenterSignalContextRef.current = recenterSignal;
+      }
     }
   }, [context, mapReady, recenterSignal]);
 
@@ -1169,6 +1219,68 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
     map.triggerRepaint();
   }, [layerVisibility, mapReady]);
+
+  // Re-render the open popup whenever the active layer changes so the
+  // extra insight field updates immediately without needing a re-click.
+  useEffect(() => {
+    const map = mapRef.current;
+    const popup = activePopupRef.current;
+    const props = lastClickedPropsRef.current;
+    const lngLat = lastClickedLngLatRef.current;
+    if (!map || !popup || !props || !lngLat) return;
+
+    const popupT = tRef.current;
+    const lv = layerVisibilityRef.current;
+
+    const renderInsights = () => {
+      const sections: string[] = [];
+      if (lv.unauthorized && props.unauthorized_construction_suspected) {
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Unauthorized Activity</p><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#e11d48"></span><span class="text-[10px] font-bold">Unapproved Construction</span></div></div>`);
+      }
+      if (lv.mismatch && props.masterplan_mismatch) {
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Master Plan Mismatch</p><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#c026d3"></span><span class="text-[10px] font-bold">Proposed Use Differs</span></div></div>`);
+      }
+      if (lv.riskScore) {
+        const score = Number(props.risk_score ?? props.riskScore ?? 0);
+        const label = getRiskScoreLabel(score);
+        const color = getRiskScoreColor(score);
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Risk Score</p><div class="flex items-center justify-between gap-2"><span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${color}; color:${color}; background:rgba(255,255,255,0.7);">${escapeHtml(label)}</span><span class="font-mono text-xs font-bold">${score.toFixed(0)}/100</span></div></div>`);
+      }
+      if (lv.legalStatus) {
+        const severity = Number(props.legal_status_severity ?? props.legalStatusSeverity ?? 0);
+        const severityLabels: Record<number, string> = { 0: 'Clear', 1: 'Encumbered', 2: 'Disputed (Low)', 3: 'Disputed (High)' };
+        const severityColors: Record<number, string> = { 0: '#6b7280', 1: '#f59e0b', 2: '#f97316', 3: '#dc2626' };
+        const sc = severityColors[severity] ?? '#6b7280';
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Legal Status</p><div class="flex items-center justify-between gap-2"><span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${sc}; color:${sc}; background:rgba(255,255,255,0.7);">${escapeHtml(severityLabels[severity] ?? 'Clear')}</span><span class="text-[10px] text-ink/70">${severity}/3</span></div></div>`);
+      }
+      if (lv.circleRate) {
+        const band = Number(props.value_band ?? props.valueBand ?? 0);
+        const bandLabels: Record<number, string> = { 0: 'No data', 1: '< ₹2,000/m²', 2: '₹2,000–₹5,000/m²', 3: '₹5,000–₹10,000/m²', 4: '₹10,000–₹13,000/m²', 5: '> ₹13,000/m²' };
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Circle Rate</p><div class="text-[10px] text-ink/80">${escapeHtml(bandLabels[band] ?? 'No data')}</div></div>`);
+      }
+      if (lv.taxStatus) {
+        const status = String(props.taxStatus ?? props.tax_status ?? '');
+        const taxColors: Record<string, string> = { PAID: '#22c55e', PENDING: '#eab308', OVERDUE: '#ef4444' };
+        const tc = taxColors[status] ?? '#94a3b8';
+        sections.push(`<div class="mt-2 pt-2 border-t-2 border-ink/10"><p class="font-black uppercase tracking-wide text-[10px] text-primary mb-1">Tax Status</p><div class="flex items-center gap-2"><span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide border" style="border-color:${tc}; color:${tc}; background:rgba(255,255,255,0.7);">${escapeHtml(status || 'Unknown')}</span></div></div>`);
+      }
+      return sections.join('');
+    };
+
+    const updatedContent = `
+      <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
+        <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
+        <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
+        <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
+        <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
+        <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.district'))}:</strong> ${escapeHtml(String(props.districtCode))}</p>
+        <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM ?? 0).toLocaleString()} m&sup2;</p>
+        ${renderInsights()}
+        ${props.extraLabel ? `<p class="text-ink text-xs py-0.5 mt-1 pt-1 border-t-2 border-ink/10">${escapeHtml(String(props.extraLabel))}</p>` : ''}
+      </div>
+    `;
+    popup.setHTML(updatedContent);
+  }, [layerVisibility]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Street/Satellite/Terrain basemap toggle - only one of the three background
   // raster layers is ever visible.
