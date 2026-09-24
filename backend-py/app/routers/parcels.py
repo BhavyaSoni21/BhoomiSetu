@@ -371,39 +371,41 @@ def get_official_document_pdf(
 @router.post("/{id}/documents/summarise")
 def summarise_document(
     id: UUID,
-    body: dict,  # { url: string, fileName: string }
+    body: dict | None = None,  # optional { lang?: "en"|"hi" }; legacy {url, fileName} ignored
     db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
 ):
     if not service.find_one(db, str(id)):
         raise _not_found(id)
     if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
-    
-    url = body.get("url")
-    file_name = body.get("fileName")
-    if not url:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="url required")
-    
-    # Fetch PDF and extract text, then summarise with AI
-    import httpx
+
+    # The official record-of-rights PDF is generated server-side from the
+    # parcel id (same source as GET .../official-pdf), never fetched from a
+    # client-supplied URL — that was an SSRF hole (the server would GET any
+    # URL a caller passed) and also plain broken, since the frontend only ever
+    # sent a browser `blob:` URL that httpx cannot fetch.
+    lang = (body or {}).get("lang", "en")
+    if lang not in ("en", "hi"):
+        lang = "en"
+
     import pymupdf
     from app.services import groq_service
-    
+
     try:
-        response = httpx.get(url, timeout=30.0)
-        response.raise_for_status()
-        pdf_bytes = response.content
-        
+        pdf_bytes = service.get_official_document_pdf(db, str(id), lang, user=user)
+        if not pdf_bytes:
+            return {"summary": "No official document is available for this parcel"}
+
         # Extract text from PDF
         doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
         text = ""
         for page in doc:
             text += page.get_text()
         doc.close()
-        
+
         if not text.strip():
             return {"summary": "No extractable text found in PDF"}
-        
+
         # Summarise with Groq
         system_prompt = (
             "You are a land records assistant. Summarise the following official land document "
@@ -411,9 +413,9 @@ def summarise_document(
             "area, location, encumbrances, and any restrictions. Respond with ONLY a JSON object:\n"
             '{"summary": string}'
         )
-        
+
         raw = groq_service.complete_json(system_prompt, text[:8000])  # Limit input size
-        
+
         summary = raw.get("summary", "Summary generation failed")
         return {"summary": summary}
     except Exception as e:
