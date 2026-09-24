@@ -229,7 +229,7 @@ export const BhoomiSetuLanding: React.FC = () => {
                   {heroBadges.map((b) => {
                     const Icon = b.icon;
                     return (
-                      <div key={b.text} className="flex items-center gap-1.5 py-1.5 px-2.5 bg-[var(--surface-1)]/80 backdrop-blur-sm rounded-[4px] border border-[var(--border)]/80 shadow-sm">
+                      <div key={b.text} className="flex items-center gap-1.5 py-1.5 px-2.5 bg-[var(--surface-1)] sm:bg-[var(--surface-1)]/80 backdrop-blur-sm rounded-[4px] border border-[var(--border)] sm:border-[var(--border)]/80 shadow-sm">
                         <Icon className="w-3.5 h-3.5 text-[var(--bhashini-accent)] shrink-0" />
                         <span className="text-[11px] leading-tight">{b.text}</span>
                       </div>
