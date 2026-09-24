@@ -107,6 +107,9 @@ auth_register_page.tsx
 # Vite PWA dev build output (regenerated on every dev run)
 frontend/dev-dist/
 
+# Vitest run output — regenerated on every test run, not source.
+frontend/vitest-results*.json
+
 # Local tooling / agent config and stray scripts — not part of the shipped
 # project. Kept locally, untracked. The in-app sample 7/12 lives at
 # frontend/public/ (still tracked); only the stray root copy is ignored.
