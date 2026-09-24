@@ -1,11 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../context/LanguageContext';
 import { Mail, Phone, MapPin, Youtube, Facebook, Twitter, Instagram, Linkedin, ArrowUpRight } from 'lucide-react';
+import { usePwaInstall } from '../features/pwa/usePwaInstall';
 
 export const Footer: React.FC = () => {
   const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
+  const { canInstall, installed, isIOS, promptInstall } = usePwaInstall();
+  const [showHint, setShowHint] = useState(false);
+
+  // Explicit user action -> native consent dialog. Where no prompt is available
+  // (iOS Safari, or the event hasn't fired), show manual add-to-home-screen steps.
+  const handleInstall = async () => {
+    if (canInstall) {
+      await promptInstall();
+      return;
+    }
+    setShowHint(true);
+  };
 
   return (
     <footer className="w-full bg-[var(--brand-900)] text-white/85 border-t border-white/10 relative z-10 transition-colors duration-200">
@@ -146,29 +159,50 @@ export const Footer: React.FC = () => {
               <h4 className="text-xs font-bold uppercase tracking-wider text-white font-heading mb-2">
                 {t('footer.getAppHeading')}
               </h4>
-              <div className="flex flex-wrap gap-2">
-                {/* Mock Google Play badge */}
-                <div className="bg-black/40 hover:bg-black/60 border border-white/20 px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-[9px]">
-                    ▶
-                  </div>
-                  <div className="flex flex-col text-[9px] leading-tight">
-                    <span className="text-white/60 text-[8px] uppercase">Get it on</span>
-                    <span className="text-white font-bold text-[11px]">Google Play</span>
-                  </div>
-                </div>
+              {installed ? (
+                <p className="text-[11px] text-emerald-300 font-semibold">
+                  {t('footer.appInstalled')}
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Google Play badge -> triggers PWA install consent dialog */}
+                    <button
+                      type="button"
+                      onClick={handleInstall}
+                      className="bg-black/40 hover:bg-black/60 border border-white/20 px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition text-left"
+                    >
+                      <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-[9px]">
+                        ▶
+                      </div>
+                      <div className="flex flex-col text-[9px] leading-tight">
+                        <span className="text-white/60 text-[8px] uppercase">Get it on</span>
+                        <span className="text-white font-bold text-[11px]">Google Play</span>
+                      </div>
+                    </button>
 
-                {/* Mock App Store badge */}
-                <div className="bg-black/40 hover:bg-black/60 border border-white/20 px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition">
-                  <div className="w-4 h-4 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold text-[9px]">
-                    🍎
+                    {/* App Store badge -> same install flow (iOS shows manual steps) */}
+                    <button
+                      type="button"
+                      onClick={handleInstall}
+                      className="bg-black/40 hover:bg-black/60 border border-white/20 px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition text-left"
+                    >
+                      <div className="w-4 h-4 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold text-[9px]">
+                        🍎
+                      </div>
+                      <div className="flex flex-col text-[9px] leading-tight">
+                        <span className="text-white/60 text-[8px] uppercase">Download on the</span>
+                        <span className="text-white font-bold text-[11px]">App Store</span>
+                      </div>
+                    </button>
                   </div>
-                  <div className="flex flex-col text-[9px] leading-tight">
-                    <span className="text-white/60 text-[8px] uppercase">Download on the</span>
-                    <span className="text-white font-bold text-[11px]">App Store</span>
-                  </div>
-                </div>
-              </div>
+                  {showHint && (
+                    <p className="mt-2 text-[10px] text-white/60 leading-snug max-w-[16rem]">
+                      {isIOS ? t('footer.installHintIos') : t('footer.installHintGeneric')}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Social Icons */}

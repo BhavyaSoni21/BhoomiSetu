@@ -6,9 +6,9 @@
     "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
   },
   ".claude/settings.local.json": {
-    "mtime": 1790246900.9781673,
-    "seen": 1790247232.128248,
-    "ast_hash": "6b261589253d0f650fcca5b9885c50d2",
+    "mtime": 1790254578.2747397,
+    "seen": 1790254644.2589424,
+    "ast_hash": "429dbd67bb317d51efd8d3a630300c61",
     "semantic_hash": ""
   },
   "backend-py/alembic/env.py": {
@@ -312,9 +312,9 @@
     "semantic_hash": "f45141f255cca0be4fb6755093b76a57"
   },
   "backend-py/app/routers/auth.py": {
-    "mtime": 1790238886.6982183,
-    "seen": 1790239148.0283256,
-    "ast_hash": "22847dd92d829aa4bfb012d5fd393e10",
+    "mtime": 1790254498.2227588,
+    "seen": 1790254644.276473,
+    "ast_hash": "e090afcfc8415cbd802683b456665311",
     "semantic_hash": ""
   },
   "backend-py/app/routers/change_detection.py": {
@@ -828,9 +828,9 @@
     "semantic_hash": "5471acec9852614ebb1754e36a06d4c3"
   },
   "backend-py/tests/routers/test_auth.py": {
-    "mtime": 1790241081.9008105,
-    "seen": 1790241186.0296397,
-    "ast_hash": "7fc318e48a037d2406309e53522744ca",
+    "mtime": 1790247379.4937036,
+    "seen": 1790250887.4342303,
+    "ast_hash": "508427304547017760f0851512ea0b7e",
     "semantic_hash": ""
   },
   "backend-py/tests/routers/test_change_detection.py": {
@@ -942,9 +942,9 @@
     "semantic_hash": ""
   },
   "frontend/src/App.tsx": {
-    "mtime": 1790243784.2661796,
-    "seen": 1790243875.7115672,
-    "ast_hash": "dbf044f7bbd52d93285a8227e95b2e6f",
+    "mtime": 1790250838.193563,
+    "seen": 1790250887.438086,
+    "ast_hash": "c8d95addbcaaa37170142b9bfd0ec8c1",
     "semantic_hash": ""
   },
   "frontend/src/components/BackButton.tsx": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/Footer.tsx": {
-    "mtime": 1790241572.118486,
-    "seen": 1790241627.729468,
-    "ast_hash": "c5ed56d4bca0b532e97cf586c4ac9de9",
+    "mtime": 1790253415.3109615,
+    "seen": 1790253652.8010244,
+    "ast_hash": "27f6d14462c8cb4a1434e0b2eacd3f1b",
     "semantic_hash": ""
   },
   "frontend/src/components/IndianEmblem.tsx": {
@@ -1296,9 +1296,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/map/MapComponent.tsx": {
-    "mtime": 1790227218.2442577,
-    "seen": 1790231765.9633658,
-    "ast_hash": "e4962a8989463af88c2f952b465dfb50",
+    "mtime": 1790256886.7097957,
+    "seen": 1790258272.2111337,
+    "ast_hash": "3fb13d90072388d81880d5306a48eb99",
     "semantic_hash": ""
   },
   "frontend/src/features/notifications/NotificationFeed.test.tsx": {
@@ -1446,9 +1446,9 @@
     "semantic_hash": ""
   },
   "frontend/src/main.tsx": {
-    "mtime": 1790227218.2635958,
-    "seen": 1790231765.9680045,
-    "ast_hash": "31a7eed29e5f2d490bcfdf1c544cb006",
+    "mtime": 1790254297.8766558,
+    "seen": 1790254344.6262057,
+    "ast_hash": "937c450b389eb8c00ce34beca358eaf9",
     "semantic_hash": ""
   },
   "frontend/src/navConfig.ts": {
@@ -1476,9 +1476,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/BhoomiSetuLanding.tsx": {
-    "mtime": 1790242236.3109467,
-    "seen": 1790242261.7208629,
-    "ast_hash": "1b3fe7c97471018b80c59500533b55e2",
+    "mtime": 1790252060.519235,
+    "seen": 1790252330.4092045,
+    "ast_hash": "a29d4d8287102bbd51808b4409513db1",
     "semantic_hash": ""
   },
   "frontend/src/pages/CitizenPortal.tsx": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/LoginPage.tsx": {
-    "mtime": 1790243793.6620474,
-    "seen": 1790243875.7305815,
-    "ast_hash": "627775fdbea3db4c8c7cc8079bc98535",
+    "mtime": 1790250813.6047335,
+    "seen": 1790250887.4549038,
+    "ast_hash": "4ffdc6d689776dc868924fe0a916861f",
     "semantic_hash": ""
   },
   "frontend/src/pages/OfficerPortal.test.tsx": {
@@ -1686,9 +1686,9 @@
     "semantic_hash": ""
   },
   "frontend/src/services/apiService.ts": {
-    "mtime": 1790227218.2931297,
-    "seen": 1790231765.9755416,
-    "ast_hash": "bd6f072a33a34c9a6226fdf05e40b6fe",
+    "mtime": 1790258262.2306528,
+    "seen": 1790258272.2731752,
+    "ast_hash": "e14bfd54e6f081d597894c997771a7cb",
     "semantic_hash": ""
   },
   "frontend/src/test/setup.ts": {
@@ -1818,15 +1818,15 @@
     "semantic_hash": "512128a95637cc3f1bb4c95c45b83ff5"
   },
   "frontend/vercel.json": {
-    "mtime": 1788982501.4280436,
-    "seen": 1789370481.2865145,
-    "ast_hash": "7708fbf29b99cd92c2a778d60001c5ba",
-    "semantic_hash": "7708fbf29b99cd92c2a778d60001c5ba"
+    "mtime": 1790255433.75317,
+    "seen": 1790258272.2886512,
+    "ast_hash": "06823ae4143bcfbc3622491dfd2b3a2e",
+    "semantic_hash": ""
   },
   "frontend/vite.config.ts": {
-    "mtime": 1790227648.9597132,
-    "seen": 1790231765.9774702,
-    "ast_hash": "c3bb09c78fd7617d66bfb6465a279bd6",
+    "mtime": 1790254247.8502357,
+    "seen": 1790254344.6362047,
+    "ast_hash": "6c643a320fe39de15f52c609f82d6794",
     "semantic_hash": ""
   },
   "frontend/vitest.config.ts": {
@@ -2622,9 +2622,9 @@
     "semantic_hash": ""
   },
   "frontend/src/context/LanguageContext.tsx": {
-    "mtime": 1790227218.226442,
-    "seen": 1790231765.9489093,
-    "ast_hash": "07e6296c5747810db359d39d69aa7526",
+    "mtime": 1790253496.2687995,
+    "seen": 1790253652.8029618,
+    "ast_hash": "5d42f0caefea65fecae9a5cdaee1ffee",
     "semantic_hash": ""
   },
   "frontend/src/data/govtSchemes.ts": {
@@ -2934,9 +2934,9 @@
     "semantic_hash": ""
   },
   "backend-py/requirements.txt": {
-    "mtime": 1789850803.5616584,
-    "seen": 1790096301.173237,
-    "ast_hash": "b4d4059e3dcc94472f015a7946ec0d43",
+    "mtime": 1790252948.9008317,
+    "seen": 1790253652.8280554,
+    "ast_hash": "b21f8af22030362fcef9795c6a1cd130",
     "semantic_hash": ""
   },
   "backend-py/static/fonts/druid-serif/info.txt": {
@@ -3546,9 +3546,9 @@
     "semantic_hash": ""
   },
   "docs/BhoomiSetu_Master_Project_Document.md": {
-    "mtime": 1790227218.197566,
-    "seen": 1790231765.9789484,
-    "ast_hash": "33677b44fb3b86d0246ec1ae21ae0f6b",
+    "mtime": 1790258205.3889558,
+    "seen": 1790258272.2967296,
+    "ast_hash": "bd697a0fee4669b266b79c63e647d584",
     "semantic_hash": ""
   },
   "backend-py/tests/scripts/test_zone_rings.py": {
@@ -3666,9 +3666,9 @@
     "semantic_hash": ""
   },
   "frontend/src/offline/gis.ts": {
-    "mtime": 1790227218.267383,
-    "seen": 1790231765.96828,
-    "ast_hash": "f95f855cadcebae6144bf83af028a2cf",
+    "mtime": 1790256938.8145065,
+    "seen": 1790258272.2379076,
+    "ast_hash": "41a6aa9b54d7e83c808b94ef5628468d",
     "semantic_hash": ""
   },
   "backend-py/alembic/versions/c1e2f3a40003_add_onboarding_completed.py": {
@@ -3723,6 +3723,30 @@
     "mtime": 1790239024.674851,
     "seen": 1790243875.7232554,
     "ast_hash": "edb1d2f81cb0be01f5c59723d608f31a",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/pwa/usePwaInstall.ts": {
+    "mtime": 1790254278.1208093,
+    "seen": 1790254344.6254988,
+    "ast_hash": "feee20b470dc1c7fd43b67343fa358b2",
+    "semantic_hash": ""
+  },
+  "backend-py/app/auth/login_guard.py": {
+    "mtime": 1790254460.8425457,
+    "seen": 1790254644.2672415,
+    "ast_hash": "4e2069e6957ed21e2dfb8a752fbca1ba",
+    "semantic_hash": ""
+  },
+  "backend-py/tests/routers/test_login_lockout.py": {
+    "mtime": 1790254511.2140484,
+    "seen": 1790254644.3037014,
+    "ast_hash": "866ff1d5d068a5093395117d9279270e",
+    "semantic_hash": ""
+  },
+  "docs/Readmeplan.md": {
+    "mtime": 1790256344.0454538,
+    "seen": 1790258272.2989028,
+    "ast_hash": "333d6cc2b78cbe46ea0cb6253c7c1459",
     "semantic_hash": ""
   }
 }

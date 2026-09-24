@@ -8,6 +8,7 @@ import { initTheme } from './theme/theme';
 import { LanguageProvider } from './context/LanguageContext';
 import { queryClient, persistOptions } from './offline/persist';
 import { startNetworkMonitor } from './offline/network';
+import './features/pwa/usePwaInstall'; // capture beforeinstallprompt at startup, before the footer mounts
 
 initTheme();
 startNetworkMonitor();

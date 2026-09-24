@@ -1,6 +1,6 @@
 import { db, CachedArea } from './db';
 import { currentUserId } from './queue';
-import apiService from '../services/apiService';
+import apiService, { apiBase } from '../services/apiService';
 
 // Selective offline GIS (spec §10). "Download area" warms the browser caches
 // for a cluster/district's bounds so the map renders offline. We don't invent a
@@ -69,12 +69,13 @@ export async function downloadArea(
   } catch { /* offline / server down — area still records what tiles we got */ }
   tick();
 
-  // MVT tiles across all terrain layers. Relative path == what MapComponent
-  // requests, so the service worker caches under the same key.
-  const urls = tiles.flatMap((t) => TILE_LAYERS.map((l) => `/api/tiles/${l}/${t.z}/${t.x}/${t.y}.pbf`));
+  // MVT tiles across all terrain layers. Same absolute URL MapComponent
+  // requests (see apiService.apiBase), so the service worker caches under
+  // the same key.
+  const urls = tiles.flatMap((t) => TILE_LAYERS.map((l) => `${apiBase}/tiles/${l}/${t.z}/${t.x}/${t.y}.pbf`));
   await pool(tiles, 8, async (t) => {
     await Promise.all(TILE_LAYERS.map((l) =>
-      fetch(`/api/tiles/${l}/${t.z}/${t.x}/${t.y}.pbf`, { cache: 'reload' }).catch(() => {})));
+      fetch(`${apiBase}/tiles/${l}/${t.z}/${t.x}/${t.y}.pbf`, { cache: 'reload' }).catch(() => {})));
     tick();
   });
 

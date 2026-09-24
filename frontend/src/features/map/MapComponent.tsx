@@ -4,7 +4,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useQuery } from '@tanstack/react-query';
-import apiService from '../../services/apiService';
+import apiService, { apiBase } from '../../services/apiService';
 import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
 import { ParcelContextResponse, SpatialFeatureCollection } from '../../types/spatial';
 
@@ -152,28 +152,28 @@ const BASE_STYLE: maplibregl.StyleSpecification = {
     // Vector tile sources for terrain layers (loaded dynamically)
     roads: {
       type: 'vector',
-      tiles: ['/api/tiles/roads/{z}/{x}/{y}.pbf'],
+      tiles: [`${apiBase}/tiles/roads/{z}/{x}/{y}.pbf`],
       minzoom: 0,
       maxzoom: 14,
       attribution: '&copy; OSM via Earth Engine',
     },
     buildings: {
       type: 'vector',
-      tiles: ['/api/tiles/buildings/{z}/{x}/{y}.pbf'],
+      tiles: [`${apiBase}/tiles/buildings/{z}/{x}/{y}.pbf`],
       minzoom: 0,
       maxzoom: 16,
       attribution: '&copy; Microsoft Building Footprints',
     },
     landcover: {
       type: 'vector',
-      tiles: ['/api/tiles/landcover/{z}/{x}/{y}.pbf'],
+      tiles: [`${apiBase}/tiles/landcover/{z}/{x}/{y}.pbf`],
       minzoom: 0,
       maxzoom: 12,
       attribution: '&copy; ESA WorldCover / Dynamic World',
     },
     elevation: {
       type: 'vector',
-      tiles: ['/api/tiles/elevation/{z}/{x}/{y}.pbf'],
+      tiles: [`${apiBase}/tiles/elevation/{z}/{x}/{y}.pbf`],
       minzoom: 0,
       maxzoom: 12,
       attribution: '&copy; Copernicus DEM 30m',

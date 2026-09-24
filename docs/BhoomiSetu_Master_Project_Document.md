@@ -70,7 +70,7 @@ The problem the PS names is fragmentation: *"land governance involves multiple i
 
 > **One Parcel. Every Record. One Trusted Workflow.**
 
-**What exists today (PROTOTYPE):** a running React + FastAPI application with real PostGIS spatial queries over **~6,120 seeded parcels across 58 clusters in 30 States/UTs**, 32 implemented features, 8 departmental officer roles, an AI assistant + AI request-routing (Groq), OCR document verification, satellite change-detection via Google Earth Engine, an 11-language Bhashini UI, a unified case-management engine, and RBAC + JWT + audit logging throughout.
+**What exists today (PROTOTYPE):** a running React + FastAPI application with real PostGIS spatial queries over **~6,120 seeded parcels across 58 clusters in 30 States/UTs**, 32 implemented features, 8 departmental officer roles, an AI assistant + AI request-routing (Groq), OCR document verification, satellite change-detection via Google Earth Engine, an 11-language Bhashini UI, a unified case-management engine, RBAC + JWT + audit logging throughout, and an offline-first PWA (IndexedDB op-queue → idempotent server sync) for low-connectivity field use.
 
 **What is designed but not fully built (TEAM DESIGN):** the full multi-department resolution engine with SLA sweeping, the complete geometry-versioning survey workflow, and the ML-based (rather than heuristic) predictive layer. These are labelled honestly throughout, because the PS asks for a *scalable prototype*, and a prototype that claims to be production is less defensible to evaluators than one that draws the line clearly.
 
@@ -166,7 +166,7 @@ BhoomiSetu is a three-tier web platform with a spatial database core.
                               ▼
 ┌───────────────────────────────────────────────────────────────────┐
 │                    FastAPI  (backend-py, /api/v1)                    │
-│  27 routers · JWT+RBAC · slowapi rate limit · audit · Celery tasks   │
+│  29 routers · JWT+RBAC · slowapi rate limit · audit · Celery tasks   │
 │  ┌─────────────┬──────────────┬───────────────┬──────────────────┐  │
 │  │ Case/Workflow│ AI (Groq)    │ GIS + Tiles   │ Interop Adapters │  │
 │  │ engine       │ OCR / Earth  │ (PostGIS)     │ (State A/B)      │  │
@@ -177,7 +177,7 @@ BhoomiSetu is a three-tier web platform with a spatial database core.
                               ▼
 ┌───────────────────────────────────────────────────────────────────┐
 │              PostgreSQL + PostGIS (SRID 4326, GIST indexes)          │
-│  58 tables · parcel hub · department records · spatial overlays ·    │
+│  59 tables · parcel hub · department records · spatial overlays ·    │
 │  terrain tiles · cases · governance alerts · audit · users           │
 └───────────────────────────────────────────────────────────────────┘
 ```
@@ -368,7 +368,7 @@ A multi-layer view of the running system (PROTOTYPE unless labelled).
 ╚════════════════════════════════════│════════════════════════════════════════╝
                                       │ HTTPS · /api/v1 · JSON + .pbf tiles
 ╔════════════════════════════════════▼════════════════════════════════════════╗
-║ APPLICATION LAYER  — FastAPI (backend-py) · 27 routers · slowapi rate limit   ║
+║ APPLICATION LAYER  — FastAPI (backend-py) · 29 routers · slowapi rate limit   ║
 ║                                                                               ║
 ║  ┌── EDGE ──────────────────────────────────────────────────────────────┐   ║
 ║  │ CORS allowlist · JWT verify (HS256) · require_roles() RBAC · audit log │   ║
@@ -385,7 +385,7 @@ A multi-layer view of the running system (PROTOTYPE unless labelled).
                                       │ SQLAlchemy 2.0 · GeoAlchemy2 0.16 · Alembic
 ╔════════════════════════════════════▼════════════════════════════════════════╗
 ║ DATA LAYER  — PostgreSQL + PostGIS (SRID 4326, GIST) · Redis (cache/broker)   ║
-║  58 tables: parcel hub + history · dept records · spatial overlays · terrain  ║
+║  59 tables: parcel hub + history · dept records · spatial overlays · terrain  ║
 ║  tiles · cases · governance · audit · users · interop (state_a/state_b)       ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
    EXTERNAL: Groq (LLM) · Google Earth Engine (Sentinel-2) · Bhashini (i18n/TTS/ASR)
@@ -403,7 +403,7 @@ A multi-layer view of the running system (PROTOTYPE unless labelled).
 ---
 ## 11. Data Architecture & ER Model
 
-**PROTOTYPE — 58 SQLAlchemy models** (`backend-py/app/models/*.py`), all mapped to one `Base`. Every geometry column is PostGIS `Geometry`, SRID 4326.
+**PROTOTYPE — 59 SQLAlchemy models** (`backend-py/app/models/*.py`), all mapped to one `Base`. Every geometry column is PostGIS `Geometry`, SRID 4326.
 
 ### The three PS layers, realized as tables
 
@@ -455,13 +455,13 @@ INTEROP (cross-cutting)
  AUDIT_LOG ── every mutation, actor-attributed
 ```
 
-### Table families (58 total, PROTOTYPE)
+### Table families (59 total, PROTOTYPE)
 - **Parcel core + history (13):** hub, identifiers, neighbours, citizen links, documents, ownership history, crop records, and per-domain history (tax/dispute/encumbrance/restriction/registration) + per-year snapshots.
 - **Spatial overlays (5):** zoning, restriction zones, infrastructure, admin notes (admin-only), change-detection events — each carrying a `parcel_ids ARRAY` link.
 - **Terrain / Earth Engine (5, GIST-indexed):** road networks, building footprints, land cover, elevation tiles, parcel terrain profiles.
 - **Workflow (3) + Cases (11) + Governance (2):** pipeline configs, workflows, steps; case engine models; governance alerts + rules.
 - **Department records (9 + 2 interop):** per-department record tables + certificates/documents + State A/B land records.
-- **Users / admin / misc:** users, departments (capability-matrix JSON), audit logs, notifications, pending registrations, processing jobs, profile fields, verification evidence.
+- **Users / admin / misc:** users, departments (capability-matrix JSON), audit logs, notifications, pending registrations, processing jobs, profile fields, verification evidence, offline-sync ledger (`processed_sync_operations`).
 
 ### Interoperability — the canonical envelope (PROTOTYPE, 2 adapters)
 The PS's hardest requirement is that *land is a State subject* with diverse formats/units. BhoomiSetu answers with a **canonical envelope** (snake_case, normalized units) and per-state **adapters**:
@@ -488,6 +488,8 @@ Verified against `frontend/package.json` and `backend-py/requirements.txt`. **Ho
 | Recharts | 2.8 | Analytics dashboard charts |
 | react-query | 4.32 | Server-state caching, retries, background refetch |
 | mapbox-gl-draw | — | Admin geometry drawing tool (scoped to layer authoring) |
+| **Dexie** / idb-keyval | 4.4 / 6.3 | IndexedDB offline cache + idempotent op-queue (field use) |
+| vite-plugin-pwa | 0.20 | Installable PWA + offline app shell / service worker |
 
 ### Backend
 | Tech | Status | Version | Why selected |
@@ -540,6 +542,7 @@ Grouped into three honesty tiers so reviewers can weigh them fairly.
 4. **Pre-assembled evidence chains (PROTOTYPE/TEAM DESIGN)** — before an officer opens a dispute, the complaint + OCR-verified document + verifier geo-photos + prior claim history are already assembled in one view.
 5. **Transparent, explainable risk score (PROTOTYPE)** — a hand-weighted heuristic (tax 0.4 / dispute 0.3 / alerts 0.2 / restriction 0.1) with a plain-language rationale per factor — chosen deliberately over a black-box model because **no labelled outcome data exists to train or validate one**. Honesty as a design principle.
 6. **History-preserving, geometry-versioned writes (PROTOTYPE)** — mutations append; geometry is versioned (`case_parcel_geometry_versions`). Nothing is destroyed, so the audit trail and year-over-year comparison are always possible.
+7. **Offline-first field operation (PROTOTYPE)** — a PWA with an IndexedDB op-queue lets citizens and field verifiers keep working with no connectivity; queued mutations drain on reconnect to an **idempotent, server-authoritative `/sync`** endpoint that re-enforces RBAC and the one-active-case invariant. Field-grade resilience, not a read-only cache (§21).
 
 **The differentiator sentence:** *Anyone can build eight dashboards. BhoomiSetu's innovation is that the eight dashboards write to one record with cross-department rules — which is the fragmentation problem solved, not merely displayed.*
 
@@ -741,6 +744,7 @@ The PS explicitly requires *secure authentication, role-based access controls, a
 - **No `exp` claim by design** — sessions persist until explicit logout bumps `token_version`; an optional idle timeout (`idle_timeout_minutes`, default 0) is available. *Design note:* this is a deliberate demo choice; a production deployment should enable idle timeout / short-lived tokens (TEAM DESIGN hardening).
 - User is looked up fresh every request; a stale `token_version` or deleted user → 401.
 - **Password hashing: bcrypt** directly (`app/auth/passwords.py`).
+- **Per-account brute-force lockout (PROTOTYPE):** `app/auth/login_guard.py` locks an identifier for **15 minutes after 5 failed logins**, returning **429 before credential validation** — a second layer independent of the per-IP limiter, closing the distributed-guess gap (many IPs, one account). In-memory/process-local (same trade-off as the IP limiter; move the counter to a shared store if the backend runs multi-instance — TEAM DESIGN). Disabled under pytest except the dedicated `test_login_lockout.py`.
 - Registration supports OTP + Google OAuth.
 
 ### Authorization — RBAC (PROTOTYPE)
@@ -755,6 +759,7 @@ The PS explicitly requires *secure authentication, role-based access controls, a
 ### Transport & deployment hardening (PROTOTYPE)
 - CORS restricted to an explicit allowlist via `CORS_ORIGIN`.
 - Production hard-checks: refuses to boot under `ENVIRONMENT=production` with an unset/placeholder `JWT_SECRET` or missing DB creds; Swagger disabled in production; PostGIS port not published to host.
+- **Non-root container:** the backend image runs as an unprivileged user (`useradd --uid 10001 appuser` → `USER appuser`); the app writes only to `/tmp`, never `/app`.
 - Rate limiting (slowapi): 200/min default, 30/min on AI/change-detection/historical-imagery, 20/min on OCR.
 
 ### Trust boundaries
@@ -781,10 +786,18 @@ Every external dependency has a defined failure mode — none is a single point 
 | Celery/Redis | not installed | graceful no-op `shared_task` shim; fire-and-forget recompute skipped, request unaffected |
 | Postgres | — | single source of truth; standard managed-Postgres HA/backups in production (TEAM DESIGN) |
 | SMS/Email | citizen has no verified contact | in-app notification still delivered; external delivery skipped |
+| Client network | field device loses connectivity | mutations queue locally (IndexedDB); drain on reconnect to the idempotent `/sync` endpoint — no data lost, no double-apply |
 
 **Design pattern throughout:** *degrade, don't crash.* Every AI/imagery/i18n path has a defined fallback that keeps the core governance workflow working. This is why the demo is robust: even with no API keys set, the case engine, GIS, RBAC, and audit all function.
 
 **Data integrity (PROTOTYPE):** mutations are transactional and history-preserving; geometry is versioned. A failed write rolls back; a successful one appends rather than overwrites.
+
+### Offline-first field operation (PROTOTYPE)
+Connectivity loss is a first-class failure mode, not a crash. An installable **PWA** (`vite-plugin-pwa`) backed by a **Dexie/IndexedDB** store (`frontend/src/offline/`) keeps citizens and field verifiers working offline:
+- **Local workspace, not source of truth:** parcels, Parcel 360°, and cases are cached with freshness metadata and an `ownerUserId`; a shared field device never leaks one user's data to the next, and logout clears the cache.
+- **Idempotent op-queue:** every mutation carries a client-generated `operationId`; a `SyncManager` drains the queue to `POST /api/v1/sync` on reconnect. Replaying an `operationId` returns its stored outcome (`DUPLICATE`) — a dropped response can never double-apply.
+- **Server stays authoritative:** `app/routers/sync.py` re-runs the exact online path — RBAC and the one-active-case invariant (§6) are re-checked server-side and every applied op is audited (`CASE_CREATED_OFFLINE_SYNC`). An already-active case returns a `CONFLICT` resolved server-side, never a silent overwrite; a `ProcessedSyncOperation` ledger records every terminal outcome.
+- **Scope (honest):** offline **case creation** is PROTOTYPE; offline document/evidence sync is the next phase (**TEAM DESIGN**). The verifier's geo-tagged field evidence has its own local retry queue.
 
 **Not yet built (TEAM DESIGN):** automated DB failover, multi-region replication, and an SLA-breach sweeper (SLA configs are *stored and queried* but not actively swept by a Celery task today — flagged honestly).
 
@@ -818,11 +831,11 @@ The order reflects the PS's own dependency logic (Base → Essential → Additio
 | **3. Essential governance records** | RoR/registration/tax/restriction/dispute/encumbrance/survey tables + history, Parcel 360° | ✅ PROTOTYPE |
 | **4. Interoperability** | canonical envelope + State A/B adapters, identifier resolver | ✅ PROTOTYPE (2 states) |
 | **5. Identity & access** | JWT auth (OTP/OAuth), 11-role RBAC, audit logging | ✅ PROTOTYPE |
-| **6. Citizen & officer portals** | multi-page portals, service requests, officer review + mandatory-reason decisions | ✅ PROTOTYPE |
+| **6. Citizen & officer portals** | multi-page portals, service requests, officer review + mandatory-reason decisions, offline-first PWA (IndexedDB queue → idempotent `/sync`) for field use | ✅ PROTOTYPE |
 | **7. Workflow / case engine** | case lifecycle, one-case→many-tasks, verifier field evidence, configurable pipelines | ✅ PROTOTYPE (engine) / 🔶 TEAM DESIGN (full multi-dept resolution + SLA sweep) |
 | **8. AI decision-support** | Groq intake/routing/explanation (schema-validated, human-in-loop), OCR verification | ✅ PROTOTYPE |
 | **9. Spatial intelligence** | Earth Engine change detection, historical comparison, risk-score heuristic, governance alerts | ✅ PROTOTYPE |
-| **10. Multilingual + hardening** | 11-language Bhashini UI + TTS/ASR, Docker deploy, production guards | ✅ PROTOTYPE |
+| **10. Multilingual + hardening** | 11-language Bhashini UI + TTS/ASR, Docker deploy (non-root container), production guards, per-account login lockout | ✅ PROTOTYPE |
 
 **Remaining / next (TEAM DESIGN):**
 - Full automatic cross-department propagation rules (tax reassess, restriction-blocks-encumbrance, dispute-pauses-registration).
@@ -830,6 +843,7 @@ The order reflects the PS's own dependency logic (Base → Essential → Additio
 - Official-PDF integration gaps (profile block, multi-page, inline view — §15).
 - Trained ML predictive model (contingent on labelled data).
 - N-state adapter expansion.
+- Offline sync for documents/evidence (offline case creation is done; document/evidence sync is the next block — §21).
 
 **Strategy principle:** each phase produced a *demoable* increment, and no phase depended on a not-yet-built later phase — the reason the prototype is coherent rather than a pile of stubs.
 
@@ -848,11 +862,12 @@ The order reflects the PS's own dependency logic (Base → Essential → Additio
 | Layer | What | Method | Status |
 |---|---|---|---|
 | Spatial SQL | bbox, contains, MVT | live Postgres+PostGIS | ✅ verified |
-| Auth/RBAC | role gates, token version, self-lockout | unit/endpoint | ✅ |
+| Auth/RBAC | role gates, token version, per-account failed-login lockout | unit/endpoint (`test_login_lockout.py`) | ✅ |
 | Case engine | lifecycle transitions, `ACTIVE_CASE_EXISTS` guard | unit | ✅ |
 | AI routing | fallback on no key, closed-set validation | unit (fallback exercised) | ✅ |
 | Change detection | image + satellite → alerts | live EE run | ✅ verified |
 | Verifier | assign, field-evidence, role separation | endpoint suite | ✅ |
+| Offline sync | idempotent replay (`DUPLICATE`), server-side Invariant-1 re-check, `CONFLICT` resolution | endpoint | ✅ |
 | Official PDF | `%PDF-` signature only | unit | 🔶 gap: no value assertions (TEAM DESIGN: add `pypdf` extraction, 403 test, 25-row overflow test) |
 | Frontend i18n | label coverage | vitest | 🔶 drift being reconciled against `en.json` |
 | Load / latency | throughput, tile-serve time | — | ❌ **DATA REQUIRED** — not yet measured |
@@ -929,8 +944,8 @@ KPIs are split into **product** (measurable now) and **outcome** (require a real
 | Departments modelled | officer roles → departments | 8 |
 | Languages | full live-switch coverage | 11 |
 | Features implemented | from the feature index | 32 |
-| Data model breadth | SQLAlchemy tables | 58 |
-| API surface | router groups | 27 |
+| Data model breadth | SQLAlchemy tables | 59 |
+| API surface | router groups | 29 |
 | Change-detection accuracy (functional) | parcels correctly flagged in a known-change region | verified functional (Pune: 75/75); precision/recall = DATA REQUIRED |
 
 ### Outcome KPIs (DATA REQUIRED — measure on pilot)
@@ -1178,7 +1193,7 @@ Credible, verifiable sources only. Standards and government infrastructure the d
 
 BhoomiSetu is a functional, parcel-centric, GIS-based Land Stack prototype that answers SIH26014 not by building a ninth department system, but by making **one parcel record** the point where every department's data and every citizen's request converge — under **one auditable workflow** and a **canonical-model-plus-adapters** design that respects the PS's hardest constraint: *land is a State subject.*
 
-**What is real today (PROTOTYPE):** real PostGIS spatial SQL and MVT vector tiles over ~6,120 road-snapped parcels across 30 States/UTs; 58-table data model spanning the PS's three layers; 8 departmental officer roles with RBAC, JWT, and full audit logging; a unified case engine with lifecycle enforcement and the "one active request per type, multiple disputes allowed" invariant; Groq-backed AI intake/routing/explanation that is schema-validated, human-in-loop, and never authoritative; OCR document verification; live Google Earth Engine satellite change detection; an 11-language Bhashini UI with voice I/O; and a hardened Docker deployment.
+**What is real today (PROTOTYPE):** real PostGIS spatial SQL and MVT vector tiles over ~6,120 road-snapped parcels across 30 States/UTs; 59-table data model spanning the PS's three layers; 8 departmental officer roles with RBAC, JWT, and full audit logging; a unified case engine with lifecycle enforcement and the "one active request per type, multiple disputes allowed" invariant; Groq-backed AI intake/routing/explanation that is schema-validated, human-in-loop, and never authoritative; OCR document verification; live Google Earth Engine satellite change detection; an 11-language Bhashini UI with voice I/O; an offline-first PWA (IndexedDB op-queue → idempotent, server-authoritative sync) for low-connectivity field use; and a hardened Docker deployment (non-root container, per-account login lockout).
 
 **What is honestly labelled as design (TEAM DESIGN):** the full automatic cross-department propagation rule set, SLA sweeping, N-state adapter expansion, a trained ML predictive layer (pending labelled data), and the official-PDF integration completion.
 

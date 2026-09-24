@@ -16,6 +16,16 @@ const apiService = axios.create({
   },
 });
 
+// Absolute API base (origin + /api/v1) for requests that bypass this axios
+// instance — MapLibre MVT tiles and the offline tile prefetch fetch
+// `<apiBase>/tiles/*.pbf` directly. Two reasons it must be the full base, not a
+// relative path: (1) on Vercel the SPA and API live on different origins, so a
+// relative /api/... path hits the SPA rewrite (returns index.html) instead of
+// the backend; (2) the tiles router is mounted under /api/v1 like every other
+// route (main.py), so the version segment must be included. Deriving from
+// baseURL carries both automatically.
+export const apiBase = ((apiService.defaults.baseURL as string) || 'http://localhost:8000/api/v1').replace(/\/$/, '');
+
 // Request interceptor for adding auth token
 apiService.interceptors.request.use(
   (config) => {

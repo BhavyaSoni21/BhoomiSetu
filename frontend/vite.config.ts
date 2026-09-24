@@ -21,8 +21,12 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         icons: [
-          { src: '/logo-icon.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/bhoomisetu-logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          // logo-icon.png is a real 512x512 PNG — it satisfies Chrome's
+          // installability bar (needs a genuine >=512 icon). The old manifest
+          // mislabeled it 192 and pointed the 512 slot at a 163px file, so the
+          // app was never installable and beforeinstallprompt never fired.
+          { src: '/logo-icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/logo-icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
