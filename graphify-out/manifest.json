@@ -6,9 +6,9 @@
     "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
   },
   ".claude/settings.local.json": {
-    "mtime": 1790241531.2708,
-    "seen": 1790241627.695412,
-    "ast_hash": "57eb088cee9c62b00832d50d4ad6b2fd",
+    "mtime": 1790246900.9781673,
+    "seen": 1790247232.128248,
+    "ast_hash": "6b261589253d0f650fcca5b9885c50d2",
     "semantic_hash": ""
   },
   "backend-py/alembic/env.py": {
@@ -192,15 +192,15 @@
     "semantic_hash": ""
   },
   "backend-py/app/main.py": {
-    "mtime": 1790227218.1455698,
-    "seen": 1790231765.9001894,
-    "ast_hash": "9d6749245a8ab3d23d27a683bd40723d",
+    "mtime": 1790246489.1649187,
+    "seen": 1790246517.0803752,
+    "ast_hash": "32b27f9da0daf83bedc684c1db550a82",
     "semantic_hash": ""
   },
   "backend-py/app/middleware.py": {
-    "mtime": 1789668466.9644246,
-    "seen": 1790096301.1693597,
-    "ast_hash": "346af46eb658be7f5547e76948177345",
+    "mtime": 1790246489.1649187,
+    "seen": 1790246517.0803766,
+    "ast_hash": "5f3e22703cfbb6324fdd1c78ee9cef79",
     "semantic_hash": ""
   },
   "backend-py/app/models/__init__.py": {
@@ -366,9 +366,9 @@
     "semantic_hash": ""
   },
   "backend-py/app/routers/parcels.py": {
-    "mtime": 1790227218.1617994,
-    "seen": 1790231765.9080222,
-    "ast_hash": "317243dca4a203834b0c4e3934f0d7c1",
+    "mtime": 1790246841.8380527,
+    "seen": 1790247232.1421306,
+    "ast_hash": "734cd74f3c007a3b2fb374b111887f12",
     "semantic_hash": ""
   },
   "backend-py/app/routers/predictive_analytics.py": {
@@ -942,9 +942,9 @@
     "semantic_hash": ""
   },
   "frontend/src/App.tsx": {
-    "mtime": 1790238886.703295,
-    "seen": 1790239148.0517824,
-    "ast_hash": "c5c94b8a9382e5420ea447eadc6a9b8a",
+    "mtime": 1790243784.2661796,
+    "seen": 1790243875.7115672,
+    "ast_hash": "dbf044f7bbd52d93285a8227e95b2e6f",
     "semantic_hash": ""
   },
   "frontend/src/components/BackButton.tsx": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/LoginPage.tsx": {
-    "mtime": 1790242101.0808868,
-    "seen": 1790242139.0755427,
-    "ast_hash": "d0e0250716d3725d041d2a510ac187b2",
+    "mtime": 1790243793.6620474,
+    "seen": 1790243875.7305815,
+    "ast_hash": "627775fdbea3db4c8c7cc8079bc98535",
     "semantic_hash": ""
   },
   "frontend/src/pages/OfficerPortal.test.tsx": {
@@ -2112,9 +2112,9 @@
     "semantic_hash": ""
   },
   "backend-py/app/routers/cases.py": {
-    "mtime": 1790227218.1573079,
-    "seen": 1790231765.9059632,
-    "ast_hash": "9a8236f91685da7eb5ecbd88419c09d6",
+    "mtime": 1790244191.5332844,
+    "seen": 1790245143.0499356,
+    "ast_hash": "515ebd887784cd56b92a1141cbc13fd4",
     "semantic_hash": ""
   },
   "backend-py/app/routers/jobs.py": {
@@ -2130,9 +2130,9 @@
     "semantic_hash": ""
   },
   "backend-py/app/routers/multilingual.py": {
-    "mtime": 1789668466.9788983,
-    "seen": 1790096301.1693985,
-    "ast_hash": "218e8bde91ac2421b9b4f4998434de03",
+    "mtime": 1790245881.7383564,
+    "seen": 1790246084.2044168,
+    "ast_hash": "639907e6aac8c847c203d6d0fdd771ae",
     "semantic_hash": ""
   },
   "backend-py/app/routers/profile_fields.py": {
@@ -3246,9 +3246,9 @@
     "semantic_hash": ""
   },
   "frontend/public/Parcel-example.png": {
-    "mtime": 1789668467.0929096,
-    "seen": 1790096301.173292,
-    "ast_hash": "c40e8e9e70084c7e98a5a7c2cc7c9e93",
+    "mtime": 1790242376.4884276,
+    "seen": 1790243875.748652,
+    "ast_hash": "54509eaa8695bcc09df1e516e7210f1c",
     "semantic_hash": ""
   },
   "frontend/public/apple-touch-icon.png": {
@@ -3564,9 +3564,9 @@
     "semantic_hash": ""
   },
   "render.yaml": {
-    "mtime": 1790227218.501817,
-    "seen": 1790231765.98508,
-    "ast_hash": "339b57ce84bd6021ccfb345429f6f48c",
+    "mtime": 1790245221.9676197,
+    "seen": 1790245401.9091754,
+    "ast_hash": "9f1afe80a116fdc56737519cc188f72b",
     "semantic_hash": ""
   },
   "backend-py/app/routers/public.py": {
@@ -3711,6 +3711,18 @@
     "mtime": 1790242010.638793,
     "seen": 1790242139.1021483,
     "ast_hash": "bcae3ecbb72e23cf1aa10dd508274c17",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/map/nearestCluster.test.ts": {
+    "mtime": 1790239034.8174014,
+    "seen": 1790243875.723253,
+    "ast_hash": "fe43c4019c03750509cee6b606685dfa",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/map/nearestCluster.ts": {
+    "mtime": 1790239024.674851,
+    "seen": 1790243875.7232554,
+    "ast_hash": "edb1d2f81cb0be01f5c59723d608f31a",
     "semantic_hash": ""
   }
 }
