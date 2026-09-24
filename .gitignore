@@ -106,3 +106,13 @@ auth_register_page.tsx
 
 # Vite PWA dev build output (regenerated on every dev run)
 frontend/dev-dist/
+
+# Local tooling / agent config and stray scripts — not part of the shipped
+# project. Kept locally, untracked. The in-app sample 7/12 lives at
+# frontend/public/ (still tracked); only the stray root copy is ignored.
+.claude/
+.kilo/
+.github/
+CLAUDE.md
+check.bat
+/sample_verified_712.pdf
