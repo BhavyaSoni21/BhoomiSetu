@@ -11,11 +11,12 @@ Includes:
 import json
 import logging
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, File, Form, UploadFile, status
+from fastapi import APIRouter, HTTPException, File, Form, Request, UploadFile, status
 from fastapi.responses import Response as HTTPResponse
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
+from app.rate_limit import limiter
 from app.services.bhashini import (
     translate_text,
     transliterate_text,
@@ -81,7 +82,12 @@ class ASRResponse(BaseModel):
     summary="Translate text using Bhashini NMT",
     description="Translate text from one language to another using Government of India's Bhashini platform"
 )
-async def translate(request: TranslateRequest):
+# These four endpoints are unauthenticated (guests use them on the public
+# landing) AND each proxies a paid Government-of-India Bhashini API call, so a
+# tighter per-IP cap on top of the app-wide 200/min default guards cost/abuse
+# — same pattern as routers/ai.py's external-AI routes.
+@limiter.limit("30/minute")
+async def translate(request: Request, body: TranslateRequest):
     """
     Translate text between languages
     
@@ -97,9 +103,9 @@ async def translate(request: TranslateRequest):
     """
     try:
         result = await translate_text(
-            text=request.text,
-            source_lang=request.source_lang,
-            target_lang=request.target_lang
+            text=body.text,
+            source_lang=body.source_lang,
+            target_lang=body.target_lang
         )
         return TranslateResponse(
             translated_text=result.translated_text,
@@ -123,7 +129,8 @@ async def translate(request: TranslateRequest):
     summary="Transliterate text between scripts",
     description="Convert text from Roman to Devanagari script or vice versa"
 )
-async def transliterate(request: TransliterateRequest):
+@limiter.limit("30/minute")
+async def transliterate(request: Request, body: TransliterateRequest):
     """
     Transliterate text between different scripts
     
@@ -139,9 +146,9 @@ async def transliterate(request: TransliterateRequest):
     """
     try:
         result = await transliterate_text(
-            text=request.text,
-            source_lang=request.source_lang,
-            target_lang=request.target_lang
+            text=body.text,
+            source_lang=body.source_lang,
+            target_lang=body.target_lang
         )
         return TransliterateResponse(
             transliterated_text=result.transliterated_text,
@@ -165,7 +172,8 @@ async def transliterate(request: TransliterateRequest):
     summary="Convert text to speech",
     description="Generate audio from text using Bhashini TTS"
 )
-async def text_to_speech_endpoint(request: TTSRequest):
+@limiter.limit("30/minute")
+async def text_to_speech_endpoint(request: Request, body: TTSRequest):
     """
     Convert text to speech audio
     
@@ -180,8 +188,8 @@ async def text_to_speech_endpoint(request: TTSRequest):
     """
     try:
         result = await text_to_speech(
-            text=request.text,
-            language=request.language
+            text=body.text,
+            language=body.language
         )
         return HTTPResponse(
             content=result.audio_bytes,
@@ -204,7 +212,9 @@ async def text_to_speech_endpoint(request: TTSRequest):
     summary="Convert speech to text",
     description="Transcribe audio to text using Bhashini ASR"
 )
+@limiter.limit("30/minute")
 async def speech_to_text_endpoint(
+    request: Request,
     audio: UploadFile = File(..., description="Audio file (WAV format)"),
     language: str = Form(default="hi", description="Language code (hi, en, etc.)")
 ):
