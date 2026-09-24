@@ -552,9 +552,9 @@ class TestGoogleOAuth:
         from app.config import Settings
         from app.services import oauth_service
         test_settings = Settings(
-            google_client_id="test-client-id",
-            google_client_secret="test-client-secret",
-            google_redirect_uri="http://localhost:5173/auth/callback",
+            google_oauth_client_id="test-client-id",
+            google_oauth_client_secret="test-client-secret",
+            google_oauth_redirect_uri="http://localhost:5173/auth/callback",
         )
         monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
 
@@ -572,9 +572,9 @@ class TestGoogleOAuth:
         from app.config import Settings
         from app.services import oauth_service
         test_settings = Settings(
-            google_client_id="test-client-id",
-            google_client_secret="test-client-secret",
-            google_redirect_uri="http://localhost:5173/auth/callback",
+            google_oauth_client_id="test-client-id",
+            google_oauth_client_secret="test-client-secret",
+            google_oauth_redirect_uri="http://localhost:5173/auth/callback",
         )
         monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
 
@@ -589,9 +589,9 @@ class TestGoogleOAuth:
         from app.config import Settings
         from app.services import oauth_service
         test_settings = Settings(
-            google_client_id="",
-            google_client_secret="",
-            google_redirect_uri="http://localhost:5173/auth/callback",
+            google_oauth_client_id="",
+            google_oauth_client_secret="",
+            google_oauth_redirect_uri="http://localhost:5173/auth/callback",
         )
         monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
 
@@ -605,9 +605,9 @@ class TestGoogleOAuth:
         from app.config import Settings
         from app.services import oauth_service
         test_settings = Settings(
-            google_client_id="test-client-id",
-            google_client_secret="test-client-secret",
-            google_redirect_uri="http://localhost:5173/auth/callback",
+            google_oauth_client_id="test-client-id",
+            google_oauth_client_secret="test-client-secret",
+            google_oauth_redirect_uri="http://localhost:5173/auth/callback",
         )
         monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
 
@@ -621,9 +621,9 @@ class TestGoogleOAuth:
         from app.config import Settings
         from app.services import oauth_service
         test_settings = Settings(
-            google_client_id="test-client-id",
-            google_client_secret="test-client-secret",
-            google_redirect_uri="http://localhost:5173/auth/callback",
+            google_oauth_client_id="test-client-id",
+            google_oauth_client_secret="test-client-secret",
+            google_oauth_redirect_uri="http://localhost:5173/auth/callback",
         )
         monkeypatch.setattr(oauth_service, "get_settings", lambda: test_settings)
 
