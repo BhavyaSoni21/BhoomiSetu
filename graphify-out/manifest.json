@@ -6,9 +6,9 @@
     "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
   },
   ".claude/settings.local.json": {
-    "mtime": 1790246900.9781673,
-    "seen": 1790247232.128248,
-    "ast_hash": "6b261589253d0f650fcca5b9885c50d2",
+    "mtime": 1790247399.7434201,
+    "seen": 1790250887.403609,
+    "ast_hash": "6ec8f894b564ce7610080c574391c70f",
     "semantic_hash": ""
   },
   "backend-py/alembic/env.py": {
@@ -828,9 +828,9 @@
     "semantic_hash": "5471acec9852614ebb1754e36a06d4c3"
   },
   "backend-py/tests/routers/test_auth.py": {
-    "mtime": 1790241081.9008105,
-    "seen": 1790241186.0296397,
-    "ast_hash": "7fc318e48a037d2406309e53522744ca",
+    "mtime": 1790247379.4937036,
+    "seen": 1790250887.4342303,
+    "ast_hash": "508427304547017760f0851512ea0b7e",
     "semantic_hash": ""
   },
   "backend-py/tests/routers/test_change_detection.py": {
@@ -942,9 +942,9 @@
     "semantic_hash": ""
   },
   "frontend/src/App.tsx": {
-    "mtime": 1790243784.2661796,
-    "seen": 1790243875.7115672,
-    "ast_hash": "dbf044f7bbd52d93285a8227e95b2e6f",
+    "mtime": 1790250838.193563,
+    "seen": 1790250887.438086,
+    "ast_hash": "c8d95addbcaaa37170142b9bfd0ec8c1",
     "semantic_hash": ""
   },
   "frontend/src/components/BackButton.tsx": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/LoginPage.tsx": {
-    "mtime": 1790243793.6620474,
-    "seen": 1790243875.7305815,
-    "ast_hash": "627775fdbea3db4c8c7cc8079bc98535",
+    "mtime": 1790250813.6047335,
+    "seen": 1790250887.4549038,
+    "ast_hash": "4ffdc6d689776dc868924fe0a916861f",
     "semantic_hash": ""
   },
   "frontend/src/pages/OfficerPortal.test.tsx": {
@@ -1818,15 +1818,15 @@
     "semantic_hash": "512128a95637cc3f1bb4c95c45b83ff5"
   },
   "frontend/vercel.json": {
-    "mtime": 1788982501.4280436,
-    "seen": 1789370481.2865145,
-    "ast_hash": "7708fbf29b99cd92c2a778d60001c5ba",
-    "semantic_hash": "7708fbf29b99cd92c2a778d60001c5ba"
+    "mtime": 1790249756.6652164,
+    "seen": 1790250887.4629986,
+    "ast_hash": "06823ae4143bcfbc3622491dfd2b3a2e",
+    "semantic_hash": ""
   },
   "frontend/vite.config.ts": {
-    "mtime": 1790227648.9597132,
-    "seen": 1790231765.9774702,
-    "ast_hash": "c3bb09c78fd7617d66bfb6465a279bd6",
+    "mtime": 1790250029.2967832,
+    "seen": 1790250887.4630003,
+    "ast_hash": "a47c0a9f33a3b7923e385ba924db4443",
     "semantic_hash": ""
   },
   "frontend/vitest.config.ts": {
