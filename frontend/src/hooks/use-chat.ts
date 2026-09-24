@@ -40,6 +40,7 @@ interface UseChatReturn {
   error: string | null;
   startChat: (parcelId: string) => void;
   sendMessage: (text: string) => Promise<void>;
+  submitOwnRequest: (text: string) => Promise<void>;
   requestDraft: () => Promise<void>;
   setEditedDraft: (value: string) => void;
   confirmAndCreate: () => Promise<void>;
@@ -74,6 +75,10 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const [conversation, setConversation] = useState<Array<Record<string, unknown>>>([]);
   const [parcelId, setParcelId] = useState<string>('');
+  // ponytail: hard cap on follow-up rounds so a flaky model can't loop forever
+  // re-asking; after this many rounds we accept the understanding as-is.
+  const [followupRounds, setFollowupRounds] = useState(0);
+  const MAX_FOLLOWUP_ROUNDS = 2;
 
   const addMessage = useCallback((msg: Partial<ChatMessage>) => {
     setMessages((prev) => [...prev, { id: newId(), role: 'assistant', ...msg } as ChatMessage]);
@@ -95,6 +100,7 @@ export function useChat(): UseChatReturn {
     setError(null);
     setConversation([]);
     setParcelId('');
+    setFollowupRounds(0);
   }, []);
 
   const goBack = useCallback(() => {
@@ -141,7 +147,8 @@ export function useChat(): UseChatReturn {
         setUnderstanding(data);
         setConversation(updatedConv);
 
-        if (data.follow_up_questions && data.follow_up_questions.length > 0) {
+        if (data.follow_up_questions && data.follow_up_questions.length > 0 && followupRounds < MAX_FOLLOWUP_ROUNDS) {
+          setFollowupRounds((n) => n + 1);
           setStep('followup');
           setMessages((prev) => [
             ...prev,
@@ -181,7 +188,52 @@ export function useChat(): UseChatReturn {
         setIsLoading(false);
       }
     },
-    [isLoading, conversation, parcelId, understanding, addAssistantMessage],
+    [isLoading, conversation, parcelId, understanding, followupRounds, addAssistantMessage],
+  );
+
+  // Bypass the AI Q&A: the citizen types their full request in their own
+  // words and it becomes the application draft verbatim. We still run one
+  // silent /understand call to pull intent/departments/facts from the parcel
+  // record (needed for routing + case creation), but never interrogate them.
+  const submitOwnRequest = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading || !parcelId) return;
+      setError(null);
+      const conv: Array<Record<string, unknown>> = [
+        { role: 'citizen', text: text.trim(), timestamp: new Date().toISOString() },
+      ];
+      setMessages([{ id: newId(), role: 'user', text: text.trim(), type: 'text' }]);
+      setIsLoading(true);
+      try {
+        const resp = await apiService.post<UnderstandRequestOut>('/ai/understand', {
+          parcel_id: parcelId,
+          description: text.trim(),
+          conversation: conv,
+        } as UnderstandRequestIn);
+        const u = resp.data;
+        setUnderstanding(u);
+        setConversation(conv);
+        // The citizen's own words ARE the application — skip AI drafting.
+        setDraft({
+          application_draft: text.trim(),
+          facts_database: u.facts_database,
+          citizen_statements: u.facts_stated_by_citizen,
+        });
+        setEditedDraft(text.trim());
+        setStep('application');
+        addMessage({
+          type: 'draft',
+          role: 'assistant',
+          text: 'Using your request as the application. Review and submit below.',
+        });
+      } catch (err: unknown) {
+        setError('Failed to submit your request. Please try again.');
+        setStep('error');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isLoading, parcelId, addMessage],
   );
 
   const requestDraft = useCallback(async () => {
@@ -292,6 +344,7 @@ export function useChat(): UseChatReturn {
     error,
     startChat,
     sendMessage,
+    submitOwnRequest,
     requestDraft,
     setEditedDraft,
     confirmAndCreate,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../../hooks/use-chat';
 import ChatMessageComp from './chat-message';
 import ChatInputBar from './chat-input-bar';
@@ -12,6 +12,7 @@ import {
   RotateCw,
   X,
   FileText,
+  PenLine,
 } from 'lucide-react';
 
 interface AiChatProps {
@@ -23,6 +24,9 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
   const { t } = useTranslation();
   const chat = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Bypass mode: the citizen writes the full request in their own words and
+  // the input goes straight to submitOwnRequest instead of the guided Q&A.
+  const [ownMode, setOwnMode] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current && typeof scrollRef.current.scrollTo === 'function') {
@@ -44,6 +48,10 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
 
   const handleSend = (text: string) => {
     if (!text.trim()) return;
+    if (ownMode) {
+      void chat.submitOwnRequest(text);
+      return;
+    }
     if (chat.step === 'describe' || chat.step === 'followup') {
       void chat.sendMessage(text);
     }
@@ -290,11 +298,26 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
         {renderActions()}
 
         {isInputActive && (
-          <ChatInputBar
-            onSend={handleSend}
-            isLoading={chat.isLoading}
-            suggestions={chat.step === 'describe' ? suggestions : undefined}
-          />
+          <>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setOwnMode((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-900 hover:text-brand-800 transition"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                {ownMode
+                  ? t('aiChat.useGuidedButton', 'Use guided assistant')
+                  : t('aiChat.bypassButton', 'Skip AI — write my own request')}
+              </button>
+            </div>
+            <ChatInputBar
+              onSend={handleSend}
+              isLoading={chat.isLoading}
+              placeholder={ownMode ? t('aiChat.ownRequestPlaceholder', 'Write your full request in your own words...') : undefined}
+              suggestions={!ownMode && chat.step === 'describe' ? suggestions : undefined}
+            />
+          </>
         )}
       </div>
     </div>

@@ -13,6 +13,9 @@ const GetAssistancePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedParcelId, setSelectedParcelId] = useState<string>('');
+  // When redirected through a specific parcel (?parcelId=... from My Parcels),
+  // lock the request to it — no parcel switcher.
+  const lockedParcelId = searchParams.get('parcelId') || '';
 
   const { data, isLoading } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
     ['my-parcels'],
@@ -21,6 +24,8 @@ const GetAssistancePage: React.FC = () => {
 
   const allParcels = data?.parcels ?? [];
   const registeredParcels = allParcels.filter((p) => p.status === 'Registered' || (!p.status && true));
+  const isLocked = !!lockedParcelId && registeredParcels.some((p) => p.id === lockedParcelId);
+  const lockedParcel = registeredParcels.find((p) => p.id === lockedParcelId);
 
   useEffect(() => {
     if (!isLoading && data && registeredParcels.length === 0) {
@@ -91,7 +96,7 @@ const GetAssistancePage: React.FC = () => {
         </p>
       </div>
 
-      {registeredParcels.length > 1 && (
+      {registeredParcels.length > 1 && !isLocked && (
         <div className="mb-4">
           <label htmlFor="assistanceParcelSelect" className="block text-sm font-heading font-bold text-text-heading mb-1">
             {t('aiChat.selectParcelLabel', 'Select a Parcel')}
@@ -109,6 +114,15 @@ const GetAssistancePage: React.FC = () => {
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {isLocked && lockedParcel && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-gov-border bg-surface-2 text-sm text-text-heading">
+          <MapPin className="w-4 h-4 text-brand-900 shrink-0" />
+          <span className="font-mono">
+            {lockedParcel.localId || (lockedParcel.ulpin ? `ULPIN: ${lockedParcel.ulpin}` : `Parcel #${lockedParcel.id.substring(0, 8)}`)} — {lockedParcel.stateCode}/{lockedParcel.districtCode}
+          </span>
         </div>
       )}
 

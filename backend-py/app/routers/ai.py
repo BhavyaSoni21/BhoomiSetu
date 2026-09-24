@@ -89,7 +89,12 @@ def explain_alert(request: Request, alert_id: UUID, db: Session = Depends(get_db
 # explain_parcel above.
 
 
-@router.post("/understand", response_model=UnderstandRequestOut)
+# The AI-conversation flow (understand -> application-draft -> route) is
+# consumed by the frontend's use-chat hook using snake_case field names
+# (parcel_id, follow_up_questions, application_draft, facts_database). Serialize
+# these responses by field name, not the camelCase alias, or the frontend reads
+# undefined and sends parcel_id: undefined back -> 400 on application-draft.
+@router.post("/understand", response_model=UnderstandRequestOut, response_model_by_alias=False)
 @limiter.limit("30/minute")
 def understand_request(
     request: Request,
@@ -109,7 +114,7 @@ def understand_request(
     return result
 
 
-@router.post("/application-draft", response_model=ApplicationDraftOut)
+@router.post("/application-draft", response_model=ApplicationDraftOut, response_model_by_alias=False)
 @limiter.limit("30/minute")
 def application_draft(
     request: Request,
@@ -130,7 +135,7 @@ def application_draft(
     return result
 
 
-@router.post("/route", response_model=RoutingDecisionOut)
+@router.post("/route", response_model=RoutingDecisionOut, response_model_by_alias=False)
 @limiter.limit("30/minute")
 def route_request(
     request: Request,

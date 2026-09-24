@@ -6,9 +6,9 @@
     "semantic_hash": "63b92b7474cc7976041bb70c7fdc9254"
   },
   ".claude/settings.local.json": {
-    "mtime": 1790192356.803157,
-    "seen": 1790195749.5800672,
-    "ast_hash": "c6233bfb1aed6414ef97b411bc1735d2",
+    "mtime": 1790206624.6646779,
+    "seen": 1790206665.5805159,
+    "ast_hash": "03f30128429c9a89e5b714bf966ff0c9",
     "semantic_hash": ""
   },
   "backend-py/alembic/env.py": {
@@ -162,9 +162,9 @@
     "semantic_hash": "37e4892c7a82051e133c5b244515e8e0"
   },
   "backend-py/app/config.py": {
-    "mtime": 1790196413.2190993,
-    "seen": 1790197263.938207,
-    "ast_hash": "6342cf35b6cd2ddbadbc21d1b0dae565",
+    "mtime": 1790201962.220878,
+    "seen": 1790202009.5432026,
+    "ast_hash": "936582e9f264cd0a0b217e821d71e3bd",
     "semantic_hash": ""
   },
   "backend-py/app/database.py": {
@@ -192,9 +192,9 @@
     "semantic_hash": ""
   },
   "backend-py/app/main.py": {
-    "mtime": 1789919214.6597886,
-    "seen": 1790096301.1693583,
-    "ast_hash": "8aa3c64dbd4da6f32febf78a1b08eb0a",
+    "mtime": 1790203873.565539,
+    "seen": 1790204036.28887,
+    "ast_hash": "c45f6c589c8436b60e2bffc048a34ca2",
     "semantic_hash": ""
   },
   "backend-py/app/middleware.py": {
@@ -294,9 +294,9 @@
     "semantic_hash": "74e60f4a0bf11282f2ce93bc7f734f1a"
   },
   "backend-py/app/routers/ai.py": {
-    "mtime": 1789921241.0448868,
-    "seen": 1790096301.1693838,
-    "ast_hash": "bc401e3d0fb982083d96aefc6ec5a0ae",
+    "mtime": 1790204637.7443624,
+    "seen": 1790204934.981855,
+    "ast_hash": "673f95c562f9feaf356cac77362c1fc5",
     "semantic_hash": ""
   },
   "backend-py/app/routers/analytics.py": {
@@ -516,9 +516,9 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "backend-py/app/services/ai_service.py": {
-    "mtime": 1789922687.7289631,
-    "seen": 1790096301.1694293,
-    "ast_hash": "42bacccdc39c934e0fab4e687c85f28d",
+    "mtime": 1790205755.5510662,
+    "seen": 1790205882.6737595,
+    "ast_hash": "f3f733cff00975464faaa3ac1fcc3cd0",
     "semantic_hash": ""
   },
   "backend-py/app/services/analytics_service.py": {
@@ -1434,15 +1434,15 @@
     "semantic_hash": ""
   },
   "frontend/src/i18n/locales/en.json": {
-    "mtime": 1790187725.8285313,
-    "seen": 1790187853.434975,
-    "ast_hash": "3d9393e5ee592f07cbd2f429b5501d1c",
+    "mtime": 1790203928.8777807,
+    "seen": 1790204036.3242662,
+    "ast_hash": "db6d66ff73becba5c14ed31a08311eda",
     "semantic_hash": ""
   },
   "frontend/src/i18n/locales/hi.json": {
-    "mtime": 1790187737.0382166,
-    "seen": 1790187853.4349768,
-    "ast_hash": "b2497189f952f588b7b2b08780d5445e",
+    "mtime": 1790203977.6156542,
+    "seen": 1790204036.3242676,
+    "ast_hash": "268c14370b7f257c339e85cbac2221b1",
     "semantic_hash": ""
   },
   "frontend/src/main.tsx": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/AboutPage.tsx": {
-    "mtime": 1789668504.86863,
-    "seen": 1790096301.170673,
-    "ast_hash": "4fb96533a2ae1bc0a39cb103bbbf6bc1",
+    "mtime": 1790206515.5788114,
+    "seen": 1790206665.6318681,
+    "ast_hash": "892729a80f2a5a52b1e3de495cf21fc5",
     "semantic_hash": ""
   },
   "frontend/src/pages/AdminPortal.test.tsx": {
@@ -1476,15 +1476,15 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/BhoomiSetuLanding.tsx": {
-    "mtime": 1789668504.86863,
-    "seen": 1790096301.1706765,
-    "ast_hash": "0323aaabd45f0f883551e158fb9d72c2",
+    "mtime": 1790206613.640409,
+    "seen": 1790206665.6320956,
+    "ast_hash": "420db1d5fc024b992f2b97df7750909a",
     "semantic_hash": ""
   },
   "frontend/src/pages/CitizenPortal.tsx": {
-    "mtime": 1790148504.3304322,
-    "seen": 1790150011.612355,
-    "ast_hash": "2448583bdf100752006c03c04e843a9b",
+    "mtime": 1790206134.0350807,
+    "seen": 1790206190.2126915,
+    "ast_hash": "cf16b92d83724078e8fe8e0e4875ebd8",
     "semantic_hash": ""
   },
   "frontend/src/pages/ContactUsPage.tsx": {
@@ -2562,9 +2562,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai/ai-chat.tsx": {
-    "mtime": 1789933271.687251,
-    "seen": 1790096301.1697204,
-    "ast_hash": "e9b1bea2cc99de1d473c631ea6005b27",
+    "mtime": 1790205831.594349,
+    "seen": 1790205882.6967516,
+    "ast_hash": "a2526c4148e89f7fb8ed260bb989f877",
     "semantic_hash": ""
   },
   "frontend/src/components/ai/application-draft.tsx": {
@@ -2622,9 +2622,9 @@
     "semantic_hash": ""
   },
   "frontend/src/context/LanguageContext.tsx": {
-    "mtime": 1790195429.1389725,
-    "seen": 1790195749.626696,
-    "ast_hash": "b4dca8c71b3d3d2ba528ef21512603ed",
+    "mtime": 1790206487.7494538,
+    "seen": 1790206665.619478,
+    "ast_hash": "07e6296c5747810db359d39d69aa7526",
     "semantic_hash": ""
   },
   "frontend/src/data/govtSchemes.ts": {
@@ -2754,9 +2754,9 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/use-chat.ts": {
-    "mtime": 1789933238.56478,
-    "seen": 1790096301.170665,
-    "ast_hash": "bd08597ff697abf332ec9cc687381b17",
+    "mtime": 1790205796.3052602,
+    "seen": 1790205882.7131686,
+    "ast_hash": "67fb9b8d85341c0a914a717c36a1b5d6",
     "semantic_hash": ""
   },
   "frontend/src/mocks/handlers.ts": {
@@ -2784,9 +2784,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/citizen/GetAssistancePage.tsx": {
-    "mtime": 1789932455.4431572,
-    "seen": 1790096301.1708446,
-    "ast_hash": "89c72a2a616c2fb6f70be6f8583fa4eb",
+    "mtime": 1790206159.9456239,
+    "seen": 1790206190.2150815,
+    "ast_hash": "7895a8b039d9e294448375651bf0adaa",
     "semantic_hash": ""
   },
   "frontend/src/pages/citizen/MyCasesPage.tsx": {
@@ -3567,6 +3567,18 @@
     "mtime": 1790197205.3597612,
     "seen": 1790197263.991098,
     "ast_hash": "fe215320044fe520229a586dd12a3993",
+    "semantic_hash": ""
+  },
+  "backend-py/app/routers/public.py": {
+    "mtime": 1790203827.2710555,
+    "seen": 1790204036.2935553,
+    "ast_hash": "0eef312ec2363d14ae7c24fe9bf5513d",
+    "semantic_hash": ""
+  },
+  "backend-py/tests/routers/test_public.py": {
+    "mtime": 1790204192.9959412,
+    "seen": 1790204391.3259144,
+    "ast_hash": "f9b90ab494f8afc4efd94ae59d88e2f3",
     "semantic_hash": ""
   }
 }

@@ -343,7 +343,7 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'landing.roles.citizens.desc': 'Search parcels, file requests, and track cases.',
     'landing.roles.citizens.title': 'Citizens',
     'landing.roles.eyebrow': 'Who it\'s for',
-    'landing.roles.heading': 'Built for everyone in land governance',
+    'landing.roles.heading': 'Built for citizens and landowners',
     'landing.roles.officers.cta': 'Officer Portal',
     'landing.roles.officers.desc': 'Manage cases, verify field evidence, and decide.',
     'landing.roles.officers.title': 'Officers',

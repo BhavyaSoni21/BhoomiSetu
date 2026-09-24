@@ -5,7 +5,6 @@ import {
   MapPin,
   FileText,
   FileCheck2,
-  Building2,
   Receipt,
   ShieldAlert,
   Scale,
@@ -30,7 +29,6 @@ import {
   ChevronRight,
   Play,
   Pause,
-  AlertTriangle,
   History,
   UserCheck,
   Share2,
@@ -41,7 +39,6 @@ import {
   Wrench,
   Smartphone,
   CheckCircle2,
-  Building,
   Landmark,
   FileSpreadsheet,
   TreePine,
@@ -58,6 +55,7 @@ import { SchemesMarquee } from '../components/landing/SchemesMarquee';
 import { GOVT_SCHEMES } from '../data/govtSchemes';
 import { useTheme } from '../theme/theme';
 import { useAuthUser } from '../features/auth/auth';
+import apiService from '../services/apiService';
 
 export const BhoomiSetuLanding: React.FC = () => {
   const navigate = useNavigate();
@@ -73,6 +71,13 @@ export const BhoomiSetuLanding: React.FC = () => {
   const [tickerIndex, setTickerIndex] = useState(0);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Live headline counts (public, unauthenticated) - fall back to the static
+  // baseline if the backend is unreachable so the page never shows blanks.
+  const [stats, setStats] = useState<{ parcels: number; serviceRequests: number } | null>(null);
+  useEffect(() => {
+    apiService.get('/public/stats').then((r) => setStats(r.data)).catch(() => setStats(null));
+  }, []);
 
   // Ticker rotation
   const tickerItems = [
@@ -115,27 +120,16 @@ export const BhoomiSetuLanding: React.FC = () => {
   ];
 
   // Who is this for
-  const stakeholders = [
-    t('landing.stakeholders.citizenLandowners'),
-    t('landing.stakeholders.revenueOfficers'),
-    t('landing.stakeholders.registrationOfficers'),
-    t('landing.stakeholders.planningOfficers'),
-    t('landing.stakeholders.tehsildarsPatwaris'),
-    t('landing.stakeholders.districtCollectors'),
-    t('landing.stakeholders.stateAdministrators'),
-    t('landing.stakeholders.disputeAdjudicators'),
-  ];
+  // (Removed the multi-role stakeholder list — this page is citizen-centric.)
 
-  // Core platform capabilities
+  // Core platform capabilities — citizen-facing only (this is a public,
+  // citizen-centric page; officer/admin tooling lives behind their portals).
   const impactSectors = [
     { name: t('landing.impactSectors.parcel360View.title'), desc: t('landing.impactSectors.parcel360View.desc'), icon: Layers },
     { name: t('landing.impactSectors.gisParcelSearch.title'), desc: t('landing.impactSectors.gisParcelSearch.desc'), icon: MapPin },
     { name: t('landing.impactSectors.documentVerification.title'), desc: t('landing.impactSectors.documentVerification.desc'), icon: FileCheck2 },
     { name: t('landing.impactSectors.citizenServiceRequests.title'), desc: t('landing.impactSectors.citizenServiceRequests.desc'), icon: UserCheck },
-    { name: t('landing.impactSectors.officerWorkflowDashboard.title'), desc: t('landing.impactSectors.officerWorkflowDashboard.desc'), icon: ShieldCheck },
-    { name: t('landing.impactSectors.governanceAlerts.title'), desc: t('landing.impactSectors.governanceAlerts.desc'), icon: AlertTriangle },
     { name: t('landing.impactSectors.historicalImageryComparison.title'), desc: t('landing.impactSectors.historicalImageryComparison.desc'), icon: History },
-    { name: t('landing.impactSectors.adminOversightTools.title'), desc: t('landing.impactSectors.adminOversightTools.desc'), icon: Building },
     { name: t('landing.impactSectors.aiAssistance.title'), desc: t('landing.impactSectors.aiAssistance.desc'), icon: Sparkles },
   ];
 
@@ -154,7 +148,6 @@ export const BhoomiSetuLanding: React.FC = () => {
     { id: 'search', title: t('landing.featureCards.search.title'), desc: t('landing.featureCards.search.desc'), icon: MapPin, action: 'search' },
     { id: 'ocr', title: t('landing.featureCards.ocr.title'), desc: t('landing.featureCards.ocr.desc'), icon: FileCheck2, action: 'verify' },
     { id: 'requests', title: t('landing.featureCards.requests.title'), desc: t('landing.featureCards.requests.desc'), icon: UserCheck, action: 'citizen' },
-    { id: 'alerts', title: t('landing.featureCards.alerts.title'), desc: t('landing.featureCards.alerts.desc'), icon: AlertTriangle, action: 'alerts' },
   ];
 
   const handleCardClick = (action: string) => {
@@ -301,7 +294,7 @@ export const BhoomiSetuLanding: React.FC = () => {
                   <div className="px-4 py-2 bg-[var(--surface-2)] border-t border-[var(--border)] flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)] font-mono">
                       <MapPin className="w-3 h-3 text-[var(--action-700)]" />
-                      <span>{t('landing.liveGisPreview.parcelsCount', { count: 220 })}</span>
+                      <span>{t('landing.liveGisPreview.parcelsCount', { count: stats?.parcels ?? 220 })}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[var(--bhashini-accent)] font-semibold text-[10px] border border-emerald-300">{t('landing.liveGisPreview.liveDataBadge')}</span>
                   </div>
@@ -381,20 +374,6 @@ export const BhoomiSetuLanding: React.FC = () => {
                 </div>
               ))}
             </div>
-
-            {/* Who is this for */}
-            <div className="mt-8 pt-6 border-t border-[var(--border)]">
-              <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-                <span className="font-bold text-xs text-[var(--text-heading)] shrink-0">{t('landing.howItWorks.whoFor')}</span>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {stakeholders.map((s) => (
-                    <span key={s} className="px-2.5 py-1 rounded-full bg-[var(--surface-1)] border border-[var(--border)] text-[11px] text-[var(--text-primary)] font-medium">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -412,7 +391,7 @@ export const BhoomiSetuLanding: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">220+</span>
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">{stats ? `${stats.parcels.toLocaleString()}+` : '220+'}</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">{t('landing.stats.parcelsMapped.label')}</span>
                 <span className="text-[11px] text-[var(--text-muted)]">{t('landing.stats.parcelsMapped.desc')}</span>
               </div>
@@ -488,7 +467,7 @@ export const BhoomiSetuLanding: React.FC = () => {
         </section>
 
         {/* ========================================================================= */}
-        {/* 11. BUILT FOR CITIZENS, OFFICERS & ADMINS                                  */}
+        {/* 11. BUILT FOR CITIZENS                                                    */}
         {/* ========================================================================= */}
         <section className="w-full bg-[var(--surface-2)] border-b border-[var(--action-500)]/30 py-10 sm:py-14">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -498,7 +477,7 @@ export const BhoomiSetuLanding: React.FC = () => {
                 {t('landing.roles.heading')}
               </h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="max-w-md mx-auto">
               <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-emerald-200 shadow-xs">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[var(--bhashini-accent)] mb-4">
                   <Users className="w-5 h-5" />
@@ -509,30 +488,6 @@ export const BhoomiSetuLanding: React.FC = () => {
                 </p>
                 <Link to="/citizen" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--bhashini-accent)] hover:underline">
                   <span>{t('landing.roles.citizens.cta')}</span><ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-[var(--action-500)]/30 shadow-xs">
-                <div className="w-10 h-10 rounded-xl bg-[var(--action-500)]/15 border border-[var(--action-500)]/30 flex items-center justify-center text-[var(--action-700)] mb-4">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-[var(--text-heading)] mb-2">{t('landing.roles.officers.title')}</h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  {t('landing.roles.officers.desc')}
-                </p>
-                <Link to="/officer" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--action-700)] hover:underline">
-                  <span>{t('landing.roles.officers.cta')}</span><ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              <div className="bg-[var(--surface-1)] p-6 rounded-2xl border border-[var(--border)] shadow-xs">
-                <div className="w-10 h-10 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] mb-4">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-[var(--text-heading)] mb-2">{t('landing.roles.admins.title')}</h3>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  {t('landing.roles.admins.desc')}
-                </p>
-                <Link to="/login" className="inline-flex items-center gap-1 mt-4 text-xs font-bold text-[var(--text-secondary)] hover:underline">
-                  <span>{t('landing.roles.admins.cta')}</span><ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </div>

@@ -34,6 +34,7 @@ from app.routers import (
     parcels,
     predictive_analytics,
     profile_fields,
+    public,
     spatial,
     users,
     workflows,
@@ -126,6 +127,7 @@ app.include_router(audit.router, prefix="/api/v1")
 app.include_router(profile_fields.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(predictive_analytics.router, prefix="/api/v1")
+app.include_router(public.router, prefix="/api/v1")
 app.include_router(land_records.state_a_router, prefix="/api/v1")
 app.include_router(land_records.state_b_router, prefix="/api/v1")
 app.include_router(departments.router, prefix="/api/v1")

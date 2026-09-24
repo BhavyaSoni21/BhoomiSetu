@@ -222,7 +222,10 @@ Respond with ONLY a JSON object of this exact shape:
 - "facts_stated_by_citizen": the citizen's stated facts (not allegations — separate what they claim happened).
 - "facts_database": only facts directly verifiable from the parcel 360° data above. Never invent. Never cite null/withheld fields as "no restriction" or similar.
 - "departments": which department codes (SURVEY, DISPUTE, LAND_RECORDS, REGISTRATION, TAX, PLANNING, RESTRICTION, ENCUMBRANCE) the issue touches.
-- "follow_up_questions": if you need more info from the citizen to understand the issue, list up to 3 questions. If the understanding is sufficient, return an empty list.
+- "follow_up_questions": at most 3 questions, ONLY about the citizen's specific complaint that cannot be derived otherwise. Return an empty list as soon as the intent and core issue are clear. Follow these rules strictly:
+  * NEVER ask about the parcel's location, address, owner, area, boundaries, tax, dispute, restriction, encumbrance or planning status — all of that is already provided in parcel_360 above. Read it from there; do not ask the citizen for it.
+  * NEVER re-ask anything the citizen has already answered anywhere in the conversation. Read every prior turn first and account for each answer already given.
+  * Only ask about what is genuinely missing to act on the complaint (e.g. what specifically is wrong, what outcome they want). If nothing essential is missing, return [].
 - "application_draft": if the understanding is complete enough, generate a formal one-paragraph application draft. If follow-up questions are needed, set this to null.
 
 Never include any field not listed above."""
