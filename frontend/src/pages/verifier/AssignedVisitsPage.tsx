@@ -19,6 +19,12 @@ interface VerifierPackage {
     surveyNo?: string | null;
     area?: number | null;
     owner?: string | null;
+    streetAddress?: string | null;
+    locality?: string | null;
+    landmark?: string | null;
+    pincode?: string | null;
+    stateCode?: string | null;
+    districtCode?: string | null;
   } | null;
   application?: {
     finalSubmittedVersion?: string | null;
@@ -134,14 +140,24 @@ const AssignedVisitsPage: React.FC = () => {
       )}
 
       <div className="space-y-3">
-        {tasks.map((task) => (
-          <VisitCard
-            key={task.id}
-            task={task}
-            expanded={expandedId === task.id}
-            onToggle={() => setExpandedId((prev) => (prev === task.id ? null : task.id))}
-          />
-        ))}
+        {tasks.map((task) => {
+          const parcelId = caseDetails[task.id]?.parcelId;
+          const parcel = parcelSummaries.find((p) => p.id === parcelId);
+          const address = parcel
+            ? [parcel.streetAddress, parcel.locality, parcel.landmark, parcel.pincode]
+                .filter(Boolean)
+                .join(', ')
+            : '';
+          return (
+            <VisitCard
+              key={task.id}
+              task={task}
+              address={address}
+              expanded={expandedId === task.id}
+              onToggle={() => setExpandedId((prev) => (prev === task.id ? null : task.id))}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -149,9 +165,10 @@ const AssignedVisitsPage: React.FC = () => {
 
 const VisitCard: React.FC<{
   task: DepartmentTask;
+  address: string;
   expanded: boolean;
   onToggle: () => void;
-}> = ({ task, expanded, onToggle }) => {
+}> = ({ task, address, expanded, onToggle }) => {
   const { t } = useTranslation();
   const [packageData, setPackageData] = useState<VerifierPackage | null>(null);
   const [packageLoading, setPackageLoading] = useState(false);
@@ -190,8 +207,8 @@ const VisitCard: React.FC<{
         <div>
           <p className="font-bold text-sm text-ink">{departmentLabel.replace(/_/g, ' ')}</p>
           <p className="text-xs text-ink/60 flex items-center gap-1">
-            <MapPinned className="w-3.5 h-3.5" aria-hidden="true" />
-            Case #{task.caseId.slice(0, 8)} — {task.status.replace(/_/g, ' ')}
+            <MapPinned className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            {address || t('verifierPortal.locationUnknown', 'Location unavailable')} — {task.status.replace(/_/g, ' ')}
           </p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-ink/50">
@@ -209,18 +226,11 @@ const VisitCard: React.FC<{
           {/* Action links */}
           <div className="flex flex-wrap gap-3">
             <Link
-              to={`/verifier/task/${task.id}/evidence`}
-              id={`capture-evidence-${task.id}`}
+              to={`/verifier/task/${task.id}/submit`}
+              id={`submit-report-${task.id}`}
               className="inline-block text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
             >
-              {t('verifierPortal.captureEvidenceCta')}
-            </Link>
-            <Link
-              to={`/verifier/task/${task.id}/findings`}
-              id={`submit-findings-${task.id}`}
-              className="inline-block text-primary hover:text-primary-strong font-bold text-xs uppercase tracking-wide underline underline-offset-2"
-            >
-              {t('verifierPortal.submitFindingsCta')}
+              {t('verifierPortal.submitReportCta', 'Submit Report')}
             </Link>
 
             {/* Case Package download/view button (§30) */}
@@ -266,6 +276,14 @@ const VisitCard: React.FC<{
                     {t('verifierPortal.parcelInfo', 'Parcel')}
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {(packageData.parcel.streetAddress || packageData.parcel.locality || packageData.parcel.landmark || packageData.parcel.pincode) && (
+                      <>
+                        <span className="text-ink/50">{t('verifierPortal.address', 'Address')}</span>
+                        <span className="font-semibold">
+                          {[packageData.parcel.streetAddress, packageData.parcel.locality, packageData.parcel.landmark, packageData.parcel.pincode].filter(Boolean).join(', ')}
+                        </span>
+                      </>
+                    )}
                     {packageData.parcel.ulpin && (
                       <>
                         <span className="text-ink/50">ULPIN</span>

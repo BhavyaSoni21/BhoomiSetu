@@ -4,6 +4,7 @@ import AssignedVisitsPage from './verifier/AssignedVisitsPage';
 import VerifierProfilePage from './verifier/VerifierProfilePage';
 import EvidenceCapturePage from '../features/verifier/EvidenceCapturePage';
 import VerifierFindingsPage from '../features/verifier/VerifierFindingsPage';
+import TaskSubmissionPage from '../features/verifier/TaskSubmissionPage';
 import VerifierLocalSync from '../features/verifier/VerifierLocalSync';
 
 const VerifierPortal: React.FC = () => (
@@ -11,6 +12,8 @@ const VerifierPortal: React.FC = () => (
     <Routes>
       <Route index element={<AssignedVisitsPage />} />
       <Route path="profile" element={<VerifierProfilePage />} />
+      <Route path="task/:taskId/submit" element={<TaskSubmissionPage />} />
+      {/* Legacy split routes kept so old links/bookmarks still work */}
       <Route path="task/:taskId/evidence" element={<EvidenceCapturePage />} />
       <Route path="task/:taskId/findings" element={<VerifierFindingsPage />} />
       <Route path="local-sync" element={<VerifierLocalSync />} />

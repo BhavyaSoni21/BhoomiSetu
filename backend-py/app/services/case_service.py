@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT
+from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT, VERIFIER_ROLE
 from app.models.case import (
     AIAnalysis,
     Application,
@@ -122,6 +122,20 @@ def _can_manage_case(user: User, case: Case, db: Session) -> bool:
         return True
     if user.role == CITIZEN_ROLE:
         return case.citizen_id == str(user.id) or parcels_service.is_citizen_associated_with_parcel(db, str(user.id), case.parcel_id)
+    return False
+
+
+def _can_view_case(user: User, case: Case, db: Session) -> bool:
+    """Read access is broader than manage: a verifier who is assigned to any
+    task in the case may read it (and its package) for the field visit,
+    without gaining the manage rights that _can_manage_case grants staff."""
+    if _can_manage_case(user, case, db):
+        return True
+    if user.role == VERIFIER_ROLE:
+        return db.query(DepartmentTask.id).filter(
+            DepartmentTask.case_id == str(case.id),
+            DepartmentTask.assigned_verifier_id == str(user.id),
+        ).first() is not None
     return False
 
 
@@ -1774,7 +1788,7 @@ def get_case_package(
     if isinstance(case, str):
         return case
 
-    if not _can_manage_case(user, case, db):
+    if not _can_view_case(user, case, db):
         from fastapi import HTTPException, status
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource")
 
@@ -1880,8 +1894,16 @@ def Parcel_dict(parcel) -> dict:
         "id": str(parcel.id) if parcel.id else None,
         "ulpin": parcel.ulpin if hasattr(parcel, 'ulpin') else None,
         "surveyNo": parcel.survey_no if hasattr(parcel, 'survey_no') else None,
-        "area": float(parcel.area) if hasattr(parcel, 'area') and parcel.area else None,
+        "area": float(parcel.area_sq_m) if getattr(parcel, 'area_sq_m', None) else None,
         "owner": parcel.owner if hasattr(parcel, 'owner') else None,
+        # Human-readable location so a verifier navigates to the site by address,
+        # not by a bare ULPIN/survey code.
+        "streetAddress": getattr(parcel, 'street_address', None),
+        "locality": getattr(parcel, 'locality', None),
+        "landmark": getattr(parcel, 'landmark', None),
+        "pincode": getattr(parcel, 'pincode', None),
+        "stateCode": getattr(parcel, 'state_code', None),
+        "districtCode": getattr(parcel, 'district_code', None),
         "geometry": None,
     }
 

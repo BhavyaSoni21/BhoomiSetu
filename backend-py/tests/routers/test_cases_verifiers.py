@@ -91,3 +91,20 @@ def test_literal_routes_not_shadowed_by_case_id(db, client):
     assert r.status_code == 200, r.text  # 422 => shadowed by /{case_id}
     assert isinstance(r.json(), list)  # frontend consumes CaseOut[], not {cases,total}
 
+
+def test_assigned_verifier_can_read_case_but_unassigned_cannot(db, client):
+    """A verifier assigned to a task in the case may GET /cases/{id} (needed for
+    the field visit); a verifier with no task in that case gets 403."""
+    assigned, _, assigned_headers = create_authenticated_user(db, "VERIFIER")
+    _, _, stranger_headers = create_authenticated_user(db, "VERIFIER")
+
+    dept = Department(code=f"D-{uuid.uuid4().hex[:8]}", name="Land Records")
+    case = Case(case_no=f"C-{uuid.uuid4().hex[:8]}", citizen_id="c1", parcel_id="p1")
+    db.add_all([dept, case])
+    db.flush()
+    db.add(_task(case.id, dept.id, assigned.id, "ASSIGNED"))
+    db.flush()
+
+    assert client.get(f"/api/v1/cases/{case.id}", headers=assigned_headers).status_code == 200
+    assert client.get(f"/api/v1/cases/{case.id}", headers=stranger_headers).status_code == 403
+

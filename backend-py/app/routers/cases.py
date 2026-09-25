@@ -209,12 +209,12 @@ def get_verifier_tasks(
 def get_case(
     case_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
+    user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE, VERIFIER_ROLE)),
 ):
     result = service.get_case(db, str(case_id))
     if isinstance(result, str):
         raise _not_found_case(case_id)
-    if not service._can_manage_case(user, result, db):
+    if not service._can_view_case(user, result, db):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource")
     return result
 
