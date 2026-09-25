@@ -3,7 +3,7 @@ import { useChat } from '../../hooks/use-chat';
 import ChatMessageComp from './chat-message';
 import ChatInputBar from './chat-input-bar';
 import RoutingDisplay from './routing-display';
-import ApplicationDraft from './application-draft';
+import { ApplicationDraftEditor, ApplicationDraftFacts } from './application-draft';
 import UnderstandingDisplay from './understanding-display';
 import { useTranslation } from '../../context/LanguageContext';
 import {
@@ -147,24 +147,27 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
     }
   };
 
-  const renderSidePanel = () => {
-    if (chat.step === 'understanding' && chat.understanding) {
-      return <UnderstandingDisplay understanding={chat.understanding} />;
-    }
-    if (chat.step === 'application' && chat.draft) {
-      return (
-        <ApplicationDraft
-          draft={chat.draft}
-          editedDraft={chat.editedDraft}
-          onEditDraft={chat.setEditedDraft}
-        />
-      );
-    }
-    if (chat.step === 'routing' && chat.routing) {
-      return <RoutingDisplay routing={chat.routing} />;
-    }
-    return null;
-  };
+  // The step's output splits into two regions (see return): the "information"
+  // panel sits to the *right* of the chat on desktop, and the editable
+  // application draft sits full-width *under* the chat. Facts render right,
+  // draft renders under — matching the requested layout.
+  const draftHasFacts =
+    !!chat.draft &&
+    ((chat.draft.facts_database?.length ?? 0) + (chat.draft.citizen_statements?.length ?? 0)) > 0;
+
+  const infoNode =
+    chat.step === 'understanding' && chat.understanding ? (
+      <UnderstandingDisplay understanding={chat.understanding} />
+    ) : chat.step === 'application' && chat.draft && draftHasFacts ? (
+      <ApplicationDraftFacts draft={chat.draft} />
+    ) : chat.step === 'routing' && chat.routing ? (
+      <RoutingDisplay routing={chat.routing} />
+    ) : null;
+
+  const underNode =
+    chat.step === 'application' && chat.draft ? (
+      <ApplicationDraftEditor editedDraft={chat.editedDraft} onEditDraft={chat.setEditedDraft} />
+    ) : null;
 
   const renderActions = () => {
     switch (chat.step) {
@@ -243,7 +246,10 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-4rem)]">
+    // Height grows with content (card + page scroll) instead of a hardcoded
+    // viewport cap that made the flex-1 chat collapse once the tall draft/info
+    // panel rendered below it. The chat keeps its own stable scroll region.
+    <div className="flex flex-col">
       <div className="border-b border-gov-border px-4 py-3 flex items-center justify-between bg-surface-1 rounded-t-xl">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-5 h-5 text-brand-900" />
@@ -266,58 +272,81 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {chat.step === 'parcel_select' || chat.step === 'success' || chat.step === 'error' ? (
-          <div className="flex justify-center items-center h-full pt-8">
-            <div className="max-w-md text-center">{renderCenter()}</div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {chat.messages.map((msg) => (
-              <ChatMessageComp key={msg.id} message={msg} />
-            ))}
-            {chat.isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-surface-1 border border-gov-border text-text-secondary text-sm rounded-xl px-4 py-3">
-                  {t('aiChat.thinking', 'Thinking...')}
-                </div>
+      {/* Chat stays put on the left; the "information" panel sits to its right
+          on desktop (stacks under on mobile) and the editable application draft
+          spans full-width underneath. Single column until a panel exists. */}
+      <div
+        className={`grid gap-4 p-4 ${
+          infoNode ? 'lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]' : 'grid-cols-1'
+        }`}
+      >
+        {/* CHAT COLUMN */}
+        <div className="min-w-0 flex flex-col gap-3">
+          <div ref={scrollRef} className="overflow-y-auto max-h-[45vh] min-h-[240px] space-y-4">
+            {chat.step === 'parcel_select' || chat.step === 'success' || chat.step === 'error' ? (
+              <div className="flex justify-center items-center h-full pt-8">
+                <div className="max-w-md text-center">{renderCenter()}</div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {chat.messages.map((msg) => (
+                  <ChatMessageComp key={msg.id} message={msg} />
+                ))}
+                {chat.isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-surface-1 border border-gov-border text-text-secondary text-sm rounded-xl px-4 py-3">
+                      {t('aiChat.thinking', 'Thinking...')}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {chat.error && chat.step !== 'error' && (
-        <div className="px-4 py-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800">
-          {chat.error}
-        </div>
-      )}
-
-      <div className="border-t border-gov-border p-4 bg-surface-1 rounded-b-xl space-y-3">
-        {renderSidePanel()}
-        {renderActions()}
-
-        {isInputActive && (
-          <>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setOwnMode((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-900 hover:text-brand-800 transition"
-              >
-                <PenLine className="w-3.5 h-3.5" />
-                {ownMode
-                  ? t('aiChat.useGuidedButton', 'Use guided assistant')
-                  : t('aiChat.bypassButton', 'Skip AI — write my own request')}
-              </button>
+          {chat.error && chat.step !== 'error' && (
+            <div className="px-3 py-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              {chat.error}
             </div>
-            <ChatInputBar
-              onSend={handleSend}
-              isLoading={chat.isLoading}
-              placeholder={ownMode ? t('aiChat.ownRequestPlaceholder', 'Write your full request in your own words...') : undefined}
-              suggestions={!ownMode && chat.step === 'describe' ? suggestions : undefined}
-            />
-          </>
+          )}
+
+          {isInputActive && (
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setOwnMode((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-900 hover:text-brand-800 transition"
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                  {ownMode
+                    ? t('aiChat.useGuidedButton', 'Use guided assistant')
+                    : t('aiChat.bypassButton', 'Skip AI — write my own request')}
+                </button>
+              </div>
+              <ChatInputBar
+                onSend={handleSend}
+                isLoading={chat.isLoading}
+                placeholder={ownMode ? t('aiChat.ownRequestPlaceholder', 'Write your full request in your own words...') : undefined}
+                suggestions={!ownMode && chat.step === 'describe' ? suggestions : undefined}
+              />
+            </>
+          )}
+        </div>
+
+        {/* INFORMATION PANEL — right of chat on desktop, under it on mobile */}
+        {infoNode && (
+          <aside className="min-w-0 flex flex-col gap-3 lg:max-h-[70vh] lg:overflow-y-auto">
+            {infoNode}
+            {(chat.step === 'understanding' || chat.step === 'routing') && renderActions()}
+          </aside>
+        )}
+
+        {/* APPLICATION DRAFT — full width, under the chat */}
+        {underNode && (
+          <div className="lg:col-span-2 space-y-3">
+            {underNode}
+            {renderActions()}
+          </div>
         )}
       </div>
     </div>

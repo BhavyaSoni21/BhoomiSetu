@@ -36,26 +36,7 @@ interface UnifiedMapWrapperProps {
   /** Zoom/pan to fit the parcels prop's bounds once they load. */
   fitToParcels?: boolean;
   /** Which legend checkboxes to render. */
-  visibleLayerKeys?: Array<
-    | 'selected'
-    | 'adjacent'
-    | 'nearby'
-    | 'cluster'
-    | 'sameDistrict'
-    | 'zoning'
-    | 'restriction'
-    | 'taxStatus'
-    | 'infrastructure'
-    | 'changeDetection'
-    | 'adminNotes'
-    | 'roads'
-    | 'buildings'
-    | 'landcover'
-    | 'elevation'
-    | 'legalStatus'
-    | 'circleRate'
-    | 'riskScore'
-  >;
+  visibleLayerKeys?: LayerKey[];
   /** Hide the bottom-left layer-toggle legend entirely. */
   showLayerPanel?: boolean;
   /** Bump to re-fit the map to the selected parcel's cluster/context on demand. */
