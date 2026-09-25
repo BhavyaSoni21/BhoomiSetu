@@ -7,7 +7,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // autoUpdate, not 'prompt': the prompt path gated SW activation behind a
+      // window.confirm() (main.tsx), which the browser SILENTLY suppresses when
+      // the tab isn't focused. A user then stayed pinned on an old, cache-
+      // poisoned SW that replayed API reads as no-response/no-CORS forever. With
+      // autoUpdate the fixed SW skipWaiting + clientsClaims on next load, no
+      // click needed, so a bad SW can't strand a user.
+      registerType: 'autoUpdate',
       // Existing branding assets in public/ (see index.html). ponytail: reuses
       // shipped PNGs; dedicated 192/512 maskable icons are a hardening item.
       includeAssets: ['favicon-32.png', 'apple-touch-icon.png', 'logo-icon.png'],
@@ -79,8 +85,7 @@ export default defineConfig({
         ],
       },
       // Enabled so `virtual:pwa-register` resolves in the dev server too, not
-      // just in `vite build`. registerType stays 'prompt', so the dev SW won't
-      // auto-update tabs.
+      // just in `vite build`.
       devOptions: { enabled: true, type: 'module' },
     }),
   ],

@@ -13,13 +13,10 @@ import './features/pwa/usePwaInstall'; // capture beforeinstallprompt at startup
 initTheme();
 startNetworkMonitor();
 
-// registerType:'prompt' — surface an update instead of silently swapping the SW
-// mid-session (spec §31). Minimal confirm() until a themed toast is wired.
-const updateSW = registerSW({
-  onNeedRefresh() {
-    if (window.confirm('A new version of BhoomiSetu is available. Reload now?')) void updateSW(true);
-  },
-});
+// autoUpdate (vite.config.ts): the new SW self-activates on next load. No
+// confirm() gate — a suppressed confirm (tab not focused) used to strand users
+// on a stale, cache-poisoned SW.
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
