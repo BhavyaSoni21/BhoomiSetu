@@ -955,7 +955,9 @@ def check_task_sla(db: Session, task_id: str) -> dict | None:
     )
 
     reference_time = task.completed_at if task.completed_at else _now()
-    elapsed = (reference_time - task.created_at).total_seconds() / 3600.0
+    # Clamp: elapsed is a duration, never negative — guards inconsistent
+    # timestamps (e.g. completed_at seeded before created_at).
+    elapsed = max(0.0, (reference_time - task.created_at).total_seconds() / 3600.0)
 
     if sla_configs:
         sla = sla_configs[0]
