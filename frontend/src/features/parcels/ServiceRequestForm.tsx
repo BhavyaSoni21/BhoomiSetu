@@ -44,7 +44,6 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
   // Land Claim always arrives here with initialFile already set (the
   // upload-first flow lives in LandClaimPanel, before this form ever mounts).
   const isVerifyDocuments = workflowType === 'DOCUMENT_VERIFICATION_REQUEST';
-  const isDispute = workflowType === 'DISPUTE_FILING';
   const { data: existingDocuments } = useQuery<ParcelDocument[]>(
     ['parcel-documents', parcelId],
     async () => (await apiService.get(`/parcels/${parcelId}/documents`)).data,
@@ -180,31 +179,33 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
             />
           </div>
 
-          {(needsUpload || isDispute) && (
-            <div>
-              <p className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
-                {isDispute ? t('serviceRequestForm.supportingDocumentOptional') : t('serviceRequestForm.uploadYourPapers')}
-              </p>
-              <label
-                htmlFor="documentUploadInput"
-                className="flex items-center gap-2 border-2 border-dashed border-ink/40 px-3.5 py-2.5 text-sm text-ink/70 cursor-pointer hover:border-ink transition"
-              >
-                <Paperclip className="w-4 h-4 shrink-0" aria-hidden="true" />
-                {file ? file.name : t('serviceRequestForm.chooseImagePlaceholder')}
-              </label>
-              <input
-                id="documentUploadInput"
-                type="file"
-                accept="image/*"
-                aria-label={isDispute ? t('serviceRequestForm.supportingDocumentOptional') : t('serviceRequestForm.uploadYourPapers')}
-                className="sr-only"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              {needsUpload && (
-                <p className="text-xs text-ink/50 mt-1">{t('serviceRequestForm.noPapersHint')}</p>
-              )}
-            </div>
-          )}
+          {/* Attach is available for every request type: an uploaded image is
+              run through OCR + authenticity (OpenCV) on the /workflows path.
+              Required only when Verify Documents has no stored papers yet;
+              optional otherwise. */}
+          <div>
+            <p className="block text-xs font-bold uppercase tracking-widest text-ink mb-1">
+              {needsUpload ? t('serviceRequestForm.uploadYourPapers') : t('serviceRequestForm.supportingDocumentOptional')}
+            </p>
+            <label
+              htmlFor="documentUploadInput"
+              className="flex items-center gap-2 border-2 border-dashed border-ink/40 px-3.5 py-2.5 text-sm text-ink/70 cursor-pointer hover:border-ink transition"
+            >
+              <Paperclip className="w-4 h-4 shrink-0" aria-hidden="true" />
+              {file ? file.name : t('serviceRequestForm.chooseImagePlaceholder')}
+            </label>
+            <input
+              id="documentUploadInput"
+              type="file"
+              accept="image/*"
+              aria-label={needsUpload ? t('serviceRequestForm.uploadYourPapers') : t('serviceRequestForm.supportingDocumentOptional')}
+              className="sr-only"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {needsUpload && (
+              <p className="text-xs text-ink/50 mt-1">{t('serviceRequestForm.noPapersHint')}</p>
+            )}
+          </div>
 
           {isConflict ? (
             <div className="border-2 border-secondary/50 bg-secondary/10 px-3.5 py-3 space-y-2">

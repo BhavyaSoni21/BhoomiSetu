@@ -58,6 +58,33 @@ describe('RegisterPage', () => {
     expect(apiService.post).not.toHaveBeenCalled();
   });
 
+  it('rejects a password missing complexity client-side, without calling the API', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'New Citizen' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'newcitizen@example.com' } });
+    // 8+ chars but all lowercase - passes length, fails the backend's rule.
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(screen.getByText('Password must include an uppercase letter, a lowercase letter, and a number.')).toBeInTheDocument();
+    expect(apiService.post).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the backend reason on a 400, not the generic retry message', async () => {
+    server.use(
+      http.post('*/auth/register', () => HttpResponse.json({ message: ['Value error, some backend rule failed'] }, { status: 400 })),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'New Citizen' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'newcitizen@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password1' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'Password1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(await screen.findByText('Value error, some backend rule failed')).toBeInTheDocument();
+  });
+
   // No account exists yet after POST /auth/register - it only stages a
   // PendingRegistration on the backend (AuthService.register) and hands back
   // a registrationId to drive the OTP step, per the user's explicit "the

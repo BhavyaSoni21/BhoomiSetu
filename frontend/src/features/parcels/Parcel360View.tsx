@@ -435,26 +435,36 @@ const Parcel360View: React.FC = () => {
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">{t('parcel360.area')}</h2>
               <Field label={t('parcel360.area')} value={`${spatial.area_sq_m.toLocaleString()} m²`} />
             </div>
-            {canViewRiskScore && riskScore && (
+            {canViewRiskScore && riskScore && (() => {
+              // Collapse the 4-tier backend band to the 3 categories the citizen
+              // view shows (CRITICAL folds into HIGH); never surface the numeric
+              // score - only the band + the plain-language factors behind it.
+              const band = riskScore.riskBand === 'CRITICAL' ? 'HIGH' : riskScore.riskBand;
+              const availableFactors = riskScore.factors.filter((f) => f.available);
+              return (
               <div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">{t('parcel360.riskScore')}</h2>
                 <span
                   className={`inline-flex items-center gap-1.5 border-2 px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${
-                    RISK_BAND_CLASS[riskScore.riskBand] ?? 'bg-muted text-ink border-ink'
+                    RISK_BAND_CLASS[band] ?? 'bg-muted text-ink border-ink'
                   }`}
                 >
                   <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
-                  {riskScore.riskBand} ({riskScore.overallScore})
+                  {t(`parcel360.riskBand.${band}`)}
                 </span>
-                <div className="mt-2 space-y-1">
-                  {riskScore.factors.filter((f) => f.available).map((factor) => (
-                    <p key={factor.key} className="text-xs text-ink/60">
-                      <strong className="font-bold text-ink/80">{factor.label}:</strong> {factor.rationale}
-                    </p>
-                  ))}
-                </div>
+                {availableFactors.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-ink/50">{t('parcel360.riskBasis')}</p>
+                    {availableFactors.map((factor) => (
+                      <p key={factor.key} className="text-xs text-ink/60">
+                        <strong className="font-bold text-ink/80">{factor.label}:</strong> {factor.rationale}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+              );
+            })()}
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">{t('parcel360.dataSources')}</h2>
               <div className="space-y-1.5">

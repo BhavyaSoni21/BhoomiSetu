@@ -116,7 +116,11 @@ export function useAuthUser() {
         throw err;
       }
     },
-    { retry: 1, retryDelay: 1000, staleTime: 5000, refetchOnWindowFocus: true, refetchInterval: 10000 },
+    // Poll only while actually signed in: once /auth/me returns null (no token,
+    // or a leftover/expired one we just cleared), stop hammering the endpoint -
+    // otherwise a stale token in localStorage logs a console 401 every 10s on
+    // public pages like /login and /register.
+    { retry: 1, retryDelay: 1000, staleTime: 5000, refetchOnWindowFocus: true, refetchInterval: (data) => (data ? 10000 : false) },
   );
 }
 

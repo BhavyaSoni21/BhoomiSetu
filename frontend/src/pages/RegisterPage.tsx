@@ -117,6 +117,13 @@ const RegisterPage: React.FC = () => {
       setValidationError(t('authPage.passwordTooShortError'));
       return;
     }
+    // Mirror the backend's complexity rule (schemas/auth.py _PASSWORD_COMPLEXITY)
+    // client-side: without this the server rejects e.g. "password" with a 400
+    // that used to surface only as the generic "registration failed" below.
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      setValidationError(t('authPage.passwordComplexityError'));
+      return;
+    }
     try {
       const result = await registerMutation.mutateAsync({
         name,
@@ -131,12 +138,21 @@ const RegisterPage: React.FC = () => {
     } catch { /* surfaced via registerMutation.isError */ }
   };
 
-  const submitErrorMessage =
-    registerMutation.isError
-      ? (axios.isAxiosError(registerMutation.error) && registerMutation.error.response?.status === 409
-          ? t(method === 'EMAIL' ? 'authPage.accountExistsEmailError' : 'authPage.accountExistsMobileError')
-          : t('authPage.registrationFailedError'))
-      : null;
+  const submitErrorMessage = (() => {
+    if (!registerMutation.isError) return null;
+    if (!axios.isAxiosError(registerMutation.error)) return t('authPage.registrationFailedError');
+    const status = registerMutation.error.response?.status;
+    if (status === 409) {
+      return t(method === 'EMAIL' ? 'authPage.accountExistsEmailError' : 'authPage.accountExistsMobileError');
+    }
+    // Backend validation/delivery errors (400/422/503) carry a human-readable
+    // reason in `message` (string or array, e.g. the password-complexity rule);
+    // surface it instead of hiding it behind the generic retry message.
+    const detail = registerMutation.error.response?.data?.message;
+    if (Array.isArray(detail) && detail.length) return String(detail[0]);
+    if (typeof detail === 'string' && detail) return detail;
+    return t('authPage.registrationFailedError');
+  })();
 
   if (step === 'otp') {
     return (

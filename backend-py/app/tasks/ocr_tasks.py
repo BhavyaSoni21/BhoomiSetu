@@ -20,12 +20,13 @@ def process_document_ocr(self, job_id: str, file_path: str, document_type: str):
         job.started_at = func.now()
         db.commit()
 
-        from app.document_verification.ocr import extract_text_from_image
+        from app.document_verification.ocr import extract_text
 
-        result = extract_text_from_image(file_path, document_type)
+        with open(file_path, "rb") as f:
+            result = extract_text(f.read())
 
         job.status = "succeeded"
-        job.result = {"extracted_text": result}
+        job.result = {"extracted_text": result.text, "confidence": result.confidence}
         job.completed_at = func.now()
         db.commit()
 
@@ -57,11 +58,12 @@ def batch_ocr_processing(self, job_id: str, file_paths: list[str], document_type
         job.started_at = func.now()
         db.commit()
 
-        from app.document_verification.ocr import extract_text_from_image
+        from app.document_verification.ocr import extract_text
 
         results = []
         for file_path in file_paths:
-            text = extract_text_from_image(file_path, document_type)
+            with open(file_path, "rb") as f:
+                text = extract_text(f.read()).text
             results.append({"file": file_path, "text": text})
 
         job.status = "succeeded"

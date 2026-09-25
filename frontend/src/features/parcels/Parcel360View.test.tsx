@@ -105,9 +105,10 @@ const secondResponse = {
 // every existing test that expects the citizen-only Actions buttons to
 // render doesn't need to know about /parcels/mine at all; tests about the
 // ownership gate itself override myParcels explicitly.
-function mockGet(overrides: { parcel360?: unknown; historicalClusters?: unknown; myParcels?: unknown } = {}) {
+function mockGet(overrides: { parcel360?: unknown; historicalClusters?: unknown; myParcels?: unknown; riskScore?: unknown } = {}) {
   server.use(
     http.get('*/parcels/mine', () => HttpResponse.json(overrides.myParcels ?? { parcels: [{ id: 'p1' }], total: 1 })),
+    http.get('*/parcels/:id/risk-score', () => HttpResponse.json(overrides.riskScore ?? { parcelId: 'p1', overallScore: 82, riskBand: 'CRITICAL', dataCompleteness: 100, factors: [{ key: 'tax', label: 'Tax', weight: 0.4, available: true, score: 90, rationale: '₹120000 outstanding' }] })),
     http.get('*/historical-imagery/clusters', () => HttpResponse.json(overrides.historicalClusters ?? [])),
     http.get('*/historical-imagery/clusters/*/parcels', () => HttpResponse.json([])),
     http.get('*/parcels/:id/360', ({ params }) => {
@@ -140,6 +141,19 @@ describe('Parcel360View', () => {
     expect(screen.getByText('55/2')).toBeInTheDocument();
     expect(screen.getByText('VIL555')).toBeInTheDocument();
     expect(screen.getByText('26,714 m²')).toBeInTheDocument();
+  });
+
+  it('shows the risk band as High/Medium/Low with basis, never the numeric score', async () => {
+    mockGet(); // default risk-score is CRITICAL / overallScore 82
+    renderWithProviders();
+
+    // CRITICAL collapses to the citizen-facing "High" category...
+    expect(await screen.findByText('High')).toBeInTheDocument();
+    expect(screen.queryByText('CRITICAL')).not.toBeInTheDocument();
+    // ...the numeric score is never rendered...
+    expect(screen.queryByText(/\b82\b/)).not.toBeInTheDocument();
+    // ...but the plain-language factor basis is.
+    expect(screen.getByText('₹120000 outstanding')).toBeInTheDocument();
   });
 
   it('shows AVAILABLE/NOT_AVAILABLE badges for every department source', async () => {
