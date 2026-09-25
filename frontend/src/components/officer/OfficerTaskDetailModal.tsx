@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '../../context/LanguageContext';
-import { CaseOut, DepartmentTaskOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn, AppointmentOut } from '../../types/aiFlow';
+import { CaseOut, DepartmentTask, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn, AppointmentOut } from '../../types/aiFlow';
 import { Parcel360Response } from '../../types/parcel360';
 import apiService from '../../services/apiService';
 import VerifierAssignmentPanel from '../../features/officer/VerifierAssignmentPanel';
@@ -169,7 +169,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [checklistRemarks, setChecklistRemarks] = useState('');
 
-  const { data: task, isLoading: taskLoading } = useQuery<DepartmentTaskOut>(
+  const { data: task, isLoading: taskLoading } = useQuery<DepartmentTask>(
     ['task', taskId],
     () => apiService.get(`/cases/${caseId}/tasks/${taskId}`).then(res => res.data),
     { enabled: isOpen },
@@ -297,7 +297,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     checklistMutation.mutate({ checklist, remarks: checklistRemarks });
   };
 
-  const needsVerification = task?.resolution_mode === 'FIELD_VERIFICATION' || task?.resolution_mode === 'OFFLINE_APPOINTMENT';
+  const needsVerification = task?.resolutionMode === 'FIELD_VERIFICATION' || task?.resolutionMode === 'OFFLINE_APPOINTMENT';
   const CHECKLIST_ITEMS = [
     'officerTaskDetail.checklist.originalDocument',
     'officerTaskDetail.checklist.citizenIdentity',
@@ -319,7 +319,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     setDecisionRemarksError('');
     resolveMutation.mutate({
       decision,
-      officer_id: task?.assigned_officer_id || '',
+      officer_id: task?.assignedOfficerId || '',
       remarks: decisionRemarks,
     });
   };
@@ -394,11 +394,11 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                     </div>
                     <div className="gov-card p-4">
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldResolutionMode', 'Resolution Mode')}</div>
-                      <div className="text-lg font-bold text-text-heading">{task.resolution_mode || '—'}</div>
+                      <div className="text-lg font-bold text-text-heading">{task.resolutionMode || '—'}</div>
                     </div>
                     <div className="gov-card p-4">
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldDepartment', 'Department')}</div>
-                      <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-900" />{String(task.department_id).slice(0, 8)}</div>
+                      <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-900" />{String(task.departmentId).slice(0, 8)}</div>
                     </div>
                   </div>
 
@@ -486,14 +486,14 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                   )}
 
                   {/* Verifier Findings & Evidence Review (§33, §5.6) */}
-                  {needsVerification && task.assigned_verifier_id && (
+                  {needsVerification && task.assignedVerifierId && (
                     <div className="gov-card p-4">
                       <h3 className="font-heading font-bold text-sm text-text-heading mb-3 flex items-center gap-2">
                         <FileText className="w-4 h-4 text-brand-900" />
                         {t('officerTaskDetail.verifierFindingsHeading', 'Verifier Findings & Evidence')}
                       </h3>
                       <VerifierFindingsSection
-                        workflowId={task.workflow_id ?? ''}
+                        workflowId={task.workflowId ?? ''}
                         caseId={caseId}
                       />
                     </div>

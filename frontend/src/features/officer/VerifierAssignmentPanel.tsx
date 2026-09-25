@@ -3,7 +3,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserCheck, Users, AlertCircle, CheckCircle2, Loader2, MapPin } from 'lucide-react';
 import apiService from '../../services/apiService';
-import { DepartmentTaskOut } from '../../types/aiFlow';
+import { DepartmentTask } from '../../types/aiFlow';
 
 interface Verifier {
   id: string;
@@ -19,7 +19,7 @@ interface VerifierWithWorkload extends Verifier {
 
 interface VerifierAssignmentPanelProps {
   /** The task that needs a verifier assigned. */
-  task: DepartmentTaskOut;
+  task: DepartmentTask;
   /** Called on successful assignment so parent can refresh. */
   onAssigned?: () => void;
 }
@@ -37,14 +37,14 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedVerifierId, setSelectedVerifierId] = useState<string | null>(
-    task.assigned_verifier_id ?? null,
+    task.assignedVerifierId ?? null,
   );
   const [notes, setNotes] = useState('');
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Only render when the task needs a field verifier
-  const needsVerifier = task.resolution_mode ? FIELD_MODES.has(task.resolution_mode) : false;
+  const needsVerifier = task.resolutionMode ? FIELD_MODES.has(task.resolutionMode) : false;
 
   const { data: verifiers = [], isLoading: verifiersLoading } = useQuery<VerifierWithWorkload[]>({
     queryKey: ['verifiers-with-workload'],
@@ -82,7 +82,7 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
 
   if (!needsVerifier) return null;
 
-  const alreadyAssigned = !!task.assigned_verifier_id && task.assigned_verifier_id === selectedVerifierId && success;
+  const alreadyAssigned = !!task.assignedVerifierId && task.assignedVerifierId === selectedVerifierId && success;
   const canSubmit = !!selectedVerifierId && !assignMutation.isPending && !success;
 
   return (
@@ -94,7 +94,7 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
           {t('verifierAssignment.title', 'Assign Field Verifier')}
         </h3>
         <span className="ml-auto text-[10px] font-mono uppercase tracking-widest text-ink/40 border border-ink/20 px-2 py-0.5">
-          {task.resolution_mode?.replace(/_/g, ' ')}
+          {task.resolutionMode?.replace(/_/g, ' ')}
         </span>
       </div>
 
@@ -139,7 +139,7 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
           <div className="grid gap-2 max-h-60 overflow-y-auto pr-1">
             {verifiers.map((v) => {
               const isSelected = selectedVerifierId === v.id;
-              const isCurrentlyAssigned = task.assigned_verifier_id === v.id;
+              const isCurrentlyAssigned = task.assignedVerifierId === v.id;
               return (
                 <button
                   key={v.id}
