@@ -48,16 +48,23 @@ export default defineConfig({
             },
           },
           {
-            // API GET reads: NetworkFirst with cached fallback. Workbox routes
-            // are GET-only by default, so mutations are never cached here —
-            // they go through the explicit offline queue instead.
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            // API GET reads: NetworkFirst with cached fallback. SAME-ORIGIN
+            // ONLY — in production the API is a different origin (onrender), and
+            // routing those auth'd cross-origin reads through the SW made
+            // workbox swallow them into `no-response` errors with no CORS header
+            // (browser then blamed CORS). Cross-origin API now bypasses the SW
+            // and hits the network directly, where CORS works.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'bhoomisetu-api',
+              // Bumped -v2 to abandon any status-0 (opaque failure) entries the
+              // old rule poisoned this cache with.
+              cacheName: 'bhoomisetu-api-v2',
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
+              // Only cache real successes — never opaque/failed (status 0)
+              // responses, which replay forever as broken.
+              cacheableResponse: { statuses: [200] },
             },
           },
           {
