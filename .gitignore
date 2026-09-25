@@ -19,6 +19,9 @@ frontend/.vite/
 # backend/.env.example survives this via a historical force-add; this
 # negation does the same for backend-py's without needing another one.
 !backend-py/.env.example
+# Committed prod default (public VITE_ vars only, no secret) so a Vercel build
+# can't silently fall back to localhost when VITE_API_URL is unset.
+!frontend/.env.production
 
 # Logs
 *.log
