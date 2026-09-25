@@ -13,6 +13,11 @@ const statusColor: Record<string, string> = {
   RESOLVED: 'bg-green-100 text-green-800',
   CLOSED: 'bg-gray-100 text-gray-800',
   CANCELLED: 'bg-red-100 text-red-800',
+  // Actual backend Case.status values (see case_service.CASE_STATUSES).
+  CREATED: 'bg-yellow-100 text-yellow-800',
+  ACTIVE: 'bg-blue-100 text-blue-800',
+  RESOLUTION: 'bg-green-100 text-green-800',
+  FEEDBACK: 'bg-green-100 text-green-800',
 };
 
 const MyCasesPage: React.FC = () => {

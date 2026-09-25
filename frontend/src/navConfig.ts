@@ -132,5 +132,6 @@
    { to: '/admin/officer-monitoring', labelKey: 'adminNav.officerMonitoring' },
    { to: '/admin/system-monitoring', labelKey: 'adminNav.systemMonitoring' },
    { to: '/admin/map-layers', labelKey: 'adminNav.mapLayerAuthoring' },
+   { to: '/admin/audit-log', label: 'Audit Log' },
    { to: '/admin/profile', iconOnly: true, iconName: 'UserCircle2', label: 'Profile' },
  ];

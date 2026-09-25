@@ -1175,6 +1175,12 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'cases.status.RESOLVED': 'Resolved',
     'cases.status.CLOSED': 'Closed',
     'cases.status.CANCELLED': 'Cancelled',
+    // Actual backend Case.status values (CREATED/ACTIVE/RESOLUTION/FEEDBACK/CLOSED);
+    // without these the citizen My Cases chip renders the raw enum in grey.
+    'cases.status.CREATED': 'Submitted',
+    'cases.status.ACTIVE': 'In Progress',
+    'cases.status.RESOLUTION': 'Resolved',
+    'cases.status.FEEDBACK': 'Awaiting Feedback',
     'appointment.bookingTitle': 'Book an Appointment',
     'appointment.status.requested': 'Requested',
     'appointment.status.confirmed': 'Confirmed',

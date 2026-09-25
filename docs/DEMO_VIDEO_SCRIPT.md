@@ -30,6 +30,31 @@ Not 40 screens. **One story, 40-ish seconds per major stage.**
 
 ---
 
+# 0. Deployment alignment (verified 2026-09-25)
+
+**Record against the live stack — it is fully wired and working:**
+
+- **App (drive this):** https://bhoomi-setu-nine.vercel.app/
+- **Backend:** https://bhoomisetu-ryh4.onrender.com/api/v1 (Render). Verified live, CORS-allows the Vercel origin, prod DB seeded.
+- **Login:** demo accounts, shared password `Demo@123` (admin, 8 officers, 2 verifiers, `citizen1@example.com`). Use the Sign-In "Demo accounts" panel.
+- **Recording:** screen-record the browser while walking the flow manually on the Vercel URL (any screen recorder / OS capture). The repo's `scripts/record_demo.js` Playwright auto-driver is an available hands-free alternative, but it's hardcoded to `localhost:5173` — repoint its `BASE` to the Vercel URL before use.
+
+**⚠ Warm the backend before every shoot.** Render free tier sleeps after ~15 min idle → the first request stalls ~50s. Load the site (or hit any endpoint) ~1 min before recording and keep a tab open so it stays awake.
+
+**Hero parcel (citizen1, verified in prod):** ULPIN `ULPIN0000120891` · canonical `CAN10518` · local `AP-VIJ-9976` · cluster `AP-VIJAYAWADA-01` · Vijayawada, AP · **Registered** (so Get Assistance / Raise Complaint is available). Use this as the constant hero parcel throughout.
+
+**Three beats that differ from the current build — adjust before recording:**
+
+| Script beat | Reality | Do this instead |
+|---|---|---|
+| 1:25 In-chat **OCR** inside Get Assistance | The Get Assistance chat has **no** OCR/upload step. OCR lives in the **parcel-linking** flow (My Parcels → + New Parcel → verify-by-document) and the SURVEY officer Documents tool. | Record OCR as a **separate clip** from parcel-linking and cut it in as the "document intelligence" insert. Don't imply it happens inside the complaint chat. |
+| 1:25 AI routing = **Registration + Land Records + Tax** | Routing is **LLM-driven** (Groq), not rule-based (the deterministic intent-map is only a fallback when the LLM fails). **Live-tested 2026-09-25** against the Render backend with the exact script complaint: it lands `[LAND_RECORDS, REGISTRATION, TAX]` about **2 of 3 runs**, occasionally dropping REGISTRATION; sharper "verify my registered deed" wording made it *worse* (added SURVEY). | Use the **original** complaint (below), warm backend, and **dry-run the Get Assistance flow 1–3 times until the routing shows all three (Reg + LR + Tax)**, then record that take. Don't reword it; don't gamble on a single live run. |
+| 4:15 **Audit Log** page | A dedicated **Admin → Audit Log** page now exists (`/admin/audit-log`) — the full filterable `/audit` feed (every officer/admin login + decision, by type). Case-specific step history also lives in Workflow Oversight (`WorkflowReviewPanel`). | Open **Admin → Audit Log** for the platform-wide chronological trail; optionally dip into Workflow Oversight for the case's per-step history. |
+
+Also: the Registration reject→correction→approve loop needs the right action. **Use "Return for Review", not "Reject"** — a true REJECT completes the task terminally (can never be approved after), while **Return for Review** blocks it so it can be approved once corrected. There is no citizen "resubmit" endpoint, so stage the correction manually (citizen adds/replaces a document) between officer clips, then re-open the same task and Approve. See §6.
+
+---
+
 # 1. 0:00–0:12 — Opening
 
 ### Screen
@@ -135,7 +160,9 @@ This gets **20 seconds**, because this is your strongest screen.
 
 Show, quickly:
 
-**Ownership | Registration | Tax | Planning | Restrictions | Encumbrance | Dispute | Survey | History**
+**Overview | Land Records | Registration | Planning | Tax | Restriction | Dispute | Encumbrance | Ownership History**
+
+> These are the **actual** Parcel 360 tabs (`Parcel360View.tsx`). Note: there is **no standalone "Survey" tab** (the script's old list was slightly off); Survey data surfaces via the officer tools, not a Parcel 360 tab. The owner-only tabs (Planning, Tax, Restriction, Dispute, Encumbrance, Ownership History) are hidden for non-owner viewers — fine here since you're the owner (citizen1).
 
 Then show the GIS parcel.
 
@@ -177,11 +204,15 @@ Do **not** rely on a random live LLM response to decide whether it returns 1 or 
 
 For the demo, the case should be **preconfigured/prepared so the exact intended departments are produced**. Your architecture supports multi-department tasks and configurable workflow pipelines, while the AI routing itself can return one or more departments.
 
+(Reality: routing is **intent/rule-based** — see §0. The seeded sample routed to Reg + LR + **Planning**, not Tax. Dry-run your chosen complaint until it produces Registration + Land Records + Tax before recording.)
+
 Then show:
 
-**Upload Sale Deed → OCR → extracted fields → match result**
+**Document intelligence (separate clip):** OCR is **not** part of the Get Assistance chat in the current build — it lives in the parcel-linking flow (My Parcels → + New Parcel → verify-by-document) and the SURVEY officer Documents tool.
 
-Your documented OCR pipeline specifically supports OCR extraction, OpenCV tamper signal and field matching before officer review. 
+**Upload document → OCR → extracted fields → match result**
+
+Record this from the parcel-linking flow and cut it in here as the document-intelligence insert (see §0). The OCR pipeline (extraction + OpenCV tamper signal + field matching) is real — just not wired into the complaint chat.
 
 Finally:
 
@@ -218,23 +249,27 @@ The officer sees:
 
 Then:
 
-### Reject
+### Return for Review
 
-Reason:
+> **⚠ Backend reality — do NOT click "Reject" here.** In the decision dropdown pick **Return for Review**, not Reject. A true **REJECT** sets the task to `COMPLETED` and it is **terminal** — the same task can never be approved afterward (`resolve_task` returns `INVALID_TASK_TRANSITION` on a completed task), so it breaks the one-case reject→approve loop. **Return for Review** sets the task to `BLOCKED`, which *can* be resolved again later → APPROVE. All three actions (APPROVE / REJECT / RETURN_FOR_REVIEW) are in the officer modal dropdown; the loop only works via Return for Review.
+
+Reason (mandatory remarks):
 
 > “Submitted registration reference does not match the supporting document.”
 
-This demonstrates the mandatory-reason requirement. 
+This demonstrates the mandatory-reason requirement.
 
 Then immediately show:
 
 ### Citizen/case updated
 
-**Rejected → correction submitted**
+**Returned for review → correction submitted**
+
+> There is **no citizen "resubmit" endpoint** — the correction is staged manually (citizen adds/replaces the supporting document or note). The task stays `BLOCKED` meanwhile; nothing technical is required to "unblock" it.
 
 Then return to Registration Officer:
 
-**Corrected evidence → Approve**
+**Corrected evidence → Approve** (re-open the same BLOCKED task → decision APPROVE)
 
 Reason:
 
@@ -244,7 +279,7 @@ Reason:
 
 You have now demonstrated:
 
-**AI → department → evidence → human decision → rejection reason → correction → approval**
+**AI → department → evidence → human decision → return-for-review reason → correction → approval**
 
 That's much stronger than simply clicking "Approve."
 
@@ -368,7 +403,9 @@ Officer:
 
 Show:
 
-**2020 → 2026**
+**2025 → 2026**
+
+> **⚠ Backend reality (verified live 2026-09-25).** Imagery exists for 2020/2022/2024/2025/2026, but the compare endpoint **only generates a governance alert for `2025 → 2026`** — any other year pair (e.g. 2020→2026) is rejected: *"Comparisons that generate governance alerts must run from 2025 to 2026."* For the change-detection → alert chain to work on camera, compare **2025 → 2026**. On the hero cluster `AP-VIJAYAWADA-01` this returns `changeDetected: true` with **22 affected parcels**. (You may still *browse* the older years' imagery for the "then vs now" visual, but run the actual Compare on 2025→2026.)
 
 ### Clip 2
 
@@ -384,9 +421,11 @@ Show:
 
 Show:
 
-**Detected → Acknowledged → Field Verified → Resolved**
+**Open (Detected) → Acknowledged → Field Verified → Resolved**
 
-Your documented system explicitly connects change detection to affected parcels and governance alerts. 
+> Backend status enum is `OPEN → ACKNOWLEDGED → FIELD_VERIFIED → RESOLVED` (plus `DISMISSED`). The first state is **OPEN** — the UI may show it as "Detected/Open"; the progression itself matches the script.
+
+Your documented system explicitly connects change detection to affected parcels and governance alerts.
 
 Only **15 seconds**.
 
@@ -398,15 +437,15 @@ Only **15 seconds**.
 
 Open:
 
+**Audit Log** (`/admin/audit-log`)
+
+Show the dedicated audit trail — the full filterable `/audit` feed of every officer/admin login and decision across the platform. Filter by type if useful.
+
+Then, for the case's per-step history:
+
 **Workflow Oversight**
 
-Show the same Case ID and its departmental tasks.
-
-Then:
-
-**Audit Log**
-
-Show the chronological trail.
+Show the same Case ID and its departmental tasks — the chronological step trail (`WorkflowReviewPanel`) with timestamps/reasons.
 
 You want the viewer to see something like:
 
@@ -421,6 +460,8 @@ Then cut to:
 Show:
 
 **Resolved**
+
+> Backend fact: when every department task completes, the case moves to status **`RESOLUTION`** (lifecycle is `CREATED → ACTIVE → RESOLUTION → FEEDBACK → CLOSED` — there is no literal `RESOLVED` status). The My Cases chip previously rendered the raw enum in grey because the label/colour maps only knew the old `RESOLVED/IN_PROGRESS/...` names. **Fixed 2026-09-25**: `RESOLUTION` now shows a green **"Resolved"** chip (and `ACTIVE`→"In Progress", `CREATED`→"Submitted", `FEEDBACK`→"Awaiting Feedback"). ⚠ This fix is **not deployed to Vercel yet** — same redeploy note as the Audit Log page.
 
 Then:
 
@@ -537,9 +578,9 @@ Before recording, prepare these exactly:
 
 | Data                  | Must stay constant              |
 | --------------------- | ------------------------------- |
-| Citizen               | Same demo citizen               |
-| Hero parcel           | Same parcel                     |
-| ULPIN                 | Same                            |
+| Citizen               | citizen1@example.com (Demo@123) |
+| Hero parcel           | CAN10518 / local AP-VIJ-9976 (Vijayawada, Registered) |
+| ULPIN                 | ULPIN0000120891                 |
 | Case ID               | Same                            |
 | Complaint             | Same                            |
 | Uploaded document     | Same                            |
