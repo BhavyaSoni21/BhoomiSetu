@@ -112,6 +112,11 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins if isinstance(settings.cors_origins, list) else ["*"],
+    # Any Vercel deployment of the frontend (prod, preview, renamed project) is
+    # trusted without re-listing each new *.vercel.app URL in CORS_ORIGIN. This
+    # is why a fresh domain like bhoomi-setu-nine.vercel.app 403'd with no CORS
+    # header and the browser reported it as a CORS failure.
+    allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

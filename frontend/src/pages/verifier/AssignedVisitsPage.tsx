@@ -153,8 +153,12 @@ const AssignedVisitsPage: React.FC = () => {
               key={task.id}
               task={task}
               address={address}
+              ulpin={parcel?.ulpin ?? null}
               expanded={expandedId === task.id}
-              onToggle={() => setExpandedId((prev) => (prev === task.id ? null : task.id))}
+              onToggle={() => {
+                setExpandedId((prev) => (prev === task.id ? null : task.id));
+                if (parcelId) setSelectedParcelId(parcelId);
+              }}
             />
           );
         })}
@@ -166,16 +170,19 @@ const AssignedVisitsPage: React.FC = () => {
 const VisitCard: React.FC<{
   task: DepartmentTask;
   address: string;
+  ulpin: string | null;
   expanded: boolean;
   onToggle: () => void;
-}> = ({ task, address, expanded, onToggle }) => {
+}> = ({ task, address, ulpin, expanded, onToggle }) => {
   const { t } = useTranslation();
   const [packageData, setPackageData] = useState<VerifierPackage | null>(null);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageError, setPackageError] = useState<string | null>(null);
   const [showPackage, setShowPackage] = useState(false);
 
-  const departmentLabel = task.departmentId || t('verifierPortal.unknownDepartment');
+  // Title prefers a human-readable location: street address, else ULPIN, else
+  // the department. We never surface the raw department/parcel UUID as a label.
+  const title = address || ulpin || task.departmentId?.replace(/_/g, ' ') || t('verifierPortal.locationUnknown', 'Location unavailable');
 
   const fetchCasePackage = async () => {
     if (packageData) {
@@ -205,10 +212,13 @@ const VisitCard: React.FC<{
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-2 transition"
       >
         <div>
-          <p className="font-bold text-sm text-ink">{departmentLabel.replace(/_/g, ' ')}</p>
-          <p className="text-xs text-ink/60 flex items-center gap-1">
+          <p className="font-bold text-sm text-ink flex items-center gap-1.5">
             <MapPinned className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            {address || t('verifierPortal.locationUnknown', 'Location unavailable')} — {task.status.replace(/_/g, ' ')}
+            {title}
+          </p>
+          <p className="text-xs text-ink/60">
+            {ulpin && address && <span className="font-mono">{ulpin} · </span>}
+            {task.status.replace(/_/g, ' ')}
           </p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-ink/50">
