@@ -4,31 +4,33 @@ import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, MapPinned, Package, ChevronDown, ChevronRight, FileText, MapPin, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import apiService from '../../services/apiService';
-import { DepartmentTaskOut, CaseDetailOut } from '../../types/aiFlow';
+import { DepartmentTask } from '../../types/aiFlow';
 import { ParcelSummary } from '../../types/parcel';
 import UnifiedMapWrapper from '../../features/map/UnifiedMapWrapper';
 
 /**
  * Offline case package returned by GET /cases/{case_id}/verifier-package (§30).
- * Contains everything a verifier needs for a field visit.
+ * VerifierPackageOut is a CamelModel, so every key is camelCase on the wire.
  */
 interface VerifierPackage {
-  case: CaseDetailOut['case'];
+  case?: { caseNo?: string | null } | null;
   parcel?: {
     ulpin?: string | null;
-    survey_no?: string | null;
-    area_sq_m?: number | null;
-    state_code?: string;
-    district_code?: string;
-    street_address?: string | null;
-    locality?: string | null;
+    surveyNo?: string | null;
+    area?: number | null;
+    owner?: string | null;
   } | null;
   application?: {
-    final_submitted_version?: string | null;
-    ai_draft?: string | null;
+    finalSubmittedVersion?: string | null;
+    aiDraft?: string | null;
   } | null;
-  task_instructions?: string | null;
-  existing_evidence_count?: number;
+  taskInstructions?: Array<{
+    department?: string | null;
+    resolutionMode?: string | null;
+    stageName?: string | null;
+    status?: string | null;
+  }>;
+  evidence?: unknown[];
 }
 
 const AssignedVisitsPage: React.FC = () => {
@@ -36,19 +38,21 @@ const AssignedVisitsPage: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
 
-  const { data: tasks = [], isLoading } = useQuery<DepartmentTaskOut[]>(
+  const { data: tasks = [], isLoading } = useQuery<DepartmentTask[]>(
     ['verifier-assigned-tasks'],
     async () => (await apiService.get('/cases/verifier/tasks')).data,
   );
 
-  const { data: caseDetails = {} } = useQuery<Record<string, CaseDetailOut>>(
+  // GET /cases/{id} returns a CaseOut (camelCase wire), not a CaseDetailOut —
+  // there is no `.case` wrapper. We only need each case's parcelId for the map.
+  const { data: caseDetails = {} } = useQuery<Record<string, { parcelId?: string | null }>>(
     ['verifier-case-details', tasks.map((t) => t.id)],
     async () => {
-      const result: Record<string, CaseDetailOut> = {};
+      const result: Record<string, { parcelId?: string | null }> = {};
       await Promise.all(
         tasks.map(async (task) => {
           try {
-            const response = await apiService.get(`/cases/${task.case_id}`);
+            const response = await apiService.get(`/cases/${task.caseId}`);
             result[task.id] = response.data;
           } catch {
             // Skip tasks where case fetch fails
@@ -66,7 +70,7 @@ const AssignedVisitsPage: React.FC = () => {
   const parcelIds = useMemo(
     () =>
       tasks
-        .map((task) => caseDetails[task.id]?.case?.parcel_id)
+        .map((task) => caseDetails[task.id]?.parcelId)
         .filter((id): id is string => !!id),
     [tasks, caseDetails],
   );
@@ -94,7 +98,7 @@ const AssignedVisitsPage: React.FC = () => {
 
   const handleParcelClick = (parcelId: string) => {
     setSelectedParcelId(parcelId);
-    const task = tasks.find((t) => caseDetails[t.id]?.case?.parcel_id === parcelId);
+    const task = tasks.find((t) => caseDetails[t.id]?.parcelId === parcelId);
     if (task) {
       setExpandedId(task.id);
     }
@@ -144,7 +148,7 @@ const AssignedVisitsPage: React.FC = () => {
 };
 
 const VisitCard: React.FC<{
-  task: DepartmentTaskOut;
+  task: DepartmentTask;
   expanded: boolean;
   onToggle: () => void;
 }> = ({ task, expanded, onToggle }) => {
@@ -154,7 +158,7 @@ const VisitCard: React.FC<{
   const [packageError, setPackageError] = useState<string | null>(null);
   const [showPackage, setShowPackage] = useState(false);
 
-  const departmentLabel = task.department_id || t('verifierPortal.unknownDepartment');
+  const departmentLabel = task.departmentId || t('verifierPortal.unknownDepartment');
 
   const fetchCasePackage = async () => {
     if (packageData) {
@@ -164,7 +168,7 @@ const VisitCard: React.FC<{
     setPackageLoading(true);
     setPackageError(null);
     try {
-      const response = await apiService.get<VerifierPackage>(`/cases/${task.case_id}/verifier-package`);
+      const response = await apiService.get<VerifierPackage>(`/cases/${task.caseId}/verifier-package`);
       setPackageData(response.data);
       setShowPackage(true);
     } catch (err: any) {
@@ -187,7 +191,7 @@ const VisitCard: React.FC<{
           <p className="font-bold text-sm text-ink">{departmentLabel.replace(/_/g, ' ')}</p>
           <p className="text-xs text-ink/60 flex items-center gap-1">
             <MapPinned className="w-3.5 h-3.5" aria-hidden="true" />
-            Case #{task.case_id.slice(0, 8)} — {task.status.replace(/_/g, ' ')}
+            Case #{task.caseId.slice(0, 8)} — {task.status.replace(/_/g, ' ')}
           </p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-ink/50">
@@ -199,7 +203,7 @@ const VisitCard: React.FC<{
         <div className="border-t-2 border-ink p-4 space-y-4">
           <div className="text-sm text-ink/70">
             <span className="font-semibold">{t('verifierPortal.resolutionMode')}:</span>{' '}
-            {task.resolution_mode || t('verifierPortal.notApplicable')}
+            {task.resolutionMode || t('verifierPortal.notApplicable')}
           </div>
 
           {/* Action links */}
@@ -251,7 +255,7 @@ const VisitCard: React.FC<{
                 <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                 {t('verifierPortal.packageTitle', 'Case Package')}
                 <span className="font-mono text-ink/40 ml-auto">
-                  {packageData.case?.case_no ?? '—'}
+                  {packageData.case?.caseNo ?? '—'}
                 </span>
               </h4>
 
@@ -268,24 +272,22 @@ const VisitCard: React.FC<{
                         <span className="font-mono font-semibold">{packageData.parcel.ulpin}</span>
                       </>
                     )}
-                    {packageData.parcel.area_sq_m != null && (
+                    {packageData.parcel.surveyNo && (
+                      <>
+                        <span className="text-ink/50">{t('verifierPortal.surveyNo', 'Survey No.')}</span>
+                        <span className="font-mono font-semibold">{packageData.parcel.surveyNo}</span>
+                      </>
+                    )}
+                    {packageData.parcel.area != null && (
                       <>
                         <span className="text-ink/50">{t('verifierPortal.area', 'Area')}</span>
-                        <span className="font-semibold">{packageData.parcel.area_sq_m.toLocaleString()} m²</span>
+                        <span className="font-semibold">{packageData.parcel.area.toLocaleString()} m²</span>
                       </>
                     )}
-                    {packageData.parcel.street_address && (
+                    {packageData.parcel.owner && (
                       <>
-                        <span className="text-ink/50">{t('verifierPortal.address', 'Address')}</span>
-                        <span className="font-semibold">{packageData.parcel.street_address}</span>
-                      </>
-                    )}
-                    {packageData.parcel.district_code && (
-                      <>
-                        <span className="text-ink/50">{t('verifierPortal.district', 'District')}</span>
-                        <span className="font-semibold">
-                          {packageData.parcel.state_code}-{packageData.parcel.district_code}
-                        </span>
+                        <span className="text-ink/50">{t('verifierPortal.owner', 'Owner')}</span>
+                        <span className="font-semibold">{packageData.parcel.owner}</span>
                       </>
                     )}
                   </div>
@@ -293,31 +295,40 @@ const VisitCard: React.FC<{
               )}
 
               {/* Task instructions */}
-              {packageData.task_instructions && (
+              {packageData.taskInstructions && packageData.taskInstructions.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
                     {t('verifierPortal.taskInstructions', 'Task Instructions')}
                   </p>
-                  <p className="text-xs text-ink/80 leading-relaxed">{packageData.task_instructions}</p>
+                  <ul className="text-xs text-ink/80 leading-relaxed space-y-1">
+                    {packageData.taskInstructions.map((ti, i) => (
+                      <li key={i} className="flex flex-wrap gap-x-2">
+                        <span className="font-semibold">{(ti.department || '—').replace(/_/g, ' ')}</span>
+                        {ti.resolutionMode && <span className="text-ink/60">· {ti.resolutionMode.replace(/_/g, ' ')}</span>}
+                        {ti.stageName && <span className="text-ink/60">· {ti.stageName}</span>}
+                        {ti.status && <span className="text-ink/50">({ti.status.replace(/_/g, ' ')})</span>}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
               {/* Application summary */}
-              {packageData.application?.final_submitted_version && (
+              {packageData.application?.finalSubmittedVersion && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
                     {t('verifierPortal.applicationSummary', 'Citizen Application')}
                   </p>
                   <p className="text-xs text-ink/80 leading-relaxed line-clamp-6">
-                    {packageData.application.final_submitted_version}
+                    {packageData.application.finalSubmittedVersion}
                   </p>
                 </div>
               )}
 
               {/* Existing evidence count */}
-              {packageData.existing_evidence_count != null && (
+              {packageData.evidence != null && (
                 <p className="text-xs text-ink/60">
-                  <span className="font-bold">{packageData.existing_evidence_count}</span>{' '}
+                  <span className="font-bold">{packageData.evidence.length}</span>{' '}
                   {t('verifierPortal.existingEvidence', 'existing evidence item(s) on this case')}
                 </p>
               )}
