@@ -15,6 +15,7 @@ Re-run safely: already-translated keys are skipped (incremental mode).
 import asyncio
 import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -24,6 +25,30 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.services.bhashini import translate_text
+
+# ── Placeholder protection ────────────────────────────────────────────────────
+# Bhashini MT drops/garbles {{count}}-style interpolation tokens. Mask each into
+# a self-closing XML sentinel <xN/> — empirically the one token Bhashini's NMT
+# passes through verbatim across all 10 Indic targets (PUA chars, {{ }}, #, @, %
+# were all stripped in probing). Restore after translation; order-preserving,
+# handles repeats and multiple placeholders.
+_PH_RE = re.compile(r"{{.*?}}")
+_MASK_RE = re.compile(r"<\s*x(\d+)\s*/\s*>")
+
+
+def _mask(text: str) -> tuple[str, list[str]]:
+    mapping: list[str] = []
+
+    def sub(m: re.Match) -> str:
+        mapping.append(m.group(0))
+        return f"<x{len(mapping) - 1}/>"
+
+    return _PH_RE.sub(sub, text), mapping
+
+
+def _unmask(text: str, mapping: list[str]) -> str:
+    return _MASK_RE.sub(lambda m: mapping[int(m.group(1))], text)
+
 
 # ── Config ───────────────────────────────────────────────────────────────────
 STATIC_DIR = ROOT / "static"
@@ -79,8 +104,15 @@ async def translate_language(
         logger.info(f"  Translating {idx}/{total}: {key!r} -> {lang}")
 
         try:
-            tr = await translate_text(en_text, source_lang="en", target_lang=lang)
-            result[key] = tr.translated_text
+            masked, mapping = _mask(en_text)
+            tr = await translate_text(masked, source_lang="en", target_lang=lang)
+            restored = _unmask(tr.translated_text, mapping)
+            # Safety: if the MT engine ate a sentinel, keep the English source
+            # rather than ship a string with a broken/absent placeholder.
+            if len(_PH_RE.findall(restored)) != len(mapping):
+                logger.warning(f"  placeholder lost {key!r} -> {lang}; kept English")
+                restored = en_text
+            result[key] = restored
             translated += 1
         except Exception as e:
             logger.error(f"  FAILED {key!r} -> {lang}: {e}")
@@ -149,6 +181,20 @@ async def main() -> None:
     logger.info("Output files written to: " + str(STATIC_DIR))
 
 
+def _selftest() -> None:
+    m, mp = _mask("Found {{count}} of {{total}}, {{count}} shown")
+    assert _PH_RE.search(m) is None and mp == ["{{count}}", "{{total}}", "{{count}}"]
+    # sentinels survive arbitrary reordering/spacing an MT engine might introduce
+    assert _unmask(m, mp) == "Found {{count}} of {{total}}, {{count}} shown"
+    assert _unmask("<x1/> -- <x0/>", mp) == "{{total}} -- {{count}}"
+    assert _unmask("< x1 /> ~ <x0/>", mp) == "{{total}} ~ {{count}}"  # tolerant of MT spacing
+    assert _mask("no placeholders")[1] == []
+    print("selftest ok")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    if "--selftest" in sys.argv:
+        _selftest()
+    else:
+        asyncio.run(main())
 

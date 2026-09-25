@@ -953,15 +953,21 @@ def check_task_sla(db: Session, task_id: str) -> dict | None:
         )
         .all()
     )
-    if not sla_configs:
-        return None
 
-    sla = sla_configs[0]
     reference_time = task.completed_at if task.completed_at else _now()
     elapsed = (reference_time - task.created_at).total_seconds() / 3600.0
 
-    warning_threshold = float(sla.warning_threshold) if sla.warning_threshold else None
-    breach_threshold = float(sla.breach_threshold) if sla.breach_threshold else None
+    if sla_configs:
+        sla = sla_configs[0]
+        warning_threshold = float(sla.warning_threshold) if sla.warning_threshold else None
+        breach_threshold = float(sla.breach_threshold) if sla.breach_threshold else None
+    else:
+        # No SLAConfig row — fall back to the thresholds carried on the task
+        # itself (populated at task creation). None only if the task has none.
+        warning_threshold = float(task.sla_warning_threshold) if task.sla_warning_threshold else None
+        breach_threshold = float(task.sla_breach_threshold) if task.sla_breach_threshold else None
+        if warning_threshold is None and breach_threshold is None:
+            return None
 
     if breach_threshold is not None and elapsed >= breach_threshold:
         status = "BREACH"

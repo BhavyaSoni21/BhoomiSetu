@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import apiService from '../services/apiService';
+import { useTranslation } from '../context/LanguageContext';
 import { enqueue } from '../offline/queue';
 import { useNetworkStore } from '../offline/network';
 import {
@@ -71,6 +72,7 @@ const CHAT_STEPS: ChatStep[] = [
 ];
 
 export function useChat(): UseChatReturn {
+  const { t, currentLang } = useTranslation();
   const [step, setStep] = useState<ChatStep>('parcel_select');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [understanding, setUnderstanding] = useState<UnderstandRequestOut | null>(null);
@@ -122,16 +124,17 @@ export function useChat(): UseChatReturn {
     setParcelId(id);
     setStep('describe');
     setMessages([]);
-    addAssistantMessage('I can help you describe your issue. Please explain the problem with your land parcel.');
-  }, [addAssistantMessage]);
+    addAssistantMessage(t('aiChat.describePrompt', 'I can help you describe your issue. Please explain the problem with your land parcel.'));
+  }, [addAssistantMessage, t]);
 
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return;
       setError(null);
       if (!useNetworkStore.getState().reachable) {
-        setError(AI_OFFLINE_MSG);
-        addAssistantMessage(AI_OFFLINE_MSG);
+        const offlineMsg = t('aiChat.offline', AI_OFFLINE_MSG);
+        setError(offlineMsg);
+        addAssistantMessage(offlineMsg);
         return;
       }
 
@@ -153,6 +156,7 @@ export function useChat(): UseChatReturn {
           parcel_id: parcelId,
           description: text.trim(),
           conversation: updatedConv,
+          language: currentLang,
         };
         const resp = await apiService.post<UnderstandRequestOut>('/ai/understand', dto);
         const data = resp.data;
@@ -171,7 +175,7 @@ export function useChat(): UseChatReturn {
               type: 'questions',
             },
           ]);
-          addAssistantMessage('Please answer the questions above so I can build a complete understanding.');
+          addAssistantMessage(t('aiChat.answerQuestions', 'Please answer the questions above so I can build a complete understanding.'));
         } else {
           setStep('understanding');
           setMessages((prev) => [
@@ -179,20 +183,20 @@ export function useChat(): UseChatReturn {
             {
               id: newId(),
               role: 'assistant',
-              text: 'I now have a complete understanding of your issue.',
+              text: t('aiChat.completeUnderstanding', 'I now have a complete understanding of your issue.'),
               type: 'understanding',
             },
           ]);
         }
       } catch (err: unknown) {
-        setError('Failed to understand your request. Please try again.');
+        setError(t('aiChat.understandError', 'Failed to understand your request. Please try again.'));
         setStep('error');
         setMessages((prev) => [
           ...prev,
           {
             id: newId(),
             role: 'assistant',
-            text: 'I could not process your request. Please try again.',
+            text: t('aiChat.processError', 'I could not process your request. Please try again.'),
             type: 'error',
           },
         ]);
@@ -200,7 +204,7 @@ export function useChat(): UseChatReturn {
         setIsLoading(false);
       }
     },
-    [isLoading, conversation, parcelId, understanding, followupRounds, addAssistantMessage],
+    [isLoading, conversation, parcelId, understanding, followupRounds, addAssistantMessage, t, currentLang],
   );
 
   // Bypass the AI Q&A: the citizen types their full request in their own
@@ -212,8 +216,9 @@ export function useChat(): UseChatReturn {
       if (!text.trim() || isLoading || !parcelId) return;
       setError(null);
       if (!useNetworkStore.getState().reachable) {
-        setError(AI_OFFLINE_MSG);
-        addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+        const offlineMsg = t('aiChat.offline', AI_OFFLINE_MSG);
+        setError(offlineMsg);
+        addMessage({ type: 'error', role: 'assistant', text: offlineMsg });
         return;
       }
       const conv: Array<Record<string, unknown>> = [
@@ -226,6 +231,7 @@ export function useChat(): UseChatReturn {
           parcel_id: parcelId,
           description: text.trim(),
           conversation: conv,
+          language: currentLang,
         } as UnderstandRequestIn);
         const u = resp.data;
         setUnderstanding(u);
@@ -241,24 +247,25 @@ export function useChat(): UseChatReturn {
         addMessage({
           type: 'draft',
           role: 'assistant',
-          text: 'Using your request as the application. Review and submit below.',
+          text: t('aiChat.usingYourRequest', 'Using your request as the application. Review and submit below.'),
         });
       } catch (err: unknown) {
-        setError('Failed to submit your request. Please try again.');
+        setError(t('aiChat.submitError', 'Failed to submit your request. Please try again.'));
         setStep('error');
       } finally {
         setIsLoading(false);
       }
     },
-    [isLoading, parcelId, addMessage],
+    [isLoading, parcelId, addMessage, t, currentLang],
   );
 
   const requestDraft = useCallback(async () => {
     if (!understanding || isLoading) return;
     setError(null);
     if (!useNetworkStore.getState().reachable) {
-      setError(AI_OFFLINE_MSG);
-      addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+      const offlineMsg = t('aiChat.offline', AI_OFFLINE_MSG);
+      setError(offlineMsg);
+      addMessage({ type: 'error', role: 'assistant', text: offlineMsg });
       return;
     }
     setIsLoading(true);
@@ -272,6 +279,7 @@ export function useChat(): UseChatReturn {
         facts_database: understanding.facts_database,
         departments: understanding.departments,
         conversation,
+        language: currentLang,
       };
       const resp = await apiService.post<ApplicationDraftOut>('/ai/application-draft', dto);
       const data = resp.data;
@@ -281,22 +289,23 @@ export function useChat(): UseChatReturn {
       addMessage({
         type: 'draft',
         role: 'assistant',
-        text: 'Here is the formal application draft based on your confirmed understanding:',
+        text: t('aiChat.draftReady', 'Here is the formal application draft based on your confirmed understanding:'),
       });
     } catch (err: unknown) {
-      setError('Failed to generate the application draft. Please try again.');
+      setError(t('aiChat.draftError', 'Failed to generate the application draft. Please try again.'));
       setStep('error');
     } finally {
       setIsLoading(false);
     }
-  }, [understanding, isLoading, conversation, addMessage]);
+  }, [understanding, isLoading, conversation, addMessage, t, currentLang]);
 
   const confirmAndCreate = useCallback(async () => {
     if (!understanding || !draft || isLoading) return;
     setError(null);
     if (!useNetworkStore.getState().reachable) {
-      setError(AI_OFFLINE_MSG);
-      addMessage({ type: 'error', role: 'assistant', text: AI_OFFLINE_MSG });
+      const offlineMsg = t('aiChat.offline', AI_OFFLINE_MSG);
+      setError(offlineMsg);
+      addMessage({ type: 'error', role: 'assistant', text: offlineMsg });
       return;
     }
     setIsLoading(true);
@@ -307,6 +316,7 @@ export function useChat(): UseChatReturn {
         intent: understanding.intent,
         issues: understanding.issues,
         departments: understanding.departments,
+        language: currentLang,
       };
       const routingResp = await apiService.post<RoutingDecisionOut>('/ai/route', routingDto);
       const routingData = routingResp.data;
@@ -315,15 +325,17 @@ export function useChat(): UseChatReturn {
       addMessage({
         type: 'routing',
         role: 'assistant',
-        text: `Your issue will be routed to: ${routingData.departments.map((d) => d.department).join(', ')}`,
+        text: t('aiChat.routedTo', {
+          departments: routingData.departments.map((d) => d.department).join(', '),
+        }),
       });
     } catch (err: unknown) {
-      setError('Failed to determine routing. Please try again.');
+      setError(t('aiChat.routingError', 'Failed to determine routing. Please try again.'));
       setStep('error');
     } finally {
       setIsLoading(false);
     }
-  }, [understanding, draft, isLoading, conversation, addMessage]);
+  }, [understanding, draft, isLoading, conversation, addMessage, t, currentLang]);
 
   const createCase = useCallback(async () => {
     if (!understanding || !draft || !routing || isLoading) return;
@@ -353,7 +365,7 @@ export function useChat(): UseChatReturn {
         addMessage({
           type: 'text',
           role: 'assistant',
-          text: 'Saved offline. Your case will be submitted automatically when you are back online.',
+          text: t('aiChat.savedOffline', 'Saved offline. Your case will be submitted automatically when you are back online.'),
         });
         return;
       }
@@ -364,15 +376,15 @@ export function useChat(): UseChatReturn {
       addMessage({
         type: 'text',
         role: 'assistant',
-        text: `Your case has been created: ${caseResp.data.case_no}`,
+        text: t('aiChat.caseCreated', { caseNo: caseResp.data.case_no }),
       });
     } catch (err: unknown) {
-      setError('Failed to create your case. Please try again.');
+      setError(t('aiChat.createError', 'Failed to create your case. Please try again.'));
       setStep('error');
     } finally {
       setIsLoading(false);
     }
-  }, [understanding, draft, routing, isLoading, editedDraft, conversation, addMessage]);
+  }, [understanding, draft, routing, isLoading, editedDraft, conversation, addMessage, t]);
 
   return {
     step,

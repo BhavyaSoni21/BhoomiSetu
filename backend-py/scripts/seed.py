@@ -27,7 +27,17 @@ from app.document_verification.ocr import extract_text
 from app.common.supabase_storage import ensure_storage_bucket_exists, upload_to_storage
 from app.database import SessionLocal
 from app.models.admin import Department
-from app.models.case import Case, DepartmentTask
+from app.models.case import (
+    AIAnalysis,
+    Appointment,
+    Application,
+    Case,
+    CaseTimelineEvent,
+    DepartmentTask,
+    Feedback,
+    ProposedFieldChange,
+    RoutingDecision,
+)
 from app.models.department_record import (
     DisputeRecord,
     EncumbranceRecord,
@@ -264,6 +274,57 @@ def _polygon(ring: Ring) -> Polygon:
     return from_shape(Polygon(ring), srid=4326)
 
 
+def build_cluster_spatial_layers(config, entries: list["ClusterParcelEntry"], prebuilt_flood=None) -> list:
+    """Full spatial layer set for one cluster, anchored to its own generated
+    parcels: 3 stacked zoning overlays (residential/commercial/agricultural
+    sharing exact edges), a flood restriction zone, 4 infrastructure features
+    (road, water line, 2 substations), and a change-detection event.
+
+    Pune passes its pre-built flood ring (built before the parcel loop so the
+    per-parcel RestrictionRecords could reference it) so the zone stays
+    consistent with those records; every other cluster builds its own.
+    """
+    if not entries:
+        return []
+    bounds = bounds_of_rings([e.ring for e in entries])
+    lat_span = (bounds.max_lat - bounds.min_lat) or 1e-9
+    lng_span = (bounds.max_lng - bounds.min_lng) or 1e-9
+    ref_lat = config.center_lat
+    district = config.district
+    sc = config.state_code
+    layers: list = []
+
+    def find_ids(predicate) -> list[str]:
+        return [str(e.parcel.id) for e in entries if predicate((e.centroid[1] - bounds.min_lat) / lat_span)]
+
+    zone_rings = build_stacked_zone_rings(bounds, [0, 0.5, 0.7, 1])
+    layers.append(ZoningOverlay(name=f"{district} Residential Zone", zone_type="RESIDENTIAL", state_code=sc, district=district, geometry=_polygon(zone_rings[0]), parcel_ids=find_ids(lambda f: f < 0.5)))
+    layers.append(ZoningOverlay(name=f"{district} Commercial Zone", zone_type="COMMERCIAL", state_code=sc, district=district, geometry=_polygon(zone_rings[1]), parcel_ids=find_ids(lambda f: 0.5 <= f < 0.7)))
+    layers.append(ZoningOverlay(name=f"{district} Agricultural / Open Zone", zone_type="AGRICULTURAL", state_code=sc, district=district, geometry=_polygon(zone_rings[2]), parcel_ids=find_ids(lambda f: f >= 0.7)))
+
+    if prebuilt_flood is not None:
+        flood_ring = prebuilt_flood
+    else:
+        flood_anchor = pick_anchor(entries, bounds, 0.5, 0.45)
+        flood_ring, _ = build_zone_hitting_target(entries, flood_anchor, ref_lat, (8, 18), 320)
+    flood_ids = [str(e.parcel.id) for e in entries if point_in_ring(e.centroid, flood_ring)]
+    layers.append(RestrictionZone(name=f"{district} Flood-Prone Restriction Zone", restriction_type="FLOOD", state_code=sc, district=district, geometry=_polygon(flood_ring), affected_parcel_ids=flood_ids))
+
+    center_lng = (bounds.min_lng + bounds.max_lng) / 2
+    center_lat = (bounds.min_lat + bounds.max_lat) / 2
+    overshoot = 0.08
+    layers.append(InfrastructureFeature(name=f"{district} Main Road", feature_type="ROAD", state_code=sc, district=district, geometry=from_shape(LineString([(bounds.min_lng - lng_span * overshoot, center_lat), (bounds.max_lng + lng_span * overshoot, center_lat)]), srid=4326)))
+    layers.append(InfrastructureFeature(name=f"{district} Water Utility Line", feature_type="WATER_LINE", state_code=sc, district=district, geometry=from_shape(LineString([(center_lng, bounds.min_lat - lat_span * overshoot), (center_lng, bounds.max_lat + lat_span * overshoot)]), srid=4326)))
+    layers.append(InfrastructureFeature(name=f"{district} Substation A", feature_type="ELECTRICITY", state_code=sc, district=district, geometry=from_shape(ShapelyPoint(bounds.min_lng + lng_span * 0.05, bounds.min_lat + lat_span * 0.05), srid=4326)))
+    layers.append(InfrastructureFeature(name=f"{district} Substation B", feature_type="ELECTRICITY", state_code=sc, district=district, geometry=from_shape(ShapelyPoint(bounds.max_lng - lng_span * 0.05, bounds.max_lat - lat_span * 0.05), srid=4326)))
+
+    change_anchor = pick_anchor(entries, bounds, 0.08, 0.08, avoid=flood_ring)
+    change_ring, _ = build_zone_hitting_target(entries, change_anchor, ref_lat, (2, 5), 120)
+    change_ids = [str(e.parcel.id) for e in entries if point_in_ring(e.centroid, change_ring)]
+    layers.append(ChangeDetectionEvent(description=f"Simulated change detected between sample imagery T1 and T2 near {district} (new construction footprint)", state_code=sc, district=district, geometry=_polygon(change_ring), affected_parcel_ids=change_ids))
+    return layers
+
+
 def _seed_governance_rules(db) -> None:
     """Seed default governance rules that replicate the previous hardcoded behavior.
 
@@ -352,6 +413,7 @@ def seed_database() -> None:
         # (Postgres refuses to delete a row another table's live FK still
         # points at).
         tables_to_clear = [
+            Feedback, CaseTimelineEvent, Appointment, AIAnalysis, RoutingDecision, Application, ProposedFieldChange,
             DepartmentTask, Case,
             VerificationEvidence, WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
             PlanningRecord, TaxRecord, RestrictionRecord, EncumbranceRecord, OwnershipHistoryRecord, CropRecord,
@@ -414,6 +476,7 @@ def seed_database() -> None:
         ensure_storage_bucket_exists()
 
         pune_entries: list[ClusterParcelEntry] = []
+        entries_by_cluster: dict[str, list[ClusterParcelEntry]] = {}
         all_saved_parcels: list[Parcel] = []
         parcel_document_info_by_id: dict[str, dict] = {}
 
@@ -777,6 +840,7 @@ def seed_database() -> None:
                         )
 
             neighbour_rows_to_save.extend(compute_neighbour_rows(cluster_entries, config.center_lat))
+            entries_by_cluster[config.cluster_id] = cluster_entries
             print(f"Built {len(cluster_entries)} parcel entities + department records for cluster {config.cluster_id}")
 
         db.flush()
@@ -823,114 +887,21 @@ def seed_database() -> None:
         db.flush()
         print(f"Saved {len(neighbour_rows_to_save)} explicit neighbour relationships (TOUCHING + NEARBY)")
 
-        # --- Pune spatial demo layers ---
-        def find_pune_parcel_ids(predicate) -> list[str]:
-            return [
-                str(p.parcel.id)
-                for p in pune_entries
-                if predicate((p.centroid[1] - pune_bounds.min_lat) / (pune_bounds.max_lat - pune_bounds.min_lat))
-            ]
-
-        # Three stacked zones sharing exact horizontal edges (boundaries at
-        # frac 0.5 and 0.7). build_stacked_zone_rings reuses each boundary
-        # latitude for both neighbours, so the touching edges are identical -
-        # satisfies the shared-edge invariant, no overlap/sliver.
-        zone_rings = build_stacked_zone_rings(pune_bounds, [0, 0.5, 0.7, 1])
-        db.add_all(
-            [
-                ZoningOverlay(
-                    name="Pune Residential Zone", zone_type="RESIDENTIAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(zone_rings[0]),
-                    parcel_ids=find_pune_parcel_ids(lambda f: f < 0.5),
-                ),
-                ZoningOverlay(
-                    name="Pune Commercial Zone", zone_type="COMMERCIAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(zone_rings[1]),
-                    parcel_ids=find_pune_parcel_ids(lambda f: 0.5 <= f < 0.7),
-                ),
-                ZoningOverlay(
-                    name="Pune Agricultural / Open Zone", zone_type="AGRICULTURAL", state_code=pune.state_code, district=pune.district,
-                    geometry=_polygon(zone_rings[2]),
-                    parcel_ids=find_pune_parcel_ids(lambda f: f >= 0.7),
-                ),
-            ]
-        )
+        # --- Per-cluster spatial demo layers ---
+        # Every cluster gets the full layer set (3 zoning overlays, a flood
+        # restriction zone, 4 infrastructure features, a change-detection
+        # event) so the map has real, complete layers wherever you pan - not
+        # just Pune. Pune reuses its pre-built flood ring (built before the
+        # parcel loop) so those layers stay consistent with the per-parcel
+        # RestrictionRecords that already referenced it.
+        spatial_layers_to_save: list = []
+        for config in CLUSTER_CONFIGS:
+            entries = entries_by_cluster.get(config.cluster_id, [])
+            prebuilt = flood_ring if config.cluster_id == pune.cluster_id else None
+            spatial_layers_to_save.extend(build_cluster_spatial_layers(config, entries, prebuilt))
+        db.add_all(spatial_layers_to_save)
         db.flush()
-        print("Saved 3 zoning overlays for Pune (residential/commercial/agricultural)")
-
-        # Flood restriction zone (built earlier, before the parcel loop, so
-        # the Restriction department mock could flag parcels inside it
-        # while iterating).
-        flood_affected_ids = [str(p.parcel.id) for p in pune_entries if point_in_ring(p.centroid, flood_ring)]
-        db.add(
-            RestrictionZone(
-                name="Pune Flood-Prone Restriction Zone", restriction_type="FLOOD", state_code=pune.state_code, district=pune.district,
-                geometry=_polygon(flood_ring), affected_parcel_ids=flood_affected_ids,
-            )
-        )
-        db.flush()
-        print(f"Saved flood restriction zone affecting {len(flood_affected_ids)} parcels")
-
-        # Infrastructure: a road bisecting the cluster, a water line
-        # crossing it, and two electricity points near opposite corners of
-        # Pune's actual generated bounding box.
-        pune_lng_span = pune_bounds.max_lng - pune_bounds.min_lng
-        pune_lat_span = pune_bounds.max_lat - pune_bounds.min_lat
-        pune_center_lng = (pune_bounds.min_lng + pune_bounds.max_lng) / 2
-        pune_center_lat = (pune_bounds.min_lat + pune_bounds.max_lat) / 2
-        overshoot = 0.08  # slight overhang past the bounding box, matching the old grid-half-span's "+0.5 cell" overshoot
-        db.add_all(
-            [
-                InfrastructureFeature(
-                    name="Pune Main Road", feature_type="ROAD", state_code=pune.state_code, district=pune.district,
-                    geometry=from_shape(
-                        LineString([
-                            (pune_bounds.min_lng - pune_lng_span * overshoot, pune_center_lat),
-                            (pune_bounds.max_lng + pune_lng_span * overshoot, pune_center_lat),
-                        ]),
-                        srid=4326,
-                    ),
-                ),
-                InfrastructureFeature(
-                    name="Pune Water Utility Line", feature_type="WATER_LINE", state_code=pune.state_code, district=pune.district,
-                    geometry=from_shape(
-                        LineString([
-                            (pune_center_lng, pune_bounds.min_lat - pune_lat_span * overshoot),
-                            (pune_center_lng, pune_bounds.max_lat + pune_lat_span * overshoot),
-                        ]),
-                        srid=4326,
-                    ),
-                ),
-                InfrastructureFeature(
-                    name="Pune Substation A", feature_type="ELECTRICITY", state_code=pune.state_code, district=pune.district,
-                    geometry=from_shape(ShapelyPoint(pune_bounds.min_lng + pune_lng_span * 0.05, pune_bounds.min_lat + pune_lat_span * 0.05), srid=4326),
-                ),
-                InfrastructureFeature(
-                    name="Pune Substation B", feature_type="ELECTRICITY", state_code=pune.state_code, district=pune.district,
-                    geometry=from_shape(ShapelyPoint(pune_bounds.max_lng - pune_lng_span * 0.05, pune_bounds.max_lat - pune_lat_span * 0.05), srid=4326),
-                ),
-            ]
-        )
-        db.flush()
-        print("Saved 4 infrastructure features (road, water line, 2 electricity points)")
-
-        # Simulated satellite change-detection region, near a corner away
-        # from the flood zone, resolved to affected parcels by
-        # point-in-polygon. Anchored near an actual corner of Pune's
-        # generated parcels (not the bounding box's own corner, which can
-        # fall outside an irregular envelope's convex hull entirely).
-        change_anchor = pick_anchor(pune_entries, pune_bounds, 0.08, 0.08, avoid=flood_ring)
-        change_ring, _ = build_zone_hitting_target(pune_entries, change_anchor, pune.center_lat, (2, 5), 120)
-        change_affected_ids = [str(p.parcel.id) for p in pune_entries if point_in_ring(p.centroid, change_ring)]
-        db.add(
-            ChangeDetectionEvent(
-                description="Simulated change detected between sample imagery T1 and T2 (new construction footprint)",
-                state_code=pune.state_code, district=pune.district,
-                geometry=_polygon(change_ring), affected_parcel_ids=change_affected_ids,
-            )
-        )
-        db.flush()
-        print(f"Saved change-detection event affecting {len(change_affected_ids)} parcels")
+        print(f"Saved {len(spatial_layers_to_save)} spatial layers across {len(CLUSTER_CONFIGS)} clusters (zoning, restriction, infrastructure, change-detection each)")
 
         # Demo governance alerts and requests are linked to the generated
         # parcels and demo citizens so the officer queues are useful after a
@@ -1192,11 +1163,14 @@ def seed_database() -> None:
         db.flush()
         print(f"Saved {len(departments)} departments")
 
-        # Mock Case + DepartmentTask data (the newer Case system; the legacy
-        # Workflow queue above is separate). One Case per request type, each
-        # fanned out to EVERY department so all officer dashboards and
-        # /cases/tasks/my have a realistic mix across all case types. Status/
-        # priority/resolution_mode cycle so the boards aren't monochrome.
+        # Mock Case system (newer than the legacy Workflow queue above).
+        # CASES_PER_TYPE cases per request type, each fanned out to EVERY
+        # department, so every officer dashboard and /cases/tasks/my shows
+        # every case type across a realistic spread of statuses. Every case
+        # carries full timestamps (created/resolved/closed), an AI analysis +
+        # routing decision + application, a timeline, and - once resolved -
+        # officer decisions, appointments and citizen feedback, so a case
+        # opens looking real rather than half-populated.
         dept_by_code = {d.code: d for d in departments}
         dept_role = {
             "LAND_RECORDS": "LAND_RECORD_OFFICER", "REGISTRATION": "REGISTRATION_OFFICER",
@@ -1206,44 +1180,179 @@ def seed_database() -> None:
         case_types = list(request_pipelines)  # the 5 supported request/case types
         case_statuses = ["CREATED", "ACTIVE", "RESOLUTION", "FEEDBACK", "CLOSED"]
         priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-        task_statuses = ["PENDING", "ASSIGNED", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"]
         resolution_modes = ["DIGITAL", "FIELD_VERIFICATION", "OFFLINE_APPOINTMENT", "HYBRID", "MANUAL_REVIEW"]
+        _NOW_DT = datetime(2026, 9, 1, 9, 0, 0)  # datetime form of _NOW for case timestamps
+        CASES_PER_TYPE = 3
+
+        def _dt_before_now(days_ago: int) -> datetime:
+            return _NOW_DT - timedelta(days=days_ago, hours=rand_int(0, 23), minutes=rand_int(0, 59))
+
+        def _derive_task_status(case_status: str, di: int) -> str:
+            # Task statuses stay coherent with the parent case's lifecycle
+            # stage, with enough per-department spread to exercise every board.
+            if case_status == "CREATED":
+                return "PENDING"
+            if case_status == "ACTIVE":
+                return ["IN_PROGRESS", "ASSIGNED", "PENDING", "BLOCKED"][di % 4]
+            if case_status == "RESOLUTION":
+                return ["COMPLETED", "IN_PROGRESS", "COMPLETED", "ASSIGNED"][di % 4]
+            if case_status == "FEEDBACK":
+                return "COMPLETED"
+            return "CANCELLED" if di % 7 == 6 else "COMPLETED"  # CLOSED
+
         case_tasks_to_save: list[DepartmentTask] = []
+        timeline_to_save: list[CaseTimelineEvent] = []
+        appointments_to_save: list[Appointment] = []
+        feedback_to_save: list[Feedback] = []
+        ai_analyses_to_save: list[AIAnalysis] = []
+        routing_to_save: list[RoutingDecision] = []
+        applications_to_save: list[Application] = []
         seeded_cases = []
-        for ci, case_type in enumerate(case_types):
-            parcel = all_saved_parcels[ci % len(all_saved_parcels)]
-            citizen = citizens[ci % len(citizens)]
-            case = Case(
-                case_no=f"CASE-2026-{ci + 1:04d}",
-                citizen_id=str(citizen.id),
-                parcel_id=str(parcel.id),
-                intent=case_type,
-                status=case_statuses[ci % len(case_statuses)],
-                priority=priorities[ci % len(priorities)],
-            )
-            db.add(case)
-            db.flush()
-            seeded_cases.append(case)
-            for di, dept in enumerate(departments):
-                status = task_statuses[(ci + di) % len(task_statuses)]
-                # Assign the matching-role officer for any status past PENDING,
-                # so /cases/tasks/my returns data for every officer role.
-                officer = officer_by_role.get(dept_role.get(dept.code, ""))
-                assigned = status != "PENDING" and officer is not None
-                case_tasks_to_save.append(
-                    DepartmentTask(
-                        case_id=case.id,
-                        department_id=dept.id,
-                        status=status,
-                        stage=di,
-                        stage_name=dept.name,
-                        assigned_officer_id=str(officer.id) if assigned else None,
-                        resolution_mode=resolution_modes[(ci + di) % len(resolution_modes)],
-                    )
+        gi = 0
+        for case_type in case_types:
+            for _rep in range(CASES_PER_TYPE):
+                status = case_statuses[gi % len(case_statuses)]
+                status_idx = case_statuses.index(status)
+                priority = priorities[gi % len(priorities)]
+                # gi indexes a distinct parcel each iteration, so no
+                # (citizen, parcel) pair repeats - Invariant 1 (one active
+                # case per citizen+parcel) holds without a DB constraint.
+                parcel = all_saved_parcels[gi % len(all_saved_parcels)]
+                citizen = citizens[gi % len(citizens)]
+                # Older cases for later lifecycle stages: a CLOSED case
+                # started months back, a freshly CREATED one days ago.
+                created_at = _dt_before_now(rand_int(status_idx * 15 + 5, status_idx * 15 + 45))
+                resolved_at = created_at + timedelta(days=rand_int(2, 10), hours=rand_int(0, 23)) if status in ("RESOLUTION", "FEEDBACK", "CLOSED") else None
+                closed_at = resolved_at + timedelta(days=rand_int(1, 5)) if status == "CLOSED" and resolved_at else None
+                routed = [
+                    {"department": dc, "confidence": round(0.7 + random.random() * 0.29, 2), "reason": f"Intent {case_type} routed to {dc}."}
+                    for dc in [d.code for d in departments[:3]]
+                ]
+                case = Case(
+                    case_no=f"CASE-2026-{gi + 1:04d}",
+                    citizen_id=str(citizen.id),
+                    parcel_id=str(parcel.id),
+                    intent=case_type,
+                    status=status,
+                    priority=priority,
+                    routing_decision={"departments": routed, "priority": priority, "intent": case_type},
+                    created_at=created_at,
+                    resolved_at=resolved_at,
+                    closed_at=closed_at,
                 )
+                db.add(case)
+                db.flush()
+                seeded_cases.append(case)
+                had_offline = False
+                first_officer_id = None
+                for di, dept in enumerate(departments):
+                    t_status = _derive_task_status(status, di)
+                    officer = officer_by_role.get(dept_role.get(dept.code, ""))
+                    mode = resolution_modes[(gi + di) % len(resolution_modes)]
+                    assigned = t_status != "PENDING" and officer is not None
+                    assigned_at = created_at + timedelta(hours=rand_int(1, 36)) if assigned else None
+                    completed_at = decision = decision_remarks = None
+                    if t_status == "COMPLETED":
+                        completed_at = (assigned_at or created_at) + timedelta(hours=rand_int(4, 120))
+                        decision = weighted_pick([("APPROVE", 6), ("REJECT", 2), ("RETURN_FOR_REVIEW", 2)])
+                        decision_remarks = {
+                            "APPROVE": f"{dept.name} review complete; request approved and records updated.",
+                            "REJECT": f"{dept.name} review complete; request rejected - supporting documents insufficient.",
+                            "RETURN_FOR_REVIEW": f"{dept.name} returned the case for additional applicant information.",
+                        }[decision]
+                    verifier = verifiers[(gi + di) % len(verifiers)] if assigned and mode in ("FIELD_VERIFICATION", "HYBRID") else None
+                    if mode in ("OFFLINE_APPOINTMENT", "HYBRID"):
+                        had_offline = True
+                    if assigned and first_officer_id is None:
+                        first_officer_id = str(officer.id)
+                    case_tasks_to_save.append(DepartmentTask(
+                        case_id=case.id, department_id=dept.id, status=t_status, stage=di, stage_name=dept.name,
+                        assigned_officer_id=str(officer.id) if assigned else None,
+                        assigned_verifier_id=str(verifier.id) if verifier else None,
+                        assigned_at=assigned_at, resolution_mode=mode,
+                        resolution_decision=decision, resolution_remarks=decision_remarks,
+                        sla_threshold_hours=72, sla_warning_threshold=48, sla_breach_threshold=96,
+                        created_at=created_at, updated_at=completed_at or assigned_at or created_at,
+                        completed_at=completed_at,
+                    ))
+                ai_analyses_to_save.append(AIAnalysis(
+                    case_id=case.id,
+                    structured_understanding={"parcel_id": str(parcel.id), "intent": case_type, "priority": priority, "issues": [request_details[case_type]]},
+                    facts_stated=[{"statement": request_details[case_type], "type": "CITIZEN_STATEMENT", "confidence": 0.9}],
+                    facts_verified=[{"fact": "Parcel exists in land records", "verified": True, "source": "PARCEL"}],
+                    departments_identified=routed,
+                    application_draft=f"Application for {case_type.replace('_', ' ').title()} on parcel {parcel.canonical_parcel_id}.",
+                    follow_up_questions=[],
+                    conversation=[
+                        {"role": "citizen", "text": request_details[case_type], "timestamp": created_at.isoformat()},
+                        {"role": "ai", "text": "Understood. I have drafted your application and identified the responsible departments.", "timestamp": created_at.isoformat()},
+                    ],
+                    created_at=created_at, updated_at=created_at,
+                ))
+                routing_to_save.append(RoutingDecision(
+                    case_id=case.id, departments_routed=routed,
+                    workflow_per_department={d.code: {"workflow": case_type, "stages": ["INTAKE", "REVIEW", "DECISION"]} for d in departments[:3]},
+                    priority=priority, created_at=created_at,
+                ))
+                applications_to_save.append(Application(
+                    case_id=case.id, original_input=request_details[case_type],
+                    ai_draft=f"Draft application for {case_type.replace('_', ' ').title()}.",
+                    final_submitted_version=f"Final application for {case_type.replace('_', ' ').title()} on parcel {parcel.canonical_parcel_id}.",
+                    citizen_confirmed=True, citizen_confirmation_timestamp=created_at,
+                    created_at=created_at, updated_at=created_at,
+                ))
+                tl = [("CASE_CREATED", "citizen", str(citizen.id), None, "CREATED", created_at)]
+                if status_idx >= 1:
+                    tl.append(("ROUTED_TO_DEPARTMENT", "system", None, "CREATED", "ACTIVE", created_at + timedelta(hours=1)))
+                    tl.append(("OFFICER_ASSIGNED", "officer", first_officer_id, "ACTIVE", "ACTIVE", created_at + timedelta(hours=2)))
+                if status in ("RESOLUTION", "FEEDBACK", "CLOSED") and resolved_at:
+                    tl.append(("DECISION_APPROVED", "officer", first_officer_id, "ACTIVE", "RESOLUTION", resolved_at))
+                if status == "CLOSED" and closed_at:
+                    tl.append(("CASE_CLOSED", "officer", first_officer_id, "RESOLUTION", "CLOSED", closed_at))
+                for ev_type, role, actor, prev, new, ts in tl:
+                    timeline_to_save.append(CaseTimelineEvent(
+                        case_id=case.id, event_type=ev_type, actor_id=actor, actor_role=role,
+                        previous_state=prev, new_state=new, created_at=ts,
+                    ))
+                if had_offline:
+                    appt_status = "COMPLETED" if status == "CLOSED" else weighted_pick([("CONFIRMED", 3), ("REQUESTED", 2), ("RESCHEDULED", 1)])
+                    appt_date = resolved_at or (created_at + timedelta(days=rand_int(3, 20)))
+                    appointments_to_save.append(Appointment(
+                        case_id=case.id, citizen_id=str(citizen.id), department_id=departments[0].id,
+                        officer_id=first_officer_id, office_location=f"{parcel.district_code} District Sub-Registrar Office",
+                        date=appt_date, time_slot=weighted_pick([("10:00-10:30", 2), ("11:00-11:30", 2), ("14:00-14:30", 1)]),
+                        purpose=f"In-person verification for {case_type.replace('_', ' ').title()}.",
+                        required_documents=["Government ID", "Property document", "Application copy"],
+                        status=appt_status,
+                        completed_at=appt_date if appt_status == "COMPLETED" else None,
+                        created_at=created_at, updated_at=created_at,
+                    ))
+                if status == "CLOSED":
+                    feedback_to_save.append(Feedback(
+                        case_id=case.id, citizen_id=str(citizen.id), officer_id=first_officer_id,
+                        department_id=departments[0].id,
+                        category=weighted_pick([("OVERALL", 3), ("RESPONSE_TIME", 2), ("OFFICER_COMMUNICATION", 2), ("RESOLUTION_CLARITY", 1)]),
+                        officer_rating=rand_int(3, 5), overall_case_rating=rand_int(3, 5), type="OVERALL_CASE_RATING",
+                        comments=weighted_pick([("Resolved quickly and clearly.", 2), ("Officer was helpful throughout.", 2), ("Outcome was fair.", 1)]),
+                        reasons=["clear_communication", "fair_outcome"], is_anonymous=False,
+                        created_at=closed_at or resolved_at or created_at,
+                    ))
+                gi += 1
+
         db.add_all(case_tasks_to_save)
+        db.add_all(ai_analyses_to_save)
+        db.add_all(routing_to_save)
+        db.add_all(applications_to_save)
+        db.add_all(timeline_to_save)
+        db.add_all(appointments_to_save)
+        db.add_all(feedback_to_save)
         db.flush()
-        print(f"Saved {len(seeded_cases)} demo cases with {len(case_tasks_to_save)} department tasks (every department x every case type)")
+        print(
+            f"Saved {len(seeded_cases)} demo cases ({CASES_PER_TYPE} per type x {len(case_types)} types) fanned to all "
+            f"{len(departments)} departments: {len(case_tasks_to_save)} tasks, {len(timeline_to_save)} timeline events, "
+            f"{len(appointments_to_save)} appointments, {len(feedback_to_save)} feedback, {len(ai_analyses_to_save)} AI "
+            f"analyses, {len(routing_to_save)} routing decisions, {len(applications_to_save)} applications"
+        )
 
         db.commit()
         total_parcels = db.query(Parcel).count()

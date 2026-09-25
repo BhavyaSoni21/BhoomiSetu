@@ -300,7 +300,7 @@ def _is_reasonably_compact(ring: LocalRing) -> bool:
     return width >= _MIN_COMPACTNESS * math.sqrt(local_area(ring))
 
 
-def _split_balanced(target: LocalRing, config: ClusterGeometryConfig) -> tuple[LocalRing, LocalRing]:
+def _split_balanced(target: LocalRing, config: ClusterGeometryConfig) -> tuple[LocalRing, LocalRing] | None:
     target_area = local_area(target)
     centroid = local_centroid(target)
     bounds = local_bounds(target)
@@ -340,29 +340,43 @@ def _split_balanced(target: LocalRing, config: ClusterGeometryConfig) -> tuple[L
         return children
 
     # A line through the true centroid of a convex polygon always crosses
-    # its boundary exactly twice, so this is guaranteed to succeed (though
-    # not guaranteed to clear the width floor - the whole-cluster retry in
-    # generate_cluster_parcels is what backstops that rare case).
+    # its boundary exactly twice, so a fallback split is geometrically
+    # guaranteed - but it is NOT guaranteed to clear the width floor. If it
+    # would produce a sliver, return None so the caller leaves this piece
+    # whole rather than forcing an invalid parcel (the old behaviour crashed
+    # the whole cluster after 8 retries on tight village clusters).
     angle_rad = _deg_to_rad(config.dominant_angle_deg)
     fallback = split_convex_polygon(target, centroid, (math.cos(angle_rad), math.sin(angle_rad)))
     if not fallback:
         raise RuntimeError(
             f"parcel-generation: failed to split a polygon in cluster {config.cluster_id} even via the centroid fallback"
         )
-    return fallback
+    if all(_is_reasonably_compact(c) for c in fallback):
+        return fallback
+    return None
 
 
 def _subdivide_envelope(envelope: LocalRing, config: ClusterGeometryConfig) -> list[LocalRing]:
-    """STEP 3+4: recursively split the envelope into exactly parcel_count
-    leaf polygons. Always splits the current-largest piece (a greedy
-    balanced space partition) - this alone produces natural size variance.
+    """STEP 3+4: recursively split the envelope into up to parcel_count leaf
+    polygons. Always splits the current-largest piece (a greedy balanced
+    space partition) - this alone produces natural size variance. A piece
+    that can't be split without creating a sliver is left whole, so a tight
+    cluster yields slightly fewer, valid parcels instead of crashing.
     """
     pending: list[LocalRing] = [envelope]
+    unsplittable: set[int] = set()  # indices we've given up splitting
 
     while len(pending) < config.parcel_count:
-        target_index = max(range(len(pending)), key=lambda i: local_area(pending[i]))
+        candidates = [i for i in range(len(pending)) if i not in unsplittable]
+        if not candidates:
+            break  # every remaining piece would slice into a sliver
+        target_index = max(candidates, key=lambda i: local_area(pending[i]))
         children = _split_balanced(pending[target_index], config)
+        if children is None:
+            unsplittable.add(target_index)
+            continue
         pending[target_index : target_index + 1] = [children[0], children[1]]
+        unsplittable.clear()  # indices shifted; re-evaluate every piece
 
     return pending
 

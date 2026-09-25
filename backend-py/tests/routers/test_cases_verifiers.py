@@ -50,6 +50,27 @@ def test_officer_gets_verifiers_with_workload(db, client):
     assert all(r["role"] == "VERIFIER" for r in res.json())
 
 
+def test_my_tasks_include_case_no(db, client):
+    """/cases/tasks/my must expose the human-readable case number (caseNo),
+    not just the case UUID, so the My Tasks tab can show a real case no."""
+    officer, _, officer_headers = create_authenticated_user(db, "LAND_RECORD_OFFICER")
+    dept = Department(code=f"D-{uuid.uuid4().hex[:8]}", name="Land Records")
+    case = Case(case_no="C-DEMO-001", citizen_id="c1", parcel_id="p1")
+    db.add_all([dept, case])
+    db.flush()
+    db.add(DepartmentTask(
+        case_id=case.id, department_id=dept.id,
+        assigned_officer_id=str(officer.id), status="ASSIGNED",
+    ))
+    db.flush()
+
+    res = client.get("/api/v1/cases/tasks/my", headers=officer_headers)
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["caseNo"] == "C-DEMO-001"
+
+
 def test_requires_staff_auth(db, client):
     _, _, citizen_headers = create_authenticated_user(db, "CITIZEN")
     assert client.get("/api/v1/cases/verifiers").status_code == 401

@@ -142,6 +142,7 @@ class CaseStatusUpdate(CamelModel):
 class DepartmentTaskOut(CamelModel):
     id: UUID
     case_id: UUID
+    case_no: str | None = None  # human-readable case number, populated from the parent case
     department_id: UUID
     workflow_id: UUID | None = None
     status: str
@@ -250,9 +251,15 @@ class CaseTimelineEventOut(CamelModel):
     event_type: str
     actor_id: str | None = None
     actor_role: str | None = None
+    # Resolved for display: actor's real name and (for officers) department,
+    # populated by the timeline endpoint so the UI need not show a raw id.
+    actor_name: str | None = None
+    actor_department: str | None = None
     previous_state: str | None = None
     new_state: str | None = None
-    event_metadata: dict | None = Field(default=None, alias="metadata")
+    # ORM attr is `event_metadata` (DB column "metadata"); read by that name so
+    # Pydantic doesn't pick up SQLAlchemy's Base.metadata registry off `.metadata`.
+    event_metadata: dict | None = Field(default=None, validation_alias="event_metadata", serialization_alias="metadata")
     created_at: datetime
 
 

@@ -1,12 +1,37 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '../../context/LanguageContext';
-import { CaseOut, DepartmentTaskOut, CaseTimelineEventOut, ApplicationOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn, AppointmentOut } from '../../types/aiFlow';
+import { CaseOut, DepartmentTaskOut, CaseDetailOut, ProposedFieldChangeOut, FieldChangeApprovalIn, AppointmentOut } from '../../types/aiFlow';
 import { Parcel360Response } from '../../types/parcel360';
 import apiService from '../../services/apiService';
 import VerifierAssignmentPanel from '../../features/officer/VerifierAssignmentPanel';
 import { VerifierFindingsSection } from '../../features/officer/WorkflowReviewPanel';
 import { X, User, Send, ShieldCheck, Download, MapPin, UserCheck, AlertCircle, FileText, Clock, User as UserIcon, Package, CheckCircle2, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
+
+// The /cases/* endpoints serialize camelCase (CamelModel, default by_alias=True),
+// which the shared snake_case types don't match. Read the real wire keys for the
+// timeline and application, the two things this modal renders from those feeds.
+type TimelineEvent = {
+  id: string;
+  eventType: string;
+  actorId?: string | null;
+  actorRole?: string | null;
+  actorName?: string | null;
+  actorDepartment?: string | null;
+  previousState?: string | null;
+  newState?: string | null;
+  createdAt: string;
+};
+type CaseApplication = {
+  id: string;
+  originalInput?: string | null;
+  aiDraft?: string | null;
+  finalSubmittedVersion?: string | null;
+  generatedDocumentPath?: string | null;
+  generatedAt?: string | null;
+  citizenConfirmed?: boolean;
+  citizenConfirmationTimestamp?: string | null;
+};
 
 interface OfficerTaskDetailModalProps {
   taskId: string;
@@ -150,7 +175,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     { enabled: isOpen },
   );
 
-  const { data: timeline = [] } = useQuery<CaseTimelineEventOut[]>(
+  const { data: timeline = [] } = useQuery<TimelineEvent[]>(
     ['timeline', caseId],
     () => apiService.get(`/cases/${caseId}/timeline`).then(res => res.data),
     { enabled: isOpen },
@@ -162,10 +187,10 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     { enabled: isOpen },
   );
 
-  const { data: application, isLoading: applicationLoading } = useQuery<ApplicationOut>(
+  const { data: application, isLoading: applicationLoading } = useQuery<CaseApplication>(
     ['application', caseId],
     () => apiService.get(`/cases/${caseId}/application`).then(res => res.data),
-    { enabled: isOpen && activeTab === 'documents' },
+    { enabled: isOpen && (activeTab === 'documents' || activeTab === 'overview') },
   );
 
   const downloadPdf = async (url: string, filename: string) => {
@@ -306,8 +331,8 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
   const slaColor = sla?.status === 'BREACH' ? 'text-red-600' : sla?.status === 'WARNING' ? 'text-yellow-600' : 'text-green-600';
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-16 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] overflow-hidden animate-fade-up">
+    <div className="fixed inset-0 flex items-start justify-center pt-16 z-50 pointer-events-none">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gov-border w-full max-w-4xl mx-4 max-h-[85vh] overflow-hidden animate-fade-up pointer-events-auto">
         <div className="p-5 border-b border-gov-border flex items-center justify-between">
           <h2 className="text-xl font-heading font-bold text-text-heading">
             {t('officerTaskDetail.modalTitle', 'Task Detail')}
@@ -375,11 +400,33 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldDepartment', 'Department')}</div>
                       <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-900" />{String(task.department_id).slice(0, 8)}</div>
                     </div>
-                    <div className="gov-card p-4">
-                      <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldAssignedOfficer', 'Assigned Officer')}</div>
-                      <div className="flex items-center gap-2"><User className="w-4 h-4 text-text-muted" />{task.assigned_officer_id || t('officerTaskDetail.unassigned', 'Unassigned')}</div>
-                    </div>
                   </div>
+
+                  {application && (
+                    <div className="gov-card p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-heading font-bold text-sm text-text-heading flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-brand-900" />
+                          {t('officerTaskDetail.sectionApplicationDocument', 'Application Document')}
+                        </h3>
+                        <button
+                          onClick={() => downloadPdf(`/cases/${caseId}/documents/decision-order`, `application-${application.id.slice(0, 8)}.pdf`)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-900 text-white hover:bg-brand-700 transition flex items-center gap-1.5"
+                        >
+                          <Download className="w-3 h-3" />
+                          {t('officerTaskDetail.downloadApplication', 'Download Application')}
+                        </button>
+                      </div>
+                      {(application.finalSubmittedVersion || application.aiDraft) ? (
+                        <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border text-sm text-text-secondary max-h-40 overflow-y-auto">
+                          {application.finalSubmittedVersion || application.aiDraft}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-muted">{t('officerTaskDetail.noVersionAvailable', 'No application version available.')}</p>
+                      )}
+                    </div>
+                  )}
+
                   {task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
                     <div className="flex gap-2 flex-wrap">
                       {['ASSIGNED', 'IN_PROGRESS'].filter((s) => s !== task.status).map((status) => (
@@ -586,9 +633,9 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                     <div className="space-y-3">
                       {timeline.map((event) => (
                         <div key={event.id} className="border-l-2 border-brand-900/20 pl-4 py-2">
-                          <div className="flex items-center gap-2"><span className="text-xs font-mono font-bold text-brand-900">{event.event_type}</span><span className="text-xs text-text-secondary">{new Date(event.created_at).toLocaleString()}</span></div>
-                          {event.previous_state && event.new_state && (<div className="text-xs text-text-secondary">{event.previous_state} → {event.new_state}</div>)}
-                          {event.actor_id && (<div className="text-xs text-text-secondary">{t('officerTaskDetail.byActor', 'by')} {event.actor_id} ({event.actor_role})</div>)}
+                          <div className="flex items-center gap-2"><span className="text-xs font-mono font-bold text-brand-900">{event.eventType}</span><span className="text-xs text-text-secondary">{new Date(event.createdAt).toLocaleString()}</span></div>
+                          {event.previousState && event.newState && (<div className="text-xs text-text-secondary">{event.previousState} → {event.newState}</div>)}
+                          {(event.actorName || event.actorId) && (<div className="text-xs text-text-secondary">{t('officerTaskDetail.byActor', 'by')} {event.actorName || event.actorId}{event.actorDepartment ? ` · ${event.actorDepartment}` : event.actorRole ? ` (${event.actorRole})` : ''}</div>)}
                         </div>
                       ))}
                     </div>
@@ -617,35 +664,35 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                             {t('officerTaskDetail.downloadApplication', 'Download Application')}
                           </button>
                         </div>
-                        {application.generated_document_path && (
+                        {application.generatedDocumentPath && (
                           <p className="text-xs text-text-secondary mb-2">
-                            {t('officerTaskDetail.generatedDocumentPath', 'Generated document')}: {application.generated_document_path}
-                            {application.generated_at && ` · ${new Date(application.generated_at).toLocaleString()}`}
+                            {t('officerTaskDetail.generatedDocumentPath', 'Generated document')}: {application.generatedDocumentPath}
+                            {application.generatedAt && ` · ${new Date(application.generatedAt).toLocaleString()}`}
                           </p>
                         )}
                         <div className="prose prose-sm max-w-none text-sm text-text-secondary">
-                          {application.final_submitted_version ? (
-                            <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border">{application.final_submitted_version}</div>
-                          ) : application.ai_draft ? (
-                            <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border">{application.ai_draft}</div>
+                          {application.finalSubmittedVersion ? (
+                            <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border">{application.finalSubmittedVersion}</div>
+                          ) : application.aiDraft ? (
+                            <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border">{application.aiDraft}</div>
                           ) : (
                             <p className="text-xs">{t('officerTaskDetail.noVersionAvailable', 'No application version available.')}</p>
                           )}
                         </div>
                         <div className="mt-3 flex items-center gap-2 text-xs text-text-secondary">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${application.citizen_confirmed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {application.citizen_confirmed ? t('officerTaskDetail.confirmed', 'Citizen Confirmed') : t('officerTaskDetail.notConfirmed', 'Not Confirmed')}
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${application.citizenConfirmed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {application.citizenConfirmed ? t('officerTaskDetail.confirmed', 'Citizen Confirmed') : t('officerTaskDetail.notConfirmed', 'Not Confirmed')}
                           </span>
-                          {application.citizen_confirmation_timestamp && (
-                            <span>{new Date(application.citizen_confirmation_timestamp).toLocaleString()}</span>
+                          {application.citizenConfirmationTimestamp && (
+                            <span>{new Date(application.citizenConfirmationTimestamp).toLocaleString()}</span>
                           )}
                         </div>
                       </div>
 
                       <div className="gov-card p-4">
                         <h4 className="font-heading font-bold text-sm text-text-heading mb-3">{t('officerTaskDetail.sectionFinalSubmitted', 'Final Submitted Version')}</h4>
-                        {application.final_submitted_version ? (
-                          <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border text-sm text-text-secondary max-h-60 overflow-y-auto">{application.final_submitted_version}</div>
+                        {application.finalSubmittedVersion ? (
+                          <div className="whitespace-pre-wrap bg-surface-2/50 p-3 rounded-lg border border-gov-border text-sm text-text-secondary max-h-60 overflow-y-auto">{application.finalSubmittedVersion}</div>
                         ) : (
                           <p className="text-xs text-text-muted">{t('officerTaskDetail.noFinalVersion', 'No final submitted version available.')}</p>
                         )}
@@ -653,11 +700,11 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
 
                       <div className="gov-card p-4">
                         <h4 className="font-heading font-bold text-sm text-text-heading mb-3">{t('officerTaskDetail.sectionSupportingDocuments', 'Supporting Documents')}</h4>
-                        {application.original_input ? (
+                        {application.originalInput ? (
                           <div className="space-y-3">
                             <div className="flex items-center justify-between p-2 border border-gov-border rounded-lg">
                               <span className="text-sm text-text-secondary">{t('officerTaskDetail.originalInputLabel', 'Citizen Original Input')}</span>
-                              <span className="text-xs font-mono text-text-muted">{application.original_input.slice(0, 40)}…</span>
+                              <span className="text-xs font-mono text-text-muted">{application.originalInput.slice(0, 40)}…</span>
                             </div>
                           </div>
                         ) : (

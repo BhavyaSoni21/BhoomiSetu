@@ -229,6 +229,8 @@ Respond with ONLY a JSON object of this exact shape:
   * Only ask about what is genuinely missing to act on the complaint (e.g. what specifically is wrong, what outcome they want). If nothing essential is missing, return [].
 - "application_draft": if the understanding is complete enough, generate a formal one-paragraph application draft. If follow-up questions are needed, set this to null.
 
+CRITICAL LANGUAGE RULE — follow this exactly: detect the language the citizen wrote their own words in (the conversation turns), and write every human-readable text field — "follow_up_questions" and "application_draft" — entirely in that same language, from the first word to the last. The citizen may write in any of BhoomiSetu's 11 supported languages — English, Hindi, Bengali, Gujarati, Kannada, Malayalam, Marathi, Odia, Punjabi, Tamil or Telugu — and you MUST reply in whichever one they used, in that language's native script. A Marathi (Devanagari) description gets Marathi questions and draft; a Tamil description gets Tamil; a Telugu one gets Telugu. Never default to English when the citizen did not write in English, and never mix languages. If the citizen's words are too short to tell, fall back to the user message's "respond_in_language" field (an ISO 639-1 code: en/hi/bn/gu/kn/ml/mr/or/pa/ta/te). Keep machine fields ("intent", "issues", "departments") as the English codes/tags specified above — never translate those.
+
 Never include any field not listed above."""
 
 
@@ -256,6 +258,7 @@ def understand_request(db: Session, dto: UnderstandRequestIn) -> dict | None:
     user_prompt = json.dumps({
         "parcel_360": parcel_context,
         "conversation": conversation,
+        "respond_in_language": dto.language or "en",
     })
 
     raw = groq_service.complete_json(_UNDERSTAND_SYSTEM_PROMPT, user_prompt)
@@ -287,6 +290,8 @@ Respond with ONLY a JSON object of this exact shape:
 - "facts_database": the list of database facts used from the parcel 360° data.
 - "citizen_statements": the citizen's stated facts/claims, attributed to the citizen.
 
+CRITICAL LANGUAGE RULE — follow this exactly: detect the language the citizen wrote their own words in (the conversation transcript) and write "application_draft" (and the human-readable text in "facts_database"/"citizen_statements") entirely in that same language, in that language's native script. The citizen may write in any of BhoomiSetu's 11 supported languages — English, Hindi, Bengali, Gujarati, Kannada, Malayalam, Marathi, Odia, Punjabi, Tamil or Telugu — and you MUST reply in whichever one they used (Marathi→Marathi, Tamil→Tamil, Telugu→Telugu, …). Never default to English when the citizen did not write in English, and never mix languages. If the citizen's words are too short to tell, fall back to the user message's "respond_in_language" field (an ISO 639-1 code: en/hi/bn/gu/kn/ml/mr/or/pa/ta/te). Department codes and identifiers stay as-is.
+
 Never include any field not listed above."""
 
 
@@ -313,6 +318,7 @@ def generate_application_draft(db: Session, dto: ApplicationDraftIn) -> dict | N
             "departments": dto.departments,
         },
         "conversation": dto.conversation,
+        "respond_in_language": dto.language or "en",
     })
 
     raw = groq_service.complete_json(_APPLICATION_DRAFT_SYSTEM_PROMPT, user_prompt)
@@ -345,6 +351,8 @@ Respond with ONLY a JSON object of this exact shape:
 - "required_capabilities": capabilities needed across all departments (PARCEL_360, FIELD_VERIFICATION, GEO_PHOTO, DOCUMENT_REVIEW, APPOINTMENT, etc.).
 - "priority": one of LOW, MEDIUM, HIGH, CRITICAL — based on urgency of the issue.
 - "reason": one short sentence explaining the routing choice.
+
+CRITICAL LANGUAGE RULE — follow this exactly: write the human-readable "reason" fields in the language given by the user message's "respond_in_language" field — an ISO 639-1 code for one of BhoomiSetu's 11 supported languages: en=English, hi=Hindi, bn=Bengali, gu=Gujarati, kn=Kannada, ml=Malayalam, mr=Marathi, or=Odia, pa=Punjabi, ta=Tamil, te=Telugu (default English when absent or "en"). Write those fields in that language's native script. All department codes, workflow names, capabilities and priority stay in English exactly as listed.
 
 Never invent departments or workflows not in the available list below.
 
@@ -399,6 +407,7 @@ def generate_routing_decision(db: Session, dto: RoutingDecisionIn) -> dict | Non
             "issues": dto.issues,
             "departments": dto.departments,
         },
+        "respond_in_language": dto.language or "en",
     })
 
     try:

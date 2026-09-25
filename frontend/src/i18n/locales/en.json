@@ -1,4 +1,21 @@
 {
+  "aiChat": {
+    "describePrompt": "I can help you describe your issue. Please explain the problem with your land parcel.",
+    "answerQuestions": "Please answer the questions above so I can build a complete understanding.",
+    "completeUnderstanding": "I now have a complete understanding of your issue.",
+    "understandError": "Failed to understand your request. Please try again.",
+    "processError": "I could not process your request. Please try again.",
+    "usingYourRequest": "Using your request as the application. Review and submit below.",
+    "submitError": "Failed to submit your request. Please try again.",
+    "draftReady": "Here is the formal application draft based on your confirmed understanding:",
+    "draftError": "Failed to generate the application draft. Please try again.",
+    "routedTo": "Your issue will be routed to: {{departments}}",
+    "routingError": "Failed to determine routing. Please try again.",
+    "savedOffline": "Saved offline. Your case will be submitted automatically when you are back online.",
+    "caseCreated": "Your case has been created: {{caseNo}}",
+    "createError": "Failed to create your case. Please try again.",
+    "offline": "AI assistance needs an internet connection. Reconnect and try again — your progress is kept."
+  },
   "nav": {
     "govtLine": "Government of India",
     "portalTagline": "Land Records & Revenue Administration Portal (Bhu-Aadhaar Integrated)",

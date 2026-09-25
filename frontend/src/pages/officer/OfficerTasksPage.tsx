@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../../context/LanguageContext';
-import { DepartmentTaskOut } from '../../types/aiFlow';
 import apiService from '../../services/apiService';
-import { ClipboardList, Clock, CheckCircle2, AlertTriangle, Calendar } from 'lucide-react';
+import { ClipboardList, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import OfficerTaskDetailModal from '../../components/officer/OfficerTaskDetailModal';
+
+// The /cases/tasks/my response is camelCase (CamelModel, default by_alias=True).
+// The shared snake_case DepartmentTaskOut type does NOT match this wire, so this
+// page reads the real keys directly. Only the fields this tab renders.
+type MyTask = {
+  id: string;
+  caseId: string;
+  caseNo?: string | null;
+  status: string;
+  stage: number;
+  stageName?: string | null;
+  createdAt: string;
+};
 
 const taskStatusLabels: Record<string, string> = {
   PENDING: 'Pending',
@@ -28,7 +40,7 @@ const OfficerTasksPage: React.FC = () => {
   const { t } = useTranslation();
   const [selectedTask, setSelectedTask] = useState<{ taskId: string; caseId: string } | null>(null);
 
-  const { data: tasks = [], isLoading, isError } = useQuery<DepartmentTaskOut[]>(
+  const { data: tasks = [], isLoading, isError } = useQuery<MyTask[]>(
     ['my-tasks'],
     () => apiService.get('/cases/tasks/my').then(res => res.data),
     { staleTime: 2 * 60 * 1000 },
@@ -37,8 +49,8 @@ const OfficerTasksPage: React.FC = () => {
   const pendingCount = tasks.filter((t) => t.status === 'PENDING' || t.status === 'ASSIGNED' || t.status === 'IN_PROGRESS').length;
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
 
-  const handleTaskClick = (task: DepartmentTaskOut) => {
-    setSelectedTask({ taskId: task.id, caseId: task.case_id });
+  const handleTaskClick = (task: MyTask) => {
+    setSelectedTask({ taskId: task.id, caseId: task.caseId });
   };
 
   return (
@@ -89,16 +101,10 @@ const OfficerTasksPage: React.FC = () => {
                   {t('officerTasks.colCase', 'Case')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {t('officerTasks.colDepartment', 'Department')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('officerTasks.colStage', 'Stage')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('officerTasks.colStatus', 'Status')}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {t('officerTasks.colAssigned', 'Assigned')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('officerTasks.colCreated', 'Created')}
@@ -114,13 +120,10 @@ const OfficerTasksPage: React.FC = () => {
                 return (
                   <tr key={task.id} className="hover:bg-surface-2/60 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-text-heading">
-                      #{String(task.case_id).slice(0, 8)}
+                      {task.caseNo || `#${String(task.caseId).slice(0, 8)}`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                      {task.department_id ? String(task.department_id).slice(0, 8) : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                      {task.stage_name || `Stage ${task.stage}`}
+                      {task.stageName || `Stage ${task.stage}`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
@@ -138,13 +141,8 @@ const OfficerTasksPage: React.FC = () => {
                         {taskStatusLabels[task.status] ?? task.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                      {task.assigned_officer_id
-                        ? String(task.assigned_officer_id).slice(0, 8)
-                        : t('officerTasks.unassigned', 'Unassigned')}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary font-mono">
-                      {new Date(task.created_at).toLocaleDateString()}
+                      {new Date(task.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button

@@ -24,6 +24,10 @@ class UnderstandRequestIn(CamelModel):
     parcel_id: str = Field(min_length=1)
     description: str = Field(min_length=1, max_length=2000)
     conversation: list[dict[str, Any]] | None = None
+    # ISO 639-1 code of the citizen's selected UI language (e.g. "hi", "ta").
+    # Drives which language the AI writes user-facing text in; defaults to
+    # detecting the citizen's own words when absent.
+    language: str | None = None
 
 
 class FactStatement(CamelModel):
@@ -75,6 +79,7 @@ class ApplicationDraftIn(CamelModel):
     facts_database: list[str] = Field(default_factory=list)
     departments: list[str] = Field(default_factory=list)
     conversation: list[dict[str, Any]] | None = None
+    language: str | None = None
 
 
 class ApplicationDraftOut(CamelModel):
@@ -95,6 +100,7 @@ class RoutingDecisionIn(CamelModel):
     intent: str | None = None
     issues: list[str] = Field(default_factory=list)
     departments: list[str] = Field(default_factory=list)
+    language: str | None = None
 
 
 class RoutingDecisionOut(CamelModel):

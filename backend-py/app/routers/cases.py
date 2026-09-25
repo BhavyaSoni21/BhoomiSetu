@@ -773,7 +773,45 @@ def get_timeline(
     if not service._can_manage_case(user, result, db):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource")
     events = service.get_timeline(db, str(case_id))
-    return events
+
+    # Resolve actor ids to a display name + (for officers) department, so the
+    # timeline shows "Asha Rao · Land Records" instead of a raw UUID.
+    from app.auth.roles import ROLE_DEPARTMENT
+    from app.models.user import User as UserModel
+    from app.services import departments_service
+
+    def _as_uuid(v):
+        try:
+            return UUID(str(v))
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+    # actor_id is a free string (staff UUID or a citizen id); only UUID-shaped
+    # ones can match a user, and passing a non-UUID into an IN over a uuid
+    # column errors on Postgres.
+    actor_ids = {u for e in events if (u := _as_uuid(e.actor_id))}
+    users = {}
+    if actor_ids:
+        users = {
+            str(u.id): u
+            for u in db.query(UserModel).filter(UserModel.id.in_(actor_ids)).all()
+        }
+    dept_names = {}  # code -> Department.name, resolved once
+
+    out = []
+    for e in events:
+        dto = CaseTimelineEventOut.model_validate(e)
+        u = users.get(str(e.actor_id)) if e.actor_id else None
+        if u:
+            dto.actor_name = u.name
+            code = ROLE_DEPARTMENT.get(u.role)
+            if code:
+                if code not in dept_names:
+                    d = departments_service.get_department_by_code(db, code)
+                    dept_names[code] = d.name if d else code.replace("_", " ").title()
+                dto.actor_department = dept_names[code]
+        out.append(dto)
+    return out
 
 
 @router.post("/{case_id}/timeline-events", response_model=CaseTimelineEventOut)
@@ -977,7 +1015,12 @@ def get_my_tasks(
 ):
     """Get department tasks assigned to the currently authenticated officer (§59)."""
     tasks = service.get_tasks_for_officer(db, str(user.id), skip, limit)
-    return [DepartmentTaskOut.model_validate(t) for t in tasks]
+    out = []
+    for t in tasks:
+        dto = DepartmentTaskOut.model_validate(t)
+        dto.case_no = t.case.case_no if t.case else None  # ponytail: lazy-loads case per task; add joinedload if the list grows
+        out.append(dto)
+    return out
 
 
 @router.get("/tasks/my/sla")

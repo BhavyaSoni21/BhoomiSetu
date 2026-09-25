@@ -2,6 +2,7 @@ export interface UnderstandRequestIn {
   parcel_id: string;
   description: string;
   conversation?: Array<Record<string, unknown>>;
+  language?: string;
 }
 
 export interface FactStatement {
@@ -30,6 +31,7 @@ export interface ApplicationDraftIn {
   facts_database: string[];
   departments: string[];
   conversation?: Array<Record<string, unknown>>;
+  language?: string;
 }
 
 export interface ApplicationDraftOut {
@@ -57,6 +59,7 @@ export interface RoutingDecisionIn {
   intent?: string | null;
   issues: string[];
   departments: string[];
+  language?: string;
 }
 
 export interface ApplicationCreate {
