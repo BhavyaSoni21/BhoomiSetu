@@ -586,7 +586,9 @@
     "departmentAlreadyDecided": "Your department has already decided this step.",
     "noStepForDepartment": "No step in this workflow is assigned to your department.",
     "loadingWorkflow": "Loading workflow...",
-    "errorLoadingWorkflow": "Error loading workflow"
+    "errorLoadingWorkflow": "Error loading workflow",
+    "assigningVerifier": "Assigning verifier…",
+    "loadingFindings": "Loading findings…"
   },
   "officerDashboard": {
     "officialDeskBadge": "Official Desk",
@@ -841,5 +843,8 @@
       "profileTitle": "Your profile",
       "profileDesc": "Manage your details, contact methods, documents and language here."
     }
+  },
+  "myParcels": {
+    "deleteModalDesc": "Are you sure you want to delete parcel {{localId}}? This action cannot be undone."
   }
 }
