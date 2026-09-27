@@ -3,7 +3,7 @@
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.admin import Department
@@ -183,11 +183,31 @@ def list_survey_records_for_officer(db: Session) -> list[dict]:
     } for s in recs]
 
 
-def list_registration_chain(db: Session) -> list[dict]:
+def list_registration_chain(
+    db: Session,
+    q: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> tuple[list[dict], int]:
     """One chain entry per registered parcel. RegistrationRecord is a single
-    snapshot, so each parcel currently has a one-step chain."""
-    recs = db.scalars(select(RegistrationRecord).where(RegistrationRecord.registration_status == "REGISTERED")).all()
-    return [{
+    snapshot, so each parcel currently has a one-step chain. Optional `q`
+    matches parcelId or registrationNumber (case-insensitive substring).
+    Returns (page, total) for server-side pagination."""
+    base = select(RegistrationRecord).where(RegistrationRecord.registration_status == "REGISTERED")
+    if q:
+        like = f"%{q.strip()}%"
+        base = base.where(
+            RegistrationRecord.parcel_id.ilike(like)
+            | RegistrationRecord.registration_number.ilike(like)
+        )
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    stmt = base.order_by(RegistrationRecord.registration_date.desc().nullslast())
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    recs = db.scalars(stmt).all()
+    items = [{
         "id": str(r.id),
         "parcelId": r.parcel_id,
         "chainStep": 1,
@@ -202,6 +222,7 @@ def list_registration_chain(db: Session) -> list[dict]:
         "linkedMutationId": None,
         "registeredBy": "IGR",
     } for r in recs]
+    return items, total
 
 
 def list_duplicate_registrations(db: Session) -> list[dict]:

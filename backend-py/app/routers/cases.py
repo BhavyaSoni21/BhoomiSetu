@@ -48,6 +48,10 @@ from app.schemas.case import (
 )
 from app.services import audit_service, case_service as service
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/cases", tags=["cases"])
 
 
@@ -163,6 +167,8 @@ def list_verifiers_with_workload(
             district=v.district,
             role=v.role,
             active_task_count=counts.get(str(v.id), 0),
+            availability=v.availability,
+            assigned_area=v.assigned_area,
         )
         for v in verifiers
     ]
@@ -590,7 +596,11 @@ def generate_decision_order(
     if isinstance(doc_data, str):
         raise _not_found_case(case_id)
 
-    pdf_bytes = generate_decision_order_pdf(doc_data)
+    try:
+        pdf_bytes = generate_decision_order_pdf(doc_data)
+    except Exception as exc:  # noqa: BLE001 - surface a matchable code, not a bare 500
+        logger.exception("decision-order PDF generation failed for case %s", case_id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PACKAGE_GENERATION_FAILED") from exc
 
     buf = _io.BytesIO(pdf_bytes)
     filename = f"decision-order-{doc_data.case_no}.pdf"
@@ -626,7 +636,11 @@ def generate_verification_report(
     if isinstance(doc_data, str):
         raise _not_found_case(case_id)
 
-    pdf_bytes = generate_verification_report_pdf(doc_data)
+    try:
+        pdf_bytes = generate_verification_report_pdf(doc_data)
+    except Exception as exc:  # noqa: BLE001 - surface a matchable code, not a bare 500
+        logger.exception("verification-report PDF generation failed for case %s", case_id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PACKAGE_GENERATION_FAILED") from exc
 
     buf = _io.BytesIO(pdf_bytes)
     filename = f"verification-report-{doc_data.case_no}.pdf"

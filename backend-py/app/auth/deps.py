@@ -115,6 +115,18 @@ def get_current_user_optional(
     return user
 
 
+def require_mock_dept_apis_enabled() -> None:
+    """Guard for the mock external-department APIs (land_records CRUD +
+    departments per-parcel lookups). They're intentionally unauthenticated
+    stand-ins for systems this app doesn't own, so they stay open in dev but
+    are refused on a production host unless EXPOSE_MOCK_DEPT_APIS is set.
+    404 (not 403) so their existence isn't advertised in production.
+    """
+    settings = get_settings()
+    if settings.is_production and not settings.expose_mock_dept_apis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+
 def require_roles(*roles: str):
     """Mirrors RolesGuard: a route with no roles declared lets any
     authenticated user through; a role mismatch is a 403 (distinct from

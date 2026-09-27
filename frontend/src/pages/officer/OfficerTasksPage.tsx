@@ -65,7 +65,7 @@ const OfficerTasksPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs font-mono">
-          <span className="px-2 py-1 bg-gray-100 rounded-full">
+          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full">
             {pendingCount} {t('officerTasks.pendingLabel', 'Pending')}
           </span>
           <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
@@ -147,7 +147,7 @@ const OfficerTasksPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
                         onClick={() => handleTaskClick(task)}
-                        className="text-brand-700 hover:text-brand-900 font-semibold underline underline-offset-2"
+                        className="text-brand-600 hover:text-brand-800 font-semibold underline underline-offset-2"
                       >
                         {t('officerTasks.viewButton', 'Manage')}
                       </button>

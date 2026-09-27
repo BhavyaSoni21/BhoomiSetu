@@ -4,6 +4,7 @@ import { Search, FileText, ChevronRight, Clock, ArrowUpDown } from 'lucide-react
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import BackButton from '../../components/BackButton';
+import { humanizeEnum, statusLabel } from '../../utils/statusLabel';
 
 interface RegistrationChainEntry {
   id: string;
@@ -23,11 +24,19 @@ interface RegistrationChainEntry {
 
 const RegistrationChainPage: React.FC = () => {
   const { t } = useTranslation();
+  const [search, setSearch] = React.useState('');
+  // Debounce so each keystroke doesn't fire a request.
+  const [debounced, setDebounced] = React.useState('');
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
 
-  const { data: chainEntries = [], isLoading } = useQuery<RegistrationChainEntry[]>(
-    ['registration-chain'],
-    async () => (await apiService.get('/registration/chain')).data,
+  const { data, isLoading, isError } = useQuery<{ records: RegistrationChainEntry[]; total: number }>(
+    ['registration-chain', debounced],
+    async () => (await apiService.get('/registration/chain', { params: debounced ? { q: debounced } : {} })).data,
   );
+  const chainEntries = data?.records ?? [];
 
   const getTransactionTypeColor = (type: RegistrationChainEntry['transactionType']) => {
     const colors: Record<RegistrationChainEntry['transactionType'], string> = {
@@ -89,6 +98,8 @@ const RegistrationChainPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder={t('officerDashboard.searchParcelPlaceholder', 'Search by parcel ID...')}
               className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-xl border border-gov-border bg-surface-1 text-sm text-text-heading placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
@@ -97,6 +108,10 @@ const RegistrationChainPage: React.FC = () => {
 
         {isLoading ? (
           <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+        ) : isError ? (
+          <div className="py-10 text-center rounded-xl bg-danger-50 border border-danger-200">
+            <p className="text-sm font-semibold text-danger-700">{t('common.loadError', 'Could not load registration chain. Please try again.')}</p>
+          </div>
         ) : Object.keys(groupedByParcel).length === 0 ? (
           <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
             <FileText className="w-8 h-8 mx-auto text-text-muted mb-2" />
@@ -145,7 +160,7 @@ const RegistrationChainPage: React.FC = () => {
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${getTransactionTypeColor(entry.transactionType)}`}>
-                              {entry.transactionType}
+                              {humanizeEnum(entry.transactionType)}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-text-primary">{entry.previousOwner}</td>
@@ -156,7 +171,7 @@ const RegistrationChainPage: React.FC = () => {
                           <td className="py-3 px-4 font-mono text-text-secondary">{entry.documentReference}</td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${getStatusColor(entry.registrationStatus)}`}>
-                              {entry.registrationStatus}
+                              {statusLabel(t, entry.registrationStatus)}
                             </span>
                           </td>
                           <td className="py-3 px-4 font-mono text-text-secondary">

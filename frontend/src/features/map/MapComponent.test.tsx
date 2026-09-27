@@ -66,6 +66,8 @@ vi.mock('maplibre-gl', () => {
     setLngLat() { return this; }
     setHTML() { return this; }
     addTo() { return this; }
+    on() { return this; }
+    remove() { return this; }
   }
   class MockLngLatBounds {
     points: [number, number][] = [];

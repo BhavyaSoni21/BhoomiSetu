@@ -419,17 +419,46 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     setSelectedCluster('');
   }, [selectedDistrict]);
 
-  // Use cluster bounds from dropdown if no explicit focusBounds provided
-  const effectiveFocusBounds = focusBounds ?? clusterBounds;
+  // Use cluster bounds from dropdown if no explicit focusBounds provided.
+  // A user-located position (Locate button, set below) takes priority.
+  const baseFocusBounds = focusBounds ?? clusterBounds;
 
-  // Locate button handler - bumps recenterSignal to re-trigger map fit
+  // Locate button handler - flies the map to the user's real GPS position
+  // by feeding a tight bounds around it into the existing focusBounds fit.
   const [internalRecenterSignal, setInternalRecenterSignal] = useState(0);
+  const [userBounds, setUserBounds] = useState<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>(null);
+  const [locateState, setLocateState] = useState<'idle' | 'locating' | 'error'>('idle');
+  const [locateError, setLocateError] = useState('');
   const handleLocate = () => {
-    setInternalRecenterSignal((n) => n + 1);
+    if (!navigator.geolocation) {
+      setLocateState('error');
+      setLocateError(t('unifiedMap.locateUnsupported', 'Location is not supported on this device.'));
+      return;
+    }
+    setLocateState('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { longitude: lng, latitude: lat } = pos.coords;
+        const d = 0.003; // ~300m box so the fit zooms in close, not to a single point
+        setUserBounds({ minLng: lng - d, minLat: lat - d, maxLng: lng + d, maxLat: lat + d });
+        setLocateState('idle');
+        setInternalRecenterSignal((n) => n + 1);
+      },
+      (err) => {
+        setLocateState('error');
+        setLocateError(
+          err.code === err.PERMISSION_DENIED
+            ? t('unifiedMap.locatePermissionDenied', 'Location permission denied. Enable it to use Locate.')
+            : t('unifiedMap.locateUnavailable', 'Could not determine your location. Try again.'),
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
   };
 
   // Combined recenter signal (external + internal)
   const combinedRecenterSignal = (recenterSignal ?? 0) + internalRecenterSignal;
+  const effectiveFocusBounds = userBounds ?? baseFocusBounds;
 
   // Determine available districts for selected state (from API data)
   const availableDistricts = selectedState
@@ -597,14 +626,22 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
             <button
               type="button"
               onClick={handleLocate}
-              className="inline-flex items-center gap-1.5 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0"
+              disabled={locateState === 'locating'}
+              className="inline-flex items-center gap-1.5 border-2 border-ink bg-surface px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px] shrink-0 disabled:opacity-50"
               aria-label={t('unifiedMap.locateAria')}
-              title={t('unifiedMap.locateTooltip')}
+              title={locateState === 'error' ? locateError : t('unifiedMap.locateTooltip')}
             >
-              <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('unifiedMap.locate')}</span>
+              <MapPin className={`w-3.5 h-3.5 ${locateState === 'locating' ? 'animate-pulse' : ''}`} aria-hidden="true" />
+              <span className="hidden sm:inline">
+                {locateState === 'locating' ? t('unifiedMap.locating', 'Locating…') : t('unifiedMap.locate')}
+              </span>
             </button>
           </div>
+          {locateState === 'error' && locateError && (
+            <div className="w-full basis-full text-[11px] font-medium text-red-700 dark:text-red-400 normal-case tracking-normal">
+              {locateError}
+            </div>
+          )}
         </div>
       )}
 

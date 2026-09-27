@@ -9,10 +9,12 @@ from shapely.geometry import Polygon
 
 from app.models.department_record import (
     DisputeRecord,
+    EncumbranceCertificate,
     EncumbranceRecord,
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyDocument,
     TaxRecord,
 )
 from app.models.land_records import StateALandRecord, StateBLandRecord
@@ -30,7 +32,10 @@ def _seed(db):
     db.query(Parcel).delete()
     db.query(StateALandRecord).delete()
     db.query(StateBLandRecord).delete()
-    for model in (RegistrationRecord, PlanningRecord, TaxRecord, RestrictionRecord, DisputeRecord, EncumbranceRecord):
+    # Generated artifacts (certificates/survey docs) are committed by the
+    # roundtrip tests and a real Postgres keeps them across runs, so clear
+    # them too or the "no certificates issued yet" stubs see stale rows.
+    for model in (RegistrationRecord, PlanningRecord, TaxRecord, RestrictionRecord, DisputeRecord, EncumbranceCertificate, SurveyDocument, EncumbranceRecord):
         db.query(model).delete()
     db.flush()
 

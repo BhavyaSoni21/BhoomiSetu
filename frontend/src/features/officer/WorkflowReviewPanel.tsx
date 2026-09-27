@@ -7,7 +7,15 @@ import apiService from '../../services/apiService';
 import { Workflow, WorkflowStep, VerificationPrecheck, FieldEvidence } from '../../types/workflow';
 import { ParcelDocument } from '../../types/parcelDocument';
 import { Parcel360Response } from '../../types/parcel360';
-import { ManagedUser } from '../../types/user';
+// Verifier picker rows come from the officer-readable /cases/verifiers.
+interface VerifierRow {
+  id: string;
+  name: string;
+  role: string;
+  activeTaskCount?: number;
+  availability?: string | null;
+  assignedArea?: string | null;
+}
 import AuthenticatedDocumentImage from '../parcels/AuthenticatedDocumentImage';
 import MicButton from '../../components/MicButton';
 
@@ -549,8 +557,8 @@ interface AssignVerifierControlProps {
 }
 
 // Officer + Admin verifier assignment control.
-// Reuses the same admin-users listing (GET /users), filtered client-side
-// to just the VERIFIER role. For officers, includes workload/availability info.
+// Lists VERIFIER users + their real workload/availability/area from the
+// officer-readable /cases/verifiers (admin-only /users is 403 for officers).
 const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
   workflowId,
   assignedVerifierId,
@@ -560,8 +568,10 @@ const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
 }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data: users = [] } = useQuery<ManagedUser[]>(['admin-users'], async () => (await apiService.get('/users')).data);
-  const verifiers = users.filter((u) => u.role === 'VERIFIER');
+  const { data: verifiers = [] } = useQuery<VerifierRow[]>(
+    ['verifiers-with-workload'],
+    async () => (await apiService.get('/cases/verifiers')).data ?? [],
+  );
 
   const assignMutation = useMutation(
     async (verifierId: string) => {
@@ -595,20 +605,16 @@ const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
           <p className="font-bold text-sm text-ink mb-1">{t('officerPortal.currentlyAssignedTo', { name: assignedVerifier.name })}</p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-ink/50">{t('verifierPortal.workload')}</span>
-              <div className="font-semibold text-primary">{assignedVerifier.workload || t('verifierPortal.unknown')}</div>
+              <span className="text-ink/50">{t('verifierPortal.assignedArea', 'Assigned Area')}</span>
+              <div className="font-semibold">{assignedVerifier.assignedArea || t('verifierPortal.unknown', 'Unknown')}</div>
             </div>
             <div>
-              <span className="text-ink/50">{t('verifierPortal.assignedArea')}</span>
-              <div className="font-semibold">{assignedVerifier.assigned_area || t('verifierPortal.unknown')}</div>
+              <span className="text-ink/50">{t('verifierPortal.availability', 'Availability')}</span>
+              <div className="font-semibold text-primary">{assignedVerifier.availability || t('verifierPortal.unknown', 'Unknown')}</div>
             </div>
             <div>
-              <span className="text-ink/50">{t('verifierPortal.availability')}</span>
-              <div className="font-semibold text-primary">{assignedVerifier.availability || t('verifierPortal.unknown')}</div>
-            </div>
-            <div>
-              <span className="text-ink/50">{t('verifierPortal.activeTasks')}</span>
-              <div className="font-semibold">{assignedVerifier.active_task_count ?? 0}</div>
+              <span className="text-ink/50">{t('verifierPortal.activeTasks', 'Active Tasks')}</span>
+              <div className="font-semibold">{assignedVerifier.activeTaskCount ?? 0}</div>
             </div>
           </div>
         </div>
@@ -624,7 +630,7 @@ const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
         </option>
         {verifiers.map((v) => (
           <option key={v.id} value={v.id}>
-            {v.name} — {t('verifierPortal.workload')}: {v.workload || t('verifierPortal.unknown')} | {t('verifierPortal.area')}: {v.assigned_area || t('verifierPortal.unknown')}
+            {v.name} — {t('verifierPortal.area', 'Area')}: {v.assignedArea || t('verifierPortal.unknown', 'Unknown')} | {t('verifierPortal.activeTasks', 'Active Tasks')}: {v.activeTaskCount ?? 0}
           </option>
         ))}
       </select>
@@ -722,6 +728,16 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
   const verifierId = findingsEvent?.actor_id;
   const visitDate = findingsEvent?.created_at;
 
+  // Resolve the actor UUID to a verifier name (shared react-query cache with
+  // the assignment picker, so this usually costs no extra request).
+  const { data: verifiers = [] } = useQuery<VerifierRow[]>(
+    ['verifiers-with-workload'],
+    async () => (await apiService.get('/cases/verifiers')).data ?? [],
+    { enabled: !!verifierId },
+  );
+  const verifierName = verifiers.find((v) => v.id === verifierId)?.name
+    ?? (verifierId ? verifierId.slice(0, 8) : '');
+
   const hasContent = findings.length > 0 || overallFinding || evidence.length > 0;
 
   if (!hasContent && !evidenceLoading && !findingsLoading) return null;
@@ -752,29 +768,29 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
             <div className="bg-surface p-3 border-2 border-ink/20 rounded">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-ink/50 block">{t('verifierPortal.verifierId')}</span>
-                  <span className="font-semibold text-ink">{verifierId}</span>
+                  <span className="text-ink/50 block">{t('verifierPortal.verifierId', 'Verifier')}</span>
+                  <span className="font-semibold text-ink">{verifierName}</span>
                 </div>
                 <div>
-                  <span className="text-ink/50 block">{t('verifierPortal.visitDate')}</span>
+                  <span className="text-ink/50 block">{t('verifierPortal.visitDate', 'Visit Date')}</span>
                   <span className="font-semibold text-ink">{visitDate ? formatDate(visitDate) : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-ink/50 block">{t('verifierPortal.gpsStatus')}</span>
+                  <span className="text-ink/50 block">{t('verifierPortal.gpsStatus', 'GPS Status')}</span>
                   <span className="font-semibold text-primary flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                    {t('verifierPortal.gpsCaptured')}
+                    {t('verifierPortal.gpsCaptured', 'Captured')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-ink/50 block">{t('verifierPortal.photoCount')}</span>
+                  <span className="text-ink/50 block">{t('verifierPortal.photoCount', 'Photos')}</span>
                   <span className="font-semibold text-ink">{evidence.length}</span>
                 </div>
               </div>
               {declarationConfirmed && (
                 <p className="mt-2 text-xs text-primary flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                  {t('verifierPortal.declarationConfirmed')}
+                  {t('verifierPortal.declarationConfirmed', 'Declaration confirmed')}
                 </p>
               )}
             </div>
@@ -785,7 +801,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
             <div className="border-2 border-ink bg-surface p-3 rounded">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-xs uppercase tracking-widest text-ink/70">
-                  {t('verifierPortal.overallFinding')}
+                  {t('verifierPortal.overallFinding', 'Overall Finding')}
                 </span>
                 <span className={`inline-block border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${overallStyle}`}>
                   {overallFinding.replace(/_/g, ' ')}
@@ -798,7 +814,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
           {findings.length > 0 && (
             <div className="space-y-2">
               <h5 className="font-bold text-xs uppercase tracking-widest text-ink/70">
-                {t('verifierPortal.individualFindings')}
+                {t('verifierPortal.individualFindings', 'Individual Findings')}
               </h5>
               {findings.map((f: any, index: number) => (
                 <div key={index} className="border-2 border-ink/20 bg-surface p-3 rounded">
@@ -822,7 +838,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
           {evidence.length > 0 && (
             <div className="space-y-2">
               <h5 className="font-bold text-xs uppercase tracking-widest text-ink/70">
-                {t('verifierPortal.fieldEvidenceLabel')} ({evidence.length})
+                {t('verifierPortal.fieldEvidenceLabel', 'Field Evidence')} ({evidence.length})
               </h5>
               <div className="flex flex-wrap gap-3">
                 {evidence.map((item: any) => (
@@ -846,7 +862,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
           {findingsEvent?.event_metadata?.notes && (
             <div className="bg-surface p-3 border-2 border-ink/20 rounded">
               <span className="font-bold text-xs uppercase tracking-widest text-ink/70 block mb-1">
-                {t('verifierPortal.verifierNotes')}
+                {t('verifierPortal.verifierNotes', 'Verifier Notes')}
               </span>
               <p className="text-xs text-ink/80 italic">"{findingsEvent.event_metadata.notes}"</p>
             </div>

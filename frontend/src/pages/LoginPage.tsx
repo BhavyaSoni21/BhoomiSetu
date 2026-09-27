@@ -185,8 +185,8 @@ const LoginPage: React.FC = () => {
         {/* Top bar: mobile logo + language toggle */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div className="lg:hidden flex items-center gap-2 min-w-0">
-            <div style={{ color: 'var(--brand-900)' }}><BsIcon className="w-7 h-7" /></div>
-            <span className="font-heading font-bold text-2xl truncate" style={{ color: 'var(--brand-900)' }}>BhoomiSetu</span>
+            <div style={{ color: 'var(--text-heading)' }}><BsIcon className="w-7 h-7" /></div>
+            <span className="font-heading font-bold text-2xl truncate" style={{ color: 'var(--text-heading)' }}>BhoomiSetu</span>
           </div>
           <div className="lg:block hidden" />{/* spacer on desktop */}
           {/* Language toggle */}

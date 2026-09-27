@@ -43,7 +43,10 @@ def test_registration_chain_returns_registered_parcels(db, client):
     _, _, headers = create_authenticated_user(db, "REGISTRATION_OFFICER")
     res = client.get("/api/v1/registration/chain", headers=headers)
     assert res.status_code == 200, res.text
-    assert res.json()[0]["registrationNumber"] == "REG-MH-1"
+    # B3: response is now {records, total} with server-side search/pagination.
+    body = res.json()
+    assert body["total"] >= 1
+    assert body["records"][0]["registrationNumber"] == "REG-MH-1"
 
 
 def test_literal_routes_not_shadowed_and_stubs_return_empty(db, client):

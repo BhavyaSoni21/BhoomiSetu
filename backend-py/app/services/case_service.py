@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, ROLE_DEPARTMENT, VERIFIER_ROLE
+from app.auth.roles import CITIZEN_ROLE, ROLE_DEPARTMENT, VERIFIER_ROLE
 from app.models.case import (
     AIAnalysis,
     Application,
@@ -116,10 +116,21 @@ def _now() -> datetime:
 
 
 def _can_manage_case(user: User, case: Case, db: Session) -> bool:
-    """Officers/staff can manage any case; citizens can only manage
-    cases on parcels they're associated with."""
-    if user.role in ALL_STAFF_ROLES:
+    """Citizens can only manage cases on parcels they're associated with.
+    ADMIN can manage any case. A department officer can manage a case only
+    when it has a task in their own department - jurisdiction scoping that
+    mirrors _can_manage_task, rather than every staff role managing every
+    case."""
+    if user.role == "ADMIN":
         return True
+    if user.role in ROLE_DEPARTMENT:
+        from app.models.admin import Department
+        user_dept_code = ROLE_DEPARTMENT[user.role]
+        dept_ids = db.query(Department.id).filter(Department.code == user_dept_code)
+        return db.query(DepartmentTask.id).filter(
+            DepartmentTask.case_id == str(case.id),
+            DepartmentTask.department_id.in_(dept_ids),
+        ).first() is not None
     if user.role == CITIZEN_ROLE:
         return case.citizen_id == str(user.id) or parcels_service.is_citizen_associated_with_parcel(db, str(user.id), case.parcel_id)
     return False

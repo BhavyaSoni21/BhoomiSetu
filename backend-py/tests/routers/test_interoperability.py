@@ -16,6 +16,7 @@ from app.models.department_record import (
     PlanningRecord,
     RegistrationRecord,
     RestrictionRecord,
+    SurveyRecord,
     TaxRecord,
 )
 from app.models.land_records import StateALandRecord, StateBLandRecord
@@ -36,7 +37,7 @@ def _seed(db):
     db.query(Parcel).delete()
     db.query(StateALandRecord).delete()
     db.query(StateBLandRecord).delete()
-    for model in (RegistrationRecord, PlanningRecord, TaxRecord, RestrictionRecord, DisputeRecord, EncumbranceRecord):
+    for model in (RegistrationRecord, PlanningRecord, TaxRecord, RestrictionRecord, DisputeRecord, SurveyRecord, EncumbranceRecord):
         db.query(model).delete()
     db.flush()
 
@@ -61,6 +62,7 @@ def _seed(db):
     db.add(RestrictionRecord(parcel_id=full_mh_parcel.id, has_restriction=False))
     db.add(DisputeRecord(parcel_id=full_mh_parcel.id, has_active_dispute=False))
     db.add(EncumbranceRecord(parcel_id=full_mh_parcel.id, has_encumbrance=True, encumbrance_type="MORTGAGE", lender_name="Interop Co-operative Bank", instrument_reference="MORTGAGE-100001", registered_date="2021-01-01"))
+    db.add(SurveyRecord(parcel_id=str(full_mh_parcel.id), survey_status="COMPLETED", survey_type="BOUNDARY_VERIFICATION", measured_area_sq_m=500))
     db.flush()
 
     return {"full_mh_parcel": full_mh_parcel, "bare_tn_parcel": bare_tn_parcel}
@@ -134,6 +136,7 @@ class TestResponseAggregatorBuildParcel360:
             {"department": "RESTRICTION", "status": "AVAILABLE"},
             {"department": "DISPUTE", "status": "AVAILABLE"},
             {"department": "ENCUMBRANCE", "status": "AVAILABLE"},
+            {"department": "SURVEY", "status": "AVAILABLE"},
         ]
 
         land_records = result["departments"]["land_records"]
@@ -147,13 +150,14 @@ class TestResponseAggregatorBuildParcel360:
         assert result["departments"]["restriction"].has_restriction is False
         assert result["departments"]["dispute"].has_active_dispute is False
         assert result["departments"]["encumbrance"].has_encumbrance is True
+        assert result["departments"]["survey"].survey_status == "COMPLETED"
 
     def test_falls_back_to_local_body_code_for_locality_and_nulls_departments_when_nothing_is_linked(self, db):
         p = _seed(db)
         result = response_aggregator_service.build_parcel_360(db, str(p["bare_tn_parcel"].id))
         assert result["location"]["locality"] == "TNLB009"
         assert result["departments"] == {
-            "land_records": None, "registration": None, "planning": None, "tax": None, "restriction": None, "dispute": None, "encumbrance": None,
+            "land_records": None, "registration": None, "planning": None, "tax": None, "restriction": None, "dispute": None, "encumbrance": None, "survey": None,
         }
         assert all(s["status"] == "NOT_AVAILABLE" for s in result["sources"])
 

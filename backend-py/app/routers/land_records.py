@@ -13,6 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.auth.deps import require_mock_dept_apis_enabled
 from app.database import get_db
 from app.schemas.land_records import (
     CreateStateALandRecord,
@@ -26,8 +27,10 @@ from app.schemas.land_records import (
 )
 from app.services import land_records_service as service
 
-state_a_router = APIRouter(prefix="/state-a/land-records", tags=["land-records"])
-state_b_router = APIRouter(prefix="/state-b/land-records", tags=["land-records"])
+# Whole routers gated: every endpoint here is mock external-system data, so a
+# production host refuses them unless EXPOSE_MOCK_DEPT_APIS is set.
+state_a_router = APIRouter(prefix="/state-a/land-records", tags=["land-records"], dependencies=[Depends(require_mock_dept_apis_enabled)])
+state_b_router = APIRouter(prefix="/state-b/land-records", tags=["land-records"], dependencies=[Depends(require_mock_dept_apis_enabled)])
 
 
 # --- State A -------------------------------------------------------------

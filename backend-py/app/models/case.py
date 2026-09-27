@@ -10,6 +10,7 @@ timestamps, JSON columns for structured data.
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geometry
 from sqlalchemy import Boolean, ForeignKey, Index, JSON, Numeric, String, Text, func
@@ -17,6 +18,9 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.admin import Department
 
 
 class Case(Base):
@@ -179,6 +183,17 @@ class DepartmentTask(Base):
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     case: Mapped["Case"] = relationship(back_populates="tasks")
+    # Eager (batched) so serializing a task exposes the department's human
+    # name/code without an N+1 per task or a UUID→name round-trip on the client.
+    department: Mapped["Department"] = relationship(lazy="selectin")
+
+    @property
+    def department_name(self) -> str | None:
+        return self.department.name if self.department else None
+
+    @property
+    def department_code(self) -> str | None:
+        return self.department.code if self.department else None
 
 
 class AIAnalysis(Base):

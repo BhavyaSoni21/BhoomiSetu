@@ -17,6 +17,7 @@ from fastapi import HTTPException, status
 from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import from_shape
 from shapely.geometry import shape
+from shapely.validation import explain_validity
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -34,7 +35,15 @@ ZONE_SNAP_TOLERANCE_DEG = 0.0005
 
 
 def geojson_to_geometry(geojson: dict[str, Any]) -> WKBElement:
-    return from_shape(shape(geojson), srid=4326)
+    geom = shape(geojson)
+    # Reject self-intersecting / malformed polygons before they reach PostGIS,
+    # where they'd corrupt ST_Intersects/ST_Within results downstream.
+    if not geom.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid geometry: {explain_validity(geom)}",
+        )
+    return from_shape(geom, srid=4326)
 
 
 def assert_geometry_type(geometry: dict[str, Any], allowed: list[str]) -> None:
@@ -89,9 +98,14 @@ def snap_zone_to_shared_edges(db: Session, model, geom: WKBElement, exclude_id: 
     for (neighbour_geom,) in neighbours.all():
         snapped = db.scalar(select(func.ST_Snap(snapped, neighbour_geom, ZONE_SNAP_TOLERANCE_DEG)))
 
-    # Allow a shared edge; reject only a real interior overlap. ST_Overlaps
-    # is false for a pure edge-touch, true when interiors actually intersect.
-    overlapping = db.query(model.name).filter(func.ST_Overlaps(model.geometry, snapped))
+    # Allow a shared edge; reject any real interior overlap. ST_Overlaps is
+    # false for identical or contained geometry (it only fires on *partial*
+    # overlap), which let a duplicate/nested zone slip through. The DE-9IM
+    # interior-interior test ("T********") is true whenever the two interiors
+    # actually intersect - covering equal, contained, and partial overlap -
+    # while a pure edge-touch (boundary-only, empty interior intersection)
+    # stays allowed.
+    overlapping = db.query(model.name).filter(func.ST_Relate(model.geometry, snapped, 'T********'))
     if exclude_id is not None:
         overlapping = overlapping.filter(model.id != exclude_id)
     hit = overlapping.first()

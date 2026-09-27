@@ -11,13 +11,19 @@ authorized DB change is traceable to the originating case/task.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+
+def _utcnow() -> datetime:
+    # Naive UTC, matching the _now() used by case/workflow/auth tables so every
+    # timestamp in the DB is one comparable UTC store, converted only on display.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AuditLog(Base):
@@ -54,4 +60,7 @@ class AuditLog(Base):
 
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON-serialized
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Python-side naive-UTC default so ORM inserts match every other table's
+    # _now(); server_default kept for raw/legacy inserts. Was func.now() only,
+    # which stored the DB server's local time into a tz-naive column.
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())

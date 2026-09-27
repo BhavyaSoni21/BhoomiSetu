@@ -177,23 +177,27 @@ describe('Parcel360View', () => {
     expect(screen.getByText('Interop Owner')).toBeInTheDocument();
   });
 
-  // "Locate" sits next to the map (beside its year toggle when the parcel
-  // belongs to a historical cluster, or on its own otherwise) rather than in
-  // the Actions row. MapComponent only fits its view to the selected
-  // parcel's context once, when that context first loads (React Query
-  // caches it) - clicking Locate must bump recenterSignal to actually
-  // re-trigger that fly-to on demand, not just scroll the already-visible
-  // map into view (which alone did nothing observable).
-  it('clicking "Locate" on the Overview tab bumps recenterSignal to re-trigger map fit', async () => {
+  // "Locate" sits next to the map. It now flies to the user's real GPS
+  // position: clicking it calls navigator.geolocation and, on success, bumps
+  // recenterSignal (and swaps in a bounds around the user) to re-trigger the
+  // map's fly-to on demand.
+  it('clicking "Locate" flies to the user\'s GPS position and bumps recenterSignal', async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) =>
+      success({ coords: { latitude: 28.6, longitude: 77.2, accuracy: 10 } } as GeolocationPosition),
+    );
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition } });
+
     mockGet();
     renderWithProviders();
 
     const map = await screen.findByTestId('mock-map');
     expect(map).toHaveAttribute('data-recenter-signal', '0');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Locate selected parcel on map' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to my current location on the map' }));
 
     await waitFor(() => expect(map).toHaveAttribute('data-recenter-signal', '1'));
+    expect(getCurrentPosition).toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it('shows a "not available" message on the Restriction tab when departments.restriction is null', async () => {

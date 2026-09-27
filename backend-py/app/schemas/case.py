@@ -144,6 +144,8 @@ class DepartmentTaskOut(CamelModel):
     case_id: UUID
     case_no: str | None = None  # human-readable case number, populated from the parent case
     department_id: UUID
+    department_name: str | None = None  # resolved from the department relationship
+    department_code: str | None = None
     workflow_id: UUID | None = None
     status: str
     # PENDING | ASSIGNED | IN_PROGRESS | BLOCKED | COMPLETED | CANCELLED
@@ -354,6 +356,8 @@ class VerifierWithWorkloadOut(CamelModel):
     district: str | None = None
     role: str
     active_task_count: int = 0
+    availability: str | None = None
+    assigned_area: str | None = None
 
 
 class EvidenceCaptureRequest(CamelModel):

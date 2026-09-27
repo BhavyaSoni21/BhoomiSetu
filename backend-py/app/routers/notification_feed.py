@@ -13,10 +13,24 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.schemas.notification import NotificationOut
+from app.schemas.notification import NotificationOut, NotificationPrefsOut, NotificationPrefsUpdate
 from app.services import notification_feed_service as service
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@router.get("/preferences", response_model=NotificationPrefsOut)
+def get_preferences(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.patch("/preferences", response_model=NotificationPrefsOut)
+def update_preferences(dto: NotificationPrefsUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    for key, value in dto.model_dump(exclude_unset=True, by_alias=False).items():
+        setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("", response_model=list[NotificationOut])

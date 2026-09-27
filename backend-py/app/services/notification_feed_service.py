@@ -34,7 +34,9 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload,
         return
         
     users = db.scalars(select(User).where(User.id.in_(user_ids))).all()
-    
+
+    # Honor the in-app opt-out: users who turned off in-app get no feed row
+    # (SMS/email below have their own per-channel gate in delivery).
     db.add_all(
         [
             Notification(
@@ -42,6 +44,7 @@ def notify_users(db: Session, user_ids: list[str], payload: NotificationPayload,
                 parcel_id=payload.parcel_id, workflow_id=payload.workflow_id, case_id=payload.case_id, alert_id=payload.alert_id,
             )
             for user in users
+            if user.notify_in_app
         ]
     )
     db.flush()

@@ -91,6 +91,9 @@ describe('LoginPage', () => {
 
   it('lists the demo accounts for convenience', () => {
     renderPage();
+    // The demo panel is collapsed by default (redesigned so the ~12-account
+    // list doesn't dominate mobile); open it before asserting its contents.
+    fireEvent.click(screen.getByRole('button', { name: /demo accounts/i }));
     expect(screen.getByText(/admin@bhoomisetu.gov.in/)).toBeInTheDocument();
     expect(screen.getByText(/dispute.officer@bhoomisetu.gov.in/)).toBeInTheDocument();
   });

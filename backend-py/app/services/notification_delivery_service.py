@@ -62,15 +62,15 @@ def deliver_notification(db: Session, user_ids: list[str], payload: Notification
         sms_ok = False
         email_ok = False
 
-        # Send SMS if mobile is verified
-        if user.mobile_verified and user.mobile_number:
+        # Send SMS if opted in and mobile is verified
+        if user.notify_sms and user.mobile_verified and user.mobile_number:
             message = _build_sms_message(payload)
             if sms_service.send_sms(user.mobile_number, message):
                 sms_ok = True
                 sms_sent += 1
 
-        # Send email if email is verified
-        if user.email_verified and user.email:
+        # Send email if opted in and email is verified
+        if user.notify_email and user.email_verified and user.email:
             subject = f"BhoomiSetu: {payload.title}"
             text_body = _build_notification_text(payload)
             html_body = _build_notification_html(payload)

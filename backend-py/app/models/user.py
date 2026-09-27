@@ -97,6 +97,13 @@ class User(Base):
     # Nullable; only meaningful for staff roles (officers/admin/verifier).
     district: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
+    # Verifier workload/assignment metadata for the officer's assignment picker
+    # (§29). Nullable free text; unset renders as "unknown" honestly rather than
+    # a fabricated status. assigned_area is finer-grained than `district`
+    # (a zone/circle within it).
+    availability: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    assigned_area: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
     # Google OAuth 2.0 fields - nullable for existing accounts and
     # non-Google sign-ins. google_id is unique to prevent duplicate
     # Google accounts mapping to the same BhoomiSetu user.
@@ -106,6 +113,13 @@ class User(Base):
 
     # Bilingual notification language preference - defaults to Hindi (hi)
     preferred_language: Mapped[str] = mapped_column(String(10), default="hi")
+
+    # Per-channel notification opt-outs (§ notification prefs). Default True so
+    # existing accounts keep receiving everything; delivery still also requires
+    # the channel's contact to be verified (mobile_verified/email_verified).
+    notify_sms: Mapped[bool] = mapped_column(default=True, server_default="true")
+    notify_email: Mapped[bool] = mapped_column(default=True, server_default="true")
+    notify_in_app: Mapped[bool] = mapped_column(default=True, server_default="true")
 
     # First-login onboarding gate. New accounts start False and see the
     # onboarding wizard + tour once; set True when they finish or skip it.

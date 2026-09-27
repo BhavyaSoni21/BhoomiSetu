@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Phone, Mail, MapPin, Bell } from 'lucide-react';
 import { AuthUser } from '../auth';
+import apiService from '../../../services/apiService';
 import { ProfileCard } from './ProfileCard';
 import { StatusPill } from './StatusPill';
 
 interface ContactMethodsCardProps {
   user?: AuthUser;
   mode?: 'officer' | 'admin';
+}
+
+interface NotifPrefs {
+  notifySms: boolean;
+  notifyEmail: boolean;
+  notifyInApp: boolean;
 }
 
 export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
@@ -27,9 +35,32 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
     ? 'District Collectorate, Shivajinagar, Pune - 411005'
     : 'Ministry of Panchayati Raj, New Delhi - 110001';
 
-  const [smsEnabled, setSmsEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [inAppEnabled, setInAppEnabled] = useState(true);
+  const queryClient = useQueryClient();
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const { data: prefs } = useQuery<NotifPrefs>(
+    ['notification-prefs'],
+    async () => (await apiService.get('/notifications/preferences')).data,
+    { staleTime: 5 * 60 * 1000 },
+  );
+
+  const { mutate: savePref } = useMutation(
+    (patch: Partial<NotifPrefs>) =>
+      apiService.patch('/notifications/preferences', patch).then((r) => r.data as NotifPrefs),
+    {
+      onMutate: () => setSaveState('saving'),
+      onSuccess: (data) => {
+        queryClient.setQueryData(['notification-prefs'], data);
+        setSaveState('saved');
+        setTimeout(() => setSaveState('idle'), 2000);
+      },
+      onError: () => setSaveState('error'),
+    },
+  );
+
+  const smsEnabled = prefs?.notifySms ?? true;
+  const emailEnabled = prefs?.notifyEmail ?? true;
+  const inAppEnabled = prefs?.notifyInApp ?? true;
 
   return (
     <ProfileCard
@@ -61,7 +92,9 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
                 <button
                   type="button"
                   aria-label="Add official mobile"
-                  className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 transition"
+                  disabled
+                  title="Contact your administrator to update your official mobile number"
+                  className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-600/50 text-white cursor-not-allowed"
                 >
                   + Add
                 </button>
@@ -89,7 +122,9 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
             <span className="text-xs font-medium text-text-heading">Email</span>
             <button
               type="button"
-              className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 hover:underline"
+              disabled
+              title="Contact your administrator to change your preferred contact method"
+              className="text-[11px] font-semibold text-text-muted cursor-not-allowed"
             >
               Change
             </button>
@@ -98,13 +133,18 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
 
         {/* Notification Toggles */}
         <div className="pt-2 space-y-2.5">
-          <span className="text-xs font-bold text-text-heading block">Notification Channels</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-text-heading block">Notification Channels</span>
+            {saveState === 'saving' && <span className="text-[11px] text-text-muted">Saving…</span>}
+            {saveState === 'saved' && <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Saved</span>}
+            {saveState === 'error' && <span className="text-[11px] text-red-600 dark:text-red-400">Failed to save</span>}
+          </div>
           
           <div className="flex items-center justify-between text-xs">
             <span className="text-text-secondary">SMS notifications</span>
             <button
               type="button"
-              onClick={() => setSmsEnabled(!smsEnabled)}
+              onClick={() => savePref({ notifySms: !smsEnabled })}
               className={`w-9 h-5 rounded-full transition-colors relative ${smsEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
               aria-label="Toggle SMS notifications"
             >
@@ -116,7 +156,7 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
             <span className="text-text-secondary">Email notifications</span>
             <button
               type="button"
-              onClick={() => setEmailEnabled(!emailEnabled)}
+              onClick={() => savePref({ notifyEmail: !emailEnabled })}
               className={`w-9 h-5 rounded-full transition-colors relative ${emailEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
               aria-label="Toggle email notifications"
             >
@@ -128,7 +168,7 @@ export const ContactMethodsCard: React.FC<ContactMethodsCardProps> = ({
             <span className="text-text-secondary">In-app notifications</span>
             <button
               type="button"
-              onClick={() => setInAppEnabled(!inAppEnabled)}
+              onClick={() => savePref({ notifyInApp: !inAppEnabled })}
               className={`w-9 h-5 rounded-full transition-colors relative ${inAppEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'}`}
               aria-label="Toggle in-app notifications"
             >

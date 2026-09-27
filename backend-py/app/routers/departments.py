@@ -14,7 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.auth.deps import require_roles
+from app.auth.deps import require_mock_dept_apis_enabled, require_roles
 from app.auth.roles import ALL_STAFF_ROLES
 from app.database import get_db
 from app.models.user import User
@@ -168,8 +168,15 @@ def tax_analytics(db: Session = Depends(get_db), _staff: User = Depends(require_
 
 
 @router.get("/registration/chain")
-def registration_chain(db: Session = Depends(get_db), _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN"))):
-    return service.list_registration_chain(db)
+def registration_chain(
+    q: str | None = Query(None),
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _staff: User = Depends(require_roles("REGISTRATION_OFFICER", "ADMIN")),
+):
+    records, total = service.list_registration_chain(db, q, limit, offset)
+    return {"records": records, "total": total}
 
 
 @router.get("/registration/duplicate-registry")
@@ -178,7 +185,7 @@ def registration_duplicate_registry(db: Session = Depends(get_db), _staff: User 
 
 
 @router.get("/land-records/{parcel_id}", response_model=LandRecordsLookupOut)
-def get_land_records(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_land_records(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     result = land_records_lookup_service.find_by_parcel_id(db, str(parcel_id))
     if result == land_records_lookup_service.PARCEL_NOT_FOUND:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Parcel not found: {parcel_id}")
@@ -193,7 +200,7 @@ def get_land_records(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/registration/{parcel_id}", response_model=RegistrationRecordOut)
-def get_registration(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_registration(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_registration_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No registration record for parcel: {parcel_id}")
@@ -201,7 +208,7 @@ def get_registration(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/planning/{parcel_id}", response_model=PlanningRecordOut)
-def get_planning(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_planning(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_planning_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No planning record for parcel: {parcel_id}")
@@ -209,7 +216,7 @@ def get_planning(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/tax/{parcel_id}", response_model=TaxRecordOut)
-def get_tax(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_tax(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_tax_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No tax record for parcel: {parcel_id}")
@@ -217,7 +224,7 @@ def get_tax(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/restriction/{parcel_id}", response_model=RestrictionRecordOut)
-def get_restriction(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_restriction(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_restriction_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No restriction record for parcel: {parcel_id}")
@@ -225,7 +232,7 @@ def get_restriction(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/dispute/{parcel_id}", response_model=DisputeRecordOut)
-def get_dispute(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_dispute(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_dispute_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No dispute record for parcel: {parcel_id}")
@@ -233,7 +240,7 @@ def get_dispute(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/encumbrance/{parcel_id}", response_model=EncumbranceRecordOut)
-def get_encumbrance(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_encumbrance(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_encumbrance_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No encumbrance record for parcel: {parcel_id}")
@@ -241,7 +248,7 @@ def get_encumbrance(parcel_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/survey/{parcel_id}", response_model=SurveyRecordOut)
-def get_survey(parcel_id: UUID, db: Session = Depends(get_db)):
+def get_survey(parcel_id: UUID, db: Session = Depends(get_db), _mock: None = Depends(require_mock_dept_apis_enabled)):
     record = service.find_survey_by_parcel(db, str(parcel_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No survey record for parcel: {parcel_id}")

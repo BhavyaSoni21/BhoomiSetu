@@ -343,7 +343,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
         </div>
 
         <div className="border-b border-gov-border px-5">
-          <nav className="flex gap-6 text-xs font-mono font-bold">
+          <nav className="flex gap-6 text-xs font-mono font-bold overflow-x-auto">
             <button
               onClick={() => setActiveTab('overview')}
               className={`py-3 px-1 border-b-2 transition ${activeTab === 'overview' ? 'border-brand-900 text-brand-900' : 'border-transparent text-text-secondary'}`}

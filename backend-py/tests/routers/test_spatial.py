@@ -161,7 +161,9 @@ class TestUpdateAndDeleteZoningOverlay:
         assert updated.json()["zoneType"] == "RESIDENTIAL"  # untouched fields survive a partial update
 
         deleted = client.delete(f"/api/v1/gis/zoning-overlays/{created.json()['id']}", headers=headers)
-        assert deleted.status_code == 204
+        assert deleted.status_code == 200
+        # Delete now reports its blast radius so the UI can confirm (B6).
+        assert deleted.json()["affectedParcelCount"] == len(deleted.json()["affectedParcelIds"])
 
         listed = client.get("/api/v1/gis/zoning-overlays", params={"district": "Pune"})
         assert not any(f["properties"]["id"] == created.json()["id"] for f in listed.json()["features"])

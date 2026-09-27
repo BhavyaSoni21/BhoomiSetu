@@ -210,7 +210,12 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
         <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-ink/40 text-sm font-bold uppercase tracking-wide text-center px-4">
           {satelliteQuery.isError ? (
             <span className="text-secondary-strong normal-case font-medium">
-              Could not load a real satellite photo for this area/date - it may not have cloud-free coverage.
+              {(() => {
+                const s = (satelliteQuery.error as { response?: { status?: number } } | null)?.response?.status;
+                if (s === 503) return 'Satellite imagery service is not configured or currently unavailable.';
+                if (s === 404) return `No cloud-free satellite imagery is available for this area near ${year}.`;
+                return 'Could not load a real satellite photo for this area/date.';
+              })()}
             </span>
           ) : (
             <span>Click "Load {year} satellite photo" above</span>
@@ -222,6 +227,11 @@ const HistoricalMapView: React.FC<HistoricalMapViewProps> = ({
 
   return (
     <div className="border-2 sm:border-4 border-ink">
+      {!!error && (
+        <div className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300 text-xs font-medium border-b-2 border-ink">
+          Could not load parcels for this cluster/year. Try another year or reload.
+        </div>
+      )}
       <UnifiedMapWrapper
         parcels={parcels}
         parcelColors={parcelColors}

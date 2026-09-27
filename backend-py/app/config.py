@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     port: int = 8000
     cors_origin: str = ""
     environment: str = ""
+    # The state-a/state-b land-record CRUD and the per-parcel department
+    # lookups are deliberately-unguarded mock stand-ins for external systems
+    # this app doesn't own (see routers/land_records.py, routers/departments.py).
+    # They're fine in dev but shouldn't be publicly writable/readable on a
+    # production host, so they're refused there unless this is explicitly set.
+    expose_mock_dept_apis: bool = False
     # Canonical citizen-facing site URL - used to build real deep links (the
     # official document PDF's QR code) rather than an opaque parcel id.
     # Defaults to the Vite dev server's own default port.

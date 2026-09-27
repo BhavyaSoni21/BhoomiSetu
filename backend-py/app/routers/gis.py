@@ -58,9 +58,12 @@ def get_parcels(
     if district:
         query = query.filter(Parcel.district_code == district)
 
-    # Omit slow exact count(*) - ST_Intersects count takes seconds on millions of parcels
-    # The map frontend only needs the limited array anyway.
-    total = -1
+    # Count the filtered set before paginating so callers get a real total
+    # for page math. ponytail: count(*) over the ST_Intersects-filtered query;
+    # the map always sends a bbox, so this counts a viewport, not every parcel.
+    # If an unbounded (no-bbox) call over millions of rows ever gets slow,
+    # gate the count behind "bbox present" and return -1 only for the unbounded case.
+    total = query.order_by(None).count()
     if limit:
         query = query.limit(limit)
     if offset:

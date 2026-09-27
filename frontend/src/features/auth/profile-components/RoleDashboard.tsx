@@ -155,6 +155,35 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({ role = 'citizen' }
     navigate('/contact-us');
   };
 
+  // Profile completeness computed from real fields (was a hardcoded flip).
+  // Each role has its own required set; % = filled / required, and the message
+  // names what's still missing.
+  const FIELD_LABELS: Record<string, string> = {
+    name: 'name',
+    email: 'email',
+    mobileNumber: 'mobile number',
+    mobileVerified: 'mobile verification',
+    emailVerified: 'email verification',
+    governmentIdNumber: 'government ID',
+    address: 'residential address',
+    occupation: 'occupation',
+  };
+  const REQUIRED_FIELDS: Record<string, string[]> = {
+    citizen: ['name', 'email', 'mobileNumber', 'mobileVerified', 'governmentIdNumber', 'address', 'occupation'],
+    officer: ['name', 'email', 'mobileNumber', 'mobileVerified', 'governmentIdNumber'],
+    admin: ['name', 'email', 'mobileNumber', 'mobileVerified', 'governmentIdNumber'],
+  };
+  const isFilled = (u: typeof authUser, field: string): boolean => {
+    if (!u) return false;
+    return Boolean((u as unknown as Record<string, unknown>)[field]);
+  };
+  const required = REQUIRED_FIELDS[role];
+  const missing = required.filter((f) => !isFilled(authUser, f));
+  const completeness = Math.round(((required.length - missing.length) / required.length) * 100);
+  const completenessMsg = missing.length === 0
+    ? 'Your profile is complete.'
+    : `Add your ${missing.slice(0, 3).map((f) => FIELD_LABELS[f]).join(', ')} to complete your profile.`;
+
   // Role details configuration
   const roleConfig = {
     citizen: {
@@ -163,8 +192,8 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({ role = 'citizen' }
       department: 'Public',
       location: 'Pune, Maharashtra',
       initials: user?.name ? user.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() : 'AK',
-      completeness: user?.mobileNumber ? 88 : 72,
-      completenessMsg: 'Add your residential address and occupation to complete your profile.',
+      completeness,
+      completenessMsg,
       bannerMsg: 'Your profile information helps BhoomiSetu provide better services and securely manage your land records.',
       isGov: false,
       isAdmin: false,
@@ -175,8 +204,8 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({ role = 'citizen' }
       department: 'Land Records',
       location: 'Pune, Maharashtra',
       initials: user?.name ? user.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() : 'AK',
-      completeness: user?.mobileNumber ? 92 : 82,
-      completenessMsg: 'Add your mobile number and emergency contact to complete your profile.',
+      completeness,
+      completenessMsg,
       bannerMsg: 'Your profile information helps BhoomiSetu route land-governance requests to the correct authorized team.',
       isGov: true,
       isAdmin: false,
@@ -187,8 +216,8 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({ role = 'citizen' }
       department: 'Secretariat, New Delhi',
       location: 'New Delhi, India',
       initials: user?.name ? user.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() : 'RS',
-      completeness: 90,
-      completenessMsg: 'Your profile is almost complete.',
+      completeness,
+      completenessMsg,
       bannerMsg: 'Your profile information helps BhoomiSetu maintain a secure and transparent land-governance platform.',
       isGov: true,
       isAdmin: true,
