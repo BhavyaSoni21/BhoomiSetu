@@ -2,7 +2,7 @@
 
 This directory is the **accurate, as-of-now description** of BhoomiSetu — what's built, how it's built, and what's genuinely still open. Everything here should reflect the running codebase; if you find something that doesn't, fix it in place rather than filing a new document about it.
 
-For historical planning documents, completed punch lists, and superseded audits — the record of *how* the project got here — see [`docs/archive/`](../archive/README.md). The root-level [`Tech.md`](../../Tech.md)/[`BHOOMISETU.md`](../../BHOOMISETU.md) are the original team vision/recommended-architecture documents written *before* implementation started — kept as-is at the repo root, not folded in here, since they document intent rather than the as-built system.
+For historical planning documents, completed punch lists, and superseded audits — the record of *how* the project got here — see [`docs/archive/`](../archive/README.md). The original team vision/recommended-architecture documents [`Tech.md`](../archive/Tech.md)/[`BHOOMISETU.md`](../archive/BHOOMISETU.md) (written *before* implementation started, describing a retired NestJS design) now live in `docs/archive/` — they document intent, not the as-built system. For the current, code-verified reference start at the root [`handbook/`](../../handbook/00-START-HERE.md).
 
 | Document | What it covers |
 |---|---|

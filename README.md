@@ -4,7 +4,7 @@
 
 # BhoomiSetu
 
-> **One Parcel. Every Record. One Trustedv Workflow.**
+> **One Parcel. Every Record. One Trusted Workflow.**
 
 An integrated, parcel-centric, GIS-based Digital Public Infrastructure for land governance.
 Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land Stack"** (Department of Land Resources).
@@ -23,10 +23,30 @@ Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land S
 > **PS-FACT** (from the official problem statement) · **PROTOTYPE** (runs in the current codebase) ·
 > **TEAM DESIGN** (designed, not yet fully built) · **VERIFIED METRIC** (measured on a real run;
 > unmeasured slots read **DATA REQUIRED**) · **REFERENCE** (external standard/source). No statistic here is invented.
-> Full source of truth: [`docs/reference/BhoomiSetu_Master_Project_Document.md`](docs/reference/BhoomiSetu_Master_Project_Document.md).
+> Full source of truth: [`handbook/MASTER-PROJECT-DOCUMENT.md`](handbook/MASTER-PROJECT-DOCUMENT.md).
+
+## 📘 Handbook — start here
+
+The **[`handbook/`](handbook/)** directory is the current, code-verified reference (reconciled against the live `backend-py/` + `frontend/` on 2026-09-28). A new contributor or a fresh chat can read only these files and get the full project:
+
+| Doc | Covers |
+|-----|--------|
+| [00 · Start Here](handbook/00-START-HERE.md) | Index, reading order, what's authoritative vs. historical |
+| [01 · Overview](handbook/01-OVERVIEW.md) | Problem (SIH26014), roles, pilots, features |
+| [02 · Architecture](handbook/02-ARCHITECTURE.md) | Layers, canonical parcel, interoperability, case engine |
+| [03 · Backend](handbook/03-BACKEND.md) | FastAPI routers, services, auth, integrations |
+| [04 · Frontend](handbook/04-FRONTEND.md) | React SPA, portals, map, offline PWA |
+| [05 · Database Schema](handbook/05-DATABASE-SCHEMA.md) | All 59 tables, columns, keys, PostGIS geometry |
+| [06 · Multilingual](handbook/06-MULTILINGUAL.md) | i18n + Bhashini, 11 languages, the 600-key sync |
+| [07 · Dev Setup](handbook/07-DEV-SETUP.md) | Run backend + frontend, tests, migrations |
+| [08 · Deployment](handbook/08-DEPLOYMENT.md) | Render + Vercel, env vars, Docker |
+| [09 · Security](handbook/09-SECURITY.md) | Auth model, RBAC, posture, known risks |
+
+> Historical/intent-only docs (`BHOOMISETU.md`, `Tech.md`, `docs/architecture/SYSTEM_ARCHITECTURE.md`) describe a retired NestJS design — trust the handbook and the SQLAlchemy models for as-built facts.
 
 ## 📑 Table of Contents
 
+- [Handbook (full reference)](handbook/00-START-HERE.md)
 - [Overview](#1-overview)
 - [Problem Statement](#2-problem-statement)
 - [Proposed Solution](#3-proposed-solution)
@@ -93,7 +113,7 @@ The problem the PS names is fragmentation: *"land governance involves multiple i
 | Citizen features: search, ownership verification, status tracking, requests | Citizen portal + case tracking + "Get Assistance" AI intake | PROTOTYPE |
 | AI/ML, satellite change detection, predictive analytics, decision-support | Groq assistant/routing, Earth Engine change detection, risk heuristic, analytics | PROTOTYPE (heuristic) / TEAM DESIGN (trained ML) |
 | Modular, scalable, replicable national framework | Configurable pipelines, per-state adapters, cluster-per-state seeding | PROTOTYPE + TEAM DESIGN |
-| Standard Technical Document | [Master Project Document](docs/reference/BhoomiSetu_Master_Project_Document.md) | PROTOTYPE |
+| Standard Technical Document | [Master Project Document](handbook/MASTER-PROJECT-DOCUMENT.md) | PROTOTYPE |
 
 ### The fragmentation each department suffers
 
@@ -743,7 +763,7 @@ Ordered by dependency and value (all **TEAM DESIGN**):
 - PostGIS — spatial extension for PostgreSQL.
 
 **Internal project documents:**
-- [`docs/reference/BhoomiSetu_Master_Project_Document.md`](docs/reference/BhoomiSetu_Master_Project_Document.md) — Standard Technical Document (single source of truth).
+- [`handbook/MASTER-PROJECT-DOCUMENT.md`](handbook/MASTER-PROJECT-DOCUMENT.md) — Standard Technical Document (single source of truth).
 - `docs/architecture/BhoomiSetu_Unified_Workflow_Specification.md`, `docs/architecture/bhoomisetu_officer_roles.md`, `docs/architecture/FEATURES.md`.
 
 > **Metrics deliberately omitted:** any performance, accuracy, or cost figure not measured on a real run is marked **DATA REQUIRED** in-place rather than cited. No source is invented.
