@@ -45,7 +45,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
 
   const handleSubmit = () => {
     const payload: AppointmentCreate = {
-      citizen_id: caseItem.citizen_id || (caseItem as any).citizenId,
+      citizen_id: caseItem.citizenId,
       department_id: selectedDepartment,
       date: new Date(selectedDate).toISOString(),
       purpose: purpose || undefined,
@@ -103,10 +103,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({ caseI
                         {statusLabels[appt.status] ?? appt.status}
                       </span>
                     </div>
-                    {(appt.time_slot || (appt as any).timeSlot) && <div className="text-xs text-text-secondary mt-1">{appt.time_slot || (appt as any).timeSlot}</div>}
-                    {(appt.officer_id || (appt as any).officerId) && (
+                    {appt.timeSlot && <div className="text-xs text-text-secondary mt-1">{appt.timeSlot}</div>}
+                    {appt.officerId && (
                       <div className="text-xs text-text-secondary mt-1 flex items-center gap-1">
-                        <User className="w-3 h-3" /> {appt.officer_id || (appt as any).officerId}
+                        <User className="w-3 h-3" /> {appt.officerId}
                       </div>
                     )}
                     {appt.purpose && <div className="text-xs text-text-secondary mt-2">{appt.purpose}</div>}

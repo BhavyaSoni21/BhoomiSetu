@@ -138,9 +138,14 @@ const LayerGeometryDrawMap: React.FC<LayerGeometryDrawMapProps> = ({ allowedGeom
       onChangeRef.current(feature ? feature.geometry : null);
     };
 
-    map.on('draw.create', emitSingleShape);
-    map.on('draw.update', emitSingleShape);
-    map.on('draw.delete', emitSingleShape);
+    // mapbox-gl-draw fires custom 'draw.*' events; maplibre-gl v6 tightened
+    // map.on's type to its own built-in event names, so cast for the plugin's.
+    // Call as map.on(...) (not via an extracted variable) - map.on is an
+    // Evented method that relies on `this`, so detaching it would break it.
+    const on = map.on as unknown as (type: string, listener: (...args: any[]) => void) => unknown;
+    on.call(map, 'draw.create', emitSingleShape);
+    on.call(map, 'draw.update', emitSingleShape);
+    on.call(map, 'draw.delete', emitSingleShape);
 
     const setup = () => {
       if (initialGeometry) {

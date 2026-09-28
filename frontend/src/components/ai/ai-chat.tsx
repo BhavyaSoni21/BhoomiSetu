@@ -115,7 +115,7 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
             {chat.caseResult && (
               <p className="text-sm text-text-secondary">
                 {t('aiChat.caseNumber', 'Case Number')}:{' '}
-                <span className="font-mono font-semibold text-text-heading">{chat.caseResult.case_no}</span>
+                <span className="font-mono font-semibold text-text-heading">{chat.caseResult.caseNo}</span>
               </p>
             )}
             <p className="text-xs text-text-secondary">

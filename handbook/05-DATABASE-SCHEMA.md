@@ -427,7 +427,9 @@ client_created_at · server_received_at DATETIME NN
 
 ## Migrations
 
-Alembic, **49 migration files**, baseline `ff7c6e8d9c1f`. Recent notable ones:
+Alembic, **51 migration files**, baseline `ff7c6e8d9c1f`. Recent notable ones:
+- `b6c7d8e90008_evidence_client_token` — `verification_evidence.client_token` for offline-replay idempotency (API-02)
+- `a5b6c7d80007_case_invariant_and_task_indexes` — indexes on `department_tasks`/proposed-field-change FKs + a case-invariant guard (DB-01/SEC-03)
 - `e3a4b5c60005_add_verifier_fields` (2026-09-27) — `users.availability`, `users.assigned_area`
 - `f4b5c6d70006_add_notification_prefs` — `users.notify_sms/notify_email/notify_in_app`
 - `7c30732a9782_add_verifier_role_evidence` — verifier role + evidence

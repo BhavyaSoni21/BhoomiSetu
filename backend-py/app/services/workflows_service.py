@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.common.pagination import resolve_pagination
@@ -53,6 +54,7 @@ class FieldEvidenceInput:
     longitude: float
     captured_at: datetime
     notes: str | None
+    client_token: str | None = None
 
 
 @dataclass
@@ -300,6 +302,18 @@ def find_assigned_to_verifier(db: Session, verifier_id: str, skip: int = 0, limi
     return list(db.scalars(stmt).unique().all())
 
 
+def find_field_evidence_by_token(db: Session, workflow_id: str, client_token: str) -> VerificationEvidence | None:
+    """Idempotency lookup (API-02): the evidence row a prior replay of this
+    client_token already created, if any. Checked before re-uploading the photo
+    so a lost-response retry doesn't leave an orphan blob or a duplicate row."""
+    return db.scalar(
+        select(VerificationEvidence).where(
+            VerificationEvidence.workflow_id == workflow_id,
+            VerificationEvidence.client_token == client_token,
+        ).limit(1)
+    )
+
+
 def add_field_evidence(db: Session, workflow_id: str, verifier_id: str, evidence: FieldEvidenceInput) -> VerificationEvidence | str:
     workflow = db.get(Workflow, workflow_id)
     if workflow is None:
@@ -320,13 +334,32 @@ def add_field_evidence(db: Session, workflow_id: str, verifier_id: str, evidence
         if task_assigned is None:
             return NOT_ASSIGNED_TO_YOU
 
+    # Idempotent replay: return the existing row rather than inserting a
+    # duplicate if this token was already recorded (API-02).
+    if evidence.client_token:
+        existing = find_field_evidence_by_token(db, workflow_id, evidence.client_token)
+        if existing is not None:
+            return existing
+
     row = VerificationEvidence(
         workflow_id=workflow_id, verifier_id=verifier_id,
         photo_file_name=evidence.file_name, photo_file_path=evidence.file_path, mime_type=evidence.mime_type,
         latitude=evidence.latitude, longitude=evidence.longitude, captured_at=evidence.captured_at, notes=evidence.notes,
+        client_token=evidence.client_token,
     )
     db.add(row)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        # Concurrent replay of the same token won the race between our lookup
+        # and this insert. Roll back the failed insert and return the row it
+        # created (the only DB write staged here is this row).
+        db.rollback()
+        if evidence.client_token:
+            existing = find_field_evidence_by_token(db, workflow_id, evidence.client_token)
+            if existing is not None:
+                return existing
+        raise
     return row
 
 

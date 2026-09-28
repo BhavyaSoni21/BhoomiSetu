@@ -77,17 +77,17 @@ export interface ApplicationCreate {
 
 export interface CaseOut {
   id: string;
-  case_no: string;
-  citizen_id: string;
-  parcel_id: string;
+  caseNo: string;
+  citizenId: string;
+  parcelId: string;
   intent?: string | null;
   status: string;
   priority?: string | null;
-  routing_decision?: Record<string, unknown> | null;
-  sla_config_id?: string | null;
-  created_at: string;
-  resolved_at?: string | null;
-  closed_at?: string | null;
+  routingDecision?: Record<string, unknown> | null;
+  slaConfigId?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
 }
 
 export interface ApplicationOut {
@@ -109,20 +109,20 @@ export interface ApplicationOut {
 
 export interface ProposedFieldChangeOut {
   id: string;
-  case_id: string;
-  parcel_id: string;
+  caseId: string;
+  parcelId: string;
   department: string;
-  field_name: string;
-  current_value: string | null;
-  proposed_value: string;
+  fieldName: string;
+  currentValue: string | null;
+  proposedValue: string;
   reason: string | null;
-  proposed_by: string | null;
+  proposedBy: string | null;
   status: string;
-  decided_by: string | null;
-  decided_at: string | null;
-  decision_remarks: string | null;
-  created_at: string;
-  updated_at: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionRemarks: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProposedFieldChangeIn {
@@ -141,20 +141,20 @@ export interface FieldChangeApprovalIn {
 
 export interface AppointmentOut {
   id: string;
-  case_id: string;
-  citizen_id: string;
-  department_id: string;
-  officer_id?: string | null;
-  office_location?: string | null;
+  caseId: string;
+  citizenId: string;
+  departmentId: string;
+  officerId?: string | null;
+  officeLocation?: string | null;
   date: string;
-  time_slot?: string | null;
+  timeSlot?: string | null;
   purpose?: string | null;
-  required_documents?: string[] | null;
+  requiredDocuments?: string[] | null;
   status: string;
   remarks?: string | null;
-  created_at: string;
-  updated_at: string;
-  completed_at?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
 }
 
 export interface AppointmentCreate {

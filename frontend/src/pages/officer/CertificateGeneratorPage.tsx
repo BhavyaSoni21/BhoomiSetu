@@ -4,6 +4,7 @@ import { Search, FileCheck2, Eye, Download, FileText, ShieldCheck, AlertTriangle
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import BackButton from '../../components/BackButton';
+import QueryError from '../../components/QueryError';
 
 interface EncumbranceCertificate {
   id: string;
@@ -38,7 +39,7 @@ const CertificateGeneratorPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'generate' | 'issued'>('generate');
 
-  const { data: certificates = [], isLoading: loadingCerts } = useQuery<EncumbranceCertificate[]>(
+  const { data: certificates = [], isLoading: loadingCerts, isError: certsError, refetch: refetchCerts } = useQuery<EncumbranceCertificate[]>(
     ['encumbrance-certificates'],
     async () => (await apiService.get('/encumbrance/certificates')).data,
   );
@@ -160,7 +161,7 @@ const CertificateGeneratorPage: React.FC = () => {
               onClick={() => setActiveTab('generate')}
               className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === 'generate'
-                  ? 'border-brand-700 text-brand-900'
+                  ? 'border-brand-700 text-ink'
                   : 'border-transparent text-text-muted hover:text-text-heading'
               }`}
             >
@@ -170,7 +171,7 @@ const CertificateGeneratorPage: React.FC = () => {
               onClick={() => setActiveTab('issued')}
               className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 activeTab === 'issued'
-                  ? 'border-brand-700 text-brand-900'
+                  ? 'border-brand-700 text-ink'
                   : 'border-transparent text-text-muted hover:text-text-heading'
               }`}
             >
@@ -275,6 +276,8 @@ const CertificateGeneratorPage: React.FC = () => {
 
               {loadingCerts ? (
                 <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+              ) : certsError ? (
+                <QueryError onRetry={() => refetchCerts()} />
               ) : certificates.length === 0 ? (
                 <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
                   <FileText className="w-8 h-8 mx-auto text-text-muted mb-2" />
@@ -298,7 +301,7 @@ const CertificateGeneratorPage: React.FC = () => {
                     <tbody className="divide-y divide-gov-border">
                       {certificates.map((cert) => (
                         <tr key={cert.id} className="hover:bg-surface-2/60 transition-colors">
-                          <td className="py-3 font-mono font-bold text-brand-900">{cert.certificateNumber}</td>
+                          <td className="py-3 font-mono font-bold text-ink">{cert.certificateNumber}</td>
                           <td className="py-3 font-mono text-text-primary">{cert.parcelId.slice(0, 12)}</td>
                           <td className="py-3 text-text-heading">{cert.ownerName}</td>
                           <td className="py-3 text-text-secondary font-mono">

@@ -8,6 +8,7 @@ AI SECURITY RULES (#32).
 """
 
 import json
+import logging
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -28,6 +29,8 @@ from app.schemas.ai import (
 from app.schemas.interoperability import parcel_360_to_json
 from app.services import groq_service, parcel_access, parcels_service, response_aggregator_service
 from app.services.governance_alerts_service import find_one as find_alert
+
+logger = logging.getLogger(__name__)
 
 # The floating "Ask AI" widget (docs/Plan.md's citizen-assistant addendum)
 # handles two kinds of question in a single Groq call, rather than a

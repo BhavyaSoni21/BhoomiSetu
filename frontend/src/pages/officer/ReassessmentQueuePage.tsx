@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
+import QueryError from '../../components/QueryError';
 import { Search, AlertTriangle, FileCheck2, Eye, ChevronRight, RefreshCw, Calculator } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
@@ -24,7 +25,7 @@ interface ReassessmentRequest {
 const ReassessmentQueuePage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { data: reassessments = [], isLoading } = useQuery<ReassessmentRequest[]>(
+  const { data: reassessments = [], isLoading, isError, refetch } = useQuery<ReassessmentRequest[]>(
     ['reassessment-queue'],
     async () => (await apiService.get('/tax/reassessment-queue')).data,
   );
@@ -127,6 +128,8 @@ const ReassessmentQueuePage: React.FC = () => {
 
         {isLoading ? (
           <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+        ) : isError ? (
+          <QueryError onRetry={() => refetch()} />
         ) : reassessments.length === 0 ? (
           <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
             <FileCheck2 className="w-8 h-8 mx-auto text-gov-success mb-2" />
@@ -162,7 +165,7 @@ const ReassessmentQueuePage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 font-mono text-text-secondary">₹{Number(req.previousAssessment).toLocaleString()}</td>
-                    <td className="py-3 font-mono font-medium text-brand-900">₹{Number(req.proposedAssessment).toLocaleString()}</td>
+                    <td className="py-3 font-mono font-medium text-ink">₹{Number(req.proposedAssessment).toLocaleString()}</td>
                     <td className="py-3">
                       <span className={`font-mono font-semibold ${req.differenceAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                         {req.differenceAmount >= 0 ? '+' : ''}₹{Number(Math.abs(req.differenceAmount)).toLocaleString()}

@@ -17,6 +17,7 @@ Render/Vercel can't upload files, so file-shaped secrets are pasted as env-var s
 
 - **Required (prod boot refuses to start otherwise):** `DB_HOST/PORT/USERNAME/PASSWORD/NAME`, `JWT_SECRET` (a real secret — the placeholder is rejected), `CORS_ORIGIN` (Vercel URL(s), comma-separated).
 - `FRONTEND_URL`.
+- **Recommended (prod):** `TRUSTED_HOSTS` — comma-separated hostnames the API answers on (e.g. `bhoomisetu-api.onrender.com`). Activates `TrustedHostMiddleware` (Host-header validation / BadHost mitigation); unset means allow-any. See [09-SECURITY.md](09-SECURITY.md).
 - **Optional third-party:** `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GEE_*`, `SUPABASE_*`, `TEXTBEE_*`, `MAIL_*`, `GOOGLE_OAUTH_*`, `ULCA_*` (Bhashini).
 - `REDIS_URL` auto-wired by the Blueprint.
 - Full template lives in `backend-py/.env.example`.
@@ -42,6 +43,12 @@ python -m scripts.seed     # optional demo data — DESTRUCTIVE (clears spatial 
 ## Docker (local full stack)
 
 `docker compose up --build` brings up: frontend (nginx `5173:80`), backend (`8000:8000`, non-root `appuser`), `migrate`, `worker`, `redis`, `postgis` (image `postgis/postgis:15-3.3`, DB `bhoomisetu_py`, port not published).
+
+## Health & jobs
+
+- **Liveness:** `GET /health` (always 200 if the process is up).
+- **Readiness:** `GET /health/ready` — checks the app can actually serve (DB reachable); point the platform's health check here so a booted-but-not-ready instance isn't sent traffic.
+- **Stuck-job reaper:** `POST /api/v1/jobs/reap` (ADMIN) requeues/fails jobs wedged past their deadline. Wire it to a scheduler (Celery beat / cron) or hit it manually.
 
 ## Gotchas
 

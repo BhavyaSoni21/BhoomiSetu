@@ -1,38 +1,26 @@
 import { setWorkerUrl } from 'maplibre-gl';
-// maplibre-gl 4.7.1's csp worker (dist/maplibre-gl-csp-worker.js) is a
-// self-contained classic script with no ES imports, so a plain `?url` serves
-// it verbatim as a static asset. `?worker&url` instead routes it through
-// Vite's worker pipeline, which in dev re-emits it as an ES module - and
-// maplibre loads the worker with a classic `new Worker(url)`, so that ES
-// module throws "Cannot use import statement outside a module" and every
-// GeoJSON layer (parcels, overlays, clusters) silently fails to tile. Plain
-// `?url` avoids that transform. (The `?worker&url` note below was written for
-// a maplibre v6 upgrade that isn't the version actually installed here.)
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?url';
+// maplibre-gl v6 no longer ships the self-contained classic CSP worker
+// (dist/maplibre-gl-csp-worker.js is gone). The worker is now
+// dist/maplibre-gl-worker.mjs, an ES module that `import`s a sibling
+// maplibre-gl-shared.mjs chunk, and maplibre loads it as a module worker.
+//
+// Under Vite this MUST be imported with `?worker&url` (not plain `?url`):
+// `?worker&url` routes it through Vite's worker pipeline, which bundles in
+// that shared.mjs dependency and emits a module worker URL. A plain `?url`
+// would serve the raw .mjs verbatim, and its first `import ./shared.mjs`
+// would 404 at runtime.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-// KNOWN_RISKS.md CRIT-1 (maplibre-gl 4.7.1 -> 6.9.0 upgrade): as of v5/v6,
-// maplibre-gl no longer reliably auto-detects its own worker script's URL
-// inside a bundler's module graph (import.meta.url doesn't resolve there the
-// way it does for a plain <script> tag) - every bundler consumer must point
-// it at the worker explicitly, once, before the first Map is constructed.
+// KNOWN_RISKS.md CRIT-1 (maplibre-gl 4 -> 6 upgrade): as of v5/v6 maplibre
+// no longer auto-detects its own worker script URL inside a bundler's module
+// graph, so every bundler consumer must point it at the worker explicitly,
+// once, before the first Map is constructed. Without this, every GeoJSON
+// vector layer (parcels, zoning, restriction, infrastructure, cluster
+// layers, the admin draw tool) silently never finishes tiling - nothing
+// throws, the raster basemap renders fine, isSourceLoaded() just never
+// becomes true.
 //
-// Without this, every GeoJSON vector layer this app draws - parcels,
-// zoning, restriction, infrastructure, the selected/adjacent/nearby/cluster
-// layers, the admin draw tool - silently never finishes loading. Nothing
-// throws, nothing logs to the console; the raster basemap and controls
-// render fine, `Map.isSourceLoaded()` just never becomes true, so it reads
-// as "the map works" until someone notices no parcels are actually drawn.
-// Confirmed live (real browser, real backend data) while verifying this
-// upgrade - `queryRenderedFeatures()` returned zero results with no error.
-//
-// `?worker&url` (not plain `?url`) is required specifically under Vite: the
-// worker bundle imports a sibling maplibre-gl-shared.mjs chunk that a plain
-// `?url` import doesn't bring along, so the worker fails on its first
-// `import` once actually running - `?worker&url` routes it through Vite's
-// own worker pipeline instead, which inlines that dependency.
-//
-// Imported once, for this side effect, by every file that constructs a
+// Imported once for this side effect by every file that constructs a
 // maplibregl.Map (MapComponent.tsx, LayerGeometryDrawMap.tsx,
-// AdminCombinedLayerMap.tsx) - calling setWorkerUrl more than once with the
-// same URL is harmless, so no extra "did this already run" guard is needed.
+// AdminCombinedLayerMap.tsx); repeat calls with the same URL are harmless.
 setWorkerUrl(workerUrl);

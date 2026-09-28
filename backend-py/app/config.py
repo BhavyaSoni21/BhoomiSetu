@@ -16,6 +16,17 @@ class Settings(BaseSettings):
 
     port: int = 8000
     cors_origin: str = ""
+    # Origins matching this regex are also allowed (Vercel preview deploys of
+    # THIS project). Default is scoped to the project family so arbitrary
+    # *.vercel.app sites can't make credentialed cross-origin calls (SEC-02).
+    # Override via CORS_ORIGIN_REGEX to widen/narrow without a code change.
+    cors_origin_regex: str = r"https://bhoomi-setu[a-z0-9-]*\.vercel\.app"
+    # SEC-06 / PYSEC-2026-161 (Starlette BadHost): comma-separated Host allow
+    # list for TrustedHostMiddleware. A validated Host header stops a spoofed
+    # one from poisoning request.url.path and slipping past path-based auth.
+    # Unset = "*" (no enforcement) so local dev / Docker isn't broken; set
+    # TRUSTED_HOSTS on a real host (e.g. "api.example.com,.example.com").
+    trusted_hosts: str = ""
     environment: str = ""
     # The state-a/state-b land-record CRUD and the per-parcel department
     # lookups are deliberately-unguarded mock stand-ins for external systems
@@ -123,6 +134,14 @@ class Settings(BaseSettings):
         if not self.cors_origin:
             return "*"
         return [origin.strip() for origin in self.cors_origin.split(",")]
+
+    @property
+    def trusted_host_list(self) -> list[str]:
+        # ["*"] (allow any) when unset - TrustedHostMiddleware is then a no-op,
+        # keeping local dev / Docker working; set TRUSTED_HOSTS to enforce.
+        if not self.trusted_hosts:
+            return ["*"]
+        return [h.strip() for h in self.trusted_hosts.split(",") if h.strip()]
 
     @property
     def sqlalchemy_database_uri(self) -> str:

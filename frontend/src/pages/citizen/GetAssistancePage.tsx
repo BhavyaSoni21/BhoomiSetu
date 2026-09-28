@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
+import QueryError from '../../components/QueryError';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import AiChat from '../../components/ai/ai-chat';
@@ -17,7 +18,7 @@ const GetAssistancePage: React.FC = () => {
   // lock the request to it — no parcel switcher.
   const lockedParcelId = searchParams.get('parcelId') || '';
 
-  const { data, isLoading } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
+  const { data, isLoading, isError, refetch } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
     ['my-parcels'],
     async () => (await apiService.get('/parcels/mine')).data,
   );
@@ -49,6 +50,15 @@ const GetAssistancePage: React.FC = () => {
         <div className="text-center py-12 text-sm text-text-muted">
           {t('aiChat.loadingParcels', 'Loading your land holdings...')}
         </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-4xl space-y-8 animate-fade-up">
+        <BackButton />
+        <QueryError onRetry={() => refetch()} message={t('aiChat.loadParcelsError', 'Unable to load your land holdings. Please try again.')} />
       </div>
     );
   }

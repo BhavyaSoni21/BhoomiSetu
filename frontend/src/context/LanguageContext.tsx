@@ -193,6 +193,8 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'common.close': 'Close',
     'common.deleting': 'Deleting...',
     'common.loading': 'Loading...',
+    'common.loadError': 'Unable to load. Please try again.',
+    'common.retry': 'Retry',
     'contactUsPage.address': 'Address',
     'contactUsPage.divisionName': 'Land Records Division',
     'contactUsPage.emailAddress': 'Email address',

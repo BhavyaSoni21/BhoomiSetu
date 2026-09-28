@@ -289,7 +289,7 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-heading font-bold text-sm text-text-heading flex items-center gap-1.5">
-            <span className="font-mono text-brand-900">
+            <span className="font-mono text-ink">
               {parcel?.ulpin ?? `Parcel #${parcelId.substring(0, 8)}`}
             </span>
           </h3>
@@ -345,7 +345,7 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
             >
               <div className="min-w-0 flex items-center gap-2">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  isSelected ? 'bg-brand-900 text-white' : 'bg-surface-2 text-brand-900'
+                  isSelected ? 'bg-brand-900 text-white' : 'bg-surface-2 text-ink'
                 }`}>
                   <FileText className="w-3.5 h-3.5" />
                 </div>
@@ -485,7 +485,7 @@ const AssignedRequestsPage: React.FC<AssignedRequestsPageProps> = ({ department 
                     isSelected ? 'bg-brand-900/[0.04]' : 'hover:bg-surface-2/60'
                   }`}
                 >
-                  <td className="py-3 pr-4 font-mono text-xs text-brand-900">
+                  <td className="py-3 pr-4 font-mono text-xs text-ink">
                     {parcelId.substring(0, 8)}
                   </td>
                   <td className="py-3 pr-4">

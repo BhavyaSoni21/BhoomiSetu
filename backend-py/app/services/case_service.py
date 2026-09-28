@@ -8,6 +8,7 @@ CREATED → ACTIVE → RESOLUTION → FEEDBACK → CLOSED.
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.roles import CITIZEN_ROLE, ROLE_DEPARTMENT, VERIFIER_ROLE
@@ -207,7 +208,15 @@ def create_case(
         priority=priority,
     )
     db.add(case)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        # Another request created the active case between our read above and
+        # this INSERT; the partial unique index caught it (SEC-03). Roll back
+        # the failed INSERT (the only write staged so far) and report it
+        # exactly as the read-check would have.
+        db.rollback()
+        return ACTIVE_CASE_EXISTS
 
     audit_service.log(
         db,

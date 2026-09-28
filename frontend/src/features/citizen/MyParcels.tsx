@@ -277,7 +277,7 @@ export const MyParcels: React.FC = () => {
 
                       <div className="text-right shrink-0">
                         <span className="text-[11px] font-mono text-text-muted">{t('parcelSummary.totalArea', 'Area')}</span>
-                        <p className="text-base font-heading font-bold text-brand-900">
+                        <p className="text-base font-heading font-bold text-ink">
                           {parcel.areaSqM.toLocaleString()} m²
                         </p>
                       </div>

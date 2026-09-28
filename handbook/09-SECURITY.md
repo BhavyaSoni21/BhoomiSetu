@@ -9,6 +9,7 @@ Overall posture (audit re-run 2026-09-24, current FastAPI stack): **Low-to-Moder
 - **Data authority:** PostGIS is authoritative; the browser holds only cache/workspace/offline queue — never passwords/secrets. Sensitive/final actions are online-only.
 - **Transport:** HTTPS enforced (HSTS); edge security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) via `SecurityHeaders` middleware.
 - **Boot guards:** production refuses to start with unset/placeholder `JWT_SECRET`, missing DB creds, or unset `CORS_ORIGIN`. Swagger off in prod.
+- **Host validation:** `TrustedHostMiddleware` rejects requests whose `Host` header isn't in `TRUSTED_HOSTS` (comma-separated) — mitigates Starlette BadHost path-poisoning (PYSEC-2026-161). No-op `["*"]` until `TRUSTED_HOSTS` is set, so set it in prod.
 - **Rate limits:** 200/min default; 30/min AI/change-detection/imagery; 20/min OCR.
 - **Auditing:** privileged/state-changing ops recorded in `audit_logs`; case transitions in `case_timeline_events`.
 - **Deployment:** non-root backend container; dependencies pinned; periodic `pip-audit` / `npm audit`.
@@ -22,7 +23,7 @@ HS256, payload `{sub, email, role, tokenVersion}`, **no `exp` claim**. Session s
 
 | ID | Severity | Issue |
 |----|----------|-------|
-| CRIT-1 | Critical | `maplibre-gl` 4.x ships an XSS sanitizer-bypass advisory (GHSA-jrc7-96c5-q579; fixed in 6.9.0, a semver-major upgrade). Carried over. |
+| ~~CRIT-1~~ | ~~Critical~~ | **RESOLVED (2026-09-28):** `maplibre-gl` upgraded 4.7.1 → 6.11.2; `npm audit` 0 critical/0 high. (XSS sanitizer-bypass GHSA-jrc7-96c5-q579.) |
 | HIGH-1 | High | Staff `GET /cases` (`list_cases`) is **not department-scoped** (unlike `GET /workflows`). |
 | MED-1 | Medium | `LastActivityMiddleware` is a silent no-op — idle timeout never actually runs. |
 | MED-2 | Medium | CORS falls back to `"*"` with `allow_credentials=True` when `CORS_ORIGIN` unset (safe only because the prod boot-guard forces it). |
@@ -30,7 +31,7 @@ HS256, payload `{sub, email, role, tokenVersion}`, **no `exp` claim**. Session s
 | LOW-1 | Low | JWTs carry no `exp` (deliberate; mitigated by revocable `tokenVersion`). |
 | LOW-2 | Low | Token stored in `localStorage`. |
 
-Explicitly deferred hardening: strict CSP, multi-instance-safe lockout storage (current lockout is in-memory / process-local).
+Explicitly deferred hardening: strict CSP, multi-instance-safe lockout storage (current lockout is in-memory / process-local). Starlette DoS advisories PYSEC-2026-{2280,2281,248,249} are fixed only in Starlette 1.x, which no released FastAPI (≤0.141.1) supports — blocked upstream; low risk (DoS-class), revisit when a Starlette-1.0-compatible FastAPI ships.
 
 ## Handling credentials in this repo
 

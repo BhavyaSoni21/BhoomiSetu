@@ -996,7 +996,7 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                   {t('officerPortal.automaticPrecheckLabel', 'OCR & Ownership Pre-Check')}
                 </h4>
                 {(precheck as any).match_percent !== undefined && (
-                  <span className="text-xs font-mono font-bold text-brand-900">
+                  <span className="text-xs font-mono font-bold text-ink">
                     Match: {(precheck as any).match_percent}%
                   </span>
                 )}
@@ -1006,8 +1006,8 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
               </span>
 
               {(precheck as any).field_results || (precheck as any).fieldResults ? (
-                <div className="mt-3 border-2 border-ink bg-surface overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="mt-3 border-2 border-ink bg-surface overflow-x-auto">
+                  <table className="w-full text-left text-xs min-w-[480px]">
                     <thead>
                       <tr className="border-b-2 border-ink bg-muted text-[10px] font-mono uppercase text-ink/70">
                         <th className="py-2 px-3 font-bold">Field</th>

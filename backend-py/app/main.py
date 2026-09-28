@@ -3,6 +3,7 @@ import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -93,6 +94,10 @@ app = FastAPI(
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(LastActivityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
+# SEC-06 / PYSEC-2026-161: validate the Host header so a spoofed one can't
+# poison request.url.path and bypass path-based auth. No-op ["*"] until
+# TRUSTED_HOSTS is set (see config.trusted_host_list).
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
 register_exception_handlers(app)
 
 # KNOWN_RISKS.md HIGH-1: app-wide 200/min/IP default (app.rate_limit.py),
@@ -112,11 +117,11 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins if isinstance(settings.cors_origins, list) else ["*"],
-    # Any Vercel deployment of the frontend (prod, preview, renamed project) is
-    # trusted without re-listing each new *.vercel.app URL in CORS_ORIGIN. This
-    # is why a fresh domain like bhoomi-setu-nine.vercel.app 403'd with no CORS
-    # header and the browser reported it as a CORS failure.
-    allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
+    # Scoped to this project's Vercel deployments (prod, preview, renamed
+    # project) — NOT every *.vercel.app, which with allow_credentials=True
+    # would let any attacker-hosted vercel.app read authenticated responses
+    # (SEC-02). Tune via CORS_ORIGIN_REGEX.
+    allow_origin_regex=settings.cors_origin_regex or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -23,6 +23,7 @@ if _HAS_CELERY:
             "app.tasks.change_detection_tasks",
             "app.tasks.terrain_tasks",
             "app.tasks.legal_status_tasks",
+            "app.tasks.maintenance_tasks",
         ],
         task_serializer="json",
         result_serializer="json",
@@ -49,6 +50,18 @@ if _HAS_CELERY:
     # Result backend settings
     celery_app.conf.result_expires = 3600  # 1 hour
     celery_app.conf.result_compression = "gzip"
+
+    # DEP-01: sweep stuck jobs to 'failed' every 10 min so a dead worker
+    # doesn't leave a job pinned in 'running'/'queued' forever. Requires a
+    # `celery beat` process; the /jobs/reap admin endpoint covers deployments
+    # without one.
+    celery_app.conf.beat_schedule = {
+        "reap-stuck-jobs": {
+            "task": "app.tasks.maintenance_tasks.reap_stuck_jobs_task",
+            "schedule": 600.0,
+        },
+    }
+
 else:
     class _DummyCelery:
         conf = {}

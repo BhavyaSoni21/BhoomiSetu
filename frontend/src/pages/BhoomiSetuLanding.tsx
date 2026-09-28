@@ -538,10 +538,11 @@ export const BhoomiSetuLanding: React.FC = () => {
                   {t('landing.govAlignment.connectsLabel')}
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <div key={i} className="p-2.5 bg-[var(--surface-1)] rounded border border-[var(--border)] flex items-center gap-1.5">
+                  {/* The 8 government departments BhoomiSetu integrates (matches the seeded Department directory) */}
+                  {['Land Records', 'Registration', 'Planning', 'Tax', 'Restriction', 'Dispute', 'Encumbrance', 'Survey'].map((label) => (
+                    <div key={label} className="p-2.5 bg-[var(--surface-1)] rounded border border-[var(--border)] flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--bhashini-accent)] shrink-0" />
-                      {t(`landing.govAlignment.departments.${i}`)}
+                      {label}
                     </div>
                   ))}
                 </div>

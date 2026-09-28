@@ -29,6 +29,11 @@ class VerificationEvidence(Base):
     __table_args__ = (
         Index("ix_verification_evidence_workflow_id", "workflow_id"),
         Index("ix_verification_evidence_case_id", "case_id"),
+        # Idempotent offline replay (API-02): a client-generated token so a
+        # retried upload (response lost after the row was written) resolves to
+        # the same evidence row instead of inserting a duplicate. Unique over
+        # non-null tokens only (Postgres treats NULLs as distinct).
+        Index("uq_verification_evidence_client_token", "client_token", unique=True),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -68,5 +73,8 @@ class VerificationEvidence(Base):
     sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # See uq_verification_evidence_client_token above (API-02).
+    client_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -225,7 +225,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                 placeholder={t('parcelSearch.localIdentifierPlaceholder')}
               />
               {transliteratedText && (
-                <p className="mt-1 text-xs text-brand-900 font-mono flex items-center gap-1 font-semibold">
+                <p className="mt-1 text-xs text-ink font-mono flex items-center gap-1 font-semibold">
                   <span>Searching as:</span>
                   <span className="font-bold underline">{transliteratedText}</span>
                 </p>
@@ -330,7 +330,7 @@ const ParcelSearch: React.FC<ParcelSearchProps> = ({ onResultsChange, selectedPa
                       {parcel.canonicalParcelId || parcel.id.substring(0, 8)}
                     </h3>
                     {parcel.streetAddress && (
-                      <p className="text-xs text-brand-900 font-semibold mt-0.5">
+                      <p className="text-xs text-ink font-semibold mt-0.5">
                         📍 {parcel.streetAddress}{parcel.locality ? `, ${parcel.locality}` : ''}
                       </p>
                     )}

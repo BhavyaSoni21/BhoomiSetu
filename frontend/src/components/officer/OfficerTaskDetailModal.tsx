@@ -70,7 +70,7 @@ function ProposalCard({ proposal, onApprove, onReject, isProcessing }: ProposalC
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">
-            {proposal.department} · {proposal.field_name}
+            {proposal.department} · {proposal.fieldName}
           </div>
           <div className="text-sm font-medium text-text-heading">
             {t('officerTaskDetail.proposalStatus', 'Status')}: {proposal.status}
@@ -99,15 +99,15 @@ function ProposalCard({ proposal, onApprove, onReject, isProcessing }: ProposalC
             {t('officerTaskDetail.currentValueLabel', 'Current Value')}
           </div>
           <div className="text-sm bg-surface-2/50 p-2 rounded-lg border border-gov-border break-words">
-            {proposal.current_value || t('common.notApplicable', 'N/A')}
+            {proposal.currentValue || t('common.notApplicable', 'N/A')}
           </div>
         </div>
         <div>
           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">
             {t('officerTaskDetail.proposedValueLabel', 'Proposed Value')}
           </div>
-          <div className="text-sm bg-surface-2/50 p-2 rounded-lg border border-gov-border break-words text-brand-900">
-            {proposal.proposed_value}
+          <div className="text-sm bg-surface-2/50 p-2 rounded-lg border border-gov-border break-words text-ink">
+            {proposal.proposedValue}
           </div>
         </div>
       </div>
@@ -209,7 +209,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
     { enabled: isOpen && activeTab === 'overview' },
   );
 
-  const parcelId = caseDetail?.case?.parcel_id;
+  const parcelId = caseDetail?.case?.parcelId;
   const { data: parcel360 } = useQuery<Parcel360Response>(
     ['parcel-360', parcelId ?? ''],
     () => apiService.get(`/parcels/${parcelId}/360`).then(res => res.data),
@@ -511,15 +511,15 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                           return (
                             <div key={appt.id} className="border border-gov-border rounded-lg p-3">
                               <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-text-heading">{new Date(appt.date).toLocaleDateString()}{appt.time_slot ? ` · ${appt.time_slot}` : ''}</span>
+                                <span className="text-sm font-medium text-text-heading">{new Date(appt.date).toLocaleDateString()}{appt.timeSlot ? ` · ${appt.timeSlot}` : ''}</span>
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-surface-2 text-text-secondary">{appt.status}</span>
                               </div>
                               {appt.purpose && <p className="text-xs text-text-secondary mt-1.5">{appt.purpose}</p>}
                               <div className="mt-2">
                                 <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.originalDocumentsLabel', 'Original documents to review')}</div>
-                                {appt.required_documents && appt.required_documents.length > 0 ? (
+                                {appt.requiredDocuments && appt.requiredDocuments.length > 0 ? (
                                   <ul className="list-disc list-inside text-sm text-text-secondary space-y-0.5">
-                                    {appt.required_documents.map((doc, i) => <li key={i}>{doc}</li>)}
+                                    {appt.requiredDocuments.map((doc, i) => <li key={i}>{doc}</li>)}
                                   </ul>
                                 ) : (
                                   <p className="text-xs text-text-muted">{t('officerTaskDetail.noOriginalDocuments', 'None specified by the citizen.')}</p>
@@ -633,7 +633,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                     <div className="space-y-3">
                       {timeline.map((event) => (
                         <div key={event.id} className="border-l-2 border-brand-900/20 pl-4 py-2">
-                          <div className="flex items-center gap-2"><span className="text-xs font-mono font-bold text-brand-900">{event.eventType}</span><span className="text-xs text-text-secondary">{new Date(event.createdAt).toLocaleString()}</span></div>
+                          <div className="flex items-center gap-2"><span className="text-xs font-mono font-bold text-ink">{event.eventType}</span><span className="text-xs text-text-secondary">{new Date(event.createdAt).toLocaleString()}</span></div>
                           {event.previousState && event.newState && (<div className="text-xs text-text-secondary">{event.previousState} → {event.newState}</div>)}
                           {(event.actorName || event.actorId) && (<div className="text-xs text-text-secondary">{t('officerTaskDetail.byActor', 'by')} {event.actorName || event.actorId}{event.actorDepartment ? ` · ${event.actorDepartment}` : event.actorRole ? ` (${event.actorRole})` : ''}</div>)}
                         </div>

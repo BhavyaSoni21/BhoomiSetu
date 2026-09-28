@@ -27,7 +27,7 @@ export const ProfileSummaryCard: React.FC<ProfileSummaryCardProps> = ({
   name,
   role = 'Citizen',
   department,
-  location = 'Pune, Maharashtra',
+  location,
   avatar,
   initials = name ? name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase() : 'AK',
   status = 'Active',
@@ -83,10 +83,12 @@ export const ProfileSummaryCard: React.FC<ProfileSummaryCardProps> = ({
                 <span>{role}</span>
                 {department && <span className="text-text-muted">· <strong>{department}</strong></span>}
               </span>
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
-                {location}
-              </span>
+              {location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
+                  {location}
+                </span>
+              )}
             </div>
 
             {/* DL metadata for tests & accessibility */}

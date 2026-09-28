@@ -376,7 +376,7 @@ export function useChat(): UseChatReturn {
       addMessage({
         type: 'text',
         role: 'assistant',
-        text: t('aiChat.caseCreated', { caseNo: caseResp.data.case_no }),
+        text: t('aiChat.caseCreated', { caseNo: caseResp.data.caseNo }),
       });
     } catch (err: unknown) {
       setError(t('aiChat.createError', 'Failed to create your case. Please try again.'));

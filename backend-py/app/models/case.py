@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, ForeignKey, Index, JSON, Numeric, String, Text, func
+from sqlalchemy import Boolean, ForeignKey, Index, JSON, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -56,6 +56,19 @@ class Case(Base):
 
     tasks: Mapped[list["DepartmentTask"]] = relationship(
         back_populates="case", cascade="all, delete-orphan", order_by="DepartmentTask.stage"
+    )
+
+    __table_args__ = (
+        # Invariant 1 as a DB constraint, not just a service-layer read-then-write
+        # (SEC-03 TOCTOU): at most one non-terminal case per citizen+parcel.
+        # Partial so CLOSED cases don't block re-opening a fresh case later.
+        Index(
+            "uq_cases_active_citizen_parcel",
+            "citizen_id",
+            "parcel_id",
+            unique=True,
+            postgresql_where=text("status IN ('CREATED', 'ACTIVE', 'RESOLUTION', 'FEEDBACK')"),
+        ),
     )
 
 
@@ -156,12 +169,12 @@ class DepartmentTask(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"), index=True)
-    department_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"))
-    workflow_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True)
+    department_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
+    workflow_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("workflows.id", ondelete="SET NULL"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
     # PENDING | ASSIGNED | IN_PROGRESS | BLOCKED | COMPLETED | CANCELLED
-    assigned_officer_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    assigned_verifier_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    assigned_officer_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    assigned_verifier_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     assigned_at: Mapped[datetime | None] = mapped_column(nullable=True)
     stage: Mapped[int] = mapped_column(default=0)
     stage_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

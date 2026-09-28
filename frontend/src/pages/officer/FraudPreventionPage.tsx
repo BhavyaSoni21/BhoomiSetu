@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
+import QueryError from '../../components/QueryError';
 import { Search, AlertTriangle, ShieldAlert, Eye, ChevronRight, FileCheck2, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
@@ -36,7 +37,7 @@ interface FraudRiskParcel {
 const FraudPreventionPage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { data: fraudRisks = [], isLoading } = useQuery<FraudRiskParcel[]>(
+  const { data: fraudRisks = [], isLoading, isError, refetch } = useQuery<FraudRiskParcel[]>(
     ['fraud-prevention'],
     async () => (await apiService.get('/encumbrance/fraud-prevention')).data,
   );
@@ -139,6 +140,8 @@ const FraudPreventionPage: React.FC = () => {
 
         {isLoading ? (
           <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+        ) : isError ? (
+          <QueryError onRetry={() => refetch()} />
         ) : fraudRisks.length === 0 ? (
           <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
             <FileCheck2 className="w-8 h-8 mx-auto text-gov-success mb-2" />

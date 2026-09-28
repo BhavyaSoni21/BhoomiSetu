@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
+import QueryError from '../../components/QueryError';
 import { Search, TrendingUp, DollarSign, AlertTriangle, FileCheck2, Download, BarChart3 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
@@ -19,11 +20,13 @@ interface TaxAnalyticsData {
 const TaxAnalyticsPage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { data: analytics, isLoading } = useQuery<TaxAnalyticsData>(
+  const { data: analytics, isLoading, isError, refetch } = useQuery<TaxAnalyticsData>(
     ['tax-analytics'],
     async () => (await apiService.get('/tax/analytics')).data,
   );
 
+  if (isLoading) return <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
   if (!analytics) return null;
 
   const formatCurrency = (amount: number) => `₹${Number(amount).toLocaleString('en-IN')}`;
@@ -52,7 +55,7 @@ const TaxAnalyticsPage: React.FC = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{t('officerDashboard.collectionRateLabel')}</span>
             <TrendingUp className="w-5 h-5 text-brand-700" />
           </div>
-          <div className="mt-2 text-3xl font-heading font-bold text-brand-900">{formatPercent(analytics.collectionRate)}</div>
+          <div className="mt-2 text-3xl font-heading font-bold text-ink">{formatPercent(analytics.collectionRate)}</div>
           <p className="text-xs text-text-secondary mt-1">{t('officerDashboard.ofTotalDemandLabel')}</p>
         </div>
 
@@ -120,7 +123,7 @@ const TaxAnalyticsPage: React.FC = () => {
               <div key={cat.category} className="space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="font-medium text-text-heading">{cat.category.replace(/_/g, ' ')}</span>
-                  <span className="font-mono text-brand-900">
+                  <span className="font-mono text-ink">
                     {formatCurrency(cat.collected)} / {formatCurrency(cat.demand)}
                   </span>
                 </div>
@@ -211,8 +214,8 @@ const TaxAnalyticsPage: React.FC = () => {
               <span className="text-xl font-heading font-bold text-amber-700">{analytics.reassessmentStats.pending}</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-brand-50 border border-brand-100 border-t-2 border-brand-500">
-              <span className="text-sm font-semibold text-brand-900">{t('officerDashboard.totalReassessmentValueLabel')}</span>
-              <span className="text-xl font-heading font-bold text-brand-900">{formatCurrency(analytics.reassessmentStats.totalValue)}</span>
+              <span className="text-sm font-semibold text-ink">{t('officerDashboard.totalReassessmentValueLabel')}</span>
+              <span className="text-xl font-heading font-bold text-ink">{formatCurrency(analytics.reassessmentStats.totalValue)}</span>
             </div>
           </div>
 

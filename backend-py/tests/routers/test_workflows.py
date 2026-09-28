@@ -781,7 +781,24 @@ class TestVerifierAssignmentAndFieldEvidence:
         assert photo.status_code == 200
         assert photo.headers["content-type"] == "image/png"
 
-    def test_task_level_assigned_verifier_can_submit_field_evidence(self, db, client):
+    def test_field_evidence_replay_is_idempotent(self, db, client):
+        # API-02: a retried offline replay carrying the same clientToken must
+        # resolve to the same row, not insert a duplicate.
+        s = _seed(db)
+        verifier, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+        client.patch(f"/api/v1/workflows/{created['id']}/assign-verifier", headers=s["admin_headers"], json={"verifierId": str(verifier.id)})
+
+        image = render_parcel_document_image(ParcelDocumentFields(owner_name="Field Visit", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED"))
+        payload = {"latitude": "18.52", "longitude": "73.85", "capturedAt": "2026-09-15T10:30:00Z", "clientToken": "tok-abc-123"}
+
+        first = client.post(f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers, data=payload, files={"photo": ("v.png", image, "image/png")})
+        second = client.post(f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers, data=payload, files={"photo": ("v.png", image, "image/png")})
+        assert first.status_code == 201 and second.status_code == 201
+        assert first.json()["id"] == second.json()["id"]
+
+        listed = client.get(f"/api/v1/workflows/{created['id']}/field-evidence", headers=s["admin_headers"])
+        assert len(listed.json()) == 1
         # The live flow assigns verifiers on the DepartmentTask, not the
         # workflow (case_service.assign_verifier_to_task). Field-evidence must
         # accept that assignment path too, or every real field submit 403s.

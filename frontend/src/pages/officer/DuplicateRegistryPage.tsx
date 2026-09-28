@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../context/LanguageContext';
+import QueryError from '../../components/QueryError';
 import { Search, AlertTriangle, FileCheck2, Eye, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
@@ -29,7 +30,7 @@ interface DuplicateRegistration {
 const DuplicateRegistryPage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { data: duplicates = [], isLoading } = useQuery<DuplicateRegistration[]>(
+  const { data: duplicates = [], isLoading, isError, refetch } = useQuery<DuplicateRegistration[]>(
     ['duplicate-registrations'],
     async () => (await apiService.get('/registration/duplicate-registry')).data,
   );
@@ -104,6 +105,8 @@ const DuplicateRegistryPage: React.FC = () => {
 
         {isLoading ? (
           <div className="py-12 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+        ) : isError ? (
+          <QueryError onRetry={() => refetch()} />
         ) : duplicates.length === 0 ? (
           <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
             <FileCheck2 className="w-8 h-8 mx-auto text-gov-success mb-2" />

@@ -4,6 +4,7 @@ import { Upload, FileText, MapPin, Camera, Save, X, CheckCircle2, AlertTriangle,
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import BackButton from '../../components/BackButton';
+import QueryError from '../../components/QueryError';
 
 interface SurveyDocument {
   id: string;
@@ -48,7 +49,7 @@ const DocumentsPage: React.FC = () => {
     gpsLng: '',
   });
 
-  const { data: surveyRecords = [], isLoading: loadingSurveys } = useQuery<SurveyRecord[]>(
+  const { data: surveyRecords = [], isLoading: loadingSurveys, isError: surveysError, refetch: refetchSurveys } = useQuery<SurveyRecord[]>(
     ['survey-records'],
     async () => (await apiService.get('/survey/records')).data,
   );
@@ -191,6 +192,8 @@ const DocumentsPage: React.FC = () => {
 
           {loadingSurveys ? (
             <div className="py-8 text-center text-sm text-text-muted">{t('officerDashboard.loadingPendingQueue')}</div>
+          ) : surveysError ? (
+            <QueryError onRetry={() => refetchSurveys()} />
           ) : surveyRecords.length === 0 ? (
             <div className="py-8 text-center rounded-xl bg-surface-2 border border-gov-border">
               <FileText className="w-8 h-8 mx-auto text-text-muted mb-2" />
@@ -247,7 +250,7 @@ const DocumentsPage: React.FC = () => {
             <h2 className="font-heading font-bold text-lg text-text-heading flex items-center gap-2">
               <FileText className="w-5 h-5 text-brand-700" />
               {t('officerDashboard.fieldDocumentsHeading', 'Field Documents')}
-              {selectedParcelId && <span className="font-mono text-brand-900 ml-2">{selectedParcelId.slice(0, 12)}</span>}
+              {selectedParcelId && <span className="font-mono text-ink ml-2">{selectedParcelId.slice(0, 12)}</span>}
             </h2>
             {selectedParcelId && (
               <button

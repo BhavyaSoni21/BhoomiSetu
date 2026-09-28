@@ -284,9 +284,18 @@ async def add_field_evidence(
     longitude: float = Form(...),
     captured_at: datetime = Form(..., alias="capturedAt"),
     notes: str | None = Form(None),
+    client_token: str | None = Form(None, alias="clientToken"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(VERIFIER_ROLE)),
 ):
+    # Idempotent offline replay (API-02): if this client_token was already
+    # recorded, return that row and skip re-reading/re-uploading the photo, so
+    # a lost-response retry doesn't create a duplicate or an orphan blob.
+    if client_token:
+        existing = service.find_field_evidence_by_token(db, str(id), client_token)
+        if existing is not None:
+            return existing
+
     # Same image-extension allowlist/size cap as the citizen evidence
     # upload in create() above (KNOWN_RISKS.md HIGH-4: never trust the
     # client-supplied Content-Type subtype for the stored extension).
@@ -308,6 +317,7 @@ async def add_field_evidence(
         FieldEvidenceInput(
             file_name=file_name, file_path=file_path, mime_type=content_type_header,
             latitude=latitude, longitude=longitude, captured_at=captured_at, notes=notes,
+            client_token=client_token,
         ),
     )
     if result == service.WORKFLOW_NOT_FOUND:

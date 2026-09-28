@@ -33,6 +33,10 @@ const OfficerProfilePage: React.FC = () => {
   const roleLabel = ROLE_LABELS[role] ?? 'Land Records Officer';
   const department = (ROLE_DEPARTMENT[role] ?? 'LAND_RECORDS').replace(/_/g, ' ');
 
+  // Real profile completeness from actual filled fields (no hardcoded %).
+  const profileFields = [user.name, user.email, user.mobileNumber, user.governmentIdNumber, user.occupation];
+  const completeness = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
+
   const showUnavailable = (label: string) =>
     setNotice(`${label} is available through the authorised administration service.`);
 
@@ -83,7 +87,6 @@ const OfficerProfilePage: React.FC = () => {
       <ProfileHeader
         title="My Profile"
         subtitle="Manage your professional identity, jurisdiction, access, and preferences."
-        lastUpdated="11 Sep 2026, 10:24 AM"
       />
 
       {/* Profile Summary Card */}
@@ -91,13 +94,10 @@ const OfficerProfilePage: React.FC = () => {
         name={user.name}
         role={roleLabel}
         department={department}
-        location="Pune, Maharashtra"
-        status="Active"
         isGovernmentAccount={true}
         memberSince={user.createdAt ? formatDate(user.createdAt) : undefined}
-        lastActive="11 Sep 2026, 10:24 AM"
-        completeness={user.mobileNumber ? 92 : 82}
-        message="Add your mobile number and emergency contact to complete your profile."
+        completeness={completeness}
+        message={completeness === 100 ? 'Your profile is complete.' : 'Add your mobile number and government ID to complete your profile.'}
       />
 
       {/* Row 1: Professional Information + Identity & Verification */}

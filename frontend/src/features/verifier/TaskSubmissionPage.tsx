@@ -52,7 +52,7 @@ const TaskSubmissionPage: React.FC = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationState>({ status: 'idle' });
   const [evidenceNotes, setEvidenceNotes] = useState('');
-  const [evidenceStatus, setEvidenceStatus] = useState<'idle' | 'uploaded' | 'queued'>('idle');
+  const [evidenceStatus, setEvidenceStatus] = useState<'idle' | 'uploaded' | 'queued' | 'save_failed'>('idle');
 
   // Findings state
   const [findings, setFindings] = useState<FindingEntry[]>([{ field_name: '', finding: '', description: '' }]);
@@ -120,12 +120,19 @@ const TaskSubmissionPage: React.FC = () => {
           });
           setEvidenceStatus('uploaded');
         } catch (_err) {
-          saveLocalEvidence({
-            case_id: caseId ?? '', workflow_id: workflowId, verifier_id: '', latitude: location.lat!, longitude: location.lng!,
-            accuracy_m: location.accuracy, captured_at: capturedAt, photo_hash: photoHash(photo),
-            sequence: 1, notes: evidenceNotes, task_id: taskId, photo,
-          });
-          setEvidenceStatus('queued');
+          // Upload failed → queue offline. If even the local save fails
+          // (storage full), surface it rather than claim it was queued (API-02).
+          try {
+            await saveLocalEvidence({
+              case_id: caseId ?? '', workflow_id: workflowId, verifier_id: '', latitude: location.lat!, longitude: location.lng!,
+              accuracy_m: location.accuracy, captured_at: capturedAt, photo_hash: photoHash(photo),
+              sequence: 1, notes: evidenceNotes, task_id: taskId, photo,
+            });
+            setEvidenceStatus('queued');
+          } catch (saveErr) {
+            setEvidenceStatus('save_failed');
+            throw saveErr instanceof Error ? saveErr : new Error(t('fieldEvidence.saveFailed', 'Could not save evidence offline.'));
+          }
         }
       }
 

@@ -104,3 +104,17 @@ def list_jobs(
         query = query.filter(ProcessingJob.job_type == job_type)
     query = query.order_by(ProcessingJob.created_at.desc()).limit(limit).offset(offset)
     return [JobResponse.model_validate(j) for j in query.all()]
+
+
+@router.post("/reap", status_code=status.HTTP_200_OK)
+def reap_jobs(db: Session = Depends(get_db), _admin: User = Depends(require_roles("ADMIN"))):
+    """Force-fail jobs stuck in running/queued past their timeout (DEP-01).
+
+    Run by the Celery beat schedule; also exposed here so an operator (or an
+    external cron) can trigger a sweep without a beat worker deployed.
+    """
+    from app.services.job_reaper import reap_stuck_jobs
+
+    reaped = reap_stuck_jobs(db)
+    db.commit()
+    return {"reaped": reaped}

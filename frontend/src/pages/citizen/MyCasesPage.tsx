@@ -79,7 +79,7 @@ const MyCasesPage: React.FC = () => {
             {caseList.map((c: CaseOut) => (
               <tr key={c.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {c.case_no || (c as any).caseNo}
+                  {c.caseNo}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {c.intent ?? '—'}
@@ -94,7 +94,7 @@ const MyCasesPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(c.created_at || (c as any).createdAt).toLocaleDateString()}
+                  {new Date(c.createdAt).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm flex items-center justify-end gap-4">
                   <button

@@ -124,7 +124,7 @@ const RegistrationChainPage: React.FC = () => {
                 <div className="px-6 py-4 bg-surface-2 border-b border-gov-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className="font-heading font-bold text-text-heading flex items-center gap-2">
-                      <span className="font-mono text-brand-900">Parcel: {parcelId.slice(0, 12)}</span>
+                      <span className="font-mono text-ink">Parcel: {parcelId.slice(0, 12)}</span>
                     </h3>
                     <p className="text-xs text-text-secondary mt-1">{entries.length} {t('officerDashboard.chainEntriesLabel', 'chain entries')}</p>
                   </div>
@@ -153,7 +153,7 @@ const RegistrationChainPage: React.FC = () => {
                     <tbody className="divide-y divide-gov-border">
                       {entries.map((entry) => (
                         <tr key={entry.id} className="hover:bg-surface-2/60 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-brand-900">#{entry.chainStep}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-ink">#{entry.chainStep}</td>
                           <td className="py-3 px-4 font-mono text-text-primary">{entry.registrationNumber}</td>
                           <td className="py-3 px-4 text-text-secondary font-mono">
                             {entry.registrationDate ? new Date(entry.registrationDate).toLocaleDateString() : '—'}

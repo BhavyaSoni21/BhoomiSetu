@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip } from 'recharts';
 import apiService from '../../services/apiService';
+import QueryError from '../../components/QueryError';
 
 // Officer SLA monitor ("SLA" tab, plan §56). Lists the officer's assigned
 // tasks with their SLA status (OK/WARNING/BREACH) from GET /cases/tasks/my/sla.
@@ -24,7 +25,7 @@ const STATUS_STYLE: Record<string, string> = {
 const PIE_COLORS: Record<string, string> = { OK: '#10b981', WARNING: '#f59e0b', BREACH: '#ef4444', 'No SLA': '#9ca3af' };
 
 const OfficerSlaPage: React.FC = () => {
-  const { data: rows = [], isLoading } = useQuery<TaskSla[]>(
+  const { data: rows = [], isLoading, isError, refetch } = useQuery<TaskSla[]>(
     ['my-tasks-sla'],
     async () => (await apiService.get('/cases/tasks/my/sla')).data,
   );
@@ -46,6 +47,8 @@ const OfficerSlaPage: React.FC = () => {
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-text-muted">Loading SLA status…</div>
+      ) : isError ? (
+        <QueryError onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
         <div className="py-10 text-center rounded-xl bg-surface-2 border border-gov-border">
           <p className="text-sm font-semibold text-text-heading">No tasks assigned to you</p>

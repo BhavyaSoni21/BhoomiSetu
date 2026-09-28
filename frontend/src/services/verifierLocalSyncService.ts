@@ -11,6 +11,10 @@ export interface LocalEvidenceRecord {
   notes?: string | null;
   task_id?: string | null;
   photo: File | null;
+  // Stable client-generated idempotency key (API-02): sent on every replay so
+  // a retry after a lost response resolves to the same server row instead of
+  // inserting a duplicate. Assigned once at saveLocalEvidence.
+  client_token?: string;
   upload_state?: 'pending' | 'uploading' | 'uploaded' | 'failed';
   upload_progress?: number;
   retry_count?: number;
@@ -54,6 +58,7 @@ export function getLocalQueue(): LocalEvidenceRecord[] {
         notes: item.notes,
         task_id: item.task_id,
         photo,
+        client_token: item.client_token,
         upload_state: item.upload_state || 'pending',
         upload_progress: item.upload_progress || 0,
         retry_count: item.retry_count || 0,
@@ -74,20 +79,34 @@ function fileToDataURL(file: File): Promise<string> {
 }
 
 export async function saveLocalEvidence(record: LocalEvidenceRecord): Promise<void> {
-  try {
-    let serialized: any = { ...record };
-    if (record.photo) {
-      const dataUrl = await fileToDataURL(record.photo);
-      serialized.photo_data_url = dataUrl;
-      serialized.photo_name = record.photo.name;
-    }
-    serialized.photo = null;
+  // Assign the idempotency key once, at first save, so it survives reloads and
+  // every replay carries the same token (API-02).
+  if (!record.client_token) {
+    record.client_token =
+      (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `evd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+  let serialized: any = { ...record };
+  if (record.photo) {
+    const dataUrl = await fileToDataURL(record.photo);
+    serialized.photo_data_url = dataUrl;
+    serialized.photo_name = record.photo.name;
+  }
+  serialized.photo = null;
 
+  // Surface persistence failures (API-02): swallowing a QuotaExceededError here
+  // silently drops the only offline copy of the evidence. Let the caller catch
+  // it and warn the verifier instead of pretending it was queued.
+  try {
     const existingSerialized = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     existingSerialized.push(serialized);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existingSerialized));
-  } catch {
-    // Silently fail - offline mode degrades gracefully
+  } catch (err) {
+    throw new Error(
+      'Could not save evidence for offline sync (device storage may be full). ' +
+      'Free up space or reconnect to upload now.',
+    );
   }
 }
 
@@ -189,6 +208,8 @@ export async function autoSyncQueue(
       form.append('longitude', String(record.longitude));
       form.append('capturedAt', record.captured_at || new Date().toISOString());
       if (record.notes) form.append('notes', record.notes);
+      // Idempotency key so a retried replay doesn't duplicate the row (API-02).
+      if (record.client_token) form.append('clientToken', record.client_token);
 
       const response = await apiService.post(
         `/workflows/${record.workflow_id}/field-evidence`,

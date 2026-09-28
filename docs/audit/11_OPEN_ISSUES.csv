@@ -1,18 +1,18 @@
 ID,Severity,Category,Feature,Role,Route,Issue,Root Cause,Fix,Status,Verified
-SEC-01,High,Security,Case document access,Officer/Citizen,GET /cases/{id}/documents,IDOR — object access not scoped to caller's jurisdiction/ownership,_can_manage_case has no district/department scoping (case_service.py:118-125),Add jurisdiction scoping consistent with _can_manage_task,OPEN,No
-SEC-02,Medium,Security,CORS,All,All,Permissive CORS origin handling,main.py:112-123 allows broad origins,Restrict allow_origins to known frontends,OPEN,No
-SEC-03,Medium,Security,Workflow invariant,Officer,POST workflow transitions,TOCTOU race on invariant check,Read-then-write without lock (case_service.py:187-210),Recheck inside txn or DB constraint,OPEN,No
-SEC-04,Critical,Dependency,Frontend map,All,All map routes,maplibre-gl XSS + 1 more critical (npm audit),Vulnerable maplibre-gl version,Upgrade maplibre-gl to patched release,OPEN,No
-SEC-05,High,Dependency,Build,All,-,vite high-severity advisory (npm audit),Vulnerable vite version,Upgrade vite,OPEN,No
-SEC-06,Medium,Dependency,Backend,All,-,starlette/pillow/cairosvg advisories (pip-audit),Outdated runtime deps,Pin patched versions,OPEN,No
-REL-01,High,Reliability,AI chat error path,All,POST /ai/chat,NameError on error branch — undefined logger,ai_service.py:419 references logger not imported/defined,Define module logger,OPEN,No
-DB-01,Medium,Database,Task queries,Officer/Admin,-,Unindexed FKs on department_tasks cause slow scans,Missing indexes (models/case.py:149-197),Add indexes + migration,OPEN,No
-DEP-01,Medium,Deployment,Background jobs/health,-,GET /health,No stuck-job reaper; health is liveness-only,jobs.py:48-78 + health.py:11-13,Add reaper + readiness probe,OPEN,No
-API-01,High,API/UI,Officer task detail,Officer,Task detail modal,Blank fields — snake_case vs camelCase mismatch,OfficerTaskDetailModal.tsx:73/110/514/520-522,Align field casing to camelCase wire,OPEN,No
-API-02,Medium,Offline/Data,Verifier offline sync,Verifier,/submit,Non-idempotent replay + localStorage silent loss,verifierLocalSyncService.ts:170-241/76-92,Idempotency keys + surfaced failures,OPEN,No
-UI-01,P0/High,UI/i18n,Landing govAlignment,Public,/,Raw i18n keys render (landing.govAlignment.departments.0-7),Keys missing in en.json + FALLBACK; no fallback arg (BhoomiSetuLanding.tsx:544),Add keys or real fallbacks,OPEN,No
-UI-02,P0/High,UI/Data,Profile completeness/lastActive,Citizen/Officer,/profile,Fake hardcoded completeness % + lastActive + status,ProfilePage.tsx:236/239; OfficerProfilePage.tsx:95/98/99,Compute from real fields (see AdminProfilePage:47-49),OPEN,No
-UI-03,P1,UI/Theme,Dark-mode contrast,All,Multiple dashboards,text-brand-900 near-invisible on dark surfaces,No dark: override for brand-900 ink,Use text-ink token or dark: overrides,OPEN,No
-UI-04,P2,UI,Query error states,Officer/Citizen,8 list pages,Failed fetch shows empty state not error,isError branch absent; default data=[],Add isError branch + retry,OPEN,No
-UI-05,P2,UI/Responsive,Workflow precheck table,Officer,Workflow review,Table clips on narrow screens,Missing overflow-x-auto (WorkflowReviewPanel.tsx:1009-1010),Add overflow-x-auto wrapper,OPEN,No
-TEST-01,Medium,Testing,Legacy MVT tests,-,-,Legacy test collection error aborts full suite,tests/legacy/test_mvt_tiles.py psycopg InternalError,Fix fixture/DB or quarantine legacy,OPEN,No
+SEC-01,High,Security,Case document access,Officer/Citizen,GET /cases/{id}/documents,IDOR — object access not scoped to caller's jurisdiction/ownership,_can_manage_case has no district/department scoping (case_service.py:118-125),Add jurisdiction scoping consistent with _can_manage_task,FIXED,Yes
+SEC-02,Medium,Security,CORS,All,All,Permissive CORS origin handling,main.py:112-123 allows broad origins,Restrict allow_origins to known frontends,FIXED,Yes
+SEC-03,Medium,Security,Workflow invariant,Officer,POST workflow transitions,TOCTOU race on invariant check,Read-then-write without lock (case_service.py:187-210),Recheck inside txn or DB constraint,FIXED,Yes
+SEC-04,Critical,Dependency,Frontend map,All,All map routes,maplibre-gl XSS + 1 more critical (npm audit),Vulnerable maplibre-gl version,Upgrade maplibre-gl to patched release,FIXED,Yes
+SEC-05,High,Dependency,Build,All,-,vite high-severity advisory (npm audit),Vulnerable vite version,Upgrade vite,FIXED,Yes
+SEC-06,Medium,Dependency,Backend,All,-,starlette/pillow/cairosvg advisories (pip-audit),Outdated runtime deps,Pin patched versions,FIXED,Yes
+REL-01,High,Reliability,AI chat error path,All,POST /ai/chat,NameError on error branch — undefined logger,ai_service.py:419 references logger not imported/defined,Define module logger,FIXED,Yes
+DB-01,Medium,Database,Task queries,Officer/Admin,-,Unindexed FKs on department_tasks cause slow scans,Missing indexes (models/case.py:149-197),Add indexes + migration,FIXED,Yes
+DEP-01,Medium,Deployment,Background jobs/health,-,GET /health,No stuck-job reaper; health is liveness-only,jobs.py:48-78 + health.py:11-13,Add reaper + readiness probe,FIXED,Yes
+API-01,High,API/UI,Officer task detail,Officer,Task detail modal,Blank fields — snake_case vs camelCase mismatch,OfficerTaskDetailModal.tsx:73/110/514/520-522,Align field casing to camelCase wire,FIXED,Yes
+API-02,Medium,Offline/Data,Verifier offline sync,Verifier,/submit,Non-idempotent replay + localStorage silent loss,verifierLocalSyncService.ts:170-241/76-92,Idempotency keys + surfaced failures,FIXED,Yes
+UI-01,P0/High,UI/i18n,Landing govAlignment,Public,/,Raw i18n keys render (landing.govAlignment.departments.0-7),Keys missing in en.json + FALLBACK; no fallback arg (BhoomiSetuLanding.tsx:544),Add keys or real fallbacks,FIXED,Yes
+UI-02,P0/High,UI/Data,Profile completeness/lastActive,Citizen/Officer,/profile,Fake hardcoded completeness % + lastActive + status,ProfilePage.tsx:236/239; OfficerProfilePage.tsx:95/98/99,Compute from real fields (see AdminProfilePage:47-49),FIXED,Yes
+UI-03,P1,UI/Theme,Dark-mode contrast,All,Multiple dashboards,text-brand-900 near-invisible on dark surfaces,No dark: override for brand-900 ink,Use text-ink token or dark: overrides,FIXED,Yes
+UI-04,P2,UI,Query error states,Officer/Citizen,8 list pages,Failed fetch shows empty state not error,isError branch absent; default data=[],Add isError branch + retry,FIXED,Yes
+UI-05,P2,UI/Responsive,Workflow precheck table,Officer,Workflow review,Table clips on narrow screens,Missing overflow-x-auto (WorkflowReviewPanel.tsx:1009-1010),Add overflow-x-auto wrapper,FIXED,Yes
+TEST-01,Medium,Testing,Legacy MVT tests,-,-,Legacy test collection error aborts full suite,tests/legacy/test_mvt_tiles.py psycopg InternalError,Fix fixture/DB or quarantine legacy,FIXED,Yes

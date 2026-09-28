@@ -167,8 +167,12 @@ const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   const parcelsList = myParcels?.parcels || [];
-  const parcelsTotal = myParcels?.total ?? 3;
-  const requestsTotal = myWorkflows?.length ?? 1;
+  const parcelsTotal = myParcels?.total ?? 0;
+  const requestsTotal = myWorkflows?.length ?? 0;
+
+  // Real profile completeness from actual filled fields (no hardcoded %).
+  const profileFields = [user.name, user.email, user.mobileNumber, user.address, user.governmentIdNumber, user.occupation];
+  const completeness = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -184,7 +188,7 @@ const ProfilePage: React.FC = () => {
       `Role: Citizen`,
       `Email: ${user.email}`,
       `Mobile: ${user.mobileNumber || 'Not provided'}`,
-      `Government ID: ${user.governmentIdNumber ? `•••• •••• ${user.governmentIdNumber.slice(-4)}` : '•••• •••• 4821'}`,
+      `Government ID: ${user.governmentIdNumber ? `•••• •••• ${user.governmentIdNumber.slice(-4)}` : 'Not provided'}`,
       `Linked Parcels: ${parcelsTotal}`,
       `Total Requests: ${requestsTotal}`,
       `Member Since: ${user.createdAt ? formatDate(user.createdAt) : '11 Sep 2026'}`,
@@ -224,20 +228,18 @@ const ProfilePage: React.FC = () => {
       <ProfileHeader
         title={t('citizenPortal.profileHeading', 'My Profile')}
         subtitle="Manage your identity, land records, documents, and communication preferences."
-        lastUpdated="11 Sep 2026, 10:24 AM"
       />
 
       {/* Profile Summary Card (Top Banner) */}
       <ProfileSummaryCard
         name={user.name}
         role={t('citizenPortal.profileRoleValue', 'Citizen')}
-        location="Pune, Maharashtra"
+        location={user.address || undefined}
         memberSince={user.createdAt ? formatDate(user.createdAt) : undefined}
-        lastActive="11 Sep 2026, 10:24 AM"
         linkedParcelsCount={myParcels?.total}
         totalRequestsCount={myWorkflows?.length}
-        completeness={user.mobileNumber && user.address ? 92 : user.mobileNumber ? 85 : 72}
-        message="Add your residential address and occupation to complete your profile."
+        completeness={completeness}
+        message={completeness === 100 ? 'Your profile is complete.' : 'Add your residential address and occupation to complete your profile.'}
       />
 
       {/* Navigation Tabs (Account / Documents) */}
