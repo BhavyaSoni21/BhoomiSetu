@@ -10,7 +10,7 @@ An integrated, parcel-centric, GIS-based Digital Public Infrastructure for land 
 Built for **Smart India Hackathon 2026 · Problem Statement SIH26014 — "Land Stack"** (Department of Land Resources).
 
 ![Status](https://img.shields.io/badge/status-functional%20prototype-blue)
-![Backend](https://img.shields.io/badge/backend-FastAPI%200.115-009688)
+![Backend](https://img.shields.io/badge/backend-FastAPI%200.128-009688)
 ![Frontend](https://img.shields.io/badge/frontend-React%2018.2%20%2B%20TS%205.0-61dafb)
 ![Spatial](https://img.shields.io/badge/spatial-PostGIS%20SRID%204326-336791)
 ![Languages](https://img.shields.io/badge/i18n-11%20languages%20(Bhashini)-ff9933)
@@ -275,10 +275,10 @@ Three-tier, PostGIS-cored (PROTOTYPE unless labelled).
 
 ```mermaid
 flowchart TB
-    subgraph P["PRESENTATION — React 18.2 · TS 5.0 · Vite 4.4 · Tailwind 3.3"]
+    subgraph P["PRESENTATION — React 18.2 · TS 5.0 · Vite 6.4 · Tailwind 3.3"]
         direction LR
         P1[Citizen Portal] --- P2[Officer Portal ×8] --- P3[Verifier Portal] --- P4[Admin Portal]
-        P5[MapLibre GL 4.0 · Recharts · Zustand · react-query · Bhashini i18n · offline PWA]
+        P5[MapLibre GL 6.11 · Recharts · Zustand · react-query · Bhashini i18n · offline PWA]
     end
     subgraph A["APPLICATION — FastAPI backend-py · /api/v1 · 29 routers"]
         direction LR
@@ -309,11 +309,12 @@ Verified against `frontend/package.json` and `backend-py/requirements.txt`.
 
 | Layer | Technology (version) | Status | Purpose |
 |---|---|---|---|
-| Frontend | React 18.2 · TypeScript 5.0 · Vite 4.4 · Tailwind 3.3 | PROTOTYPE | Multi-portal SPA |
-| Map | MapLibre GL 4.0 · mapbox-gl-draw | PROTOTYPE | Open-source vector-tile renderer (no Mapbox lock-in) |
+| Frontend | React 18.2 · TypeScript 5.0 · Vite 6.4 · Tailwind 3.3 | PROTOTYPE | Multi-portal SPA |
+| Map | MapLibre GL 6.11 · mapbox-gl-draw | PROTOTYPE | Open-source vector-tile renderer (no Mapbox lock-in) |
 | State/UI | Zustand 4.4 · react-query 4.32 · Recharts 2.8 | PROTOTYPE | State, server-cache, charts |
-| Offline | Dexie 4.4 · idb-keyval 6.3 · vite-plugin-pwa 0.20 | PROTOTYPE | IndexedDB cache + op-queue; installable PWA |
-| Backend | FastAPI 0.115 · Pydantic 2.10 | PROTOTYPE | Async, auto-OpenAPI |
+| Routing | react-router-dom 7.18 | PROTOTYPE | SPA routing |
+| Offline | Dexie 4.4 · idb-keyval 6.3 · vite-plugin-pwa 0.21 | PROTOTYPE | IndexedDB cache + op-queue; installable PWA |
+| Backend | FastAPI 0.128 · Pydantic 2.10 | PROTOTYPE | Async, auto-OpenAPI |
 | ORM/DB | SQLAlchemy 2.0 · GeoAlchemy2 0.16 · Alembic | PROTOTYPE | ORM + PostGIS types + migrations (incl. GIST) |
 | Database | PostgreSQL + PostGIS · Redis 5.2 | PROTOTYPE | Spatial SQL; cache + Celery broker |
 | Async | Celery 5.4 | PROTOTYPE | Recompute cols, EE imagery, OCR, ETL |
