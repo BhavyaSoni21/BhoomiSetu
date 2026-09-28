@@ -14,11 +14,11 @@ const sectionHeadingClass = 'text-xl sm:text-2xl font-black uppercase tracking-t
 const DEPARTMENTS = ['LAND_RECORDS', 'REGISTRATION', 'PLANNING', 'DISPUTE', 'TAX', 'RESTRICTION', 'ENCUMBRANCE', 'SURVEY'];
 
 const STATUS_BADGE_STYLES: Record<string, string> = {
-  PENDING: 'border-accent text-secondary-strong',
   SUBMITTED: 'border-accent text-secondary-strong',
-  IN_PROGRESS: 'border-accent text-secondary-strong',
+  UNDER_REVIEW: 'border-accent text-secondary-strong',
   APPROVED: 'border-primary text-primary',
   REJECTED: 'border-secondary text-secondary-strong',
+  COMPLETED: 'border-primary text-primary',
 };
 
 // Coming Soon #2 (docs/ADMIN_PANEL_ISSUES.md) - the backend already lets an
@@ -53,8 +53,8 @@ const AdminWorkflowOversightPage: React.FC = () => {
       ).data,
   );
 
-  const pendingCount = workflows.filter((w) => w.currentStatus === 'SUBMITTED' || w.currentStatus === 'IN_PROGRESS').length;
-  const approvedCount = workflows.filter((w) => w.currentStatus === 'APPROVED').length;
+  const pendingCount = workflows.filter((w) => w.currentStatus === 'SUBMITTED' || w.currentStatus === 'UNDER_REVIEW').length;
+  const approvedCount = workflows.filter((w) => w.currentStatus === 'APPROVED' || w.currentStatus === 'COMPLETED').length;
   const rejectedCount = workflows.filter((w) => w.currentStatus === 'REJECTED').length;
 
   return (

@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 
 from geoalchemy2.shape import from_shape
 from shapely.geometry import LineString, Point as ShapelyPoint, Polygon
+from sqlalchemy import text
 
 from app.common.geo_utils import point_in_ring, polygon_distance_meters
 from app.common.parcel_generation.cluster_generator import CLUSTER_CONFIGS, GeneratedParcel, Point, Ring, generate_cluster_parcels
@@ -1354,7 +1355,38 @@ def seed_database() -> None:
             f"analyses, {len(routing_to_save)} routing decisions, {len(applications_to_save)} applications"
         )
 
+        # Denormalize the latest tax status onto each parcel so the Tax
+        # map layer (['get','taxStatus']) renders real per-parcel colors
+        # instead of one flat fallback. In-transaction with the seed.
+        db.execute(text("""
+            UPDATE parcels p
+            SET tax_status = latest.tax_status
+            FROM (
+                SELECT DISTINCT ON (t.parcel_id) t.parcel_id, t.tax_status
+                FROM   tax_records t
+                ORDER  BY t.parcel_id, t.id DESC
+            ) latest
+            WHERE p.id::text = latest.parcel_id
+        """))
+
         db.commit()
+
+        # Populate the denormalized map-layer attributes the tile renderer
+        # reads (value_band / risk_score / legal_status_severity). These are
+        # kept fresh in production by Celery recompute tasks fired on each
+        # write; a fresh seed never triggers those, so without this every
+        # overlay layer renders one flat color. The *_all sweeps are
+        # idempotent and derive purely from the seeded tax/dispute/
+        # restriction rows — the real data we already have. They open their
+        # own sessions, so run them only after the seed transaction commits.
+        print("Recomputing map-layer attributes (value_band, risk_score, legal_status_severity)...")
+        from app.tasks.value_band_tasks import recompute_all_value_bands
+        from app.tasks.risk_score_tasks import recompute_all_risk_scores
+        from app.tasks.legal_status_tasks import recompute_all_legal_status_severities
+        recompute_all_value_bands()
+        recompute_all_risk_scores()
+        recompute_all_legal_status_severities()
+
         total_parcels = db.query(Parcel).count()
         print(f"Database seeding completed successfully! Total parcels: {total_parcels}")
     except Exception:

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import apiService from '../../services/apiService';
+import { AnalyticsSummary, OfficerMonitoringEntry } from '../../types/analytics';
 import { useAuthUser } from '../../features/auth/auth';
 import ProfileDetailsCard from '../../features/auth/ProfileDetailsCard';
 import ContactMethodCard from '../../features/auth/ContactMethodCard';
@@ -19,7 +22,7 @@ import {
 } from '../../features/auth/profile-components';
 
 function formatDate(value?: string): string {
-  if (!value) return '10 Jan 2021';
+  if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
@@ -29,7 +32,23 @@ const AdminProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [notice, setNotice] = useState<string | null>(null);
 
+  const { data: summaryData } = useQuery<AnalyticsSummary>(
+    ['analytics-summary'],
+    async () => (await apiService.get('/analytics/summary')).data,
+  );
+  const { data: officers = [] } = useQuery<OfficerMonitoringEntry[]>(
+    ['officer-monitoring'],
+    async () => (await apiService.get('/analytics/officer-monitoring')).data,
+  );
+
   if (!user) return null;
+
+  // Real profile completeness from actual fields (no hardcoded 90%).
+  const profileFields = [user.name, user.email, user.mobileNumber, user.address, user.governmentIdNumber, user.occupation];
+  const filledFields = profileFields.filter(Boolean).length;
+  const completeness = Math.round((filledFields / profileFields.length) * 100);
+  const completenessMsg =
+    completeness === 100 ? 'Your profile is complete.' : 'Complete the remaining fields to finish your profile.';
 
   const showToast = (msg: string) => {
     setNotice(msg);
@@ -43,12 +62,9 @@ const AdminProfilePage: React.FC = () => {
       '=========================================',
       `Name: ${user.name}`,
       `Role: System Administrator`,
-      `Department: Land Records (State) / Secretariat, New Delhi`,
-      `Admin ID: ADM******9087`,
       `Email: ${user.email}`,
-      `Access Scope: Full System Access (8 Domains)`,
-      `Managed Users: 184 (32 Active Officers)`,
-      `Districts Managed: 5 Districts`,
+      `Managed Users: ${summaryData?.totals.totalUsers ?? '—'}`,
+      `Active Officers: ${officers.length || '—'}`,
       `Export Timestamp: ${new Date().toLocaleString()}`,
       '=========================================',
     ].join('\n');
@@ -86,7 +102,6 @@ const AdminProfilePage: React.FC = () => {
       <ProfileHeader
         title="My Profile"
         subtitle="Manage your administrative identity, access, and system preferences."
-        lastUpdated="11 Sep 2026, 10:24 AM"
       />
 
       {/* Profile Summary Card */}
@@ -98,10 +113,9 @@ const AdminProfilePage: React.FC = () => {
         status="Active"
         isGovernmentAccount={true}
         isAdminAccount={true}
-        memberSince={user.createdAt ? formatDate(user.createdAt) : '10 Jan 2021'}
-        lastActive="11 Sep 2026, 10:24 AM"
-        completeness={90}
-        message="Your profile is almost complete."
+        memberSince={user.createdAt ? formatDate(user.createdAt) : undefined}
+        completeness={completeness}
+        message={completenessMsg}
       />
 
       {/* Profile Details Edit Form Target */}
@@ -136,21 +150,14 @@ const AdminProfilePage: React.FC = () => {
           onViewAccessMatrix={() => showToast('Full System Access matrix generated.')}
         />
         <UserManagementSummary
-          managedUsers={184}
-          activeOfficers={32}
-          pendingApprovals={7}
-          accessRequests={12}
+          managedUsers={summaryData?.totals.totalUsers}
+          activeOfficers={officers.length || undefined}
         />
       </div>
 
       {/* Row 3: Governance Summary + Contact & Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <GovernanceSummary
-          activeConfigs={8}
-          pendingChanges={2}
-          districtsManaged={5}
-          statesManaged={1}
-        />
+        <GovernanceSummary />
         <ContactMethodsCard user={user} mode="admin" />
       </div>
 

@@ -1,5 +1,6 @@
 export interface LocalEvidenceRecord {
   case_id: string;
+  workflow_id?: string | null;
   verifier_id: string;
   latitude: number;
   longitude: number;
@@ -42,6 +43,7 @@ export function getLocalQueue(): LocalEvidenceRecord[] {
       }
       return {
         case_id: item.case_id,
+        workflow_id: item.workflow_id,
         verifier_id: item.verifier_id,
         latitude: item.latitude,
         longitude: item.longitude,
@@ -173,26 +175,29 @@ export async function autoSyncQueue(
       // Update progress
       updateLocalEvidence(originalIndex, { upload_state: 'uploading', upload_progress: 0 });
 
-      // Mirror the ONLINE submit (EvidenceCapturePage): POST /cases/{id}/evidence/
-      // capture takes a JSON body (EvidenceCaptureRequest) — GPS + metadata +
-      // photo_hash, not the photo bytes. Sending multipart here 422'd. The
-      // backend model is populate_by_name, so snake_case keys are accepted.
-      const payload = {
-        case_id: record.case_id,
-        latitude: record.latitude,
-        longitude: record.longitude,
-        accuracy_m: record.accuracy_m ?? null,
-        captured_at: record.captured_at || new Date().toISOString(),
-        photo_hash: record.photo_hash ?? null,
-        sequence: record.sequence ?? null,
-        notes: record.notes ?? null,
-        task_id: record.task_id ?? null,
-      };
+      // Replay to the workflow field-evidence pipeline (multipart, real photo
+      // bytes) — same path the online submit uses, so queued evidence surfaces
+      // in the officer's review panel with working images. Records queued
+      // before workflow_id was captured, or with no photo, are dropped as
+      // unreplayable rather than silently posting hash-only rows.
+      if (!record.workflow_id || !record.photo) {
+        throw new Error('Queued evidence is missing workflow or photo; cannot replay');
+      }
+      const form = new FormData();
+      form.append('photo', record.photo);
+      form.append('latitude', String(record.latitude));
+      form.append('longitude', String(record.longitude));
+      form.append('capturedAt', record.captured_at || new Date().toISOString());
+      if (record.notes) form.append('notes', record.notes);
 
-      const response = await apiService.post(`/cases/${record.case_id}/evidence/capture`, payload);
+      const response = await apiService.post(
+        `/workflows/${record.workflow_id}/field-evidence`,
+        form,
+        { headers: { 'Content-Type': undefined } },
+      );
 
-      // Response is CamelModel → `evidenceId` (no snake conversion interceptor).
-      if (response.data?.evidenceId || response.data?.evidence_id) {
+      // Response is CamelModel → `id` on the created FieldEvidence row.
+      if (response.data?.id) {
         updateLocalEvidence(originalIndex, {
           upload_state: 'uploaded',
           upload_progress: 100,

@@ -739,6 +739,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
     ?? (verifierId ? verifierId.slice(0, 8) : '');
 
   const hasContent = findings.length > 0 || overallFinding || evidence.length > 0;
+  const gpsCaptured = evidence.some((e: FieldEvidence) => e.latitude != null && e.longitude != null);
 
   if (!hasContent && !evidenceLoading && !findingsLoading) return null;
 
@@ -777,10 +778,17 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
                 </div>
                 <div>
                   <span className="text-ink/50 block">{t('verifierPortal.gpsStatus', 'GPS Status')}</span>
-                  <span className="font-semibold text-primary flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                    {t('verifierPortal.gpsCaptured', 'Captured')}
-                  </span>
+                  {gpsCaptured ? (
+                    <span className="font-semibold text-primary flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                      {t('verifierPortal.gpsCaptured', 'Captured')}
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-ink/50 flex items-center gap-1">
+                      <XIcon className="w-3 h-3" aria-hidden="true" />
+                      {t('verifierPortal.gpsNotCaptured', 'Not captured')}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-ink/50 block">{t('verifierPortal.photoCount', 'Photos')}</span>

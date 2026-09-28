@@ -781,6 +781,34 @@ class TestVerifierAssignmentAndFieldEvidence:
         assert photo.status_code == 200
         assert photo.headers["content-type"] == "image/png"
 
+    def test_task_level_assigned_verifier_can_submit_field_evidence(self, db, client):
+        # The live flow assigns verifiers on the DepartmentTask, not the
+        # workflow (case_service.assign_verifier_to_task). Field-evidence must
+        # accept that assignment path too, or every real field submit 403s.
+        from app.models.admin import Department
+        from app.models.case import Case, DepartmentTask
+        s = _seed(db)
+        verifier, _, verifier_headers = create_authenticated_user(db, "VERIFIER")
+        created = client.post("/api/v1/workflows", headers=s["citizen_headers"], json={"parcelId": str(s["parcel"].id), "workflowType": "ROR_COPY_REQUEST"}).json()
+
+        dept = db.query(Department).first()
+        if dept is None:
+            dept = Department(code="LAND_RECORDS", name="Land Records")
+            db.add(dept); db.flush()
+        case = Case(case_no="C-FE-TASK-1", citizen_id=s["citizen_user_id"], parcel_id=str(s["parcel"].id))
+        db.add(case); db.flush()
+        db.add(DepartmentTask(case_id=case.id, department_id=dept.id, workflow_id=created["id"], assigned_verifier_id=str(verifier.id)))
+        db.flush()
+        # No workflow-level assign-verifier call on purpose.
+
+        image = render_parcel_document_image(ParcelDocumentFields(owner_name="Field Visit", survey_number="N/A", area_sq_m=500, state_code="MH", district_code="PUN", registration_status="UNREGISTERED"))
+        res = client.post(
+            f"/api/v1/workflows/{created['id']}/field-evidence", headers=verifier_headers,
+            data={"latitude": "18.52", "longitude": "73.85", "capturedAt": "2026-09-15T10:30:00Z"},
+            files={"photo": ("visit.png", image, "image/png")},
+        )
+        assert res.status_code == 201
+
     def test_rejects_field_evidence_for_a_workflow_not_assigned_to_this_verifier(self, db, client):
         s = _seed(db)
         _, _, verifier_headers = create_authenticated_user(db, "VERIFIER")

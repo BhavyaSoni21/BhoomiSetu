@@ -17,7 +17,7 @@ interface ProfileHeaderProps {
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   title = 'My Profile',
   subtitle = 'Manage your identity, land records, documents, and communication preferences.',
-  lastUpdated = '11 Sep 2026, 10:24 AM',
+  lastUpdated,
   onEditClick,
   showFullNavigation = false,
   onRefreshClick,
@@ -101,9 +101,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </div>
 
         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0">
-          <span className="text-xs font-mono text-text-muted">
-            Last updated: {lastUpdated}
-          </span>
+          {lastUpdated && (
+            <span className="text-xs font-mono text-text-muted">
+              Last updated: {lastUpdated}
+            </span>
+          )}
           {onRefreshClick && (
             <button
               type="button"

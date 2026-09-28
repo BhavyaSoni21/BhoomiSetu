@@ -1,9 +1,7 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AssignedVisitsPage from './verifier/AssignedVisitsPage';
 import VerifierProfilePage from './verifier/VerifierProfilePage';
-import EvidenceCapturePage from '../features/verifier/EvidenceCapturePage';
-import VerifierFindingsPage from '../features/verifier/VerifierFindingsPage';
 import TaskSubmissionPage from '../features/verifier/TaskSubmissionPage';
 import VerifierLocalSync from '../features/verifier/VerifierLocalSync';
 
@@ -13,9 +11,11 @@ const VerifierPortal: React.FC = () => (
       <Route index element={<AssignedVisitsPage />} />
       <Route path="profile" element={<VerifierProfilePage />} />
       <Route path="task/:taskId/submit" element={<TaskSubmissionPage />} />
-      {/* Legacy split routes kept so old links/bookmarks still work */}
-      <Route path="task/:taskId/evidence" element={<EvidenceCapturePage />} />
-      <Route path="task/:taskId/findings" element={<VerifierFindingsPage />} />
+      {/* Legacy split routes now redirect to the unified submit page — the old
+          Capture Evidence / Submit Findings pages dropped photo bytes and
+          mis-keyed the case id, so bookmarks land on the working flow instead. */}
+      <Route path="task/:taskId/evidence" element={<Navigate to="../submit" replace />} />
+      <Route path="task/:taskId/findings" element={<Navigate to="../submit" replace />} />
       <Route path="local-sync" element={<VerifierLocalSync />} />
     </Routes>
   </div>

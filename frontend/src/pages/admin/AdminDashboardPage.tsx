@@ -46,12 +46,6 @@ const AdminDashboardPage: React.FC = () => {
               Global system control plane. Monitor inter-departmental workflows, manage user authorizations, analyze revenue risk, and oversee cadastral map layers.
             </p>
           </div>
-
-          <div className="flex items-center gap-3 self-start md:self-center">
-            <span className="px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-white/10 text-white border border-white/20">
-              Uptime: 99.98%
-            </span>
-          </div>
         </div>
       </div>
 
@@ -87,7 +81,7 @@ const AdminDashboardPage: React.FC = () => {
                 {t('adminPortal.governanceAnalyticsHeading', 'State Land Analytics & Interoperability')}
               </h2>
               <p className="text-xs text-text-secondary">
-                Real-time metrics across 7 participating departments and SVAMITVA clusters.
+                Real-time metrics across 8 participating departments and SVAMITVA clusters.
               </p>
             </div>
           </div>

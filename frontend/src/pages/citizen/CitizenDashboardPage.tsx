@@ -43,11 +43,19 @@ const CitizenDashboardPage: React.FC = () => {
     { staleTime: 5 * 60 * 1000 },
   );
 
+  // Workflow.currentStatus enum: SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED | COMPLETED
   const pendingCount = workflows.filter(
-    (w) => w.currentStatus === 'SUBMITTED' || w.currentStatus === 'IN_PROGRESS'
+    (w) => w.currentStatus === 'SUBMITTED' || w.currentStatus === 'UNDER_REVIEW'
   ).length;
 
-  const approvedCount = workflows.filter((w) => w.currentStatus === 'APPROVED').length;
+  const approvedCount = workflows.filter(
+    (w) => w.currentStatus === 'APPROVED' || w.currentStatus === 'COMPLETED'
+  ).length;
+
+  // Case.status enum: CREATED | ACTIVE | RESOLUTION | FEEDBACK | CLOSED
+  const activeCaseCount = cases.filter((c) => c.status !== 'CLOSED').length;
+  const actionRequiredCount = cases.filter((c) => c.status === 'FEEDBACK').length;
+  const resolvedCaseCount = cases.filter((c) => c.status === 'CLOSED').length;
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -122,7 +130,7 @@ const CitizenDashboardPage: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-heading font-bold text-text-heading">
-              {casesLoading ? '...' : cases.filter((c) => c.status === 'PENDING' || c.status === 'IN_PROGRESS').length}
+              {casesLoading ? '...' : activeCaseCount}
             </span>
             <span className="text-xs font-mono text-action-700 font-semibold">{t('citizenDashboard.activeCasesSub', 'In Progress')}</span>
           </div>
@@ -145,7 +153,7 @@ const CitizenDashboardPage: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-heading font-bold text-text-heading">
-              {casesLoading ? '...' : cases.filter((c) => c.status === 'PENDING').length}
+              {casesLoading ? '...' : actionRequiredCount}
             </span>
             <span className="text-xs font-mono text-action-700 font-semibold">{t('citizenDashboard.needsAttention', 'Needs Attention')}</span>
           </div>
@@ -206,19 +214,24 @@ const CitizenDashboardPage: React.FC = () => {
         <div className="gov-card p-5 transition hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('citizenDashboard.departmentFeedsLabel')}
+              {t('citizenDashboard.resolvedCasesLabel', 'Resolved Cases')}
             </span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-900/10 text-brand-900">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-green-100 text-gov-success">
               <ShieldCheck className="w-5 h-5" aria-hidden="true" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-heading font-bold text-text-heading">7 / 7</span>
-            <span className="text-xs font-mono text-gov-success font-semibold">{t('citizenDashboard.synchronizedLabel')}</span>
+            <span className="text-3xl font-heading font-bold text-text-heading">
+              {casesLoading ? '...' : resolvedCaseCount}
+            </span>
+            <span className="text-xs font-mono text-gov-success font-semibold">{t('citizenDashboard.completedLabel', 'Completed')}</span>
           </div>
-          <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
-            {t('citizenDashboard.feedTypesLabel')}
-          </span>
+          <Link
+            to="/citizen/my-cases"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900 transition"
+          >
+            {t('citizenDashboard.viewMyCasesLink', 'View My Cases')} <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 
@@ -273,8 +286,8 @@ const CitizenDashboardPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gov-border">
                   {workflows.slice(0, 5).map((w) => {
-                    const isPending = w.currentStatus === 'SUBMITTED' || w.currentStatus === 'IN_PROGRESS';
-                    const isApproved = w.currentStatus === 'APPROVED';
+                    const isPending = w.currentStatus === 'SUBMITTED' || w.currentStatus === 'UNDER_REVIEW';
+                    const isApproved = w.currentStatus === 'APPROVED' || w.currentStatus === 'COMPLETED';
                     return (
                       <tr key={w.id} className="hover:bg-surface-2/60 transition-colors">
                         <td className="py-3 font-mono font-medium text-text-heading">

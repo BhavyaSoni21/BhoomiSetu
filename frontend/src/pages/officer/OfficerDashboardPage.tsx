@@ -271,11 +271,12 @@ interface StatsData {
   isLoading: boolean;
   deptStats?: DepartmentStats;
   statsLoading: boolean;
+  withinSla: number;
 }
 
 function renderStatsCards(department: string, data: StatsData) {
   const { t } = useTranslation();
-  const { pendingWorkflows, decidedSteps, verifiedToday, isLoading, deptStats, statsLoading } = data;
+  const { pendingWorkflows, decidedSteps, verifiedToday, isLoading, deptStats, statsLoading, withinSla } = data;
   // Metric cards previously hardcoded now read live counts from GET /stats/:code;
   // '...' while loading, 0 if the field is absent, so the UI never crashes.
   const d = (v?: number): number | string => (statsLoading ? '...' : v ?? 0);
@@ -285,7 +286,7 @@ function renderStatsCards(department: string, data: StatsData) {
       { label: t('officerDashboard.pendingMutationsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Clock className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
       { label: t('officerDashboard.totalDecidedLabel'), value: isLoading ? '...' : decidedSteps, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-text-heading', bgColor: 'bg-brand-900/10', subLabel: t('officerDashboard.signedOrdersLabel') },
       { label: t('officerDashboard.processedTodayLabel'), value: isLoading ? '...' : verifiedToday, icon: <FileCheck2 className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.todaysThroughputLabel') },
-      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : Math.floor(decidedSteps * 0.85), icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
+      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : withinSla, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
     ],
     REGISTRATION: [
       { label: t('officerDashboard.pendingRegistrationsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <FileText className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
@@ -303,7 +304,7 @@ function renderStatsCards(department: string, data: StatsData) {
       { label: t('officerDashboard.overdueParcelsLabel'), value: d(deptStats?.overdueParcels), icon: <AlertTriangle className="w-5 h-5" />, color: 'text-amber-700', bgColor: 'bg-amber-100', subLabel: t('officerDashboard.outstandingArrearsLabel') },
       { label: t('officerDashboard.reassessmentsPendingLabel'), value: d(deptStats?.reassessmentsPending), icon: <TrendingUp className="w-5 h-5" />, color: 'text-blue-700', bgColor: 'bg-blue-100', subLabel: t('officerDashboard.mutationTriggeredLabel') },
       { label: t('officerDashboard.collectedTodayLabel'), value: statsLoading ? '...' : formatRupees(deptStats?.collectedToday), icon: <DollarSign className="w-5 h-5" />, color: 'text-green-700', bgColor: 'bg-green-100', subLabel: t('officerDashboard.revenueCollectedLabel') },
-      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : Math.floor(decidedSteps * 0.9), icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
+      { label: t('officerDashboard.withinSlaLabel'), value: isLoading ? '...' : withinSla, icon: <ShieldCheck className="w-5 h-5" />, color: 'text-gov-success', bgColor: 'bg-green-100', subLabel: t('officerDashboard.slaComplianceLabel') },
     ],
     RESTRICTION: [
       { label: t('officerDashboard.flagChangeRequestsLabel'), value: isLoading ? '...' : pendingWorkflows, icon: <Flag className="w-5 h-5" />, color: 'text-action-700', bgColor: 'bg-action-500/15', subLabel: t('officerDashboard.casesAwaitingAction') },
@@ -393,6 +394,15 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
     async () => (await apiService.get(`/stats/${department}`)).data,
   );
 
+  // Real "Within SLA" count from the officer's own SLA monitor
+  // (GET /cases/tasks/my/sla). Replaces the earlier fake decidedSteps*0.85/0.9
+  // fudge factor — withinSla = tasks whose SLA timer is still OK (not breached).
+  const { data: slaRows = [] } = useQuery<{ sla: { status: string } | null }[]>(
+    ['my-tasks-sla'],
+    async () => (await apiService.get('/cases/tasks/my/sla')).data,
+  );
+  const withinSlaCount = slaRows.filter((r) => r.sla?.status === 'OK').length;
+
   const myStepOf = (workflow: Workflow) => workflow.steps.find((s) => s.department === department);
   const pendingWorkflows = workflows.filter((w) => myStepOf(w)?.status === 'PENDING');
   const decidedSteps = workflows.map(myStepOf).filter((s) => s && (s.status === 'APPROVED' || s.status === 'REJECTED'));
@@ -401,10 +411,10 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
   // Department-specific stats - hardcoded constants replaced by live counts
   // from GET /stats/:code (deptStats); workflow-derived fields stay client-side.
   const departmentStats = {
-    LAND_RECORDS: { pendingMutations: pendingWorkflows.length, approvedToday: verifiedToday, totalDecided: decidedSteps.length, withinSla: Math.floor(decidedSteps.length * 0.85) },
+    LAND_RECORDS: { pendingMutations: pendingWorkflows.length, approvedToday: verifiedToday, totalDecided: decidedSteps.length, withinSla: withinSlaCount },
     REGISTRATION: { pendingRegistrations: pendingWorkflows.length, duplicateFlags: deptStats?.duplicateFlags ?? 0, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
     PLANNING: { pendingPermissions: pendingWorkflows.length, zoningConflicts: deptStats?.zoningConflicts ?? 0, approvedToday: verifiedToday, totalDecided: decidedSteps.length },
-    TAX: { overdueParcels: deptStats?.overdueParcels ?? 0, reassessmentsPending: deptStats?.reassessmentsPending ?? 0, collectedToday: formatRupees(deptStats?.collectedToday), withinSla: Math.floor(decidedSteps.length * 0.9) },
+    TAX: { overdueParcels: deptStats?.overdueParcels ?? 0, reassessmentsPending: deptStats?.reassessmentsPending ?? 0, collectedToday: formatRupees(deptStats?.collectedToday), withinSla: withinSlaCount },
     RESTRICTION: { flagChangeRequests: pendingWorkflows.length, activeRestrictions: deptStats?.activeRestrictions ?? 0, reviewedToday: verifiedToday, blocksTriggered: deptStats?.blocksTriggered ?? 0 },
     ENCUMBRANCE: { pendingCertificates: pendingWorkflows.length, newMortgages: deptStats?.newMortgages ?? 0, fraudPrevented: deptStats?.fraudPrevented ?? 0, totalDecided: decidedSteps.length },
     DISPUTE: { activeDisputes: pendingWorkflows.length, escalatedToCollector: deptStats?.escalatedToCollector ?? 0, resolvedToday: verifiedToday, evidenceComplete: deptStats?.evidenceComplete ?? 0 },
@@ -475,6 +485,7 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
           isLoading,
           deptStats,
           statsLoading,
+          withinSla: withinSlaCount,
         })}
       </div>
 

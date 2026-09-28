@@ -45,7 +45,7 @@ A global `bhoomisetu:unauthorized` window event (dispatched by the axios 401 int
 - **Citizen** — Dashboard, My Parcels, Find Parcels, Get Assistance (AI intake), My Cases, Notifications, Profile.
 - **Officer** — Dashboard, Tasks, SLA, Performance, Cases, plus department-gated tools (Governance Alerts, Historical Imagery, Change Detection, Map, Documents, Duplicate Registry, Registration Chain, Reassessment Queue, Tax Analytics, Fraud Prevention, Certificate Generator). SPA gating via `OFFICER_TOOLS[department]`; backend independently enforces authz.
 - **Admin** — Dashboard, Departments, System Monitoring, Workflow Oversight, Map Layer Authoring, Officer Monitoring, Audit Log, Profile.
-- **Verifier** — deliberately narrow: Assigned Visits, task submission (evidence capture), local sync, Profile.
+- **Verifier** — deliberately narrow: Assigned Visits, task submission, local sync, Profile. One unified `TaskSubmissionPage` (`/verifier/task/:taskId/submit`) captures GPS + photo and structured findings in one step: the photo bytes are uploaded (multipart) to the workflow field-evidence pipeline `POST /workflows/{id}/field-evidence` — the same records the officer's review panel reads back with working images — while findings post to `/cases/{caseId}/findings`. Offline captures queue locally and replay to the same multipart endpoint. The older split Capture-Evidence / Submit-Findings pages (which stored a photo hash only and mis-keyed the case id) were removed; their routes redirect to `/submit`.
 
 ## Data layer
 

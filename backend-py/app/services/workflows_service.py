@@ -307,8 +307,18 @@ def add_field_evidence(db: Session, workflow_id: str, verifier_id: str, evidence
     # A Verifier may only submit evidence for a case actually assigned to
     # them - the one check standing between "authorized field verifier" and
     # "anyone with a Verifier account can attach evidence to any request".
+    # The live flow assigns verifiers per DepartmentTask (case_service.
+    # assign_verifier_to_task), not at the workflow level, so accept either.
     if workflow.assigned_verifier_id != verifier_id:
-        return NOT_ASSIGNED_TO_YOU
+        from app.models.case import DepartmentTask
+        task_assigned = db.scalar(
+            select(DepartmentTask.id).where(
+                DepartmentTask.workflow_id == workflow_id,
+                DepartmentTask.assigned_verifier_id == verifier_id,
+            ).limit(1)
+        )
+        if task_assigned is None:
+            return NOT_ASSIGNED_TO_YOU
 
     row = VerificationEvidence(
         workflow_id=workflow_id, verifier_id=verifier_id,

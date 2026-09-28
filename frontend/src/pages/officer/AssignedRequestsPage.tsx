@@ -37,8 +37,8 @@ const getDepartmentColumns = (department: string, t: (key: string) => string): D
       key: 'status',
       header: t('assignedRequestsPage.colStatus'),
       render: (workflow) => {
-        const isPending = workflow.currentStatus === 'SUBMITTED' || workflow.currentStatus === 'IN_PROGRESS';
-        const isApproved = workflow.currentStatus === 'APPROVED';
+        const isPending = workflow.currentStatus === 'SUBMITTED' || workflow.currentStatus === 'UNDER_REVIEW';
+        const isApproved = workflow.currentStatus === 'APPROVED' || workflow.currentStatus === 'COMPLETED';
         return (
           <span
             className={`px-2 py-0.5 rounded-full font-mono text-[9px] font-bold ${
@@ -329,8 +329,8 @@ const ParcelRequestGroup: React.FC<ParcelRequestGroupProps> = ({
       <div className="space-y-1.5 pt-1">
         {workflows.map((workflow) => {
           const isSelected = selectedWorkflowId === workflow.id;
-          const isPending = workflow.currentStatus === 'SUBMITTED' || workflow.currentStatus === 'IN_PROGRESS';
-          const isApproved = workflow.currentStatus === 'APPROVED';
+          const isPending = workflow.currentStatus === 'SUBMITTED' || workflow.currentStatus === 'UNDER_REVIEW';
+          const isApproved = workflow.currentStatus === 'APPROVED' || workflow.currentStatus === 'COMPLETED';
 
           return (
             <button

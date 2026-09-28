@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Camera, MapPin, CheckCircle2, AlertCircle, Send, CheckSquare } from 'lucide-react';
 import apiService from '../../services/apiService';
 import { saveLocalEvidence, getLocalQueue } from '../../services/verifierLocalSyncService';
@@ -34,6 +34,18 @@ const TaskSubmissionPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+
+  // The URL carries the DepartmentTask id; the case-scoped findings endpoint
+  // and the workflow-scoped field-evidence endpoint each need a different id.
+  // Both live on the task row, so resolve them from the verifier's task list
+  // (same cache key as AssignedVisitsPage — usually already warm).
+  const { data: tasks = [] } = useQuery<Array<{ id: string; caseId: string; workflowId?: string | null }>>(
+    ['verifier-assigned-tasks'],
+    async () => (await apiService.get('/cases/verifier/tasks')).data,
+  );
+  const task = tasks.find((tk) => tk.id === taskId);
+  const caseId = task?.caseId;
+  const workflowId = task?.workflowId;
 
   // Evidence state
   const [photo, setPhoto] = useState<File | null>(null);
@@ -89,20 +101,27 @@ const TaskSubmissionPage: React.FC = () => {
       if (!overallFinding) throw new Error(t('findings.overallFindingRequired'));
       if (findings.some(f => !f.field_name || !f.finding || !f.description)) throw new Error(t('findings.allFieldsRequired'));
 
-      // 1) Evidence — optional, best-effort. Queue locally on failure.
+      // 1) Evidence — optional, best-effort. Uploads the real photo bytes +
+      // GPS to the workflow field-evidence pipeline (multipart), which the
+      // officer's review panel reads back with working images. Queue locally
+      // on failure.
       if (photo && location.status === 'ready') {
         const capturedAt = new Date().toISOString();
-        const evidencePayload = {
-          case_id: taskId, verifier_id: '', latitude: location.lat, longitude: location.lng,
-          accuracy_m: location.accuracy, captured_at: capturedAt, photo_hash: photoHash(photo),
-          sequence: 1, notes: evidenceNotes, task_id: taskId,
-        };
+        if (!workflowId) throw new Error(t('fieldEvidence.noWorkflow', 'This task has no workflow to attach evidence to.'));
+        const form = new FormData();
+        form.append('photo', photo);
+        form.append('latitude', String(location.lat));
+        form.append('longitude', String(location.lng));
+        form.append('capturedAt', capturedAt);
+        if (evidenceNotes) form.append('notes', evidenceNotes);
         try {
-          await apiService.post(`/cases/${taskId}/evidence/capture`, evidencePayload);
+          await apiService.post(`/workflows/${workflowId}/field-evidence`, form, {
+            headers: { 'Content-Type': undefined },
+          });
           setEvidenceStatus('uploaded');
         } catch (_err) {
           saveLocalEvidence({
-            case_id: taskId ?? '', verifier_id: '', latitude: location.lat!, longitude: location.lng!,
+            case_id: caseId ?? '', workflow_id: workflowId, verifier_id: '', latitude: location.lat!, longitude: location.lng!,
             accuracy_m: location.accuracy, captured_at: capturedAt, photo_hash: photoHash(photo),
             sequence: 1, notes: evidenceNotes, task_id: taskId, photo,
           });
@@ -110,8 +129,9 @@ const TaskSubmissionPage: React.FC = () => {
         }
       }
 
-      // 2) Findings — required.
-      await apiService.post(`/cases/${taskId}/findings`, {
+      // 2) Findings — required. Case-scoped endpoint keyed by the real caseId.
+      if (!caseId) throw new Error(t('fieldEvidence.noCase', 'Could not resolve the case for this task.'));
+      await apiService.post(`/cases/${caseId}/findings`, {
         findings, overall_finding: overallFinding, declaration_confirmed: declarationConfirmed, notes, task_id: taskId,
       });
     },

@@ -254,8 +254,21 @@ function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.Feat
   source?.setData(data);
 }
 
-const DEFAULT_STATE_COLORS: Record<string, string> = { DL: '#ef4444', MH: '#f97316', KA: '#10b981' };
+const DEFAULT_STATE_COLORS: Record<string, string> = {
+  DL: '#ef4444', MH: '#f97316', KA: '#10b981', CH: '#3b82f6', TN: '#8b5cf6',
+};
 const DEFAULT_PARCEL_COLOR = '#6b7280';
+
+// Deterministic per-state fallback so a parcel from a state not in the
+// table above still gets a stable, distinct color instead of flat gray.
+function stateColor(stateCode?: string): string {
+  if (!stateCode) return DEFAULT_PARCEL_COLOR;
+  const known = DEFAULT_STATE_COLORS[stateCode];
+  if (known) return known;
+  let h = 0;
+  for (let i = 0; i < stateCode.length; i++) h = (h * 31 + stateCode.charCodeAt(i)) % 360;
+  return `hsl(${h}, 65%, 55%)`;
+}
 
 function getRiskScoreLabel(score: number): string {
   if (score >= 75) return 'Critical';
@@ -1039,7 +1052,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         localBodyCode: parcel.localBodyCode,
         areaSqM: parcel.areaSqM,
         taxStatus: parcel.taxStatus,
-        fillColor: parcelColors?.[parcel.id] ?? DEFAULT_STATE_COLORS[parcel.stateCode] ?? DEFAULT_PARCEL_COLOR,
+        fillColor: parcelColors?.[parcel.id] ?? stateColor(parcel.stateCode),
         extraLabel: parcelLabels?.[parcel.id] ?? null,
         legal_status_severity: parcel.legalStatusSeverity ?? parcel.legal_status_severity ?? 0,
         value_band: parcel.valueBand ?? parcel.value_band ?? 0,
