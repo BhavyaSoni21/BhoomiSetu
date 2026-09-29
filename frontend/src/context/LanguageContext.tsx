@@ -304,7 +304,7 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'landing.govAlignment.eyebrow': 'Government alignment',
     'landing.govAlignment.heading': 'Connected to India\'s land ecosystem',
     'landing.hero.badges.0.text': 'SVAMITVA Scheme Aligned',
-    'landing.hero.badges.1.text': '7 Department Feeds',
+    'landing.hero.badges.1.text': '8 Department Feeds',
     'landing.hero.badges.2.text': 'Seeded demo parcel data',
     'landing.hero.badges.3.text': 'Citizen & Officer Portals',
     'landing.hero.body': 'BhoomiSetu is India\'s unified land-governance platform — connecting citizens, officers, and departments through AI assistance and configurable workflows.',

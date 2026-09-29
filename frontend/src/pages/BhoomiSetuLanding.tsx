@@ -420,7 +420,7 @@ export const BhoomiSetuLanding: React.FC = () => {
                 <span className="text-[11px] text-[var(--text-muted)]">{t('landing.stats.parcelsMapped.desc')}</span>
               </div>
               <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">7</span>
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">8</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">{t('landing.stats.departmentFeeds.label')}</span>
                 <span className="text-[11px] text-[var(--text-muted)]">{t('landing.stats.departmentFeeds.desc')}</span>
               </div>
