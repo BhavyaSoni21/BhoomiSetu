@@ -19,7 +19,7 @@ from shapely.geometry import Polygon
 from fastapi import Query
 from sqlalchemy.orm import Session
 
-from app.auth.deps import get_current_user_optional, require_roles
+from app.auth.deps import get_current_user, get_current_user_optional, require_roles
 from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
 from app.database import get_db
 from app.document_verification.verifier import dist_code, extract, get_text_and_preview, run_verification, vill_code
@@ -331,11 +331,9 @@ def get_parcel_360(id: UUID, db: Session = Depends(get_db), user: User | None = 
 
 
 @router.get("/{id}/ownership-history", response_model=list[OwnershipHistoryRecordOut])
-def get_ownership_history(id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
+def get_ownership_history(id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not service.find_one(db, str(id)):
         raise _not_found(id)
-    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ownership history is only visible for parcels associated with your account")
     return service.get_ownership_history(db, str(id))
 
 
@@ -349,14 +347,10 @@ def get_documents(id: UUID, db: Session = Depends(get_db)):
 @router.get("/{id}/documents/official-pdf")
 def get_official_document_pdf(
     id: UUID, lang: str = Query("en", pattern="^(en|hi)$"),
-    db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
     if not service.find_one(db, str(id)):
         raise _not_found(id)
-    # Same access rule as the seed-time document file above - a citizen
-    # only sees it for a parcel actually linked to their account.
-    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
     pdf_bytes = service.get_official_document_pdf(db, str(id), lang, user=user)
     return Response(
         content=pdf_bytes,
@@ -372,12 +366,10 @@ def get_official_document_pdf(
 def summarise_document(
     id: UUID,
     body: dict | None = None,  # optional { lang?: "en"|"hi" }; legacy {url, fileName} ignored
-    db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE)),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
     if not service.find_one(db, str(id)):
         raise _not_found(id)
-    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only available for parcels associated with your account")
 
     # The official record-of-rights PDF is generated server-side from the
     # parcel id (same source as GET .../official-pdf), never fetched from a
@@ -426,12 +418,11 @@ def summarise_document(
 # not a doc_id UUID, so it must be matched before this {doc_id}: UUID
 # route or FastAPI would try (and fail) to parse it as one.
 @router.get("/{id}/documents/{doc_id}/file")
-def get_document_file(id: UUID, doc_id: UUID, download: bool = Query(False), db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
-    if user.role == CITIZEN_ROLE and not service.is_citizen_associated_with_parcel(db, str(user.id), str(id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This document is only visible for parcels associated with your account")
-    # Citizens may only view documents inline; downloading (attachment) is
-    # reserved for staff so the source file never leaves the citizen's browser.
-    if download and user.role == CITIZEN_ROLE:
+def get_document_file(id: UUID, doc_id: UUID, download: bool = Query(False), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    # Any signed-in user may view a document inline; downloading (attachment)
+    # is reserved for staff/officers so the source file never leaves a
+    # non-officer's browser.
+    if download and user.role not in ALL_STAFF_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only officers may download documents; you can view them inline")
     result = service.get_document_file(db, str(id), str(doc_id))
     if not result:

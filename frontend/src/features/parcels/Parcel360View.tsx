@@ -87,6 +87,7 @@ const Parcel360View: React.FC = () => {
   const isOfficer = !!authUser && (OFFICER_ROLES as readonly string[]).includes(authUser.role);
   const isCitizen = authUser?.role === 'CITIZEN';
   const isStaffViewer = isOfficer || authUser?.role === 'ADMIN';
+  const isSignedIn = !!authUser;
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [serviceRequest, setServiceRequest] = useState<{ workflowType: string; title: string } | null>(null);
   const [officialPdfUrl, setOfficialPdfUrl] = useState<string | null>(null);
@@ -201,9 +202,9 @@ const Parcel360View: React.FC = () => {
   // (docs/ADMIN_PANEL_ISSUES.md follow-up) - the same real weighted score
   // AdminDashboard's Top Risk Parcels list already surfaces to staff, now
   // also shown inline on Parcel 360 itself. Public endpoint, but only
-  // fetched/shown here for an owner/staff viewer so a citizen browsing a
-  // parcel that isn't theirs doesn't see someone else's risk detail.
-  const canViewRiskScore = isOwnParcel || isStaffViewer;
+  // Risk score is part of the Parcel 360 data set, visible to any signed-in
+  // user; only unauthenticated guests don't get it.
+  const canViewRiskScore = isSignedIn;
   const { data: riskScore } = useQuery<RiskScore>(
     ['risk-score', id],
     async () => (await apiService.get(`/parcels/${id}/risk-score`)).data,
@@ -321,24 +322,24 @@ const Parcel360View: React.FC = () => {
               </button>
             </>
           )}
+          {isSignedIn && (
+            <button
+              onClick={() => fetchOfficialPdf().catch(() => setOfficialPdfError('Unable to generate the official document.'))}
+              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            >
+              <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+              {t('parcel360.viewOfficialDocument')}
+            </button>
+          )}
           {(isOwnParcel || isStaffViewer) && (
-            <>
-              <button
-                onClick={() => fetchOfficialPdf().catch(() => setOfficialPdfError('Unable to generate the official document.'))}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-              >
-                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-                {t('parcel360.viewOfficialDocument')}
-              </button>
-              <button
-                onClick={() => downloadPdfMutation.mutate()}
-                disabled={downloadPdfMutation.isLoading}
-                className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
-              >
-                <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                {downloadPdfMutation.isLoading ? t('parcel360.downloadingOfficialDocument') : t('parcel360.downloadOfficialDocument')}
-              </button>
-            </>
+            <button
+              onClick={() => downloadPdfMutation.mutate()}
+              disabled={downloadPdfMutation.isLoading}
+              className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink shadow-hard-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              {downloadPdfMutation.isLoading ? t('parcel360.downloadingOfficialDocument') : t('parcel360.downloadOfficialDocument')}
+            </button>
           )}
           <button
             className="inline-flex items-center gap-2 border-2 border-ink bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-muted active:translate-x-[2px] active:translate-y-[2px]"

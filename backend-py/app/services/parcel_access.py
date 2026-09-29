@@ -9,9 +9,7 @@ places in the original TS source).
 
 from sqlalchemy.orm import Session
 
-from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE
 from app.models.user import User
-from app.services import parcels_service
 
 _RESTRICTED_DEPARTMENTS = ("planning", "tax", "restriction", "dispute", "encumbrance")
 # Conflict `sources` use SCREAMING_SNAKE department names; keep in sync with the tuple above.
@@ -19,11 +17,11 @@ _RESTRICTED_CONFLICT_SOURCES = {"PLANNING", "TAX", "RESTRICTION", "DISPUTE", "EN
 
 
 def can_view_restricted_departments(db: Session, user: User | None, parcel_id: str) -> bool:
-    if user is not None and user.role in ALL_STAFF_ROLES:
-        return True
-    if user is not None and user.role == CITIZEN_ROLE:
-        return parcels_service.is_citizen_associated_with_parcel(db, str(user.id), parcel_id)
-    return False
+    # Every signed-in user (any role) sees the full cross-department Parcel
+    # 360; only unauthenticated guests still get the masked view. `db` and
+    # `parcel_id` are kept for the shared call signature (parcels router + the
+    # AI-explain side channel in ai_service.py, which must stay in lock-step).
+    return user is not None
 
 
 def mask_restricted_departments(parcel_360_result: dict) -> None:
