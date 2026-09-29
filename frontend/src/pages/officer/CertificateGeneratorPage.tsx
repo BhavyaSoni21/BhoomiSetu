@@ -124,7 +124,7 @@ const CertificateGeneratorPage: React.FC = () => {
           {t('officerNav.certificateGenerator', 'Certificate Generator')}
         </h1>
         <p className="text-xs sm:text-sm text-text-secondary mt-1">
-          {t('officerDashboard.certificateGeneratorDesc', 'Issue encumbrance certificates (PDF). Core Encumbrance Officer workflow — review pending requests, generate certificates with all active encumbrances listed.')}
+          {t('officerDashboard.certificateGeneratorDesc', 'Issue encumbrance certificates (PDF). Core Encumbrance Officer workflow - review pending requests, generate certificates with all active encumbrances listed.')}
         </p>
       </div>
 
@@ -230,7 +230,7 @@ const CertificateGeneratorPage: React.FC = () => {
                           </td>
                           <td className="py-3 text-text-primary">{req.requestedBy}</td>
                           <td className="py-3 text-text-secondary font-mono">
-                            {req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : '—'}
+                            {req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : '-'}
                           </td>
                           <td className="py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${getRequestStatusColor(req.status)}`}>
@@ -305,10 +305,10 @@ const CertificateGeneratorPage: React.FC = () => {
                           <td className="py-3 font-mono text-text-primary">{cert.parcelId.slice(0, 12)}</td>
                           <td className="py-3 text-text-heading">{cert.ownerName}</td>
                           <td className="py-3 text-text-secondary font-mono">
-                            {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString() : '—'}
+                            {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString() : '-'}
                           </td>
                           <td className="py-3 text-text-secondary font-mono">
-                            {cert.validUntil ? new Date(cert.validUntil).toLocaleDateString() : '—'}
+                            {cert.validUntil ? new Date(cert.validUntil).toLocaleDateString() : '-'}
                           </td>
                           <td className="py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${getStatusColor(cert.status)}`}>

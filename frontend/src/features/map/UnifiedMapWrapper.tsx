@@ -73,7 +73,7 @@ interface UnifiedMapWrapperProps {
   overlayElement?: React.ReactNode;
   /** Layer keys to switch ON at first render (merged over DEFAULT_LAYER_VISIBILITY), e.g. roads/buildings on the admin authoring map. */
   initialLayersOn?: LayerKey[];
-  /** Fetch GIS overlays nationwide (no state/district scoping) instead of scoping to a selected parcel's district — for nationwide authoring maps with no parcel selected. */
+  /** Fetch GIS overlays nationwide (no state/district scoping) instead of scoping to a selected parcel's district - for nationwide authoring maps with no parcel selected. */
   fetchOverlaysNationwide?: boolean;
 }
 

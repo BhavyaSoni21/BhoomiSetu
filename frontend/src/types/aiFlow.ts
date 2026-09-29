@@ -189,7 +189,7 @@ export interface DepartmentTaskOut {
   completed_at?: string | null;
 }
 
-// camelCase mirror of DepartmentTaskOut — the actual wire shape from the
+// camelCase mirror of DepartmentTaskOut - the actual wire shape from the
 // /cases/* endpoints (CamelModel serializes by_alias). Use this for tasks
 // fetched from those routes; the snake_case form above lags the wire.
 export interface DepartmentTask {

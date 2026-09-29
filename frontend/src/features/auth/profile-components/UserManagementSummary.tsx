@@ -20,16 +20,16 @@ export const UserManagementSummary: React.FC<UserManagementSummaryProps> = ({
   onOpenUserManagement,
   onOpenAccessManagement,
 }) => {
-  // Honest empty state ('—') for any counter without a real backend source,
+  // Honest empty state ('-') for any counter without a real backend source,
   // instead of fabricated demo numbers.
-  const n = (v?: number) => (v == null ? '—' : v);
+  const n = (v?: number) => (v == null ? '-' : v);
   return (
     <ProfileCard
       icon={<Users className="w-4 h-4 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />}
       title="USER & ACCESS MANAGEMENT"
     >
       <div className="space-y-4">
-        {/* Live counters — real values where an endpoint exists, '—' otherwise */}
+        {/* Live counters - real values where an endpoint exists, '-' otherwise */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2">
           <div className="bg-white dark:bg-surface-2/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-2xs">
             <div className="text-xl font-black font-heading text-text-heading">{n(managedUsers)}</div>

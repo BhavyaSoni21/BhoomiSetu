@@ -67,7 +67,7 @@ describe('OfficerMonitoring', () => {
     renderPanel();
 
     expect(await screen.findByText('Idle Officer')).toBeInTheDocument();
-    const dashes = screen.getAllByText('—');
+    const dashes = screen.getAllByText('-');
     // One for avg. decision time, one for last activity.
     expect(dashes.length).toBeGreaterThanOrEqual(2);
   });

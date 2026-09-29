@@ -49,7 +49,7 @@ const CITIZEN_TOUR_STEPS: TourStepDef[] = [
     titleKey: 'onboarding.tour.assistanceTitle',
     titleFallback: 'Get assistance',
     descKey: 'onboarding.tour.assistanceDesc',
-    descFallback: 'Need help? Find guides and support here — and replay this tour any time.',
+    descFallback: 'Need help? Find guides and support here - and replay this tour any time.',
   },
   {
     tourId: 'citizen-nav-notifications',
@@ -102,7 +102,7 @@ function prefersReducedMotion(): boolean {
 // screens the desktop nav is hidden, so ask AppShell to open the mobile menu
 // first and wait for it to render before resolving targets. Resolves when the
 // tour is finished, skipped or closed. Reusable for first-login AND the
-// "Take a tour" replay (spec §13) — it never touches onboarding_completed.
+// "Take a tour" replay (spec §13) - it never touches onboarding_completed.
 export async function runCitizenTour(t: TFn): Promise<void> {
   const isSmall = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1023px)').matches;
   if (isSmall) {

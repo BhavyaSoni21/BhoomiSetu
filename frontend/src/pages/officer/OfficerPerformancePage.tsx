@@ -27,7 +27,7 @@ const OfficerPerformancePage: React.FC = () => {
     { label: 'Pending in Queue', value: data.pendingInRoleQueue, color: 'text-amber-600' },
     { label: 'Approved', value: data.approvedCount, color: 'text-emerald-600' },
     { label: 'Rejected', value: data.rejectedCount, color: 'text-red-600' },
-    { label: 'Avg Decision (hrs)', value: data.avgDecisionHours ?? '—', color: 'text-brand-700' },
+    { label: 'Avg Decision (hrs)', value: data.avgDecisionHours ?? '-', color: 'text-brand-700' },
   ];
   const chartData = [
     { name: 'Pending', value: data.pendingInRoleQueue },

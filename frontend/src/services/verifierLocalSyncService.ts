@@ -195,7 +195,7 @@ export async function autoSyncQueue(
       updateLocalEvidence(originalIndex, { upload_state: 'uploading', upload_progress: 0 });
 
       // Replay to the workflow field-evidence pipeline (multipart, real photo
-      // bytes) — same path the online submit uses, so queued evidence surfaces
+      // bytes) - same path the online submit uses, so queued evidence surfaces
       // in the officer's review panel with working images. Records queued
       // before workflow_id was captured, or with no photo, are dropped as
       // unreplayable rather than silently posting hash-only rows.

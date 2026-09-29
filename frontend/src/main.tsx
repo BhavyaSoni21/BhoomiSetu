@@ -14,7 +14,7 @@ initTheme();
 startNetworkMonitor();
 
 // autoUpdate (vite.config.ts): the new SW self-activates on next load. No
-// confirm() gate — a suppressed confirm (tab not focused) used to strand users
+// confirm() gate - a suppressed confirm (tab not focused) used to strand users
 // on a stale, cache-poisoned SW.
 registerSW({ immediate: true });
 

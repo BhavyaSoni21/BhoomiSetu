@@ -66,7 +66,7 @@ const getDepartmentColumns = (department: string, t: (key: string) => string): D
           const matchPercent = precheck?.checks
             ? Math.round((precheck.checks.filter((c: any) => c.status === 'MATCHED').length / precheck.checks.length) * 100)
             : null;
-          if (matchPercent === null) return <span className="text-text-muted text-xs">—</span>;
+          if (matchPercent === null) return <span className="text-text-muted text-xs">-</span>;
           const color = matchPercent >= 80 ? 'text-green-700' : matchPercent >= 50 ? 'text-amber-700' : 'text-red-700';
           return (
             <span className={`font-mono font-semibold text-xs ${color}`}>
@@ -92,7 +92,7 @@ const getDepartmentColumns = (department: string, t: (key: string) => string): D
               </span>
             );
           }
-          return <span className="text-text-muted text-xs">—</span>;
+          return <span className="text-text-muted text-xs">-</span>;
         },
       },
     ],
@@ -135,7 +135,7 @@ const getDepartmentColumns = (department: string, t: (key: string) => string): D
               </span>
             );
           }
-          return <span className="text-text-muted text-xs">—</span>;
+          return <span className="text-text-muted text-xs">-</span>;
         },
       },
     ],
@@ -229,7 +229,7 @@ const getDepartmentColumns = (department: string, t: (key: string) => string): D
               </span>
             );
           }
-          return <span className="text-text-muted text-xs">—</span>;
+          return <span className="text-text-muted text-xs">-</span>;
         },
       },
       {

@@ -5,7 +5,7 @@ import { create } from 'zustand';
 export type NetworkStatus = 'ONLINE' | 'OFFLINE' | 'RECONNECTING' | 'SYNCING' | 'SYNC_ERROR';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-// health is mounted at the server root (no /api/v1 prefix) — see backend main.py.
+// health is mounted at the server root (no /api/v1 prefix) - see backend main.py.
 const HEALTH_URL = API_BASE.replace(/\/api\/v1\/?$/, '') + '/health';
 
 interface NetworkState {

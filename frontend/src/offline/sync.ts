@@ -88,7 +88,7 @@ export async function syncNow(): Promise<{ applied: number; conflicts: number; f
 
 // Kick a drain whenever connectivity returns. Called from the network monitor.
 // Drains both queues: the JSON op queue (cases) and the verifier's multipart
-// evidence queue (spec §9/§31) — the latter lives in localStorage with its own
+// evidence queue (spec §9/§31) - the latter lives in localStorage with its own
 // retry, so we fire it independently of pendingCount.
 export function syncOnReconnect(): void {
   const s = useNetworkStore.getState();

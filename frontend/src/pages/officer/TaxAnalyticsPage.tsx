@@ -44,7 +44,7 @@ const TaxAnalyticsPage: React.FC = () => {
           {t('officerNav.taxAnalytics', 'Tax Analytics')}
         </h1>
         <p className="text-xs sm:text-sm text-text-secondary mt-1">
-          {t('officerDashboard.taxAnalyticsDesc', 'Collection rates, overdue trends, demand vs. collected — Revenue/Municipal tax department oversight dashboard.')}
+          {t('officerDashboard.taxAnalyticsDesc', 'Collection rates, overdue trends, demand vs. collected - Revenue/Municipal tax department oversight dashboard.')}
         </p>
       </div>
 

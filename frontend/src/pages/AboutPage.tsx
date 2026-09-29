@@ -47,8 +47,8 @@ const AboutPage: React.FC = () => {
       {/* Impact Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { icon: Database, value: stats ? stats.parcels.toLocaleString() : '—', label: t('about.statParcels') },
-          { icon: FileCheck, value: stats ? stats.serviceRequests.toLocaleString() : '—', label: t('about.statRequests') },
+          { icon: Database, value: stats ? stats.parcels.toLocaleString() : '-', label: t('about.statParcels') },
+          { icon: FileCheck, value: stats ? stats.serviceRequests.toLocaleString() : '-', label: t('about.statRequests') },
           { icon: MapPin, value: '2', label: t('about.statPilots') },
           { icon: Layers, value: '6', label: t('about.statLayers') },
         ].map((s, i) => (

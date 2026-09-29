@@ -8,7 +8,7 @@ import type { OfflineOperation } from '../offline/db';
 
 // Connectivity chip + SyncCenter (spec §25/§8). Shows live/offline, queued
 // count and conflicts; the panel offers "Sync Now" and per-conflict discard
-// (accept-server). Status only until opened — no polling of its own.
+// (accept-server). Status only until opened - no polling of its own.
 const OfflineStatusIndicator: React.FC = () => {
   const { online, status, pendingCount, conflictCount } = useOnlineStatus();
   const lastSyncAt = useNetworkStore((s) => s.lastSyncAt);
@@ -63,7 +63,7 @@ const OfflineStatusIndicator: React.FC = () => {
           <dl className="text-xs space-y-1 mb-3">
             <div className="flex justify-between"><dt>Status</dt><dd className="font-medium">{label}</dd></div>
             <div className="flex justify-between"><dt>Pending</dt><dd className="tabular-nums">{pendingCount}</dd></div>
-            <div className="flex justify-between"><dt>Last sync</dt><dd>{lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString() : '—'}</dd></div>
+            <div className="flex justify-between"><dt>Last sync</dt><dd>{lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString() : '-'}</dd></div>
           </dl>
           <button
             type="button"

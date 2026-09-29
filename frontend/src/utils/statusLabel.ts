@@ -1,7 +1,7 @@
 // Turn a backend enum (PENDING, COURT_ORDER) into a human label.
 // SNAKE_CASE / ALL_CAPS -> Title Case.
 export function humanizeEnum(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   return value
     .toLowerCase()
     .split('_')
@@ -17,6 +17,6 @@ export function statusLabel(
   value?: string | null,
   prefix = 'cases.status',
 ): string {
-  if (!value) return '—';
+  if (!value) return '-';
   return t(`${prefix}.${value}`, humanizeEnum(value));
 }

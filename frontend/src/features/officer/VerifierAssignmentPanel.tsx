@@ -50,7 +50,7 @@ const VerifierAssignmentPanel: React.FC<VerifierAssignmentPanelProps> = ({ task,
     queryKey: ['verifiers-with-workload'],
     queryFn: async () => {
       // One officer-readable endpoint returns VERIFIER users + their active
-      // task counts. (Was two calls: admin-only `/users` — 403 for officers —
+      // task counts. (Was two calls: admin-only `/users` - 403 for officers -
       // plus a non-existent `/cases/tasks/all`, so the list was always empty
       // and every workload showed 0.)
       const res = await apiService.get<VerifierWithWorkload[]>('/cases/verifiers');

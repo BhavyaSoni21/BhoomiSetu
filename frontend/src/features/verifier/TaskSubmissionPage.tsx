@@ -38,7 +38,7 @@ const TaskSubmissionPage: React.FC = () => {
   // The URL carries the DepartmentTask id; the case-scoped findings endpoint
   // and the workflow-scoped field-evidence endpoint each need a different id.
   // Both live on the task row, so resolve them from the verifier's task list
-  // (same cache key as AssignedVisitsPage — usually already warm).
+  // (same cache key as AssignedVisitsPage - usually already warm).
   const { data: tasks = [] } = useQuery<Array<{ id: string; caseId: string; workflowId?: string | null }>>(
     ['verifier-assigned-tasks'],
     async () => (await apiService.get('/cases/verifier/tasks')).data,
@@ -101,7 +101,7 @@ const TaskSubmissionPage: React.FC = () => {
       if (!overallFinding) throw new Error(t('findings.overallFindingRequired'));
       if (findings.some(f => !f.field_name || !f.finding || !f.description)) throw new Error(t('findings.allFieldsRequired'));
 
-      // 1) Evidence — optional, best-effort. Uploads the real photo bytes +
+      // 1) Evidence - optional, best-effort. Uploads the real photo bytes +
       // GPS to the workflow field-evidence pipeline (multipart), which the
       // officer's review panel reads back with working images. Queue locally
       // on failure.
@@ -136,7 +136,7 @@ const TaskSubmissionPage: React.FC = () => {
         }
       }
 
-      // 2) Findings — required. Case-scoped endpoint keyed by the real caseId.
+      // 2) Findings - required. Case-scoped endpoint keyed by the real caseId.
       if (!caseId) throw new Error(t('fieldEvidence.noCase', 'Could not resolve the case for this task.'));
       await apiService.post(`/cases/${caseId}/findings`, {
         findings, overall_finding: overallFinding, declaration_confirmed: declarationConfirmed, notes, task_id: taskId,

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // The browser fires `beforeinstallprompt` when the PWA is installable, and it
-// often fires early — before a late-mounting component (the footer sits at the
+// often fires early - before a late-mounting component (the footer sits at the
 // bottom of the page) can attach a listener. So we capture it at module load
 // (this file is imported from main.tsx at startup) into module state and let
 // the hook subscribe. Calling .prompt() only ever happens from an explicit
 // badge click, so the native "Install app?" consent dialog is what actually
-// adds it to the home screen — nothing installs silently. iOS Safari never
+// adds it to the home screen - nothing installs silently. iOS Safari never
 // fires this event; there we fall back to manual "Add to Home Screen" steps.
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

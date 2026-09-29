@@ -3,7 +3,7 @@ import { useNetworkStore } from './network';
 
 // Offline mutation queue (spec §7/§8). Permitted writes are staged here with a
 // uuid idempotency key while offline, then drained by the SyncManager. This is
-// a workspace, never source of truth — the server re-validates every op.
+// a workspace, never source of truth - the server re-validates every op.
 
 // Best-effort current user id from the JWT `sub`, so a queued op is owned and
 // never replayed under the wrong account on a shared device (spec §36/§37).

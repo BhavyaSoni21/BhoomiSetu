@@ -314,7 +314,7 @@ const DocumentsPage: React.FC = () => {
                       {doc.uploadedBy}
                     </span>
                     <span>
-                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : '—'}
+                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : '-'}
                     </span>
                   </div>
 

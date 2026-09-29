@@ -22,7 +22,7 @@ import {
 } from '../../features/auth/profile-components';
 
 function formatDate(value?: string): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
@@ -63,8 +63,8 @@ const AdminProfilePage: React.FC = () => {
       `Name: ${user.name}`,
       `Role: System Administrator`,
       `Email: ${user.email}`,
-      `Managed Users: ${summaryData?.totals.totalUsers ?? '—'}`,
-      `Active Officers: ${officers.length || '—'}`,
+      `Managed Users: ${summaryData?.totals.totalUsers ?? '-'}`,
+      `Active Officers: ${officers.length || '-'}`,
       `Export Timestamp: ${new Date().toLocaleString()}`,
       '=========================================',
     ].join('\n');

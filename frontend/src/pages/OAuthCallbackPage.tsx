@@ -21,7 +21,7 @@ const OAuthCallbackPage: React.FC = () => {
   const errorDescription = searchParams.get('error_description');
 
   useEffect(() => {
-    // StrictMode fires effects twice — the ref ensures we only run once.
+    // StrictMode fires effects twice - the ref ensures we only run once.
     if (hasFired.current) return;
     hasFired.current = true;
 
@@ -42,7 +42,7 @@ const OAuthCallbackPage: React.FC = () => {
       return;
     }
 
-    // Directly call the API — no mutation state machine needed.
+    // Directly call the API - no mutation state machine needed.
     (async () => {
       try {
         const response = await apiService.get('/auth/google/callback', {

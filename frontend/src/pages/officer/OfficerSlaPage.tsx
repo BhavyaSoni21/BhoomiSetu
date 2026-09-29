@@ -88,7 +88,7 @@ const OfficerSlaPage: React.FC = () => {
                       </Link>
                     </td>
                     <td className="py-3 text-text-primary">{r.status.replace(/_/g, ' ')}</td>
-                    <td className="py-3 font-mono text-text-secondary">{r.sla ? r.sla.elapsed_hours : '—'}</td>
+                    <td className="py-3 font-mono text-text-secondary">{r.sla ? r.sla.elapsed_hours : '-'}</td>
                     <td className="py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${STATUS_STYLE[label(r)]}`}>
                         {label(r)}

@@ -150,7 +150,7 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
   // The step's output splits into two regions (see return): the "information"
   // panel sits to the *right* of the chat on desktop, and the editable
   // application draft sits full-width *under* the chat. Facts render right,
-  // draft renders under — matching the requested layout.
+  // draft renders under - matching the requested layout.
   const draftHasFacts =
     !!chat.draft &&
     ((chat.draft.facts_database?.length ?? 0) + (chat.draft.citizen_statements?.length ?? 0)) > 0;
@@ -320,7 +320,7 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
                   <PenLine className="w-3.5 h-3.5" />
                   {ownMode
                     ? t('aiChat.useGuidedButton', 'Use guided assistant')
-                    : t('aiChat.bypassButton', 'Skip AI — write my own request')}
+                    : t('aiChat.bypassButton', 'Skip AI - write my own request')}
                 </button>
               </div>
               <ChatInputBar
@@ -333,7 +333,7 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
           )}
         </div>
 
-        {/* INFORMATION PANEL — right of chat on desktop, under it on mobile */}
+        {/* INFORMATION PANEL - right of chat on desktop, under it on mobile */}
         {infoNode && (
           <aside className="min-w-0 flex flex-col gap-3 lg:max-h-[70vh] lg:overflow-y-auto">
             {infoNode}
@@ -341,7 +341,7 @@ const AiChat: React.FC<AiChatProps> = ({ parcelId, onClose }) => {
           </aside>
         )}
 
-        {/* APPLICATION DRAFT — full width, under the chat */}
+        {/* APPLICATION DRAFT - full width, under the chat */}
         {underNode && (
           <div className="lg:col-span-2 space-y-3">
             {underNode}

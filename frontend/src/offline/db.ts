@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 
-// Local cache / workspace / queue — NOT source of truth (spec §1.2). PostGIS
+// Local cache / workspace / queue - NOT source of truth (spec §1.2). PostGIS
 // stays authoritative; every row carries freshness metadata and an owner so a
 // shared field device never leaks one user's data to the next (spec §36/§37).
 
@@ -33,7 +33,7 @@ export interface CachedCase extends CacheMeta {
 export type OpStatus = 'PENDING' | 'SYNCING' | 'SYNCED' | 'FAILED' | 'CONFLICT' | 'CANCELLED';
 
 export interface OfflineOperation {
-  operationId: string;        // uuid — idempotency key (spec §7/§8)
+  operationId: string;        // uuid - idempotency key (spec §7/§8)
   ownerUserId: string;
   entityType: 'case' | 'document' | 'evidence';
   entityId?: string | null;

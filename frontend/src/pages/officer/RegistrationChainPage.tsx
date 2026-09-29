@@ -156,7 +156,7 @@ const RegistrationChainPage: React.FC = () => {
                           <td className="py-3 px-4 font-mono font-bold text-ink">#{entry.chainStep}</td>
                           <td className="py-3 px-4 font-mono text-text-primary">{entry.registrationNumber}</td>
                           <td className="py-3 px-4 text-text-secondary font-mono">
-                            {entry.registrationDate ? new Date(entry.registrationDate).toLocaleDateString() : '—'}
+                            {entry.registrationDate ? new Date(entry.registrationDate).toLocaleDateString() : '-'}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold ${getTransactionTypeColor(entry.transactionType)}`}>
@@ -166,7 +166,7 @@ const RegistrationChainPage: React.FC = () => {
                           <td className="py-3 px-4 text-text-primary">{entry.previousOwner}</td>
                           <td className="py-3 px-4 font-medium text-text-heading">{entry.newOwner}</td>
                           <td className="py-3 px-4 font-mono text-text-secondary">
-                            {entry.considerationAmount ? `₹${Number(entry.considerationAmount).toLocaleString()}` : '—'}
+                            {entry.considerationAmount ? `₹${Number(entry.considerationAmount).toLocaleString()}` : '-'}
                           </td>
                           <td className="py-3 px-4 font-mono text-text-secondary">{entry.documentReference}</td>
                           <td className="py-3 px-4">
@@ -175,7 +175,7 @@ const RegistrationChainPage: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-3 px-4 font-mono text-text-secondary">
-                            {entry.linkedMutationId ? `#${entry.linkedMutationId.slice(0, 8)}` : '—'}
+                            {entry.linkedMutationId ? `#${entry.linkedMutationId.slice(0, 8)}` : '-'}
                           </td>
                           <td className="py-3 px-4 text-text-secondary">{entry.registeredBy}</td>
                         </tr>

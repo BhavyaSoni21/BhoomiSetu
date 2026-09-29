@@ -78,7 +78,7 @@ const CitizenDashboardPage: React.FC = () => {
                 style={{ background: 'rgba(var(--action-500), 0.2)', color: 'var(--action-500)', border: '1px solid rgba(var(--action-500), 0.4)' }}
               >
                 <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                {/* SVAMITVA is a government scheme name — intentionally not translated */}
+                {/* SVAMITVA is a government scheme name - intentionally not translated */}
                 CITIZEN PORTAL · SVAMITVA VERIFIED
               </span>
               <span className="text-white/40 text-xs hidden sm:inline">|</span>
@@ -340,7 +340,7 @@ const CitizenDashboardPage: React.FC = () => {
             <div className="flex items-center gap-2 text-action-700 mb-2">
               <Flag className="w-5 h-5 shrink-0" aria-hidden="true" />
               <h3 className="font-heading font-bold text-base text-text-heading">
-                {/* SVAMITVA is an official government scheme name — intentionally not translated */}
+                {/* SVAMITVA is an official government scheme name - intentionally not translated */}
                 SVAMITVA Property Claim
               </h3>
             </div>

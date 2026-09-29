@@ -390,11 +390,11 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                     <div className="gov-card p-4">
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldStatus', 'Status')}</div>
                       <div className="text-lg font-bold text-text-heading">{task.status}</div>
-                      {sla && <div className={`text-xs mt-2 font-mono ${slaColor}`}>SLA: {sla.status} — {sla.message}</div>}
+                      {sla && <div className={`text-xs mt-2 font-mono ${slaColor}`}>SLA: {sla.status} - {sla.message}</div>}
                     </div>
                     <div className="gov-card p-4">
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldResolutionMode', 'Resolution Mode')}</div>
-                      <div className="text-lg font-bold text-text-heading">{task.resolutionMode || '—'}</div>
+                      <div className="text-lg font-bold text-text-heading">{task.resolutionMode || '-'}</div>
                     </div>
                     <div className="gov-card p-4">
                       <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.fieldDepartment', 'Department')}</div>
@@ -574,11 +574,11 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.ulpinLabel', 'ULPIN')}</div>
-                          <div className="text-sm font-medium text-text-heading">{parcel360.identifiers.ulpin || '—'}</div>
+                          <div className="text-sm font-medium text-text-heading">{parcel360.identifiers.ulpin || '-'}</div>
                         </div>
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.surveyNoLabel', 'Survey Number')}</div>
-                          <div className="text-sm font-medium text-text-heading">{parcel360.identifiers.survey_number || '—'}</div>
+                          <div className="text-sm font-medium text-text-heading">{parcel360.identifiers.survey_number || '-'}</div>
                         </div>
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.areaLabel', 'Area')}</div>
@@ -588,12 +588,12 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.ownerLabel', 'Owner')}</div>
                           <div className="flex items-center gap-1.5 text-sm font-medium text-text-heading">
                             <UserCheck className="w-3 h-3 text-text-muted" />
-                            {parcel360.departments.landRecords?.ownerName || '—'}
+                            {parcel360.departments.landRecords?.ownerName || '-'}
                           </div>
                         </div>
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.taxStatusLabel', 'Tax Status')}</div>
-                          <div className="text-sm font-medium text-text-heading">{parcel360.departments.tax?.taxStatus || '—'}</div>
+                          <div className="text-sm font-medium text-text-heading">{parcel360.departments.tax?.taxStatus || '-'}</div>
                         </div>
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.disputeStatusLabel', 'Dispute Status')}</div>
@@ -616,7 +616,7 @@ const OfficerTaskDetailModal: React.FC<OfficerTaskDetailModalProps> = ({
                         </div>
                         <div className="gov-card p-3">
                           <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-1">{t('officerTaskDetail.surveyStatusLabel', 'Survey Status')}</div>
-                          <div className="text-sm font-medium text-text-heading">{parcel360.departments.landRecords?.sourceIdentifier || '—'}</div>
+                          <div className="text-sm font-medium text-text-heading">{parcel360.departments.landRecords?.sourceIdentifier || '-'}</div>
                         </div>
                       </div>
                     </div>

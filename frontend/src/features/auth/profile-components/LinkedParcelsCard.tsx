@@ -76,7 +76,7 @@ export const LinkedParcelsCard: React.FC<LinkedParcelsCardProps> = ({
             <p className="text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400 mt-1">
               {sampleParcel.areaSqM !== undefined && sampleParcel.areaSqM !== null
               ? sampleParcel.areaSqM.toLocaleString()
-              : '—'
+              : '-'
             } m²
             </p>
           </div>

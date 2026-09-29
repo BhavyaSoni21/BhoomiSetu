@@ -15,7 +15,7 @@ const GetAssistancePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [selectedParcelId, setSelectedParcelId] = useState<string>('');
   // When redirected through a specific parcel (?parcelId=... from My Parcels),
-  // lock the request to it — no parcel switcher.
+  // lock the request to it - no parcel switcher.
   const lockedParcelId = searchParams.get('parcelId') || '';
 
   const { data, isLoading, isError, refetch } = useQuery<{ parcels: ParcelSummary[]; total: number }>(
@@ -120,7 +120,7 @@ const GetAssistancePage: React.FC = () => {
             <option value="">{t('aiChat.parcelSelectPlaceholder', '-- Select a registered parcel --')}</option>
             {registeredParcels.map((parcel) => (
               <option key={parcel.id} value={parcel.id}>
-                {parcel.localId || (parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : `Parcel #${parcel.id.substring(0, 8)}`)} — {parcel.stateCode}/{parcel.districtCode} ({parcel.areaSqM.toLocaleString()} m²)
+                {parcel.localId || (parcel.ulpin ? `ULPIN: ${parcel.ulpin}` : `Parcel #${parcel.id.substring(0, 8)}`)} - {parcel.stateCode}/{parcel.districtCode} ({parcel.areaSqM.toLocaleString()} m²)
               </option>
             ))}
           </select>
@@ -131,7 +131,7 @@ const GetAssistancePage: React.FC = () => {
         <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-gov-border bg-surface-2 text-sm text-text-heading">
           <MapPin className="w-4 h-4 text-brand-900 shrink-0" />
           <span className="font-mono">
-            {lockedParcel.localId || (lockedParcel.ulpin ? `ULPIN: ${lockedParcel.ulpin}` : `Parcel #${lockedParcel.id.substring(0, 8)}`)} — {lockedParcel.stateCode}/{lockedParcel.districtCode}
+            {lockedParcel.localId || (lockedParcel.ulpin ? `ULPIN: ${lockedParcel.ulpin}` : `Parcel #${lockedParcel.id.substring(0, 8)}`)} - {lockedParcel.stateCode}/{lockedParcel.districtCode}
           </span>
         </div>
       )}

@@ -21,7 +21,7 @@ const TASK_STATUS: Record<string, { key: string; fallback: string; icon: React.E
   PENDING: { key: 'cases.taskStatus.PENDING', fallback: 'Waiting to start', icon: Clock, className: 'text-yellow-600' },
   ASSIGNED: { key: 'cases.taskStatus.ASSIGNED', fallback: 'Assigned to an officer', icon: Clock, className: 'text-blue-600' },
   IN_PROGRESS: { key: 'cases.taskStatus.IN_PROGRESS', fallback: 'Being reviewed', icon: Clock, className: 'text-blue-600' },
-  BLOCKED: { key: 'cases.taskStatus.BLOCKED', fallback: 'On hold — action needed', icon: AlertTriangle, className: 'text-red-600' },
+  BLOCKED: { key: 'cases.taskStatus.BLOCKED', fallback: 'On hold - action needed', icon: AlertTriangle, className: 'text-red-600' },
   COMPLETED: { key: 'cases.taskStatus.COMPLETED', fallback: 'Completed', icon: CheckCircle2, className: 'text-green-600' },
   CANCELLED: { key: 'cases.taskStatus.CANCELLED', fallback: 'Cancelled', icon: Ban, className: 'text-gray-500' },
 };
@@ -146,7 +146,7 @@ const MyCasesPage: React.FC = () => {
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{c.caseNo}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{(c.intent ?? '').replace(/_/g, ' ') || '—'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{(c.intent ?? '').replace(/_/g, ' ') || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[c.status] ?? 'bg-gray-100 text-gray-800'}`}>
                         {t(`cases.status.${c.status}`, c.status)}

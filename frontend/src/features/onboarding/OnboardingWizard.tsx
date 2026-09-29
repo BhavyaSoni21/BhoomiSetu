@@ -304,7 +304,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ user }) => {
                   <p className="mt-1.5 text-xs text-text-muted">
                     {geoError
                       ? t('onboarding.locationError', "Couldn't get your location. You can still continue.")
-                      : t('onboarding.locationHint', 'Optional — helps show land parcels near you first.')}
+                      : t('onboarding.locationHint', 'Optional - helps show land parcels near you first.')}
                   </p>
                 </div>
               </div>

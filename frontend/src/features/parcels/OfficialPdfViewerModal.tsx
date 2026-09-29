@@ -23,7 +23,7 @@ const OfficialPdfViewerModal: React.FC<OfficialPdfViewerModalProps> = ({ url, fi
     setError(null);
     setSummary(null);
     try {
-      // Was a raw fetch('/api/...') — wrong prefix (real route is /api/v1) and
+      // Was a raw fetch('/api/...') - wrong prefix (real route is /api/v1) and
       // no auth header, so it 404'd. apiService carries the baseURL + bearer.
       const response = await apiService.post(`/parcels/${parcelId}/documents/summarise`, { url, fileName });
       setSummary(response.data.summary);

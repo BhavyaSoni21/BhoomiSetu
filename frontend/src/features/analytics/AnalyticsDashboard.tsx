@@ -194,7 +194,7 @@ const ComplianceDonut: React.FC<{
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-xl font-bold text-ink tabular-nums">{goodPct ?? '—'}%</span>
+          <span className="text-xl font-bold text-ink tabular-nums">{goodPct ?? '-'}%</span>
           <span className="text-[9px] text-ink/50 text-center leading-tight px-1">{goodLabel}</span>
         </div>
       </div>

@@ -57,9 +57,9 @@ function newId(): string {
 }
 
 // Spec §: AI features need the server; offline they degrade gracefully instead
-// of surfacing a generic "try again". Case submission still queues (below) —
+// of surfacing a generic "try again". Case submission still queues (below) -
 // only the AI reasoning steps are hard-blocked when unreachable.
-const AI_OFFLINE_MSG = 'AI assistance needs an internet connection. Reconnect and try again — your progress is kept.';
+const AI_OFFLINE_MSG = 'AI assistance needs an internet connection. Reconnect and try again - your progress is kept.';
 
 const CHAT_STEPS: ChatStep[] = [
   'parcel_select',
@@ -236,7 +236,7 @@ export function useChat(): UseChatReturn {
         const u = resp.data;
         setUnderstanding(u);
         setConversation(conv);
-        // The citizen's own words ARE the application — skip AI drafting.
+        // The citizen's own words ARE the application - skip AI drafting.
         setDraft({
           application_draft: text.trim(),
           facts_database: u.facts_database,

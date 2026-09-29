@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   BHOOMISETU DESIGN TOKENS — GIGW 3.0 / Part B exact specification
+   BHOOMISETU DESIGN TOKENS - GIGW 3.0 / Part B exact specification
    Green = structure/identity. Amber = the ONLY interactive/highlight color.
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
@@ -49,7 +49,7 @@
   --info:     #0F766E;
   --focus:    var(--action-500);
 
-  /* Legacy compat — mapped to new tokens */
+  /* Legacy compat - mapped to new tokens */
   --color-background:    247 250 245; /* page-bg in RGB */
   --color-surface:       255 255 255;
   --color-ink:           15 61 46;   /* brand-900 */
@@ -115,7 +115,7 @@
   --info:     #2DD4BF;
   --focus:    var(--action-500);
 
-  /* Legacy compat — dark */
+  /* Legacy compat - dark */
   --color-background:    7 26 20;
   --color-surface:       13 38 29;
   --color-ink:           255 255 255;
@@ -127,7 +127,7 @@
   --color-muted:         30 68 54;
   --shadow-color:        0 0 0;
 
-  /* Bhashini tokens — dark overrides */
+  /* Bhashini tokens - dark overrides */
   --bhashini-accent: #34D399;
   --bhashini-ink: #FFFFFF;
   --bhashini-ink-2: #E2EBE5;

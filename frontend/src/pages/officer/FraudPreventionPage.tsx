@@ -79,7 +79,7 @@ const FraudPreventionPage: React.FC = () => {
           {t('officerNav.fraudPrevention', 'Fraud Prevention')}
         </h1>
         <p className="text-xs sm:text-sm text-text-secondary mt-1">
-          {t('officerDashboard.fraudPreventionDesc', 'Cross-reference encumbrance requests with dispute/restriction records. Prevent mortgaging disputed/restricted land — core Encumbrance Officer workflow.')}
+          {t('officerDashboard.fraudPreventionDesc', 'Cross-reference encumbrance requests with dispute/restriction records. Prevent mortgaging disputed/restricted land - core Encumbrance Officer workflow.')}
         </p>
       </div>
 
@@ -212,7 +212,7 @@ const FraudPreventionPage: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3 text-text-secondary font-mono">
-                      {risk.flaggedAt ? new Date(risk.flaggedAt).toLocaleDateString() : '—'}
+                      {risk.flaggedAt ? new Date(risk.flaggedAt).toLocaleDateString() : '-'}
                     </td>
                     <td className="py-3 text-right">
                       <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-900 hover:bg-brand-700 transition">

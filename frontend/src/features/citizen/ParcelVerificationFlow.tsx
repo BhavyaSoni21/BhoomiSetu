@@ -341,10 +341,10 @@ export const ParcelVerificationFlow: React.FC<ParcelVerificationFlowProps> = ({ 
                             {r.label || r.field.replace(/_/g, ' ')}
                           </td>
                           <td className="py-3 px-4 font-mono text-text-primary font-semibold">
-                            {r.user || '—'}
+                            {r.user || '-'}
                           </td>
                           <td className="py-3 px-4 font-mono text-text-secondary">
-                            {r.doc || '—'}
+                            {r.doc || '-'}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span

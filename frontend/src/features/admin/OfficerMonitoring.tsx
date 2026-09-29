@@ -6,7 +6,7 @@ import apiService from '../../services/apiService';
 import { OfficerMonitoringEntry } from '../../types/analytics';
 
 function formatDateTime(value: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
@@ -14,7 +14,7 @@ function formatDateTime(value: string | null): string {
 }
 
 function formatHours(value: number | null): string {
-  if (value === null) return '—';
+  if (value === null) return '-';
   return value < 1 ? '< 1h' : `${value}h`;
 }
 

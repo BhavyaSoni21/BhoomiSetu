@@ -28,14 +28,14 @@ const SystemMonitoring: React.FC = () => {
             <Users className="w-4 h-4 text-primary" aria-hidden="true" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.totalUsersLabel')}</h3>
           </div>
-          <p className="text-2xl font-black font-display text-ink">{summary?.totals.totalUsers ?? '—'}</p>
+          <p className="text-2xl font-black font-display text-ink">{summary?.totals.totalUsers ?? '-'}</p>
         </div>
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">
             <LogIn className="w-4 h-4 text-primary" aria-hidden="true" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-ink/70">{t('adminPortal.logins24hLabel')}</h3>
           </div>
-          <p className="text-2xl font-black font-display text-ink">{summary?.totals.recentLogins24h ?? '—'}</p>
+          <p className="text-2xl font-black font-display text-ink">{summary?.totals.recentLogins24h ?? '-'}</p>
         </div>
         <div className="border-2 border-ink bg-surface p-4">
           <div className="flex items-center gap-2 mb-2">

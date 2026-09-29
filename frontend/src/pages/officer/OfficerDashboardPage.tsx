@@ -118,7 +118,7 @@ const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
     columns: [
       { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
       { key: 'outstandingAmount', labelKey: 'officerDashboard.outstandingAmountLabel', render: (r) => `₹${Number(r.outstandingAmount).toLocaleString()}` },
-      { key: 'lastPaymentDate', labelKey: 'officerDashboard.lastPaymentDateLabel', render: (r) => r.lastPaymentDate ?? '—' },
+      { key: 'lastPaymentDate', labelKey: 'officerDashboard.lastPaymentDateLabel', render: (r) => r.lastPaymentDate ?? '-' },
     ],
   },
   PLANNING: {
@@ -137,8 +137,8 @@ const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
     emptyKey: 'officerDashboard.pendingRegistrationsEmpty',
     columns: [
       { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
-      { key: 'lastTransactionType', labelKey: 'officerDashboard.transactionTypeLabel', render: (r) => r.lastTransactionType ?? '—' },
-      { key: 'lastTransactionDate', labelKey: 'officerDashboard.transactionDateLabel', render: (r) => r.lastTransactionDate ?? '—' },
+      { key: 'lastTransactionType', labelKey: 'officerDashboard.transactionTypeLabel', render: (r) => r.lastTransactionType ?? '-' },
+      { key: 'lastTransactionDate', labelKey: 'officerDashboard.transactionDateLabel', render: (r) => r.lastTransactionDate ?? '-' },
     ],
   },
   SURVEY: {
@@ -147,12 +147,12 @@ const DEPARTMENT_WIDGETS: Record<string, DepartmentWidgetConfig> = {
     emptyKey: 'officerDashboard.pendingSurveysEmpty',
     columns: [
       { key: 'parcelId', labelKey: 'officerDashboard.tableColParcelId', render: (r) => r.parcelId.slice(0, 10) },
-      { key: 'surveyType', labelKey: 'officerDashboard.tableColSurveyType', render: (r) => r.surveyType?.replace(/_/g, ' ') ?? '—' },
+      { key: 'surveyType', labelKey: 'officerDashboard.tableColSurveyType', render: (r) => r.surveyType?.replace(/_/g, ' ') ?? '-' },
       { key: 'status', labelKey: 'officerDashboard.tableColSurveyStatus', render: (r) => r.status },
-      { key: 'measuredArea', labelKey: 'officerDashboard.tableColMeasuredArea', render: (r) => r.measuredArea ? `${r.measuredArea} m²` : '—' },
-      { key: 'areaDelta', labelKey: 'officerDashboard.tableColAreaDelta', render: (r) => r.areaDelta !== undefined ? `${r.areaDelta >= 0 ? '+' : ''}${r.areaDelta} m²` : '—' },
+      { key: 'measuredArea', labelKey: 'officerDashboard.tableColMeasuredArea', render: (r) => r.measuredArea ? `${r.measuredArea} m²` : '-' },
+      { key: 'areaDelta', labelKey: 'officerDashboard.tableColAreaDelta', render: (r) => r.areaDelta !== undefined ? `${r.areaDelta >= 0 ? '+' : ''}${r.areaDelta} m²` : '-' },
       { key: 'geometryUpdated', labelKey: 'officerDashboard.tableColGeometryUpdated', render: (r) => r.geometryUpdated ? '✓' : '✗' },
-      { key: 'surveyDate', labelKey: 'officerDashboard.tableColSurveyDate', render: (r) => r.surveyDate ? new Date(r.surveyDate).toLocaleDateString() : '—' },
+      { key: 'surveyDate', labelKey: 'officerDashboard.tableColSurveyDate', render: (r) => r.surveyDate ? new Date(r.surveyDate).toLocaleDateString() : '-' },
     ],
   },
 };
@@ -260,7 +260,7 @@ interface DepartmentStats {
 }
 
 function formatRupees(n?: number): string {
-  if (n == null) return '—';
+  if (n == null) return '-';
   return n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : `₹${Math.round(n).toLocaleString()}`;
 }
 
@@ -397,7 +397,7 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
 
   // Real "Within SLA" count from the officer's own SLA monitor
   // (GET /cases/tasks/my/sla). Replaces the earlier fake decidedSteps*0.85/0.9
-  // fudge factor — withinSla = tasks whose SLA timer is still OK (not breached).
+  // fudge factor - withinSla = tasks whose SLA timer is still OK (not breached).
   const { data: slaRows = [] } = useQuery<{ sla: { status: string } | null }[]>(
     ['my-tasks-sla'],
     async () => (await apiService.get('/cases/tasks/my/sla')).data,

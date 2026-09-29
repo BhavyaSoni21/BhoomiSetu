@@ -5,7 +5,7 @@ import apiService, { apiBase } from '../services/apiService';
 // Selective offline GIS (spec §10). "Download area" warms the browser caches
 // for a cluster/district's bounds so the map renders offline. We don't invent a
 // second tile store: the PWA service worker already caches `/api/tiles/*.pbf`
-// (CacheFirst) and `/gis/parcels` (NetworkFirst) — fetching each URL here
+// (CacheFirst) and `/gis/parcels` (NetworkFirst) - fetching each URL here
 // populates those caches, and the map later serves them offline unchanged.
 // db.areas just records what's downloaded for the management UI + freshness.
 
@@ -66,7 +66,7 @@ export async function downloadArea(
     );
     const rows = r.data.parcels ?? r.data.features ?? [];
     parcelIds = rows.map((p) => String(p.id)).filter(Boolean);
-  } catch { /* offline / server down — area still records what tiles we got */ }
+  } catch { /* offline / server down - area still records what tiles we got */ }
   tick();
 
   // MVT tiles across all terrain layers. Same absolute URL MapComponent
@@ -97,7 +97,7 @@ export function listAreas(): Promise<CachedArea[]> {
 }
 
 // Drops the bookkeeping record. The SW's workbox expiration (maxEntries/maxAge
-// in vite.config) reclaims the actual tile bytes — we don't hand-evict Cache
+// in vite.config) reclaims the actual tile bytes - we don't hand-evict Cache
 // Storage entry-by-entry. ponytail: precise per-area eviction if quota bites.
 export async function deleteArea(id: string): Promise<void> {
   await db.areas.delete(id);

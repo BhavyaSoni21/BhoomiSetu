@@ -4,7 +4,7 @@ import { useTranslation } from '../context/LanguageContext';
 
 // Provenance chip: every record in this system is synthetic seed data (there is
 // no real land-records ingestion pipeline), so this is always shown rather than
-// gated on a flag — an honest, static label, not a runtime state.
+// gated on a flag - an honest, static label, not a runtime state.
 const DemoDataBadge: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { t } = useTranslation();
   return (

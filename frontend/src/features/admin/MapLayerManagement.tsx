@@ -381,7 +381,7 @@ const MapLayerManagement: React.FC<MapLayerManagementProps> = ({ config }) => {
                     </span>
                   )}
                   <p className="text-xs text-ink/60 mt-0.5">
-                    {String(feature.properties.stateCode ?? '—')}-{String(feature.properties.district ?? '—')} · {feature.geometry.type}
+                    {String(feature.properties.stateCode ?? '-')}-{String(feature.properties.district ?? '-')} · {feature.geometry.type}
                   </p>
                   {config.notesField && feature.properties[config.notesField] ? (
                     <p className="text-xs text-ink/60 mt-0.5 italic">{String(feature.properties[config.notesField])}</p>

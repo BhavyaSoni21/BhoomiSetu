@@ -96,7 +96,7 @@ export const SpeakerButton: React.FC<SpeakerButtonProps> = ({ text, lang, classN
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      // POST /api/v1/multilingual/tts — body: { text: printableText, language }
+      // POST /api/v1/multilingual/tts - body: { text: printableText, language }
       const response = await fetch(`${API_BASE}/multilingual/tts`, {
         method: 'POST',
         headers,

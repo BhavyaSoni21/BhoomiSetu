@@ -3,7 +3,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { get, set, del } from 'idb-keyval';
 
 // React Query v4 read-cache persistence to IndexedDB (spec §5). Only parcel /
-// case / 360 reads survive a reload — auth, AI, and everything else stays
+// case / 360 reads survive a reload - auth, AI, and everything else stays
 // in-memory so nothing sensitive is written to disk (spec §36).
 const PERSIST_KEYS = ['parcels', 'parcel-360', 'parcel-summary', 'my-parcels', 'cases', 'case', 'parcel'];
 

@@ -49,7 +49,7 @@ const AssignedVisitsPage: React.FC = () => {
     async () => (await apiService.get('/cases/verifier/tasks')).data,
   );
 
-  // GET /cases/{id} returns a CaseOut (camelCase wire), not a CaseDetailOut —
+  // GET /cases/{id} returns a CaseOut (camelCase wire), not a CaseDetailOut -
   // there is no `.case` wrapper. We only need each case's parcelId for the map.
   const { data: caseDetails = {} } = useQuery<Record<string, { parcelId?: string | null }>>(
     ['verifier-case-details', tasks.map((t) => t.id)],
@@ -268,14 +268,14 @@ const VisitCard: React.FC<{
             </p>
           )}
 
-          {/* Case package panel (§30 — offline case package) */}
+          {/* Case package panel (§30 - offline case package) */}
           {showPackage && packageData && (
             <div className="border-2 border-ink/30 bg-surface-2 p-3 space-y-3">
               <h4 className="text-xs font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5" aria-hidden="true" />
                 {t('verifierPortal.packageTitle', 'Case Package')}
                 <span className="font-mono text-ink/40 ml-auto">
-                  {packageData.case?.caseNo ?? '—'}
+                  {packageData.case?.caseNo ?? '-'}
                 </span>
               </h4>
 
@@ -331,7 +331,7 @@ const VisitCard: React.FC<{
                   <ul className="text-xs text-ink/80 leading-relaxed space-y-1">
                     {packageData.taskInstructions.map((ti, i) => (
                       <li key={i} className="flex flex-wrap gap-x-2">
-                        <span className="font-semibold">{(ti.department || '—').replace(/_/g, ' ')}</span>
+                        <span className="font-semibold">{(ti.department || '-').replace(/_/g, ' ')}</span>
                         {ti.resolutionMode && <span className="text-ink/60">· {ti.resolutionMode.replace(/_/g, ' ')}</span>}
                         {ti.stageName && <span className="text-ink/60">· {ti.stageName}</span>}
                         {ti.status && <span className="text-ink/50">({ti.status.replace(/_/g, ' ')})</span>}

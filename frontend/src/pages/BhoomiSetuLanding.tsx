@@ -120,9 +120,9 @@ export const BhoomiSetuLanding: React.FC = () => {
   ];
 
   // Who is this for
-  // (Removed the multi-role stakeholder list — this page is citizen-centric.)
+  // (Removed the multi-role stakeholder list - this page is citizen-centric.)
 
-  // Core platform capabilities — citizen-facing only (this is a public,
+  // Core platform capabilities - citizen-facing only (this is a public,
   // citizen-centric page; officer/admin tooling lives behind their portals).
   const impactSectors = [
     { name: t('landing.impactSectors.parcel360View.title'), desc: t('landing.impactSectors.parcel360View.desc'), icon: Layers },
@@ -415,7 +415,7 @@ export const BhoomiSetuLanding: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">{stats ? stats.parcels.toLocaleString() : '—'}</span>
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">{stats ? stats.parcels.toLocaleString() : '-'}</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">{t('landing.stats.parcelsMapped.label')}</span>
                 <span className="text-[11px] text-[var(--text-muted)]">{t('landing.stats.parcelsMapped.desc')}</span>
               </div>

@@ -630,7 +630,7 @@ const AssignVerifierControl: React.FC<AssignVerifierControlProps> = ({
         </option>
         {verifiers.map((v) => (
           <option key={v.id} value={v.id}>
-            {v.name} — {t('verifierPortal.area', 'Area')}: {v.assignedArea || t('verifierPortal.unknown', 'Unknown')} | {t('verifierPortal.activeTasks', 'Active Tasks')}: {v.activeTaskCount ?? 0}
+            {v.name} - {t('verifierPortal.area', 'Area')}: {v.assignedArea || t('verifierPortal.unknown', 'Unknown')} | {t('verifierPortal.activeTasks', 'Active Tasks')}: {v.activeTaskCount ?? 0}
           </option>
         ))}
       </select>
@@ -774,7 +774,7 @@ export const VerifierFindingsSection: React.FC<VerifierFindingsSectionProps> = (
                 </div>
                 <div>
                   <span className="text-ink/50 block">{t('verifierPortal.visitDate', 'Visit Date')}</span>
-                  <span className="font-semibold text-ink">{visitDate ? formatDate(visitDate) : '—'}</span>
+                  <span className="font-semibold text-ink">{visitDate ? formatDate(visitDate) : '-'}</span>
                 </div>
                 <div>
                   <span className="text-ink/50 block">{t('verifierPortal.gpsStatus', 'GPS Status')}</span>
@@ -1021,8 +1021,8 @@ const WorkflowReviewPanel: React.FC<WorkflowReviewPanelProps> = ({ workflowId, o
                       {((precheck as any).field_results || (precheck as any).fieldResults).map((r: any) => (
                         <tr key={r.field} className="hover:bg-muted/30">
                           <td className="py-2 px-3 font-medium capitalize">{r.label || r.field.replace(/_/g, ' ')}</td>
-                          <td className="py-2 px-3 font-mono">{r.user || '—'}</td>
-                          <td className="py-2 px-3 font-mono text-ink/70">{r.doc || '—'}</td>
+                          <td className="py-2 px-3 font-mono">{r.user || '-'}</td>
+                          <td className="py-2 px-3 font-mono text-ink/70">{r.doc || '-'}</td>
                           <td className="py-2 px-3 text-center">
                             <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${r.match ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary-strong'}`}>
                               {r.match ? '✅' : '❌'}

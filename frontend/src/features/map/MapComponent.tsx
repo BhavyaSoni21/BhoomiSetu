@@ -39,7 +39,7 @@ interface MapComponentProps {
   clusterOverview?: GeoJSON.FeatureCollection;
   /** Whether to fetch the ADMIN-only /gis/admin-notes layer. Off for everyone but admins, or the request just 403s. */
   canViewAdminNotes?: boolean;
-  /** Fetch GIS overlays nationwide (no state/district params, enabled with no parcel selected) — for authoring maps that show every overlay across India. */
+  /** Fetch GIS overlays nationwide (no state/district params, enabled with no parcel selected) - for authoring maps that show every overlay across India. */
   fetchOverlaysNationwide?: boolean;
 }
 
@@ -531,7 +531,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         },
       });
 
-      // Legal Status layer — semi-transparent fill on the same parcels source,
+      // Legal Status layer - semi-transparent fill on the same parcels source,
       // coloring by legal_status_severity (0=clear/no fill, 1=encumbered/amber,
       // 2=disputed-low/orange, 3=disputed-high/red). Sits on top of the base
       // parcels fill so state-code colors are still visible underneath.
@@ -544,18 +544,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
           'fill-color': [
             'match',
             ['get', 'legal_status_severity'],
-            1, '#f59e0b', // encumbered — amber
-            2, '#f97316', // disputed low — orange
-            3, '#dc2626', // disputed high — red
-            'rgba(0,0,0,0)', // 0 = clear — fully transparent, no extra fill
+            1, '#f59e0b', // encumbered - amber
+            2, '#f97316', // disputed low - orange
+            3, '#dc2626', // disputed high - red
+            'rgba(0,0,0,0)', // 0 = clear - fully transparent, no extra fill
           ],
           'fill-opacity': 0.55,
           'fill-outline-color': [
             'match',
             ['get', 'legal_status_severity'],
-            1, '#b45309', // encumbered — dark amber border
-            2, '#ea580c', // disputed low — dark orange border
-            3, '#991b1b', // disputed high — dark red border
+            1, '#b45309', // encumbered - dark amber border
+            2, '#ea580c', // disputed low - dark orange border
+            3, '#991b1b', // disputed high - dark red border
             'rgba(0,0,0,0)',
           ],
         },
@@ -594,7 +594,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         },
       });
 
-      // Composite Risk Score layer — green to red by severity (Low, Medium, High, Critical)
+      // Composite Risk Score layer - green to red by severity (Low, Medium, High, Critical)
       ensureLayer(map, 'parcels-source', {
         id: 'riskScore-layer',
         type: 'fill',
@@ -1406,7 +1406,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               {t(`map.layer.${key}`)}
             </label>
           ))}
-          {/* Legal Status legend — only shown when the layer is toggled on */}
+          {/* Legal Status legend - only shown when the layer is toggled on */}
           {layerVisibility.legalStatus && (
             <div className="mt-1.5 pt-1.5 border-t border-ink/15">
               <p className="text-[9px] font-black uppercase tracking-widest text-ink/50 mb-1">{t('map.layer.legalStatusLegend')}</p>
@@ -1430,7 +1430,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               </div>
             </div>
           )}
-          {/* Circle Rate legend — only shown when the layer is toggled on */}
+          {/* Circle Rate legend - only shown when the layer is toggled on */}
           {layerVisibility.circleRate && (
             <div className="mt-1.5 pt-1.5 border-t border-ink/15">
               <p className="text-[9px] font-black uppercase tracking-widest text-ink/50 mb-1">{t('map.layer.circleRateLegend')}</p>

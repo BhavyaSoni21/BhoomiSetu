@@ -86,7 +86,7 @@ const VerifierLocalSync: React.FC = () => {
                     EVIDENCE #{record.sequence || index + 1}
                   </p>
                   <p className="text-xs text-ink/60">
-                    {t('localSync.caseId')}: {record.case_id.slice(0, 8)} — {record.captured_at ? new Date(record.captured_at).toLocaleString() : 'N/A'}
+                    {t('localSync.caseId')}: {record.case_id.slice(0, 8)} - {record.captured_at ? new Date(record.captured_at).toLocaleString() : 'N/A'}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-ink/50">

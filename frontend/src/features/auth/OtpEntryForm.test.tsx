@@ -76,7 +76,7 @@ describe('OtpEntryForm', () => {
     fireEvent.change(screen.getByLabelText('Verification Code'), { target: { value: '000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
-    expect(await screen.findByText('Too many incorrect attempts — request a new code.')).toBeInTheDocument();
+    expect(await screen.findByText('Too many incorrect attempts - request a new code.')).toBeInTheDocument();
   });
 
   it('starts with resend disabled, inside the cooldown window', () => {
@@ -86,13 +86,13 @@ describe('OtpEntryForm', () => {
 
   it('calls onCancel when "Skip for now" is clicked, when a cancel option is given', () => {
     const { onCancel } = renderForm();
-    fireEvent.click(screen.getByText('Skip for now — verify later from Profile'));
+    fireEvent.click(screen.getByText('Skip for now - verify later from Profile'));
     expect(onCancel).toHaveBeenCalled();
   });
 
   it('renders no cancel/skip option when onCancel is omitted (the registration flow)', () => {
     renderForm({ onCancel: undefined });
-    expect(screen.queryByText('Skip for now — verify later from Profile')).not.toBeInTheDocument();
+    expect(screen.queryByText('Skip for now - verify later from Profile')).not.toBeInTheDocument();
   });
 
   it('disables Verify until at least 4 digits are entered', () => {

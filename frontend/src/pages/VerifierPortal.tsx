@@ -11,7 +11,7 @@ const VerifierPortal: React.FC = () => (
       <Route index element={<AssignedVisitsPage />} />
       <Route path="profile" element={<VerifierProfilePage />} />
       <Route path="task/:taskId/submit" element={<TaskSubmissionPage />} />
-      {/* Legacy split routes now redirect to the unified submit page — the old
+      {/* Legacy split routes now redirect to the unified submit page - the old
           Capture Evidence / Submit Findings pages dropped photo bytes and
           mis-keyed the case id, so bookmarks land on the working flow instead. */}
       <Route path="task/:taskId/evidence" element={<Navigate to="../submit" replace />} />
