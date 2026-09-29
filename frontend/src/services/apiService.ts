@@ -10,7 +10,16 @@ declare module 'axios' {
 
 const apiService = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
-  timeout: 10000,
+  // 90s, not 10s: the Render free-tier backend sleeps after ~15min idle and its
+  // first request then takes 30-72s to wake (measured 72.69s live). At 10s the
+  // very first call after idle - /auth/me on load, or the onboarding profile
+  // save - always timed out, producing "Could not save your details" and a
+  // false logged-out state (confirmed in the error recording). keep-warm.yml is
+  // meant to prevent the sleep, but GitHub's scheduled cron is unreliable, so
+  // the client must also ride out one cold wake on its own.
+  // ponytail: 90s blanket timeout; if any endpoint legitimately needs to hang
+  // longer, or a genuinely-dead request should fail faster, override per-call.
+  timeout: 90000,
   headers: {
     'Content-Type': 'application/json',
   },

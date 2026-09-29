@@ -28,4 +28,13 @@ USER appuser
 EXPOSE 8000
 # Shell form so ${PORT} expands - Render (and most PaaS) inject the port to
 # bind via $PORT; falls back to 8000 for local `docker run`.
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+#
+# `alembic upgrade head` first: the schema is alembic-managed (no create_all
+# anywhere), env.py reads the same prod DB URL from settings, and the versions/
+# dir ships in the image (COPY . .). Without this the deploy applied NO
+# migrations, so a prod DB lagging the code by even one revision (e.g. missing
+# the home_latitude/home_longitude columns) makes the onboarding location save
+# 500 with "could not save your information". upgrade is idempotent - a
+# fully-migrated DB is a no-op. Fails loud (container won't start) if the DB is
+# unreachable, which is the correct signal.
+CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
