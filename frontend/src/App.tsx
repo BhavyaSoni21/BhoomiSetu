@@ -139,6 +139,7 @@ function AppShell() {
   useEffect(() => {
     setMobileMenuOpen(false);
     setOpenMenu(null);
+    window.scrollTo(0, 0); // every new tab/route starts at the top, not mid-scroll
   }, [location.pathname]);
 
   // Close an open Tools/Analytics dropdown on outside click.
