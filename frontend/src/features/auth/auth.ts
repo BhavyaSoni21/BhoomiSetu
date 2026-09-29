@@ -119,8 +119,17 @@ export function useAuthUser() {
     // Poll only while actually signed in: once /auth/me returns null (no token,
     // or a leftover/expired one we just cleared), stop hammering the endpoint -
     // otherwise a stale token in localStorage logs a console 401 every 10s on
-    // public pages like /login and /register.
-    { retry: 1, retryDelay: 1000, staleTime: 5000, refetchOnWindowFocus: true, refetchInterval: (data) => (data ? 10000 : false) },
+    // public pages like /login and /register. But while a token exists and the
+    // request hasn't answered yet (undefined - a cold Render free-tier backend
+    // takes 30-60s to wake), keep retrying every 5s so a slow wake resolves into
+    // a session instead of a false "logged out" (RequireAuth shows reconnecting).
+    {
+      retry: 3,
+      retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
+      staleTime: 5000,
+      refetchOnWindowFocus: true,
+      refetchInterval: (data) => (data ? 10000 : getToken() ? 5000 : false),
+    },
   );
 }
 

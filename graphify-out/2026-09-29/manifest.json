@@ -1134,9 +1134,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/auth/auth.ts": {
-    "mtime": 1790694096.4773076,
-    "seen": 1790696170.7240727,
-    "ast_hash": "942391c18de1bd7c37feeb783a09ddc1",
+    "mtime": 1790697717.2611363,
+    "seen": 1790697822.6266072,
+    "ast_hash": "8e47060a70a8ab0f49ba767483e137d7",
     "semantic_hash": ""
   },
   "frontend/src/features/auth/profile-components/ActivityTimeline.tsx": {
@@ -3468,8 +3468,8 @@
     "semantic_hash": ""
   },
   "frontend/src/offline/persist.ts": {
-    "mtime": 1790694096.935077,
-    "seen": 1790696170.7677462,
+    "mtime": 1790697683.709137,
+    "seen": 1790697822.6893916,
     "ast_hash": "34afdca96ce5ffd88250db2888b2bd46",
     "semantic_hash": ""
   },
@@ -3552,9 +3552,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/onboarding/OnboardingWizard.tsx": {
-    "mtime": 1790694096.6661074,
-    "seen": 1790696170.759708,
-    "ast_hash": "cb26b605c10bc106eef09142830dc50a",
+    "mtime": 1790697617.7662747,
+    "seen": 1790697822.6699848,
+    "ast_hash": "91c629a3d6030f20a687bd81b1ebd5f9",
     "semantic_hash": ""
   },
   "frontend/src/features/onboarding/onboardingTour.test.ts": {

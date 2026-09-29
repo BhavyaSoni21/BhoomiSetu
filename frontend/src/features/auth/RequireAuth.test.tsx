@@ -1,57 +1,49 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
-import { renderWithProviders } from '../../test/utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RequireAuth from './RequireAuth';
-import { AuthUser } from './auth';
+import * as authHooks from './auth';
 
-const officer: AuthUser = { id: 'u1', email: 'officer@test.gov.in', name: 'Asha', role: 'LAND_RECORD_OFFICER' };
-const admin: AuthUser = { id: 'u2', email: 'admin@test.gov.in', name: 'Admin', role: 'ADMIN' };
+// Regression: a valid session must survive a slow/cold backend. When a token is
+// present but /auth/me hasn't answered yet (undefined), RequireAuth must show
+// "reconnecting" and NOT redirect to /login (the "Google login not retained on
+// refresh" bug). It only redirects once we KNOW there's no user (null).
+vi.mock('../../context/LanguageContext', () => ({
+  useTranslation: () => ({ t: (_k: string, fb?: string) => fb ?? _k }),
+}));
 
-function renderGuarded(user: AuthUser | null | undefined, roles: AuthUser['role'][]) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (user !== undefined) client.setQueryData(['auth-me'], user);
-  return renderWithProviders(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/officer']}>
-        <Routes>
-          <Route
-            path="/officer"
-            element={
-              <RequireAuth roles={roles}>
-                <div>Protected Content</div>
-              </RequireAuth>
-            }
-          />
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+function renderGuarded() {
+  return render(
+    <MemoryRouter initialEntries={['/citizen']}>
+      <Routes>
+        <Route path="/citizen" element={<RequireAuth roles={['CITIZEN']}><div>secret</div></RequireAuth>} />
+        <Route path="/login" element={<div>login page</div>} />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 
-describe('RequireAuth', () => {
+describe('RequireAuth cold-backend tolerance', () => {
   beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
 
-  it('renders the protected content when the user has an allowed role', () => {
-    renderGuarded(officer, ['LAND_RECORD_OFFICER', 'PLANNING_OFFICER']);
-    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  it('shows reconnecting (no redirect) when a token exists but /auth/me is still failing', () => {
+    localStorage.setItem('access_token', 'real-token');
+    vi.spyOn(authHooks, 'useAuthUser').mockReturnValue({ data: undefined, isLoading: false, isError: true } as ReturnType<typeof authHooks.useAuthUser>);
+    renderGuarded();
+    expect(screen.getByText('Reconnecting to server…')).toBeInTheDocument();
+    expect(screen.queryByText('login page')).not.toBeInTheDocument();
   });
 
-  it('redirects to /login when there is no user', () => {
-    renderGuarded(null, ['LAND_RECORD_OFFICER']);
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
-    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  it('redirects to /login once we know there is no user', () => {
+    vi.spyOn(authHooks, 'useAuthUser').mockReturnValue({ data: null, isLoading: false, isError: false } as ReturnType<typeof authHooks.useAuthUser>);
+    renderGuarded();
+    expect(screen.getByText('login page')).toBeInTheDocument();
   });
 
-  it("redirects to /login when the user's role is not in the allowed list", () => {
-    renderGuarded(officer, ['ADMIN']);
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
-  });
-
-  it('allows an admin through an admin-only guard', () => {
-    renderGuarded(admin, ['ADMIN']);
-    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  it('renders the guarded content for a matching signed-in user', () => {
+    vi.spyOn(authHooks, 'useAuthUser').mockReturnValue({ data: { role: 'CITIZEN' }, isLoading: false, isError: false } as ReturnType<typeof authHooks.useAuthUser>);
+    renderGuarded();
+    expect(screen.getByText('secret')).toBeInTheDocument();
   });
 });

@@ -45,7 +45,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 4000);
+      // 10s, not 4s: a cold Render free-tier backend takes tens of seconds to
+      // wake, and a slow wake is not "offline". The 2-fail debounce below still
+      // guards against a single genuine hiccup.
+      const timer = setTimeout(() => ctrl.abort(), 10000);
       const res = await fetch(HEALTH_URL, { method: 'GET', signal: ctrl.signal, cache: 'no-store' });
       clearTimeout(timer);
       if (res.ok) {

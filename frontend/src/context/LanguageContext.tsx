@@ -728,6 +728,7 @@ const FALLBACK_STRINGS_RAW: Record<string, Record<string, string>> = {
     'raiseRequestPage.service.verificationTitle': 'Document Verification',
     'raiseRequestPage.totalRegisteredAreaLabel': 'Total Registered Area',
     'requireAuth.checkingSession': 'Checking your session...',
+    'requireAuth.reconnecting': 'Reconnecting to server…',
 'topRiskParcels.empty': 'No parcels to score yet.',
 'topRiskParcels.error': 'Error loading risk scores',
     'topRiskParcels.loading': 'Loading risk data...',
