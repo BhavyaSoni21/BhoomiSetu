@@ -66,7 +66,7 @@ class User(Base):
     # Bumped on explicit logout (KNOWN_RISKS.md HIGH-2) so a JWT issued
     # before that point - this device's, or any other copy of it - stops
     # validating immediately instead of staying valid forever, since tokens
-    # themselves carry no expiry. Token verification rejects any token
+    # carry an expiry. Token verification rejects expired tokens, while
     # whose embedded token_version doesn't match this current value.
     token_version: Mapped[int] = mapped_column(default=0)
 

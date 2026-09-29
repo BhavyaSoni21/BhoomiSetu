@@ -70,6 +70,10 @@ const CHART_MUTED = '#7a7a72';
 const TAX_STATUS_COLORS: Record<string, string> = { OVERDUE: RED, PENDING: AMBER, PAID: GREEN };
 const REGISTRATION_STATUS_COLORS: Record<string, string> = { NOT_REGISTERED: RED, PENDING: AMBER, REGISTERED: GREEN };
 const WORKFLOW_STATUS_COLORS: Record<string, string> = { SUBMITTED: BLUE, IN_PROGRESS: AMBER, APPROVED: GREEN, REJECTED: RED };
+// Case model lifecycle (CREATED -> ACTIVE -> RESOLUTION -> FEEDBACK -> CLOSED)
+// and per-department task states - same red/amber/green semantics.
+const CASE_STATUS_COLORS: Record<string, string> = { CREATED: BLUE, ACTIVE: AMBER, RESOLUTION: ORANGE, FEEDBACK: AMBER, CLOSED: GREEN };
+const TASK_STATUS_COLORS: Record<string, string> = { PENDING: SLATE, ASSIGNED: BLUE, IN_PROGRESS: AMBER, BLOCKED: RED, COMPLETED: GREEN, CANCELLED: SLATE };
 const DISPUTE_STATUS_COLORS: Record<string, string> = { FILED: BLUE, UNDER_REVIEW: AMBER, RESOLVED: GREEN, DISMISSED: SLATE };
 const ALERT_SEVERITY_COLORS: Record<string, string> = { LOW: GREEN, MEDIUM: AMBER, HIGH: ORANGE, CRITICAL: RED };
 // Same vocabulary as the Governance Alerts panel's own 4-stage stepper
@@ -254,6 +258,8 @@ const AnalyticsDashboard: React.FC = () => {
   if (error || !data) return <div className="text-sm font-medium text-ink/60 py-3">{t('analyticsDashboard.error')}</div>;
 
   const workflowStatusOrdered = orderByStages(data.workflowStatusDistribution, ['SUBMITTED', 'IN_PROGRESS', 'APPROVED', 'REJECTED']);
+  const caseStatusOrdered = orderByStages(data.caseStatusDistribution ?? [], ['CREATED', 'ACTIVE', 'RESOLUTION', 'FEEDBACK', 'CLOSED']);
+  const taskStatusOrdered = orderByStages(data.departmentTaskStatusDistribution ?? [], ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'CANCELLED']);
   const disputeStatusOrdered = orderByStages(data.disputeCaseStatusDistribution, ['FILED', 'UNDER_REVIEW', 'RESOLVED', 'DISMISSED']);
   const alertStatusOrdered = orderByStages(data.alertStatusDistribution, ['OPEN', 'ACKNOWLEDGED', 'FIELD_VERIFIED', 'RESOLVED', 'DISMISSED']);
 
@@ -265,6 +271,13 @@ const AnalyticsDashboard: React.FC = () => {
       {/* Top-level KPIs - the numbers an admin checks first. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard icon={MapIcon} label={t('analyticsDashboard.kpi.totalParcels')} value={data.totals.parcels} />
+        <KpiCard
+          icon={Workflow}
+          label={t('analyticsDashboard.kpi.totalCases', 'Citizen Cases')}
+          value={data.totals.cases ?? 0}
+          hint={t('analyticsDashboard.kpi.openCasesHint', '{n} still in pipeline').replace('{n}', String(data.totals.openCases ?? 0))}
+          tone={(data.totals.openCases ?? 0) > 0 ? 'warn' : 'good'}
+        />
         <KpiCard icon={Workflow} label={t('analyticsDashboard.kpi.totalWorkflows')} value={data.totals.workflows} />
         <KpiCard
           icon={AlertTriangle}
@@ -296,6 +309,24 @@ const AnalyticsDashboard: React.FC = () => {
           )}
         </div>
       </CardShell>
+
+      {/* Case model pipeline (newer citizen-facing flow, distinct from legacy
+          workflows) - where cases sit in their lifecycle and how the
+          per-department tasks under them are progressing. */}
+      <div className="grid gap-5 md:grid-cols-2">
+        <CardShell
+          title={t('analyticsDashboard.charts.casePipeline.title', 'Case Lifecycle')}
+          subtitle={t('analyticsDashboard.charts.casePipeline.subtitle', 'Citizen cases by stage')}
+        >
+          <RankedBarChart data={caseStatusOrdered} colorFor={(key, i) => colorFor(key, CASE_STATUS_COLORS, i)} />
+        </CardShell>
+        <CardShell
+          title={t('analyticsDashboard.charts.deptTasks.title', 'Department Tasks')}
+          subtitle={t('analyticsDashboard.charts.deptTasks.subtitle', 'Per-department task progress across all cases')}
+        >
+          <RankedBarChart data={taskStatusOrdered} colorFor={(key, i) => colorFor(key, TASK_STATUS_COLORS, i)} />
+        </CardShell>
+      </div>
 
       {/* Secondary analytics - compliance first (most actionable for an
           admin), then composition/ranking breakdowns. */}

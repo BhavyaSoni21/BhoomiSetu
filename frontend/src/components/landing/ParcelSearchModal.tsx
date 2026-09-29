@@ -30,6 +30,7 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
   const [selectedResult, setSelectedResult] = useState<ParcelSummary | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -39,10 +40,19 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
     if (!query) return;
     setIsSearching(true);
     setSearched(true);
+    setSearchError(null);
     try {
       const found = await searchByAnyIdentifier(query);
       setResults(found);
       setSelectedResult(found[0] ?? null);
+    } catch (error) {
+      setResults([]);
+      setSelectedResult(null);
+      setSearchError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Parcel search is temporarily unavailable. Please try again.',
+      );
     } finally {
       setIsSearching(false);
     }
@@ -110,6 +120,18 @@ export const ParcelSearchModal: React.FC<ParcelSearchModalProps> = ({ isOpen, on
               </button>
             </div>
           </form>
+
+          {searchError && !isSearching && (
+            <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-4 flex items-start justify-between gap-3 text-sm text-red-900 dark:text-red-200" role="alert">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{searchError}</span>
+              </div>
+              <button type="button" onClick={() => void handleSearch({ preventDefault: () => {} } as React.FormEvent)} disabled={!searchTerm.trim()} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
+                Retry
+              </button>
+            </div>
+          )}
 
           {/* Multiple matches - pick one */}
           {results.length > 1 && (

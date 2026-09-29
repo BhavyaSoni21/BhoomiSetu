@@ -7,12 +7,14 @@ appointments, feedback, AI analysis, routing.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import false
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user, get_current_user_optional, require_roles
-from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, VERIFIER_ROLE
+from app.auth.roles import ALL_STAFF_ROLES, CITIZEN_ROLE, VERIFIER_ROLE, ROLE_DEPARTMENT
 from app.database import get_db
-from app.models.case import Application, Case
+from app.models.case import Application, Case, DepartmentTask
+from app.models.admin import Department
 from app.models.user import User
 from app.schemas.case import (
     AIAnalysisOut,
@@ -47,6 +49,7 @@ from app.schemas.case import (
     VerifierWithWorkloadOut,
 )
 from app.services import audit_service, case_service as service
+from app.schemas.audit import AuditLogOut
 
 import logging
 
@@ -115,6 +118,19 @@ def list_cases(
         citizen_id = str(user.id)
 
     query = db.query(Case)
+    if user.role not in {CITIZEN_ROLE, 'ADMIN'}:
+        department_code = ROLE_DEPARTMENT.get(user.role)
+        if not department_code:
+            query = query.filter(false())
+        else:
+            # Scope staff visibility from the authenticated role, never from
+            # a client-supplied department or citizen filter.
+            query = (
+                query.join(DepartmentTask, DepartmentTask.case_id == Case.id)
+                .join(Department, Department.id == DepartmentTask.department_id)
+                .filter(Department.code == department_code)
+                .distinct()
+            )
     if case_no:
         query = query.filter(Case.case_no == case_no)
     if citizen_id:
@@ -284,6 +300,17 @@ def get_tasks(case_id: UUID, db: Session = Depends(get_db), user: User = Depends
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource")
     tasks = service.get_tasks_for_case(db, str(case_id))
     return tasks
+
+
+@router.get("/{case_id}/audit", response_model=list[AuditLogOut])
+def get_case_audit(case_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_roles(*ALL_STAFF_ROLES, CITIZEN_ROLE))):
+    """Per-case audit trail (§58) - every case-linked mutation, newest first."""
+    result = service.get_case(db, str(case_id))
+    if isinstance(result, str):
+        raise _not_found_case(case_id)
+    if not service._can_manage_case(user, result, db):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden resource")
+    return audit_service.find_by_case(db, str(case_id))
 
 
 @router.get("/{case_id}/tasks/{task_id}", response_model=DepartmentTaskOut)

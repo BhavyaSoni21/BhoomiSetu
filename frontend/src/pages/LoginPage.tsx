@@ -58,10 +58,13 @@ const LoginPage: React.FC = () => {
         user.role === 'VERIFIER' ? '/verifier' : '/officer';
       navigate(dest);
     } catch (err) {
+      const isNetworkFailure = axios.isAxiosError(err) && (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED');
       setError(
         axios.isAxiosError(err) && err.response?.status === 401
           ? t('authPage.invalidCredentialsError')
-          : t('authPage.genericError'),
+          : isNetworkFailure
+            ? t('authPage.networkError', 'The sign-in service is unavailable. Check your connection and try again.')
+            : t('authPage.genericError'),
       );
     }
   };

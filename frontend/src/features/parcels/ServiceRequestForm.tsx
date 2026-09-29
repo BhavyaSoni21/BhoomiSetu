@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { CheckCircle2, LogIn, Send, UserPlus, Paperclip, MessageSquareWarning } from 'lucide-react';
 import apiService from '../../services/apiService';
@@ -28,6 +28,7 @@ interface ServiceRequestFormProps {
 
 const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workflowType, title, onClose, initialFile, onConflict }) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   // Backend requires an authenticated CITIZEN to create a workflow
   // (workflows.controller.ts: POST /workflows is @Roles(CITIZEN_ROLE)-guarded)
   // - a guest or signed-in staff account sees a sign-in prompt instead of the
@@ -71,6 +72,11 @@ const ServiceRequestForm: React.FC<ServiceRequestFormProps> = ({ parcelId, workf
       requestDetails: requestDetails.trim() || undefined,
     });
     return response.data;
+  }, {
+    onSuccess: () => {
+      void queryClient.invalidateQueries(['workflows-mine']);
+      void queryClient.invalidateQueries(['officer-workflows']);
+    },
   });
 
   const isConflict = axios.isAxiosError(mutation.error) && mutation.error.response?.status === 409;

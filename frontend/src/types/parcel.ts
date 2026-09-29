@@ -24,6 +24,12 @@ export interface ParcelSummary {
   /** Composite Risk Score layer (Layer 4). 0.0 to 100.0. */
   riskScore?: number;
   risk_score?: number;
+  /** Master Plan Mismatch layer (Layer 5): current use differs from proposed future land use. */
+  masterplanMismatch?: boolean;
+  masterplan_mismatch?: boolean;
+  /** Unauthorized-construction flag, set by a change-detection run. */
+  unauthorizedConstructionSuspected?: boolean;
+  unauthorized_construction_suspected?: boolean;
 }
 
 export interface FieldMatchResult {

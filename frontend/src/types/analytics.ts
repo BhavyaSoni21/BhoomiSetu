@@ -8,6 +8,8 @@ export interface AnalyticsSummary {
   totals: {
     parcels: number;
     workflows: number;
+    cases: number;
+    openCases: number;
     openAlerts: number;
     activeDisputes: number;
     totalUsers: number;
@@ -19,6 +21,10 @@ export interface AnalyticsSummary {
   disputeCaseStatusDistribution: Distribution[];
   workflowStatusDistribution: Distribution[];
   workflowTypeDistribution: Distribution[];
+  caseStatusDistribution: Distribution[];
+  caseIntentDistribution: Distribution[];
+  casePriorityDistribution: Distribution[];
+  departmentTaskStatusDistribution: Distribution[];
   alertSeverityDistribution: Distribution[];
   alertStatusDistribution: Distribution[];
 }

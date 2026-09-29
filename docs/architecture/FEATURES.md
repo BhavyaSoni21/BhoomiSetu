@@ -118,7 +118,7 @@ Stops a signed-in user from calling an endpoint their role shouldn't reach.
 
 A real trail of who did what, when.
 
-- **Backend:** `audit/` — an `audit_logs` table records `AUTH_LOGIN`, `WORKFLOW_STEP_APPROVED`/`REJECTED`, `WORKFLOW_STATUS_CHANGED`, `GOVERNANCE_ALERT_STATUS_CHANGED`, `USER_CREATED`/`USER_ROLE_CHANGED`/`USER_DELETED`, `DEPARTMENT_CREATED`/`UPDATED`/`DELETED`. `GET /audit` (admin-only, filterable by `entityType`/`userId`), `GET /parcels/:id/audit` (staff-only).
+- **Backend:** `audit/` — an `audit_logs` table records `AUTH_LOGIN`, `WORKFLOW_STEP_APPROVED`/`REJECTED`, `WORKFLOW_STATUS_CHANGED`, `GOVERNANCE_ALERT_STATUS_CHANGED`, `USER_CREATED`/`USER_ROLE_CHANGED`/`USER_DELETED`, `DEPARTMENT_CREATED`/`UPDATED`/`DELETED`, plus case-linked `CASE_CREATED`/`CASE_ROUTED`/`TASK_STATUS_CHANGED` (the row carries `case_id`/`task_id`/`reason`/`previous_value`/`new_value`, §58). `GET /audit` (admin-only, filterable by `entityType`/`userId`), `GET /parcels/:id/audit` (staff-only), `GET /cases/:id/audit` (per-case trail, newest first — staff always, citizen only for a case on their own parcel via `_can_manage_case()`, 403 otherwise). The demo case ships with a seeded audit trail so the per-case endpoint returns real history on a cold seed (see feature 32).
 - **Frontend:** `features/admin/RecentActivity.tsx` — the full activity feed on the Admin Portal's System Monitoring page (feature 15), with an `entityType` filter dropdown.
 
 ## 15. Admin Portal
@@ -164,8 +164,8 @@ Compares two satellite/aerial images of the same area and flags which real parce
 
 Platform-wide analytics, not just per-alert.
 
-- **Backend:** `analytics/` — `GET /analytics/summary`, real SQL `GROUP BY` aggregation across tax status, registration status, land use, dispute case status, workflow status/type, alert severity/status, plus overall totals.
-- **Frontend:** `features/analytics/AnalyticsDashboard.tsx` — an 8-chart `recharts` dashboard on the Admin Portal's Dashboard page.
+- **Backend:** `analytics/` — `GET /analytics/summary`, real SQL `GROUP BY` aggregation across tax status, registration status, land use, dispute case status, workflow status/type, alert severity/status, **plus the Case model** — case status/intent/priority and department-task status distributions — and overall totals (parcels, workflows, and now `cases`/`openCases`).
+- **Frontend:** `features/analytics/AnalyticsDashboard.tsx` — a `recharts` dashboard on the Admin Portal's Dashboard page: a Citizen Cases KPI plus Case Lifecycle and Department Tasks pipeline charts alongside the original tax/registration/dispute/alert/workflow breakdowns.
 
 ## 20. Predictive Analytics (Risk Score)
 
@@ -286,7 +286,7 @@ A parcel-centric, case-based governance engine replacing the prior fixed request
   - **Invariant 1** (§6): `create_case()` and `create_case_from_application()` enforce no duplicate active cases for same citizen + parcel — returns `ACTIVE_CASE_EXISTS` (409) if one exists.
   - **Lifecycle** (§59): `CREATED → ACTIVE → RESOLUTION → FEEDBACK → CLOSED` — validated by `CASE_STATUS_TRANSITIONS` in `case_service.py`.
   - **Authorization** (§38, §63): Officers/staff manage any case; citizens only cases on their own parcels via `_can_manage_case()` + `parcels_service.is_citizen_associated_with_parcel()`.
-  - **Audit trail**: Every case creation/status change linked to case via `audit_service.log()`.
+  - **Audit trail**: Every case creation/status change linked to case via `audit_service.log()`, exposed at `GET /api/v1/cases/:id/audit` (feature 14). The seed writes a deterministic case-linked audit trail for the demo case (`CASE_CREATED` → `CASE_ROUTED` → per-department `TASK_STATUS_CHANGED`) so the endpoint returns real history without an officer clicking through first.
   - **Timeline** (§57): `CaseTimelineEvent` records Who/When/What/Previous/New/Case/Task for every material event.
   - **AI integration**: `create_ai_analysis()` stores structured understanding, fact/claim separation, departments identified, and application draft (§11, §15).
   - **Routing** (§17): `create_routing_decision()` persists department routing and workflow assignment per department.

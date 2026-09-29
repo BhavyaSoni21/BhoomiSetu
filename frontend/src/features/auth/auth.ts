@@ -146,7 +146,7 @@ export function useLogin() {
           err.code === 'ERR_NETWORK' ||
           err.message?.toLowerCase().includes('network');
 
-        if (isOfflineOrNetwork) {
+        if (isOfflineOrNetwork && (import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === 'true')) {
           const idStr = credentials.email || credentials.mobileNumber || '';
           let role: UserRole = 'CITIZEN';
           let name = 'Demo Citizen';

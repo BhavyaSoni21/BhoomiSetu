@@ -13,6 +13,8 @@ class DistributionOut(CamelModel):
 class AnalyticsTotalsOut(CamelModel):
     parcels: int
     workflows: int
+    cases: int
+    open_cases: int
     open_alerts: int
     active_disputes: int
     total_users: int
@@ -30,6 +32,10 @@ class AnalyticsSummaryOut(CamelModel):
     dispute_case_status_distribution: list[DistributionOut]
     workflow_status_distribution: list[DistributionOut]
     workflow_type_distribution: list[DistributionOut]
+    case_status_distribution: list[DistributionOut]
+    case_intent_distribution: list[DistributionOut]
+    case_priority_distribution: list[DistributionOut]
+    department_task_status_distribution: list[DistributionOut]
     alert_severity_distribution: list[DistributionOut]
     alert_status_distribution: list[DistributionOut]
 

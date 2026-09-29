@@ -115,6 +115,18 @@ def find_all(
     return list(db.scalars(stmt).all())
 
 
+def find_by_case(db: Session, case_id: str) -> list[AuditLog]:
+    take, skip = resolve_pagination()
+    stmt = (
+        select(AuditLog)
+        .where(AuditLog.case_id == case_id)
+        .order_by(AuditLog.created_at.desc())
+        .limit(take)
+        .offset(skip)
+    )
+    return list(db.scalars(stmt).all())
+
+
 def find_by_parcel(db: Session, parcel_id: str) -> list[AuditLog]:
     take, skip = resolve_pagination()
     stmt = (

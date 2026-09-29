@@ -96,6 +96,17 @@ export interface OwnershipHistoryRecord {
   documentReference: string | null;
 }
 
+// Cross-department discrepancy flagged by build_parcel_360's aggregator. The
+// backend drops any conflict drawing on a restricted department for non-owner
+// viewers (see app/services/parcel_access.py), so this is always safe to render.
+export interface ParcelConflict {
+  type: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  sources: string[];
+  message: string;
+  values?: Record<string, string | number>;
+}
+
 export interface Parcel360Response {
   parcel_id: string;
   identifiers: CanonicalIdentifiers;
@@ -108,6 +119,9 @@ export interface Parcel360Response {
   // Zoning overlay polygon this parcel geometrically overlaps most (PostGIS),
   // camelCase like clusterId. `overlapPct` is already a percentage (e.g. 82.5).
   zoneMembership?: { zoneId: string; zoneType: string; name: string; overlapPct: number } | null;
+  // Cross-department discrepancies (owner-name / area / tax / dispute).
+  // Restricted-source conflicts are stripped server-side for non-owners.
+  conflicts?: ParcelConflict[];
   departments: {
     landRecords: AdaptedLandRecord | null;
     registration: RegistrationRecord | null;

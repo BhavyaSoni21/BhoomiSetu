@@ -243,7 +243,10 @@ const AskAiWidget: React.FC = () => {
             className={`flex touch-none items-center justify-between bg-primary border-b-2 sm:border-b-4 border-ink px-4 py-3 ${isDraggingPanel ? 'cursor-grabbing' : 'cursor-grab'}`}
           >
             <div className="flex items-center gap-2">
-              <img src="/chatbot-lady-icon.png" alt="" className="w-6 h-6 rounded-full border border-white/50 object-cover" />
+              <picture>
+                <source type="image/webp" srcSet="/chatbot-lady-icon.webp" />
+                <img src="/chatbot-lady-icon.png" alt="" width={512} height={512} decoding="async" className="w-6 h-6 rounded-full border border-white/50 object-cover" />
+              </picture>
               <h3 className="text-sm font-black uppercase tracking-wide font-display text-white select-none">{t('askAiWidget.heading')}</h3>
             </div>
             <button
@@ -359,7 +362,10 @@ const AskAiWidget: React.FC = () => {
         {isOpen ? (
           <X className="h-6 w-6" aria-hidden="true" />
         ) : (
-          <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} draggable={false} className="h-full w-full pointer-events-none select-none object-cover" />
+          <picture>
+            <source type="image/webp" srcSet="/chatbot-lady-icon.webp" />
+            <img src="/chatbot-lady-icon.png" alt={t('askAiWidget.heading')} draggable={false} width={512} height={512} decoding="async" className="h-full w-full pointer-events-none select-none object-cover" />
+          </picture>
         )}
         {/* Transparent drag layer prevents the browser from dragging the image itself. */}
         <span

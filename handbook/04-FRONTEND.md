@@ -64,7 +64,7 @@ A global `bhoomisetu:unauthorized` window event (dispatched by the axios 401 int
 
 - `db.ts` (Dexie), `queue.ts` (offline mutation queue, UUID idempotency keys, user-scoped via JWT `sub`), `sync.ts` (`syncNow()` batches to `POST /api/v1/sync`; per-op `APPLIED`/`DUPLICATE`/`CONFLICT`/`REJECTED`), `network.ts` (zustand + `startNetworkMonitor`), `persist.ts`, `gis.ts`.
 - `OfflineStatusIndicator.tsx` — live/offline/syncing chip + SyncCenter panel (queued count, conflicts, "Sync Now", per-conflict discard).
-- **Offline sync currently covers case creation only.**
+- **Offline sync currently covers case creation only. The UI explicitly tells users that document and evidence uploads require connectivity.**
 
 ## i18n
 

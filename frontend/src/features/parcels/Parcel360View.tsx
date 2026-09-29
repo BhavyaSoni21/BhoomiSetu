@@ -19,6 +19,7 @@ import { useHistoricalClusters } from '../officer/historicalImagery';
 import HistoricalYearCompare from '../officer/HistoricalYearCompare';
 import HistoricalMapView from '../officer/HistoricalMapView';
 import { useTranslation } from '../../context/LanguageContext';
+import DemoDataBadge from '../../components/DemoDataBadge';
 
 type TabKey = 'overview' | 'landRecords' | 'registration' | 'planning' | 'tax' | 'restriction' | 'dispute' | 'encumbrance' | 'ownershipHistory';
 
@@ -259,6 +260,7 @@ const Parcel360View: React.FC = () => {
   }
 
   const { identifiers, location, spatial, sources, departments, zoneMembership } = parcel360;
+  const conflicts = parcel360.conflicts ?? [];
   const statusByDepartment = Object.fromEntries(sources.map((s) => [s.department, s.status]));
   const visibleTabs = parcel360.restrictedForViewer ? TABS.filter((tab) => !OWNER_ONLY_TAB_KEYS.includes(tab.key)) : TABS;
 
@@ -396,7 +398,10 @@ const Parcel360View: React.FC = () => {
       <div className="relative bg-surface border-2 sm:border-4 border-ink shadow-hard-md p-6">
         <span className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-primary border-2 border-ink" aria-hidden="true" />
         <h1 className="text-2xl font-black uppercase tracking-tight font-display text-ink mb-1">{t('parcel360.heading')}</h1>
-        <p className="text-sm text-ink/50 font-mono mb-4">{parcel360.parcel_id}</p>
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <p className="text-sm text-ink/50 font-mono">{parcel360.parcel_id}</p>
+          <DemoDataBadge />
+        </div>
 
         <div className="border-b-2 border-ink/20 mb-4 overflow-x-auto">
           <nav className="-mb-px flex flex-wrap gap-1" aria-label={t('parcel360.sectionsAriaLabel')}>
@@ -418,6 +423,24 @@ const Parcel360View: React.FC = () => {
 
         {activeTab === 'overview' && (
           <div className="grid gap-5 md:grid-cols-2">
+            {conflicts.length > 0 && (
+              <div className="md:col-span-2 border-2 border-secondary-strong bg-secondary/5 p-4">
+                <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-secondary-strong mb-2">
+                  <ShieldAlert className="w-4 h-4" aria-hidden="true" />
+                  {t('parcel360.conflicts.heading')}
+                </h2>
+                <ul className="space-y-2">
+                  {conflicts.map((c, i) => (
+                    <li key={`${c.type}-${i}`} className="flex items-start gap-2 text-sm">
+                      <span className={`mt-0.5 border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${RISK_BAND_CLASS[c.severity] ?? 'bg-muted text-ink border-ink'}`}>
+                        {t(`parcel360.conflicts.severity.${c.severity}`)}
+                      </span>
+                      <span className="text-ink/80">{c.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-secondary mb-2">{t('parcel360.identifiers')}</h2>
               <Field label={t('parcel360.field.ulpin')} value={identifiers.ulpin || t('common.notApplicable')} />

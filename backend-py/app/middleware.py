@@ -10,7 +10,9 @@ from sqlalchemy import select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.auth.deps import get_current_user
+from jose import JWTError, jwt
+
+from app.config import get_settings
 from app.database import SessionLocal
 from app.models.user import User
 
@@ -45,17 +47,17 @@ class LastActivityMiddleware(BaseHTTPMiddleware):
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             try:
-                user = get_current_user(token)
-                if user:
-                    db = SessionLocal()
-                    try:
-                        db_user = db.scalars(select(User).where(User.id == user.id)).first()
-                        if db_user:
-                            db_user.last_activity_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                            db.commit()
-                    finally:
-                        db.close()
-            except Exception:
+                payload = jwt.decode(token, get_settings().jwt_secret, algorithms=["HS256"])
+                user_id = uuid.UUID(payload["sub"])
+                db = SessionLocal()
+                try:
+                    db_user = db.scalars(select(User).where(User.id == user_id)).first()
+                    if db_user:
+                        db_user.last_activity_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                        db.commit()
+                finally:
+                    db.close()
+            except (JWTError, KeyError, ValueError):
                 # Ignore errors - this is best-effort tracking
                 pass
 
@@ -79,6 +81,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(self), microphone=(self), camera=()")
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-src 'self' https://accounts.google.com;")
         if self._hsts:
             response.headers.setdefault(
                 "Strict-Transport-Security", "max-age=31536000; includeSubDomains"

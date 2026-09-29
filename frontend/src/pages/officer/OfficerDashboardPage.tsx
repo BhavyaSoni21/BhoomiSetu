@@ -30,6 +30,7 @@ import {
 import apiService from '../../services/apiService';
 import { Workflow } from '../../types/workflow';
 import { useAuthUser } from '../../features/auth/auth';
+import DemoDataBadge from '../../components/DemoDataBadge';
 import { OfficerRole, ROLE_LABELS } from '../../features/officer/officerAuth';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
@@ -437,6 +438,7 @@ const OfficerDashboardPage: React.FC<OfficerDashboardPageProps> = ({ department 
 
   return (
     <div className="space-y-8 animate-fade-up max-w-7xl">
+      <div className="flex justify-end -mb-4"><DemoDataBadge /></div>
       {/* ── Officer Command Header ── */}
       <div
         className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"

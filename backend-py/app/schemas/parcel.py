@@ -42,6 +42,8 @@ class ParcelOut(CamelModel):
     legal_status_severity: int = 0
     value_band: int = 0
     risk_score: float = 0.0
+    masterplan_mismatch: bool = False
+    unauthorized_construction_suspected: bool = False
     created_at: datetime
     updated_at: datetime
 

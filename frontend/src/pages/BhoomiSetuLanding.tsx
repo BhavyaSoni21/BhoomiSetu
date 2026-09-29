@@ -72,8 +72,8 @@ export const BhoomiSetuLanding: React.FC = () => {
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-  // Live headline counts (public, unauthenticated) - fall back to the static
-  // baseline if the backend is unreachable so the page never shows blanks.
+  // Public metrics are optional. Keep the page honest when the API is
+  // unavailable instead of showing a second, conflicting parcel count.
   const [stats, setStats] = useState<{ parcels: number; serviceRequests: number } | null>(null);
   useEffect(() => {
     apiService.get('/public/stats').then((r) => setStats(r.data)).catch(() => setStats(null));
@@ -178,10 +178,15 @@ export const BhoomiSetuLanding: React.FC = () => {
           <div className="absolute inset-0 h-full w-full pointer-events-none">
               <picture>
                 {/* Mobile gets a dedicated composition; desktop keeps the wide team shot */}
+                <source media="(max-width: 640px)" type="image/webp" srcSet="/mobile-landing.webp" />
                 <source media="(max-width: 640px)" srcSet="/mobile-landing.png" />
+                <source type="image/webp" srcSet="/hero-team.webp" />
                 <img
                   src="/hero-team.jpg"
                   alt="Hero Background"
+                  width={1679}
+                  height={937}
+                  decoding="async"
                   className="w-full h-full object-cover object-center sm:object-right"
                 />
               </picture>
@@ -290,18 +295,25 @@ export const BhoomiSetuLanding: React.FC = () => {
                     <span className="text-[11px] font-mono text-[var(--text-muted)]">{t('landing.liveGisPreview.location')}</span>
                   </div>
                   <div className="h-56 bg-[var(--surface-2)] relative">
-                    <img
-                      src="/Parcel-example.png"
-                      alt={t('landing.liveGisPreview.altText', 'Cadastral parcel map preview showing land boundaries and boundaries')}
-                      className="w-full h-full object-cover"
-                    />
+                    <picture>
+                      <source type="image/webp" srcSet="/Parcel-example.webp" />
+                      <img
+                        src="/Parcel-example.png"
+                        alt={t('landing.liveGisPreview.altText', 'Cadastral parcel map preview showing land boundaries and boundaries')}
+                        width={722}
+                        height={443}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
+                    </picture>
                   </div>
                   <div className="px-4 py-2 bg-[var(--surface-2)] border-t border-[var(--border)] flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)] font-mono">
                       <MapPin className="w-3 h-3 text-[var(--action-700)]" />
-                      <span>{t('landing.liveGisPreview.parcelsCount', { count: stats?.parcels ?? 220 })}</span>
+                      <span>{stats ? t('landing.liveGisPreview.parcelsCount', { count: stats.parcels }) : t('landing.liveGisPreview.seededDataLabel', 'Seeded demo parcel data')}</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[var(--bhashini-accent)] font-semibold text-[10px] border border-emerald-300">{t('landing.liveGisPreview.liveDataBadge')}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold text-[10px] border border-amber-300">{t('landing.liveGisPreview.demoDataBadge', 'Prototype data')}</span>
                   </div>
                 </div>
               </div>
@@ -349,11 +361,18 @@ export const BhoomiSetuLanding: React.FC = () => {
 
               <div className="lg:col-span-6 flex justify-center items-center">
                 <div className="relative w-full max-w-xl">
-                  <img
-                    src="/bhashini-dev-team.png"
-                    alt="BhoomiSetu team working on land governance platform"
-                    className="w-full h-auto object-contain drop-shadow-sm rounded-2xl"
-                  />
+                  <picture>
+                    <source type="image/webp" srcSet="/bhashini-dev-team.webp" />
+                    <img
+                      src="/bhashini-dev-team.png"
+                      alt="BhoomiSetu team working on land governance platform"
+                      width={1680}
+                      height={933}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-auto object-contain drop-shadow-sm rounded-2xl"
+                    />
+                  </picture>
                 </div>
               </div>
             </div>
@@ -396,7 +415,7 @@ export const BhoomiSetuLanding: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="p-5 bg-[var(--surface-1)] rounded-2xl border border-[var(--border)] shadow-xs text-center">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">{stats ? `${stats.parcels.toLocaleString()}+` : '220+'}</span>
+                <span className="text-3xl sm:text-4xl font-extrabold text-[var(--bhashini-accent)] font-mono block">{stats ? stats.parcels.toLocaleString() : '—'}</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] block mt-1">{t('landing.stats.parcelsMapped.label')}</span>
                 <span className="text-[11px] text-[var(--text-muted)]">{t('landing.stats.parcelsMapped.desc')}</span>
               </div>
@@ -499,11 +518,18 @@ export const BhoomiSetuLanding: React.FC = () => {
 
             <div className="mt-8 flex justify-center">
               <div className="rounded-2xl overflow-hidden border border-[var(--action-500)]/30 shadow-md max-w-2xl w-full">
-                <img
-                  src="/community-land.jpg"
-                  alt="Citizens and officers working with BhoomiSetu land governance platform"
-                  className="w-full h-auto object-cover max-h-[240px]"
-                />
+                <picture>
+                  <source type="image/webp" srcSet="/community-land.webp" />
+                  <img
+                    src="/community-land.jpg"
+                    alt="Citizens and officers working with BhoomiSetu land governance platform"
+                    width={1672}
+                    height={644}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-auto object-cover max-h-[240px]"
+                  />
+                </picture>
               </div>
             </div>
           </div>

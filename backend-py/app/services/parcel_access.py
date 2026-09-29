@@ -14,6 +14,8 @@ from app.models.user import User
 from app.services import parcels_service
 
 _RESTRICTED_DEPARTMENTS = ("planning", "tax", "restriction", "dispute", "encumbrance")
+# Conflict `sources` use SCREAMING_SNAKE department names; keep in sync with the tuple above.
+_RESTRICTED_CONFLICT_SOURCES = {"PLANNING", "TAX", "RESTRICTION", "DISPUTE", "ENCUMBRANCE"}
 
 
 def can_view_restricted_departments(db: Session, user: User | None, parcel_id: str) -> bool:
@@ -27,3 +29,10 @@ def can_view_restricted_departments(db: Session, user: User | None, parcel_id: s
 def mask_restricted_departments(parcel_360_result: dict) -> None:
     for key in _RESTRICTED_DEPARTMENTS:
         parcel_360_result["departments"][key] = None
+    # Conflicts embed owner names / tax amounts / dispute state; drop any that
+    # draws on a restricted department so masking isn't leaked back via the band.
+    conflicts = parcel_360_result.get("conflicts")
+    if conflicts:
+        parcel_360_result["conflicts"] = [
+            c for c in conflicts if not (_RESTRICTED_CONFLICT_SOURCES & set(c.get("sources", [])))
+        ]

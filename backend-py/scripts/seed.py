@@ -1,9 +1,11 @@
 """Ported from backend/seed.ts.
 
-Generates the same 5-cluster demo dataset (~200 parcels, department
-records, demo accounts) against backend-py's own database
-(bhoomisetu_py), using the shared parcel-generation/common package ported
-earlier. Run inside the backend-py container: `python -m scripts.seed`.
+Generates the reproducible seeded demo dataset (~6,120 parcels across 58
+cadastral clusters, plus department records and demo accounts) against
+backend-py's own database (bhoomisetu_py), using the shared
+parcel-generation/common package ported earlier. Run inside the backend-py
+container: `python -m scripts.seed`. Final parcel/cluster counts are printed
+at the end of the run.
 
 Parcel documents below run the same real OCR pass as backend/seed.ts did
 (`document_verification.ocr.extract_text`, ParcelsModule's own OCR port -
@@ -11,8 +13,11 @@ BACKLOG.md item 25).
 """
 
 import bcrypt
+import json
 import math
+import os
 import random
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
@@ -28,6 +33,7 @@ from app.document_verification.ocr import extract_text
 from app.common.supabase_storage import ensure_storage_bucket_exists, upload_to_storage
 from app.database import SessionLocal
 from app.models.admin import Department
+from app.models.audit import AuditLog
 from app.models.case import (
     AIAnalysis,
     Appointment,
@@ -301,7 +307,7 @@ def build_cluster_spatial_layers(config, entries: list["ClusterParcelEntry"], pr
     zone_rings = build_stacked_zone_rings(bounds, [0, 0.5, 0.7, 1])
     layers.append(ZoningOverlay(name=f"{district} Residential Zone", zone_type="RESIDENTIAL", state_code=sc, district=district, geometry=_polygon(zone_rings[0]), parcel_ids=find_ids(lambda f: f < 0.5)))
     layers.append(ZoningOverlay(name=f"{district} Commercial Zone", zone_type="COMMERCIAL", state_code=sc, district=district, geometry=_polygon(zone_rings[1]), parcel_ids=find_ids(lambda f: 0.5 <= f < 0.7)))
-    layers.append(ZoningOverlay(name=f"{district} Agricultural / Open Zone", zone_type="AGRICULTURAL", state_code=sc, district=district, geometry=_polygon(zone_rings[2]), parcel_ids=find_ids(lambda f: f >= 0.7)))
+    layers.append(ZoningOverlay(name=f"{district} Agricultural / Open Zone", zone_type="AGRICULTURAL", state_code=sc, district=district, geometry=_polygon(zone_rings[2]), parcel_ids=find_ids(lambda f: f >= 0.7), proposed_land_use="RESIDENTIAL", proposed_effective_year=2027))
 
     if prebuilt_flood is not None:
         flood_ring = prebuilt_flood
@@ -404,8 +410,222 @@ def _seed_governance_rules(db) -> None:
     print(f"Seeded {len(default_rules)} default governance rules")
 
 
+def _square_ring(center_lng: float, center_lat: float, half: float = 0.0005) -> Ring:
+    """A small closed square ring near a district centre. Geometry is only for
+    map display here — each demo parcel's authoritative area is set explicitly
+    on area_sq_m, so the ring size need not match it."""
+    return [
+        (center_lng - half, center_lat - half),
+        (center_lng + half, center_lat - half),
+        (center_lng + half, center_lat + half),
+        (center_lng - half, center_lat + half),
+        (center_lng - half, center_lat - half),
+    ]
+
+
+def seed_citizen1_demo(db, citizen, officer_by_role: dict, departments: list) -> None:
+    """The scripted demo story, deterministic and additive on top of the bulk
+    data. citizen1 owns three named parcels; PARCEL-PUN-0002 carries controlled
+    cross-department conflicts (owner-name mismatch, area mismatch, overdue tax,
+    active dispute) that drive one central multi-department case. Everything the
+    Parcel-360 conflict band and the citizen case timeline render at demo time
+    is produced here. Parcel UUIDs are derived (uuid5) so they stay stable and
+    quotable across reseeds.
+    """
+    dept_by_code = {d.code: d for d in departments}
+    dept_role = {
+        "LAND_RECORDS": "LAND_RECORD_OFFICER", "REGISTRATION": "REGISTRATION_OFFICER",
+        "PLANNING": "PLANNING_OFFICER", "TAX": "TAX_OFFICER", "RESTRICTION": "RESTRICTION_OFFICER",
+        "DISPUTE": "DISPUTE_OFFICER", "ENCUMBRANCE": "ENCUMBRANCE_OFFICER", "SURVEY": "SURVEY_OFFICER",
+    }
+
+    def new_parcel(canonical: str, *, state: str, dist: str, center, ulpin: str, area_sq_m: float) -> Parcel:
+        pid = uuid.uuid5(uuid.NAMESPACE_DNS, canonical)
+        parcel = Parcel(
+            id=pid, canonical_parcel_id=canonical, cluster_id=f"DEMO-{dist}",
+            ulpin=ulpin, state_code=state, district_code=dist, local_body_code=f"{state}LB001",
+            geometry=_polygon(_square_ring(*center)), area_sq_m=area_sq_m,
+        )
+        db.add(parcel)
+        db.flush()
+        db.add(CitizenParcel(citizen_id=citizen.id, parcel_id=parcel.id, status="Registered", local_id=canonical))
+        return parcel
+
+    def add_identifiers(parcel: Parcel, ulpin: str, secondary_type: str, secondary_val: str, state: str, dept: str):
+        db.add_all([
+            ParcelIdentifier(parcel_id=parcel.id, identifier_type="ULPIN", identifier_value=ulpin, source_state=state, source_department="LAND_RECORDS"),
+            ParcelIdentifier(parcel_id=parcel.id, identifier_type=secondary_type, identifier_value=secondary_val, source_state=state, source_department=dept),
+        ])
+
+    # ── PARCEL-PUN-0001 — clean, fully consistent ──
+    p1 = new_parcel("PARCEL-PUN-0001", state="MH", dist="PUN", center=(73.8501, 18.5201), ulpin="11223344556601", area_sq_m=920.0)
+    add_identifiers(p1, "11223344556601", "SURVEY_NUMBER", "142/3", "MH", "LAND_RECORDS")
+    db.add(StateALandRecord(survey_number="142/3", subdivision_number="3", owner_name="Sunita Deshmukh", village_code="PUN-KOTHRUD", area_hectares=0.0920, record_status="ACTIVE"))
+    db.add(RegistrationRecord(parcel_id=str(p1.id), registration_status="REGISTERED", registration_number="REG-PUN-2019-0142", registration_date=date(2019, 6, 12), last_transaction_type="SALE", last_transaction_date=date(2019, 6, 12)))
+    db.add(TaxRecord(parcel_id=str(p1.id), assessed_value=4200000, annual_tax_amount=18500, tax_status="PAID", outstanding_amount=0, last_payment_date=date(2026, 4, 10)))
+    db.add(PlanningRecord(parcel_id=str(p1.id), land_use="RESIDENTIAL", zoning_classification="R1", master_plan_reference="PUN-MP-2021", building_permission_status="APPROVED"))
+    db.add(SurveyRecord(parcel_id=str(p1.id), survey_status="COMPLETED", survey_type="BOUNDARY_VERIFICATION", measured_area_sq_m=920.0, original_area_sq_m=920.0, area_delta_sq_m=0.0, geometry_updated=False, survey_date=date(2023, 2, 1)))
+    db.add(OwnershipHistoryRecord(parcel_id=str(p1.id), owner_name="Sunita Deshmukh", transaction_type="SALE", transaction_date=date(2019, 6, 12), document_reference="REG-PUN-2019-0142"))
+
+    # ── PARCEL-PUN-0002 — the conflict parcel (drives the central case) ──
+    p2 = new_parcel("PARCEL-PUN-0002", state="MH", dist="PUN", center=(73.8520, 18.5215), ulpin="11223344556602", area_sq_m=920.0)
+    add_identifiers(p2, "11223344556602", "SURVEY_NUMBER", "142/4", "MH", "LAND_RECORDS")
+    # Land record says "Ramesh Kumar Patil"; ownership chain says "Ramesh Patil" → owner-name mismatch.
+    db.add(StateALandRecord(survey_number="142/4", subdivision_number="4", owner_name="Ramesh Kumar Patil", village_code="PUN-KOTHRUD", area_hectares=0.0920, record_status="ACTIVE"))
+    db.add(OwnershipHistoryRecord(parcel_id=str(p2.id), owner_name="Ramesh Patil", transaction_type="SALE", transaction_date=date(2021, 11, 3), document_reference="REG-PUN-2021-0311"))
+    db.add(RegistrationRecord(parcel_id=str(p2.id), registration_status="REGISTERED", registration_number="REG-PUN-2021-0311", registration_date=date(2021, 11, 3), last_transaction_type="SALE", last_transaction_date=date(2021, 11, 3)))
+    # Tax overdue.
+    db.add(TaxRecord(parcel_id=str(p2.id), assessed_value=4600000, annual_tax_amount=21000, tax_status="OVERDUE", outstanding_amount=48500, last_payment_date=date(2024, 3, 15)))
+    db.add(PlanningRecord(parcel_id=str(p2.id), land_use="RESIDENTIAL", zoning_classification="R1", master_plan_reference="PUN-MP-2021", building_permission_status="PENDING"))
+    # Field survey measured 985 m² vs the recorded 920 m² → ~7% area mismatch.
+    db.add(SurveyRecord(parcel_id=str(p2.id), survey_status="COMPLETED", survey_type="AREA_CORRECTION", measured_area_sq_m=985.0, original_area_sq_m=920.0, area_delta_sq_m=65.0, geometry_updated=False, survey_date=date(2026, 8, 20), surveyor_notes="Field re-measurement exceeds recorded extent; correction proposed."))
+    # Active boundary dispute.
+    db.add(DisputeRecord(parcel_id=str(p2.id), has_active_dispute=True, dispute_type="BOUNDARY", case_status="UNDER_REVIEW", filing_date=date(2026, 7, 5), resolution_summary=None))
+
+    # ── PARCEL-TN-0001 — rural, TN (State B schema), clean ──
+    p3 = new_parcel("PARCEL-TN-0001", state="TN", dist="THA", center=(80.2510, 13.0810), ulpin="99887766554433", area_sq_m=1998.0)
+    add_identifiers(p3, "99887766554433", "PLOT_NUMBER", "TN-THA-0007", "TN", "LAND_RECORDS")
+    db.add(StateBLandRecord(plot_id="TN-THA-0007", holder_name="Lakshmi Narayanan", locality_id="THA-RURAL-04", land_extent_sqft=21506.0, record_category="AGRICULTURAL"))
+    db.add(RegistrationRecord(parcel_id=str(p3.id), registration_status="REGISTERED", registration_number="REG-TN-2018-0077", registration_date=date(2018, 1, 20), last_transaction_type="INHERITANCE", last_transaction_date=date(2018, 1, 20)))
+    db.add(TaxRecord(parcel_id=str(p3.id), assessed_value=1500000, annual_tax_amount=6200, tax_status="PAID", outstanding_amount=0, last_payment_date=date(2026, 5, 2)))
+    db.add(PlanningRecord(parcel_id=str(p3.id), land_use="AGRICULTURAL", zoning_classification="AG", master_plan_reference="TN-MP-2020", building_permission_status="NOT_REQUIRED"))
+    db.add(SurveyRecord(parcel_id=str(p3.id), survey_status="COMPLETED", survey_type="BOUNDARY_VERIFICATION", measured_area_sq_m=1998.0, original_area_sq_m=1998.0, area_delta_sq_m=0.0, geometry_updated=False, survey_date=date(2022, 9, 9)))
+    db.add(OwnershipHistoryRecord(parcel_id=str(p3.id), owner_name="Lakshmi Narayanan", transaction_type="INHERITANCE", transaction_date=date(2018, 1, 20), document_reference="REG-TN-2018-0077"))
+    db.flush()
+
+    # ── Central multi-department case on the conflict parcel ──
+    created_at = datetime(2026, 8, 22, 10, 30, 0)
+    routed = [
+        {"department": c, "confidence": 0.95, "reason": f"Correction request routed to {c}."}
+        for c in ["LAND_RECORDS", "SURVEY", "TAX", "DISPUTE"]
+    ]
+    case = Case(
+        case_no="CASE-2026-9001", citizen_id=str(citizen.id), parcel_id=str(p2.id),
+        intent="CORRECTION_REQUEST", status="ACTIVE", priority="HIGH",
+        routing_decision={"departments": routed, "priority": "HIGH", "intent": "CORRECTION_REQUEST"},
+        created_at=created_at,
+    )
+    db.add(case)
+    db.flush()
+
+    # Per-department task state, keyed to the actual conflicts on the parcel.
+    task_plan = {
+        "LAND_RECORDS": ("IN_PROGRESS", "Reviewing owner-name discrepancy: land record 'Ramesh Kumar Patil' vs ownership chain 'Ramesh Patil'."),
+        "SURVEY": ("IN_PROGRESS", "Area correction under review: field measurement 985 m² vs recorded 920 m² (+7%)."),
+        "TAX": ("BLOCKED", "Correction blocked pending clearance of ₹48,500 overdue property tax."),
+        "DISPUTE": ("IN_PROGRESS", "Active boundary dispute (filed 2026-07-05) under review before any record change."),
+        "REGISTRATION": ("ASSIGNED", "Awaiting land-record and survey outcomes before updating the register."),
+        "PLANNING": ("PENDING", None),
+        "RESTRICTION": ("PENDING", None),
+        "ENCUMBRANCE": ("PENDING", None),
+    }
+    first_officer_id = None
+    tasks_by_code: dict[str, DepartmentTask] = {}
+    officer_by_code: dict[str, User] = {}
+    for di, dept in enumerate(departments):
+        t_status, remarks = task_plan.get(dept.code, ("PENDING", None))
+        officer = officer_by_role.get(dept_role.get(dept.code, ""))
+        assigned = t_status not in ("PENDING",) and officer is not None
+        if assigned and first_officer_id is None:
+            first_officer_id = str(officer.id)
+        task = DepartmentTask(
+            case_id=case.id, department_id=dept.id, status=t_status, stage=di, stage_name=dept.name,
+            assigned_officer_id=str(officer.id) if assigned else None,
+            assigned_at=created_at + timedelta(hours=1) if assigned else None,
+            resolution_mode="MANUAL_REVIEW", resolution_remarks=remarks,
+            sla_threshold_hours=72, sla_warning_threshold=48, sla_breach_threshold=96,
+            created_at=created_at, updated_at=created_at,
+        )
+        db.add(task)
+        tasks_by_code[dept.code] = task
+        if officer is not None:
+            officer_by_code[dept.code] = officer
+
+    db.add(AIAnalysis(
+        case_id=case.id,
+        structured_understanding={"parcel_id": str(p2.id), "intent": "CORRECTION_REQUEST", "priority": "HIGH",
+                                  "issues": ["Owner name mismatch", "Area discrepancy", "Overdue tax", "Active boundary dispute"]},
+        facts_stated=[{"statement": "The name on my land record is spelt differently from my sale deed.", "type": "CITIZEN_STATEMENT", "confidence": 0.9}],
+        facts_verified=[
+            {"fact": "Land record owner 'Ramesh Kumar Patil' differs from ownership chain 'Ramesh Patil'", "verified": True, "source": "LAND_RECORDS"},
+            {"fact": "Surveyed area 985 m² exceeds recorded 920 m²", "verified": True, "source": "SURVEY"},
+            {"fact": "Property tax overdue: ₹48,500", "verified": True, "source": "TAX"},
+        ],
+        departments_identified=routed,
+        application_draft="Application to correct the recorded owner name and area for parcel PARCEL-PUN-0002.",
+        conversation=[{"role": "citizen", "text": "Please correct the owner name on my parcel record.", "timestamp": created_at.isoformat()}],
+        created_at=created_at, updated_at=created_at,
+    ))
+    db.add(Application(
+        case_id=case.id, original_input="The name on my land record is wrong and the area looks off.",
+        ai_draft="Draft correction application for PARCEL-PUN-0002.",
+        final_submitted_version="Correction application for owner name and area on PARCEL-PUN-0002.",
+        citizen_confirmed=True, citizen_confirmation_timestamp=created_at, created_at=created_at, updated_at=created_at,
+    ))
+    timeline = [
+        ("CASE_CREATED", "citizen", str(citizen.id), None, "CREATED", created_at),
+        ("APPLICATION_CONFIRMED", "citizen", str(citizen.id), "CREATED", "CREATED", created_at + timedelta(minutes=20)),
+        ("ROUTED_TO_DEPARTMENT", "system", None, "CREATED", "ACTIVE", created_at + timedelta(hours=1)),
+        ("OFFICER_ASSIGNED", "officer", first_officer_id, "ACTIVE", "ACTIVE", created_at + timedelta(hours=2)),
+    ]
+    for ev_type, role, actor, prev, new, ts in timeline:
+        db.add(CaseTimelineEvent(case_id=case.id, event_type=ev_type, actor_id=actor, actor_role=role,
+                                 previous_state=prev, new_state=new, created_at=ts))
+    db.flush()
+
+    # Case-linked audit trail (§58): mirrors the mutations above so the
+    # per-case audit endpoint (/cases/{id}/audit) shows real history on a
+    # cold seed, without needing an officer to click through the demo first.
+    cid = str(case.id)
+    pid = str(p2.id)
+
+    def _audit(user, user_role, action, *, task=None, prev=None, new=None, reason=None, ts=created_at):
+        db.add(AuditLog(
+            user_id=user, user_role=user_role, action=action,
+            entity_type="DEPARTMENT_TASK" if task is not None else "CASE",
+            entity_id=str(task.id) if task is not None else cid,
+            parcel_id=pid, case_id=cid, task_id=str(task.id) if task is not None else None,
+            previous_value=json.dumps(prev) if prev is not None else None,
+            new_value=json.dumps(new) if new is not None else None,
+            reason=reason, created_at=ts,
+        ))
+
+    _audit(str(citizen.id), "CITIZEN", "CASE_CREATED", new={"status": "CREATED"},
+           reason="Citizen filed a correction request for PARCEL-PUN-0002.", ts=created_at)
+    _audit("system", "SYSTEM", "CASE_ROUTED", prev={"status": "CREATED"}, new={"status": "ACTIVE"},
+           reason="Auto-routed to LAND_RECORDS, SURVEY, TAX, DISPUTE.", ts=created_at + timedelta(hours=1))
+    lr_officer = officer_by_code.get("LAND_RECORDS")
+    if lr_officer is not None and "LAND_RECORDS" in tasks_by_code:
+        _audit(str(lr_officer.id), lr_officer.role, "TASK_STATUS_CHANGED", task=tasks_by_code["LAND_RECORDS"],
+               prev={"status": "ASSIGNED"}, new={"status": "IN_PROGRESS"},
+               reason="Started review of owner-name discrepancy.", ts=created_at + timedelta(hours=2))
+    tax_officer = officer_by_code.get("TAX")
+    if tax_officer is not None and "TAX" in tasks_by_code:
+        _audit(str(tax_officer.id), tax_officer.role, "TASK_STATUS_CHANGED", task=tasks_by_code["TAX"],
+               prev={"status": "ASSIGNED"}, new={"status": "BLOCKED"},
+               reason="Correction blocked pending clearance of ₹48,500 overdue tax.", ts=created_at + timedelta(hours=3))
+    db.flush()
+
+    print("Seeded citizen1 demo story: 3 named parcels (PARCEL-PUN-0001/0002, PARCEL-TN-0001) + central conflict case")
+
+
 def seed_database() -> None:
     print("Starting database seeding...")
+
+    # Non-destructive by default: this script DROPs and rebuilds every demo
+    # table, so refuse to run against a production database unless the operator
+    # explicitly opts in. Guards the "reseed nuked prod" foot-gun.
+    from app.config import settings
+    if settings.is_production and os.environ.get("ALLOW_SEED_IN_PRODUCTION") != "1":
+        raise SystemExit(
+            "Refusing to seed: ENVIRONMENT=production. Set ALLOW_SEED_IN_PRODUCTION=1 to override."
+        )
+
+    # Deterministic run: same dataset (parcels, accounts, cases, the citizen1
+    # demo story below) on every reseed, so a recorded demo and the live app
+    # always line up. Change the seed only to intentionally reshuffle.
+    random.seed(20260901)
+
     db = SessionLocal()
 
     try:
@@ -414,6 +634,7 @@ def seed_database() -> None:
         # (Postgres refuses to delete a row another table's live FK still
         # points at).
         tables_to_clear = [
+            AuditLog,
             Feedback, CaseTimelineEvent, Appointment, AIAnalysis, RoutingDecision, Application, ProposedFieldChange,
             DepartmentTask, Case,
             VerificationEvidence, WorkflowStep, Workflow, Department, ParcelDocument, CitizenParcel, User, GovernanceAlert, DisputeRecord, RegistrationRecord,
@@ -1355,6 +1576,12 @@ def seed_database() -> None:
             f"analyses, {len(routing_to_save)} routing decisions, {len(applications_to_save)} applications"
         )
 
+        # Scripted demo story for citizen1 (citizen1@example.com): three named
+        # parcels + one central multi-department conflict case. Additive, runs
+        # after the bulk data so it reuses the same departments/officers.
+        seed_citizen1_demo(db, citizens[0], officer_by_role, departments)
+        db.flush()
+
         # Denormalize the latest tax status onto each parcel so the Tax
         # map layer (['get','taxStatus']) renders real per-parcel colors
         # instead of one flat fallback. In-transaction with the seed.
@@ -1383,12 +1610,27 @@ def seed_database() -> None:
         from app.tasks.value_band_tasks import recompute_all_value_bands
         from app.tasks.risk_score_tasks import recompute_all_risk_scores
         from app.tasks.legal_status_tasks import recompute_all_legal_status_severities
+        from app.tasks.masterplan_tasks import recompute_all_masterplan_mismatches
         recompute_all_value_bands()
         recompute_all_risk_scores()
         recompute_all_legal_status_severities()
+        # Master-plan mismatch derives from the seeded zoning overlays whose
+        # proposed_land_use differs from the current zone_type (the Agricultural
+        # zone proposed for Residential conversion above); opens its own session.
+        recompute_all_masterplan_mismatches()
+        # Unauthorized-construction flag mirrors change_detection_service: flag
+        # every parcel a seeded change-detection event ("new construction
+        # footprint") already covers. Same derive-from-real-source rule as above.
+        db.execute(text(
+            "UPDATE parcels SET unauthorized_construction_suspected = TRUE "
+            "WHERE id::text IN (SELECT unnest(affected_parcel_ids) FROM "
+            "change_detection_events WHERE affected_parcel_ids IS NOT NULL)"
+        ))
+        db.commit()
 
         total_parcels = db.query(Parcel).count()
-        print(f"Database seeding completed successfully! Total parcels: {total_parcels}")
+        total_clusters = db.query(Parcel.cluster_id).filter(Parcel.cluster_id.isnot(None)).distinct().count()
+        print(f"Database seeding completed successfully! Total parcels: {total_parcels}; clusters: {total_clusters}; seed version: 2026-09-29")
     except Exception:
         db.rollback()
         raise

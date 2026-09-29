@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.roles import ALL_STAFF_ROLES, OFFICER_ROLES, ROLE_DEPARTMENT
 from app.models.audit import AuditLog
+from app.models.case import Case, DepartmentTask
 from app.models.department_record import DisputeRecord, PlanningRecord, RegistrationRecord, TaxRecord
 from app.models.governance import GovernanceAlert
 from app.models.parcel import Parcel
@@ -34,6 +35,8 @@ class Distribution:
 class AnalyticsTotals:
     parcels: int
     workflows: int
+    cases: int
+    open_cases: int
     open_alerts: int
     active_disputes: int
     total_users: int
@@ -49,6 +52,11 @@ class AnalyticsSummary:
     dispute_case_status_distribution: list[Distribution]
     workflow_status_distribution: list[Distribution]
     workflow_type_distribution: list[Distribution]
+    # Case model (newer citizen-facing pipeline) alongside legacy Workflow.
+    case_status_distribution: list[Distribution]
+    case_intent_distribution: list[Distribution]
+    case_priority_distribution: list[Distribution]
+    department_task_status_distribution: list[Distribution]
     alert_severity_distribution: list[Distribution]
     alert_status_distribution: list[Distribution]
 
@@ -80,6 +88,9 @@ def get_summary(db: Session) -> AnalyticsSummary:
 
     parcel_count = db.scalar(select(func.count()).select_from(Parcel))
     workflow_count = db.scalar(select(func.count()).select_from(Workflow))
+    case_count = db.scalar(select(func.count()).select_from(Case))
+    # A case still "in the pipeline" - everything except CLOSED.
+    open_case_count = db.scalar(select(func.count()).select_from(Case).where(Case.status != "CLOSED"))
     # "Open Alerts" means "still needs attention" - that's 3 real statuses
     # (OPEN/ACKNOWLEDGED/FIELD_VERIFIED), not just the literal OPEN one.
     open_alert_count = db.scalar(select(func.count()).select_from(GovernanceAlert).where(GovernanceAlert.status.not_in(CLOSED_ALERT_STATUSES)))
@@ -92,8 +103,9 @@ def get_summary(db: Session) -> AnalyticsSummary:
 
     return AnalyticsSummary(
         totals=AnalyticsTotals(
-            parcels=parcel_count, workflows=workflow_count, open_alerts=open_alert_count,
-            active_disputes=active_dispute_count, total_users=total_users, recent_logins_24h=recent_logins_24h,
+            parcels=parcel_count, workflows=workflow_count, cases=case_count, open_cases=open_case_count,
+            open_alerts=open_alert_count, active_disputes=active_dispute_count,
+            total_users=total_users, recent_logins_24h=recent_logins_24h,
         ),
         tax_status_distribution=_group_count(db, TaxRecord.tax_status),
         registration_status_distribution=_group_count(db, RegistrationRecord.registration_status),
@@ -101,6 +113,10 @@ def get_summary(db: Session) -> AnalyticsSummary:
         dispute_case_status_distribution=_group_count(db, DisputeRecord.case_status),
         workflow_status_distribution=_group_count(db, Workflow.current_status),
         workflow_type_distribution=_group_count(db, Workflow.workflow_type),
+        case_status_distribution=_group_count(db, Case.status),
+        case_intent_distribution=_group_count(db, Case.intent),
+        case_priority_distribution=_group_count(db, Case.priority),
+        department_task_status_distribution=_group_count(db, DepartmentTask.status),
         alert_severity_distribution=_group_count(db, GovernanceAlert.severity),
         alert_status_distribution=_group_count(db, GovernanceAlert.status),
     )

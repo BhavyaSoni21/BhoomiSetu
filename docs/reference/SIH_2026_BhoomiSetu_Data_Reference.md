@@ -65,6 +65,8 @@ What `seed.py` + the cluster generator actually produce. These are the numbers t
 
 **Departments: 8 seeded** — LAND_RECORDS, REGISTRATION, PLANNING, TAX, RESTRICTION, DISPUTE, ENCUMBRANCE, SURVEY.
 
+**Demo case (citizen1 story):** `seed_citizen1_demo()` seeds one deterministic end-to-end case — `CASE-2026-9001`, intent `CORRECTION_REQUEST`, `ACTIVE`/`HIGH` — over 3 parcels where `PARCEL-PUN-0002` carries the built-in conflicts (owner name mismatch, area 920→985, `OVERDUE` ₹48,500 tax, active `BOUNDARY` dispute). Department tasks are seeded across their lifecycle states, and a matching case-linked `audit_logs` trail (`CASE_CREATED` → `CASE_ROUTED` → per-department `TASK_STATUS_CHANGED`) is written so `GET /cases/:id/audit` returns real history on a cold seed. All values are synthetic (no real identity/Aadhaar/deed).
+
 ---
 
 ## 4. Roles

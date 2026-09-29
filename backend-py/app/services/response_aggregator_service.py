@@ -13,9 +13,83 @@ from sqlalchemy.orm import Session
 
 from app.common.canonical_transformer import build_canonical_envelope
 from app.common.land_record_adapters import adapt_land_records_result
-from app.models.parcel import Parcel, ParcelIdentifier
+from app.models.parcel import OwnershipHistoryRecord, Parcel, ParcelIdentifier
 from app.models.spatial import ZoningOverlay
 from app.services import departments_service, land_records_lookup_service
+
+
+def _norm_name(name: str) -> str:
+    return " ".join(name.lower().replace(".", " ").split())
+
+
+def _names_conflict(a: str | None, b: str | None) -> bool:
+    """True when two owner names disagree after light normalization (case,
+    spacing, dots). A differing token set — including "Ramesh Patil" vs
+    "Ramesh Kumar Patil" — counts; an exact match after normalizing does not.
+    ponytail: token-set compare, not fuzzy/phonetic; swap in a real name
+    matcher if false positives on genuine spelling variants matter."""
+    if not a or not b:
+        return False
+    na, nb = _norm_name(a), _norm_name(b)
+    return bool(na and nb and na != nb and set(na.split()) != set(nb.split()))
+
+
+def _detect_conflicts(*, land_records, tax, survey, dispute, encumbrance, ownership_owner) -> list[dict]:
+    """Cross-department discrepancies for one parcel, computed from the
+    already-fetched source records — the Parcel-360 "why this needs a case"
+    band. Each entry: {type, severity, sources, message}."""
+    conflicts: list[dict] = []
+
+    # Owner name: canonical land record vs the most recent ownership-chain entry.
+    if land_records and _names_conflict(getattr(land_records, "owner_name", None), ownership_owner):
+        conflicts.append({
+            "type": "OWNER_NAME_MISMATCH", "severity": "MEDIUM",
+            "sources": ["LAND_RECORDS", "REGISTRATION"],
+            "message": (
+                f'Owner name differs between land records ("{land_records.owner_name}") '
+                f'and the registered ownership chain ("{ownership_owner}").'
+            ),
+            "values": {"LAND_RECORDS": land_records.owner_name, "REGISTRATION": ownership_owner},
+        })
+
+    # Area: state-schema recorded area vs field-surveyed area (both in m²).
+    if land_records and survey and survey.measured_area_sq_m is not None:
+        recorded = float(land_records.area_sq_m)
+        measured = float(survey.measured_area_sq_m)
+        if recorded > 0 and abs(measured - recorded) / recorded > 0.03:
+            conflicts.append({
+                "type": "AREA_MISMATCH", "severity": "HIGH",
+                "sources": ["LAND_RECORDS", "SURVEY"],
+                "message": (
+                    f"Recorded area {recorded:,.0f} m² differs from the field-surveyed "
+                    f"area {measured:,.0f} m² by {abs(measured - recorded) / recorded * 100:.0f}%."
+                ),
+                "values": {"LAND_RECORDS": recorded, "SURVEY": measured},
+            })
+
+    if tax and tax.tax_status == "OVERDUE":
+        outstanding = float(tax.outstanding_amount or 0)
+        conflicts.append({
+            "type": "TAX_OVERDUE", "severity": "MEDIUM", "sources": ["TAX"],
+            "message": "Property tax is overdue"
+            + (f" (₹{outstanding:,.0f} outstanding)." if outstanding else "."),
+        })
+
+    if dispute and dispute.has_active_dispute:
+        conflicts.append({
+            "type": "ACTIVE_DISPUTE", "severity": "HIGH", "sources": ["DISPUTE"],
+            "message": f"An active {(dispute.dispute_type or 'OWNERSHIP').lower()} dispute is on record for this parcel.",
+        })
+
+    # Fraud cross-check: an encumbrance registered against disputed land.
+    if encumbrance and encumbrance.has_encumbrance and dispute and dispute.has_active_dispute:
+        conflicts.append({
+            "type": "ENCUMBRANCE_ON_DISPUTED", "severity": "CRITICAL",
+            "sources": ["ENCUMBRANCE", "DISPUTE"],
+            "message": "An active encumbrance is registered against a parcel that also has an active dispute.",
+        })
+
+    return conflicts
 
 
 def _resolve_zone_membership(db: Session, parcel: Parcel) -> dict | None:
@@ -66,6 +140,12 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
     encumbrance = departments_service.find_encumbrance_by_parcel(db, parcel_id)
     survey = departments_service.find_survey_by_parcel(db, parcel_id)
 
+    ownership_owner = db.scalars(
+        select(OwnershipHistoryRecord.owner_name)
+        .where(OwnershipHistoryRecord.parcel_id == parcel_id)
+        .order_by(OwnershipHistoryRecord.transaction_date.desc())
+    ).first()
+
     land_records = (
         adapt_land_records_result(land_records_result)
         if land_records_result and land_records_result != land_records_lookup_service.PARCEL_NOT_FOUND
@@ -94,6 +174,10 @@ def build_parcel_360(db: Session, parcel_id: str) -> dict | None:
         **envelope,
         "cluster_id": parcel.cluster_id,
         "zone_membership": _resolve_zone_membership(db, parcel),
+        "conflicts": _detect_conflicts(
+            land_records=land_records, tax=tax, survey=survey, dispute=dispute,
+            encumbrance=encumbrance, ownership_owner=ownership_owner,
+        ),
         "departments": {
             "land_records": land_records,
             "registration": registration,

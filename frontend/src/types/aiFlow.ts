@@ -197,6 +197,8 @@ export interface DepartmentTask {
   caseId: string;
   caseNo?: string | null;
   departmentId: string;
+  departmentName?: string | null;
+  departmentCode?: string | null;
   workflowId?: string | null;
   status: string;
   assignedOfficerId?: string | null;
@@ -213,7 +215,7 @@ export interface DepartmentTask {
 
 export interface CaseDetailOut {
   case: CaseOut;
-  tasks: DepartmentTaskOut[];
+  tasks: DepartmentTask[];
   timeline: CaseTimelineEventOut[];
   feedback: FeedbackOut[];
   ai_analysis?: AIAnalysisOut | null;

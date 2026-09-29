@@ -284,6 +284,49 @@ function getRiskScoreColor(score: number): string {
   return '#10b981';
 }
 
+// Circle-rate / value-band palette (mirrors the circleRate-layer match expr).
+const VALUE_BAND_COLORS = ['', '#ffffcc', '#a1dab4', '#41b6c4', '#2c7fb8', '#253494'];
+
+// Base parcel fill by *who is viewing*: each staff role sees every parcel
+// colored by the governance dimension its department owns, so the base map is
+// meaningful to that role instead of a flat state-code wash. Citizens/verifiers
+// (and any unknown role) keep the location-based state color. Every branch
+// returns a real color - a parcel is never left transparent - falling back to
+// stateColor() only when the role's own attribute genuinely has no value (e.g.
+// tax_status unknown), which reads as "no data here" rather than a fake status.
+// Reuses the exact palettes of the matching overlay layers so a role's default
+// fill and its overlay toggle agree.
+export function baseFillFor(role: string | undefined, p: ParcelSummary): string {
+  switch (role) {
+    case 'TAX_OFFICER': {
+      switch (p.taxStatus) {
+        case 'PAID': return '#22c55e';
+        case 'PENDING': return '#eab308';
+        case 'OVERDUE': return '#ef4444';
+        default: return stateColor(p.stateCode); // unknown/absent → location
+      }
+    }
+    case 'LAND_RECORD_OFFICER':
+    case 'REGISTRATION_OFFICER':
+    case 'DISPUTE_OFFICER':
+    case 'RESTRICTION_OFFICER':
+    case 'ENCUMBRANCE_OFFICER': {
+      const sev = p.legalStatusSeverity ?? p.legal_status_severity ?? 0;
+      // 0 = clear title (green) is real data, not "missing" - so no state fallback.
+      return sev >= 3 ? '#dc2626' : sev === 2 ? '#f97316' : sev === 1 ? '#f59e0b' : '#10b981';
+    }
+    case 'PLANNING_OFFICER': {
+      const band = p.valueBand ?? p.value_band ?? 0;
+      return band >= 1 && band <= 5 ? VALUE_BAND_COLORS[band] : stateColor(p.stateCode);
+    }
+    case 'SURVEY_OFFICER':
+    case 'ADMIN':
+      return getRiskScoreColor(p.riskScore ?? p.risk_score ?? 0);
+    default: // CITIZEN, VERIFIER, undefined → color by where it's situated
+      return stateColor(p.stateCode);
+  }
+}
+
 const MapComponent: React.FC<MapComponentProps> = ({
   userRole,
   parcels: parcelsProp,
@@ -1052,11 +1095,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
         localBodyCode: parcel.localBodyCode,
         areaSqM: parcel.areaSqM,
         taxStatus: parcel.taxStatus,
-        fillColor: parcelColors?.[parcel.id] ?? stateColor(parcel.stateCode),
+        fillColor: parcelColors?.[parcel.id] ?? baseFillFor(userRole, parcel),
         extraLabel: parcelLabels?.[parcel.id] ?? null,
         legal_status_severity: parcel.legalStatusSeverity ?? parcel.legal_status_severity ?? 0,
         value_band: parcel.valueBand ?? parcel.value_band ?? 0,
         risk_score: parcel.riskScore ?? parcel.risk_score ?? 0,
+        masterplan_mismatch: parcel.masterplanMismatch ?? parcel.masterplan_mismatch ?? false,
+        unauthorized_construction_suspected:
+          parcel.unauthorizedConstructionSuspected ?? parcel.unauthorized_construction_suspected ?? false,
       },
       geometry: parseParcelGeometry(parcel.geometry),
     }));
@@ -1073,7 +1119,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         }
       }
     }
-  }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady, recenterSignal]);
+  }, [parcels, parcelColors, parcelLabels, fitToParcels, mapReady, recenterSignal, userRole]);
 
   // Fit to an explicitly-picked cluster's bounds (e.g. OfficerMapPage's
   // cluster dropdown). This also narrows the base parcels fetch below to

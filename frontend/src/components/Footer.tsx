@@ -237,7 +237,7 @@ export const Footer: React.FC = () => {
       <div className="border-t border-white/10 bg-black/20 text-xs text-white/70 py-3.5 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
           <div>
-            © {currentYear} — {t('footer.copyrightLine')} Government of India
+            {t('footer.copyrightLine').replace(/\{\{year\}\}/g, String(currentYear))} Government of India
           </div>
           <div className="flex flex-wrap items-center gap-2 text-white/60">
             <Link to="/about" className="hover:text-white transition">{t('footer.bottomLinkSitemap')}</Link>
@@ -246,7 +246,7 @@ export const Footer: React.FC = () => {
             <span>|</span>
             <Link to="/privacy-policy" className="hover:text-white transition">{t('footer.bottomLinkPrivacy')}</Link>
             <span>|</span>
-            <Link to="/terms-of-use" className="hover:text-white transition">{t('footer.bottomLinkCopyright')}</Link>
+            <Link to="/terms-of-use" className="hover:text-white transition">{t('footer.bottomLinkCopyright').replace(/\{\{year\}\}/g, String(currentYear))}</Link>
             <span>|</span>
             <Link to="/contact-us" className="hover:text-white transition">{t('footer.bottomLinkContact')}</Link>
             <span>|</span>

@@ -14,7 +14,7 @@ backend/src/auth/jwt.strategy.ts + roles.guard.ts + current-user.decorator.ts),
 not the login/register/OTP endpoints themselves.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -32,12 +32,14 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def create_access_token(user: User) -> str:
-    """Mirrors AuthService's jwtService.sign(payload) - no `exp` claim, by
-    design: per the user's explicit "the session should not log out until
-    the user presses logout," a signed-in session stays valid indefinitely
-    until useLogout() bumps token_version server-side.
+    """Signs the auth payload with a configurable `exp` claim
+    (settings.access_token_minutes, default 30). Sessions are additionally
+    revocable at any time via token_version: logout bumps it server-side,
+    invalidating outstanding tokens before they expire.
     """
-    payload = {"sub": str(user.id), "email": user.email, "role": user.role, "tokenVersion": user.token_version}
+    settings = get_settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_minutes)
+    payload = {"sub": str(user.id), "email": user.email, "role": user.role, "tokenVersion": user.token_version, "exp": expires_at}
     return jwt.encode(payload, get_settings().jwt_secret, algorithm=_ALGORITHM)
 
 

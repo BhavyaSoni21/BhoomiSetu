@@ -502,7 +502,7 @@ function AppShell() {
 
       {/* ── Main Content Area with GIGW ID ── */}
       <main id="main-content" className="flex-1 min-h-0">
-        <Suspense fallback={<div className="flex items-center justify-center py-24 text-[var(--text-secondary)]">Loading…</div>}>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-[var(--text-secondary)]">Loading…</div>}>
         <Routes>
           <Route
             path="/"

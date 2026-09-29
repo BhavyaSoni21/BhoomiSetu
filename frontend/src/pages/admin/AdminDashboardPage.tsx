@@ -5,6 +5,7 @@ import AnalyticsDashboard from '../../features/analytics/AnalyticsDashboard';
 import TopRiskParcels from '../../features/analytics/TopRiskParcels';
 import UserManagement from '../../features/admin/UserManagement';
 import { useAuthUser } from '../../features/auth/auth';
+import DemoDataBadge from '../../components/DemoDataBadge';
 
 const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ const AdminDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-up max-w-7xl">
+      <div className="flex justify-end -mb-4"><DemoDataBadge /></div>
       {/* ── Admin Command Header ── */}
       <div
         className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"

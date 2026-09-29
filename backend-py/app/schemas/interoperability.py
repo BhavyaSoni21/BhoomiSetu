@@ -67,6 +67,7 @@ def parcel_360_to_json(result: dict[str, Any]) -> dict[str, Any]:
         "sources": result["sources"],
         "clusterId": result["cluster_id"],
         "zoneMembership": result.get("zone_membership"),
+        "conflicts": result.get("conflicts", []),
         "departments": {
             "landRecords": _land_record_out(departments["land_records"]),
             "registration": _dump(RegistrationRecordOut, departments["registration"]),

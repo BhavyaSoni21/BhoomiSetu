@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../../context/LanguageContext';
+import DemoDataBadge from '../../components/DemoDataBadge';
 import {
   MapPin,
   Inbox,
@@ -59,6 +60,7 @@ const CitizenDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-up">
+      <div className="flex justify-end -mb-4"><DemoDataBadge /></div>
       {/* ── Welcome Header Banner ── */}
       <div
         className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"

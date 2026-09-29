@@ -102,7 +102,7 @@ const FindParcelsPage: React.FC = () => {
                     {t('citizen.mapHeading', 'Cadastral GIS Map')}
                   </h2>
                   <p className="text-[11px] text-text-secondary">
-                    Real-time GeoJSON boundaries with SVAMITVA drone overlays
+                    Interactive GeoJSON parcel boundaries with SVAMITVA-style overlays (seeded demo data)
                   </p>
                 </div>
               </div>

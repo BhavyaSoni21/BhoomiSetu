@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
 
     jwt_secret: str = "change_this_in_production"
+    access_token_minutes: int = 30
 
     # Idle timeout in minutes - sessions inactive for this long are considered
     # expired even if token_version matches. 0 = disabled.

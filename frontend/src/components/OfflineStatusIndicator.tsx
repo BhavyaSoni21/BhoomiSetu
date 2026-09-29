@@ -57,7 +57,7 @@ const OfflineStatusIndicator: React.FC = () => {
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-72 rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-3 text-left shadow-lg text-[var(--text-primary)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-[var(--text-heading)]">Sync</span>
+            <span className="text-sm font-bold text-[var(--text-heading)]">Offline sync</span>
             <button type="button" onClick={() => setOpen(false)} aria-label="Close"><X className="w-4 h-4" /></button>
           </div>
           <dl className="text-xs space-y-1 mb-3">
@@ -76,7 +76,7 @@ const OfflineStatusIndicator: React.FC = () => {
 
           {conflicts.length > 0 && (
             <div className="mt-3 border-t border-[var(--border)] pt-2">
-              <div className="text-xs font-bold text-amber-700 mb-1">Conflicts ({conflicts.length})</div>
+              <div className="text-xs font-bold text-amber-700 mb-1">Conflicts ({conflicts.length})</div><p className="text-[11px] text-[var(--text-muted)] mb-2">Case creation syncs offline. Document and evidence uploads require a connection.</p>
               <ul className="space-y-1.5">
                 {conflicts.map((c) => (
                   <li key={c.operationId} className="flex items-center justify-between gap-2 text-xs">
