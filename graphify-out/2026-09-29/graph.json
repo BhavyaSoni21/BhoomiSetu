@@ -1275,7 +1275,7 @@
       "file_type": "code",
       "norm_label": "googleauthurlresponse",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L351"
+      "source_location": "L344"
     },
     {
       "id": "frontend_src_features_auth_auth_pendingregistration",
@@ -14159,7 +14159,7 @@
       "file_type": "code",
       "norm_label": "usecompleteonboarding()",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L319"
+      "source_location": "L312"
     },
     {
       "id": "frontend_src_features_auth_auth_usegoogleauthurl",
@@ -14171,7 +14171,7 @@
       "file_type": "code",
       "norm_label": "usegoogleauthurl()",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L355"
+      "source_location": "L348"
     },
     {
       "id": "frontend_src_features_auth_auth_usegooglecallback",
@@ -14183,7 +14183,7 @@
       "file_type": "code",
       "norm_label": "usegooglecallback()",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L367"
+      "source_location": "L360"
     },
     {
       "id": "frontend_src_features_auth_auth_uselogin",
@@ -14207,7 +14207,7 @@
       "file_type": "code",
       "norm_label": "uselogout()",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L332"
+      "source_location": "L325"
     },
     {
       "id": "frontend_src_features_auth_auth_useregister",
@@ -116280,7 +116280,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L374",
+      "source_location": "L367",
       "weight": 1.0
     },
     {
@@ -116304,7 +116304,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L335",
+      "source_location": "L328",
       "weight": 1.0
     },
     {
@@ -116316,7 +116316,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L344",
+      "source_location": "L337",
       "weight": 1.0
     },
     {
@@ -225833,7 +225833,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L319",
+      "source_location": "L312",
       "weight": 1.0
     },
     {
@@ -225844,7 +225844,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L332",
+      "source_location": "L325",
       "weight": 1.0
     },
     {
@@ -225855,7 +225855,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L351",
+      "source_location": "L344",
       "weight": 1.0
     },
     {
@@ -225866,7 +225866,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L355",
+      "source_location": "L348",
       "weight": 1.0
     },
     {
@@ -225877,7 +225877,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/features/auth/auth.ts",
-      "source_location": "L367",
+      "source_location": "L360",
       "weight": 1.0
     },
     {

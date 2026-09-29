@@ -45,10 +45,11 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--langs", nargs="*", default=TARGET_LANGS)
     ap.add_argument("--limit", type=int, default=0, help="max keys per lang (0 = all)")
+    ap.add_argument("--seed", default=str(SEED), help="English seed JSON (flat dotted keys)")
     args = ap.parse_args()
     settings = get_settings()
 
-    seed = json.loads(SEED.read_text(encoding="utf-8"))
+    seed = json.loads(Path(args.seed).read_text(encoding="utf-8"))
     print(f"seed: {len(seed)} English keys")
 
     # en base: merge verbatim (no translation)

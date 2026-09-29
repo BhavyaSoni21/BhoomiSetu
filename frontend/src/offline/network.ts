@@ -36,20 +36,44 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       set({ reachable: false, status: 'OFFLINE' });
       return false;
     }
+    // A hidden/backgrounded tab (screen recording a different window, tab
+    // switch, minimized) has its timers and fetches throttled by the browser;
+    // a probe that aborts there is not evidence of being offline. Skip it and
+    // keep the current state - visibilitychange re-probes when we're back.
+    if (typeof document !== 'undefined' && document.hidden) {
+      return get().reachable;
+    }
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4000);
       const res = await fetch(HEALTH_URL, { method: 'GET', signal: ctrl.signal, cache: 'no-store' });
       clearTimeout(timer);
-      const ok = res.ok;
-      set({ reachable: ok, status: ok ? (get().status === 'SYNCING' ? 'SYNCING' : 'ONLINE') : 'OFFLINE' });
-      return ok;
+      if (res.ok) {
+        consecutiveFails = 0;
+        set({ reachable: true, status: get().status === 'SYNCING' ? 'SYNCING' : 'ONLINE' });
+        return true;
+      }
+      return failProbe(set, get);
     } catch {
-      set({ reachable: false, status: 'OFFLINE' });
-      return false;
+      return failProbe(set, get);
     }
   },
 }));
+
+// One aborted/failed probe isn't "offline" - a screen recorder or a CPU spike
+// can make a single /health fetch miss its 4s window. Only flip to OFFLINE
+// after two consecutive real failures; the first schedules a fast re-check.
+let consecutiveFails = 0;
+function failProbe(set: (p: Partial<NetworkState>) => void, get: () => NetworkState): boolean {
+  consecutiveFails++;
+  if (consecutiveFails >= 2) {
+    set({ reachable: false, status: 'OFFLINE' });
+    return false;
+  }
+  set({ status: 'RECONNECTING' }); // keep reachable=true; app stays usable
+  setTimeout(() => { void get().probe(); }, 3000);
+  return get().reachable;
+}
 
 // Wire browser events once, at module load. Re-probe on regain so we don't
 // trust a spurious `online` event (spec §24).
@@ -62,7 +86,19 @@ export function startNetworkMonitor() {
     useNetworkStore.setState({ status: 'RECONNECTING' });
     void store.probe();
   });
-  window.addEventListener('offline', () => useNetworkStore.setState({ status: 'OFFLINE', reachable: false }));
+  // navigator's `offline` event can be spurious (a recorder or VPN toggling a
+  // virtual NIC fires it). Verify with a probe instead of hard-flipping, same
+  // as we distrust a spurious `online`.
+  window.addEventListener('offline', () => {
+    useNetworkStore.setState({ status: 'RECONNECTING' });
+    void store.probe();
+  });
+  // Re-probe the moment a throttled/hidden tab becomes visible again.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) void useNetworkStore.getState().probe();
+    });
+  }
   void store.probe();
   // Light background heartbeat so a silently-dropped connection is noticed.
   setInterval(() => { void useNetworkStore.getState().probe(); }, 30_000);

@@ -301,6 +301,13 @@ export function useUpdateProfileDetails() {
     },
     {
       onSuccess: (user) => queryClient.setQueryData(AUTH_QUERY_KEY, user),
+      // Idempotent (overwrites the given fields), so safe to retry. navigator.
+      // onLine is unreliable while screen recording (a recorder/VPN toggles a
+      // virtual NIC), so run regardless of it and ride out transient failures
+      // instead of hard-failing the onboarding "save details" step.
+      networkMode: 'always',
+      retry: 2,
+      retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
     },
   );
 }

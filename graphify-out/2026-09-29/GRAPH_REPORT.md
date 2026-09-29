@@ -1,7 +1,7 @@
 # Graph Report - SIH_2026_BhoomiSetu  (2026-09-29)
 
 ## Corpus Check
-- 644 files · ~1,168,142 words
+- 644 files · ~1,167,979 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 22 file(s) not represented in the graph (top: (none) 9, .ttf 5, .ini 2)
 

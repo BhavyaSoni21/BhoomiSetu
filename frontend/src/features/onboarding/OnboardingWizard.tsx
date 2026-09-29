@@ -147,11 +147,22 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ user }) => {
     goto('completion');
   };
 
+  // FastAPI puts custom error payloads under `detail` (our 400 validation is
+  // {detail:{message,errors}}; a plain 500 is {detail:"..."}), while axios
+  // network/timeout errors have only `message`. Dig out the most specific one
+  // so the user sees why instead of a blank "try again".
+  const errData = axios.isAxiosError(updateDetails.error)
+    ? (updateDetails.error.response?.data as { detail?: unknown; message?: string } | undefined)
+    : undefined;
+  const detail = errData?.detail as { message?: string; errors?: string[] } | string | undefined;
+  const serverMsg =
+    (typeof detail === 'object' && detail?.errors?.length ? detail.errors[0] : undefined) ||
+    (typeof detail === 'object' ? detail?.message : undefined) ||
+    (typeof detail === 'string' ? detail : undefined) ||
+    errData?.message;
   const profileError =
     updateDetails.isError &&
-    (axios.isAxiosError(updateDetails.error) && updateDetails.error.response?.data?.message
-      ? String(updateDetails.error.response.data.message)
-      : t('onboarding.profileError', 'Could not save your details. Please try again.'));
+    (serverMsg || t('onboarding.profileError', 'Could not save your details. Please try again.'));
 
   const completeError =
     completeOnboarding.isError &&

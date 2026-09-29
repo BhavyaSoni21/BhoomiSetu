@@ -1,24 +1,24 @@
-# Graph Report - SIH_2026_BhoomiSetu  (2026-09-29)
+# Graph Report - SIH_2026_BhoomiSetu  (2026-09-28)
 
 ## Corpus Check
-- 644 files · ~1,168,142 words
+- 639 files · ~1,166,812 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 22 file(s) not represented in the graph (top: (none) 9, .ttf 5, .ini 2)
 
 ## Summary
-- 7308 nodes · 15491 edges · 519 communities (423 shown, 26 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 967 edges (avg confidence: 0.95)
+- 7269 nodes · 15336 edges · 518 communities (421 shown, 27 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 943 edges (avg confidence: 0.95)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `98e43fc2`
+- Built from commit: `b54e3eba`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - apiService.ts
 - auth_service.py
-- AuditLog
+- land_record_pdf_service.py
 - _clear
 - NotificationPayload
 - users_service.py
@@ -29,14 +29,14 @@
 - upload_to_storage
 - pipeline_config_service.py
 - BhoomiSetu_Unified_Workflow_Specification.md
+- auth.ts
 - oauth_service.py
-- multilingual.py
 - Tech.md
-- get_settings
+- sms_service.py
 - GovernanceAlert
 - usePwaInstall.ts
 - client
-- App.tsx
+- AssignedVisitsPage.tsx
 - profile_fields.py
 - verifierLocalSyncService.ts
 - workflows.py
@@ -44,76 +44,76 @@
 - record_demo_live.js
 - _seed
 - _seed
-- parcels.py
+- Parcel360View.tsx
 - User
 - aiFlow.ts
 - CamelModel
 - workflows_service.py
-- test_parcel_verifier.py
+- parcels.py
 - AnalyticsDashboard.tsx
 - login
 - SIH_2026_BhoomiSetu_Master_PPT_Data.md
 - routers/auth.py
-- middleware.py
+- get_current_user
 - frontend/package.json
 - UnifiedMapWrapper.tsx
 - BHOOMISETU.md
 - _seed
 - routers/historical_imagery.py
-- routers/departments.py
+- routers/land_records.py
 - context_aware_parcel_generation_upgrade.md
 - SIH26014_Hidden_Insights_Strategy.md
 - _compute_value_band
 - compilerOptions
 - _base_fixtures
 - dependencies
-- parcels_extra.py
+- case_service.py
 - render_official_document_pdf
 - _seed_fixture_parcels
 - gis.ts
-- GovernanceAlertsPanel.tsx
-- AssignedVisitsPage.tsx
-- case_service.py
-- Department
+- Session
+- governance_alerts_service.py
+- Session
+- Base
 - 4. Master Issue Register
 - _seed
-- notification_feed.py
-- WorkflowReviewPanel.tsx
-- reap_stuck_jobs
+- _now
+- test_interoperability.py
+- routers/departments.py
 - database.py
-- roles.py
+- multilingual.py
 - TestOAuthService
 - Confirmed findings
-- parcels_service.py
+- Parcel
 - cluster_generator.py
 - BhoomiSetu Official Document Generation — Code Review and Implementation Blueprint
 - db.ts
-- test_parcel_conflicts.py
+- Department
 - devDependencies
-- EncumbranceRecord
-- Settings
+- test_legal_status.py
+- GovernanceAlertsPanel.tsx
 - BhoomiSetu_Data_Architecture_GIS_Performance_Scalability_Guide.md
 - 🌍 Bhashini Integration - COMPLETE DELIVERY SUMMARY
 - _seed
-- TerrainCache
-- translate_text
+- ParcelDocumentFields
+- batch_translate_ui.py
 - BhoomiSetu
 - BhoomiSetu — Feature Reference
-- WorkflowPipelineConfig
+- earth_engine_service.py
 - admin_governance_rules.py
 - routers/spatial.py
 - Detailed Workflow — What Each Officer Actually Does
 - Navbar & Route Refactor — Tracked Checklist
 - BhoomiSetu — Master Project Document
 - Auth & Verification Upgrade + Frontend Upgrade List
-- OfficerDashboardPage.tsx
+- Settings
 - BhoomiSetu — Application Flows, Routes & Actions
-- Parcel360View.tsx
+- MockMap
 - BhoomiSetu — Feature → Library / Endpoint / File Map
 - main.tsx
 - navbar_corretion.md
-- get_definition
-- check_authenticity
+- notification_feed.py
+- extract_text
 - sync.ts
 - Bhashini Integration Quick Reference
 - vercel.json
@@ -121,12 +121,12 @@
 - Python Migration — Progress
 - **46\. DEVELOPMENT PHASES**
 - 6. Implementation Tasks
-- generate_decision_order_pdf
+- earth_engine_terrain.py
 - create_authenticated_user
 - BhoomiSetu — Standard Technical Document
-- _seed
+- WorkflowPipelineConfig
 - BhoomiSetu Platform Audit (Known Risks)
-- _clear_spatial
+- WorkflowReviewPanel.tsx
 - 02 — Security Audit
 - BhoomiSetu_Master_Correction_Document.md
 - Bhashini Multilingual Integration — BhoomiSetu
@@ -134,60 +134,60 @@
 - audit_backend_coverage.mjs
 - BhoomiSetu — Design System
 - Officer Portal Issues (verification checklist, 2026-09-10)
-- ProcessingJob
-- Parcel
-- onboardingTour.ts
+- MapComponent.tsx
+- MapComponent.test.tsx
+- interoperability.py
 - 05 — UI/UX Audit
 - BhoomiSetu Feature Audit
 - BhoomiSetu — Complete Frontend Upgrade Specification
 - Earth Engine Terrain/Infrastructure Data Implementation
 - BhashiniFlag of India — Design Skill
-- test_interoperability.py
-- EECUTracker
+- test_workflows.py
+- eecu_tracker.py
 - terrain_cache.py
 - PART C — Page-by-Page Layout Spec
 - useTranslation
 - Bhashini Integration Examples - Practical Use Cases
 - Phases and To-Do List
 - resolve_pagination
-- TestGetOne
+- _seed
 - BhoomiSetu Earth Engine GIS Pipeline - Audit Report
 - Part 1 — Decisions only you can make
 - BhoomiSetu Database Implementation Guide
 - Bhashini Integration - Setup Checklist
 - Part 1: Portal Design System (Bauhaus)
 - Citizen Features Upgrade Plan
-- ParcelDocumentFields
+- ProposedFieldChange
 - 12 — Test Results
 - Env Configuration — Reference Only
 - Connecting the Frontend to `backend-py` — Detailed Plan
 - map_tiles.py
-- auth.ts
+- OfficerDashboardPage.tsx
 - routers/sync.py
 - BhoomiSetu — Python Backend Migration Plan
-- earth_engine_terrain.py
+- test_bhashini.py
 - 5. Activity & Audit System
 - Deployment (Render + Vercel)
-- bhashini.py
+- get_settings
 - ui_text.py
 - Admin Combined Map — Layout, Layer Visibility, Edit Authorization & Reseed Plan
 - audit_i18n_keys.mjs
 - Priority order (as of 2026-09-19)
 - routers/admin.py
-- Base
-- field_matcher.py
+- update
+- ProcessingJob
 - 31. Reference Architecture Diagrams
 - 39. PPT GENERATION HANDOFF
 - 46. GIS / Land Map
 - Bhashini Integration - Implementation Summary
 - 6. Mobile Responsive Problems
-- TestOfficerDashboardListing
+- narrative_service.py
 - DEMO_VIDEO_SCRIPT.md
 - 34. Badges / Status
 - ✨ Key Design Decisions
 - 67. Recommended Core Invariants
 - Essential governance — current records + history mirrors
-- ProfileField.tsx
+- architecture/README.md
 - BhoomiSetu Correction Plan — Code-Verified
 - Demonstration modules
 - screenshots.mjs
@@ -197,7 +197,7 @@
 - 🚀 Quick Start
 - BhoomiSetu — Data Reference
 - BhoomiSetu — Unified Workflow Implementation Plan
-- architecture/README.md
+- get_my_performance
 - Phase 4 — Officer Workspace
 - Phase 5 — Verifier Field Workflow
 - Security Policy
@@ -205,7 +205,7 @@
 - Case / workflow engine
 - **45\. Execution Plan**
 - 19. TECHNOLOGY STACK
-- 6. Security Framework
+- complete_json
 - Technical references to add before final PPT
 - New Map Layers — Implementation & Scaling Plan
 - Parcel 360° information
@@ -217,7 +217,7 @@
 - 61. Gradient Rules
 - 5. Documentation (4 files)
 - **6\. Core Objectives**
-- base.py
+- schemas/user.py
 - **7\. Core Principles**
 - Required screenshots
 - 4. LAND STACK DATA LAYER MODEL
@@ -228,7 +228,7 @@
 - Base spatial layer
 - 08 — Deployment
 - 10 — SIH Demo Readiness
-- VerificationEvidence
+- _seed
 - 13. Links
 - Success KPI
 - 2. Global Body
@@ -250,7 +250,7 @@
 - 31. VISUAL DIAGRAM INVENTORY
 - BhoomiSetu — SIH 2026 PPT (Slide Content)
 - 10. Deployment & Scalability Considerations
-- 📦 Core Components Implemented
+- VerificationCard.tsx
 - 10. H3
 - 11. H4 / H5 / H6
 - 14. Primary Button
@@ -307,12 +307,12 @@
 - CLAUDE.md
 - 06 — Multilingual (i18n + Bhashini)
 - 07 — Dev Setup
-- Additional / derived layers
-- MockMap
-- get_current_user
-- MockPopup
-- TestGetEvidence
-- narrative_service.py
+- estimate_eecu
+- onboardingTour.ts
+- analyze
+- field_matcher.py
+- TestGetOne
+- TestOfficerDashboardListing
 - 7. Profile Problems
 - 8. Theme / Visual Problems
 - Strategy
@@ -324,7 +324,7 @@
 - 01 — Overview
 - Phase 9: Department Tools
 - 02 — Architecture
-- verify_parcel
+- TestReopenStep
 - Phase 20: UX rules
 - 03 — Database Audit
 - **42\. UI/UX Guidelines**
@@ -336,7 +336,7 @@
 - **16\. MOCK DEPARTMENT SYSTEMS**
 - Phase 7 — Historical Records & Audit
 - Phase 8 — Citizen Feedback & Admin Oversight
-- MockMap
+- TestVerifierAssignmentAndFieldEvidence
 - **22\. DEPARTMENT INTEROPERABILITY ENDPOINTS**
 - **35\. MOCK DATA REQUIREMENTS**
 - The visual logic of the whole video
@@ -365,12 +365,12 @@
 - 3. Priority Definitions
 - ISSUE-001 — Registration Chain Infinite Loading
 - **Authentication**
-- archive/README.md
+- BhoomiSetu — Application Flow & Role Feature Distribution
 - **20\. PARCEL ENDPOINTS**
 - **23\. WORKFLOW API ENDPOINTS**
 - 04 — API Contract Audit
 - **29\. RECOMMENDED GROQ USE CASES**
-- update
+- archive/README.md
 - record_demo.js
 - **6\. DATABASE ARCHITECTURE**
 - 11. AI Output
@@ -403,7 +403,7 @@
 - **19\. USER ENDPOINTS**
 - 08 — Performance Audit
 - category_for
-- Notification
+- 6. Security Framework
 - **21\. GIS ENDPOINTS**
 - **31\. GROQ AI ENDPOINTS**
 - **38\. ROLE-BASED ACCESS CONTROL**
@@ -413,7 +413,7 @@
 - 14. AUTHENTICATION & SECURITY
 - 18. AI / ML PIPELINE
 - 33. REQUIRED TEAM INPUT BEFORE FINAL PPT
-- LayerGeometryDrawMap.test.tsx
+- MockLngLatBounds
 - 9. CANONICAL DATA MODEL
 - SLIDE 2 --- IDEA TITLE
 - SLIDE 4 --- FEASIBILITY AND VIABILITY
@@ -422,18 +422,18 @@
 - 5. Data Schemas
 - 09 — Deployment Audit
 - BhoomiSetu Handbook — START HERE
-- ResizeObserverStub
+- public.py
 - 12. Technology Stack
 - 13. Uniqueness & Innovation
 - ready
 - request_routing_service.py
-- Users & identity
+- _DummyCelery
 - 15. Document Processing Pipeline
 - 7. Departmental Workflow Architecture
-- delete_pipeline_config
-- MockPopup
-- TestReopenStep
-- TestVerifierAssignmentAndFieldEvidence
+- TestEscalateStep
+- Frontend Integration Examples
+- TestGetMine
+- _fetch_buildings_from_dataset
 - **3\. Relationship Between BhoomiSetu and Land Stack**
 - **An Integrated GIS-Based Land Governance and Interoperability Platform**
 - **14\. STATE ADAPTER MAPPING**
@@ -450,30 +450,29 @@
 - 16. DEPARTMENTAL WORKFLOW MODEL
 - 28. BEFORE → AFTER STORY
 - env.py
-- TestEscalateStep
+- TestGetEvidence
 - 24. Testing Strategy
 - 28. Key Performance Indicators
-- _DummyCelery
+- 2. Problem Statement
 - MockLngLatBounds
-- optimize-images.py
-- Async / offline plumbing
-- TestGetMine
-- scripts
+- create
+- get_top_risk_parcels
+- seed_value_band.py
+- TestDocumentVerificationRequest
 - 20. Running the Project
-- Interoperability demo (deliberately mismatched state schemas)
-- _square
-- TestUpdateStatus
-- jobs.py
-- get_my_performance
+- 16. Reliability & Offline / PWA
+- 3. Proposed Solution
+- ResizeObserverStub
+- optimize-images.py
 
 ## God Nodes (most connected - your core abstractions)
-1. `User` - 301 edges
-2. `useTranslation()` - 214 edges
+1. `User` - 298 edges
+2. `useTranslation()` - 211 edges
 3. `CamelModel` - 170 edges
-4. `Parcel` - 154 edges
-5. `react` - 149 edges
+4. `Parcel` - 151 edges
+5. `react` - 148 edges
 6. `create_authenticated_user()` - 137 edges
-7. `lucide-react` - 113 edges
+7. `lucide-react` - 112 edges
 8. `apiService` - 91 edges
 9. `_seed()` - 87 edges
 10. `@tanstack/react-query` - 87 edges
@@ -493,79 +492,79 @@
 ## Import Cycles
 - None detected.
 
-## Communities (519 total, 26 thin omitted)
+## Communities (518 total, 27 thin omitted)
 
 ### Community 0 - "apiService.ts"
 Cohesion: 0.03
-Nodes (119): renderApp(), renderAs(), renderAsGuest(), renderAt(), landRecordsDept, renderPanel(), taxDept, featureCollection (+111 more)
+Nodes (111): renderApp(), renderAs(), renderAsGuest(), renderAt(), DepartmentManagement(), emptyEditForm, emptyForm, landRecordsDept (+103 more)
 
 ### Community 1 - "auth_service.py"
-Cohesion: 0.15
-Nodes (31): hash_password(), Shared bcrypt hashing, used by UsersModule (admin-provisioned staff accounts)…, verify_password(), PendingRegistration, add_or_change_contact(), complete_onboarding(), _email_taken_by_another_user(), _generate_otp_code() (+23 more)
+Cohesion: 0.16
+Nodes (29): verify_password(), PendingRegistration, Ported from backend/src/auth/pending-registration.entity.ts. A citizen…, add_or_change_contact(), complete_onboarding(), _email_taken_by_another_user(), _generate_otp_code(), login() (+21 more)
 
-### Community 2 - "AuditLog"
-Cohesion: 0.11
-Nodes (10): AuditLog, _seed(), _square(), TestGetOfficerMonitoring, TestGetSummary, _clear_audit_logs(), Ported from backend/test/audit.e2e-spec.ts, scoped down. The original spec…, _square() (+2 more)
+### Community 2 - "land_record_pdf_service.py"
+Cohesion: 0.07
+Nodes (34): AuditLog, datetime, Ported from backend/src/audit/audit-log.entity.ts. `parcel_id` is a pragmatic…, _utcnow(), PlanningRecord, Registration status, transaction records, registration history., Land use, zoning, master plan info. For the Pune cluster, land_use is generated…, RegistrationRecord (+26 more)
 
 ### Community 3 - "_clear"
 Cohesion: 0.07
-Nodes (19): Ported from backend/src/auth/pending-registration.entity.ts. A citizen…, SmsOtpResult, _clear(), _mock_email_capture(), _mock_send_otp(), fake_send_otp(), Ported from backend/test/auth.e2e-spec.ts. sms_service.send_otp/verify_otp and…, _register_and_verify_citizen() (+11 more)
+Nodes (20): hash_password(), Shared bcrypt hashing, used by UsersModule (admin-provisioned staff accounts)…, SmsOtpResult, _clear(), _mock_email_capture(), _mock_send_otp(), fake_send_otp(), Ported from backend/test/auth.e2e-spec.ts. sms_service.send_otp/verify_otp and… (+12 more)
 
 ### Community 4 - "NotificationPayload"
-Cohesion: 0.10
-Nodes (34): _notify_case_resolved(), _notify_task_advanced(), _notify_task_assigned(), _notify_task_resolved(), _notify_verifier_assigned(), Notify the assigned officer and case creator of task status changes (§50)., Notify the assigned officer that a new task has been assigned to them (§50)., Notify the case creator (citizen) of a task resolution decision (§50). (+26 more)
+Cohesion: 0.15
+Nodes (25): Notification, Ported from backend/src/notification-feed/notification.entity.ts. In-app…, _build_notification_html(), _build_notification_text(), _build_sms_message(), deliver_notification(), notify_users_with_delivery(), Session (+17 more)
 
 ### Community 5 - "users_service.py"
-Cohesion: 0.27
-Nodes (12): create(), post, create(), find_all(), find_by_email(), find_by_id(), Session, UUID (+4 more)
+Cohesion: 0.16
+Nodes (21): create(), find_all(), delete, get, patch, post, Session, UUID (+13 more)
 
 ### Community 6 - "react"
-Cohesion: 0.07
-Nodes (63): useUpdateProfileDetails(), ContactMethodCard(), ActivityTimeline(), formatAction(), formatTimestamp(), statusFor(), AdminAccessPermissionsCard(), AdminAccessPermissionsCardProps (+55 more)
+Cohesion: 0.06
+Nodes (68): SvgIndianEmblem(), ActivityTimeline(), formatAction(), formatTimestamp(), statusFor(), AdminAccessPermissionsCard(), AdminAccessPermissionsCardProps, AdminActivitySummary() (+60 more)
 
 ### Community 7 - "seed.py"
-Cohesion: 0.06
-Nodes (63): _meters_per_degree(), _on_segment(), _orientation(), point_in_ring(), _point_segment_distance(), polygon_distance_meters(), Point, Ring (+55 more)
+Cohesion: 0.05
+Nodes (68): _meters_per_degree(), _on_segment(), _orientation(), point_in_ring(), _point_segment_distance(), polygon_distance_meters(), Point, Ring (+60 more)
 
 ### Community 8 - "departments_service.py"
 Cohesion: 0.06
-Nodes (62): build_canonical_envelope(), Ported from backend/src/interoperability/canonical-transformer.ts. Tech.md #15…, EncumbranceCertificate, Survey measurement, boundary demarcation, and GIS geometry correction records.…, An issued encumbrance certificate (#12a). The generated PDF is stored in object…, A field/survey document (#12b) uploaded by a survey officer. The file itself…, SurveyDocument, SurveyRecord (+54 more)
+Nodes (65): EncumbranceCertificate, EncumbranceRecord, A required "essential layer" of the fuller "Land Stack" problem statement.…, Survey measurement, boundary demarcation, and GIS geometry correction records.…, An issued encumbrance certificate (#12a). The generated PDF is stored in object…, A field/survey document (#12b) uploaded by a survey officer. The file itself…, SurveyDocument, SurveyRecord (+57 more)
 
 ### Community 9 - "BhoomiSetuLanding.tsx"
-Cohesion: 0.16
-Nodes (13): HomePage, ParcelSearchModal(), ParcelSearchModalProps, searchByAnyIdentifier(), ICON_MAP, SchemeCard(), SchemeCardProps, SchemesMarquee() (+5 more)
+Cohesion: 0.17
+Nodes (12): HomePage, ParcelSearchModal(), ParcelSearchModalProps, searchByAnyIdentifier(), ICON_MAP, SchemeCard(), SchemeCardProps, SchemesMarquee() (+4 more)
 
 ### Community 10 - "upload_to_storage"
-Cohesion: 0.16
-Nodes (19): download_from_storage(), ensure_storage_bucket_exists(), _get_client(), _is_storage_configured(), Path, Ported from backend/src/common/supabase-storage.ts. Object storage for every…, Idempotent - safe to call on every backend-py startup. A no-op when storage…, `key` is normally a relative object path, e.g. 'cluster-snapshots/pune-… (+11 more)
+Cohesion: 0.17
+Nodes (18): download_from_storage(), ensure_storage_bucket_exists(), _get_client(), _is_storage_configured(), Path, Ported from backend/src/common/supabase-storage.ts. Object storage for every…, Idempotent - safe to call on every backend-py startup. A no-op when storage…, `key` is normally a relative object path, e.g. 'cluster-snapshots/pune-… (+10 more)
 
 ### Community 11 - "pipeline_config_service.py"
-Cohesion: 0.16
-Nodes (20): create(), post, CreateWorkflowPipelineConfig, Create a new workflow pipeline configuration., create_pipeline_config(), get_decision_types_for_workflow(), get_pipeline_config(), get_pipeline_stages_for_workflow_type() (+12 more)
+Cohesion: 0.14
+Nodes (25): Update an existing workflow pipeline configuration., UpdateWorkflowPipelineConfig, create_pipeline_config(), delete_pipeline_config(), get_decision_types_for_workflow(), get_pipeline_config(), get_pipeline_config_by_id(), get_pipeline_stages_for_workflow_type() (+17 more)
 
 ### Community 12 - "BhoomiSetu_Unified_Workflow_Specification.md"
 Cohesion: 0.03
 Nodes (63): 10. AI Conversation, 12. Citizen Review of AI Understanding, 13. AI-Generated Application, 14. Preserve Multiple Application Versions, 16. Application Document Generation, 17. AI Routing, 18. One Case, Multiple Departments, 19. Department-Specific Workflow Architecture (+55 more)
 
-### Community 13 - "oauth_service.py"
-Cohesion: 0.11
-Nodes (23): create_access_token(), Signs the auth payload with a configurable `exp` claim…, authenticate_google_user(), build_google_auth_url(), _cleanup_expired_states(), exchange_code_for_tokens(), fetch_google_userinfo(), find_or_create_user() (+15 more)
+### Community 13 - "auth.ts"
+Cohesion: 0.03
+Nodes (89): AboutPage, AdminPortal, AppShell(), FeaturesPage, LoginPage, navItemsFor(), OAuthCallbackPage, OfficerPortal (+81 more)
 
-### Community 14 - "multilingual.py"
-Cohesion: 0.14
-Nodes (25): ASRResponse, check_bhashini_health(), get_ui_text(), BaseModel, get, limit, post, Request (+17 more)
+### Community 14 - "oauth_service.py"
+Cohesion: 0.11
+Nodes (23): create_access_token(), Mirrors AuthService's jwtService.sign(payload) - no `exp` claim, by design: per…, authenticate_google_user(), build_google_auth_url(), _cleanup_expired_states(), exchange_code_for_tokens(), fetch_google_userinfo(), find_or_create_user() (+15 more)
 
 ### Community 15 - "Tech.md"
 Cohesion: 0.05
 Nodes (38): **10\. SOURCE DATA METADATA**, **11\. MOCK STATE DATABASE SCHEMAS**, **15\. CANONICAL PARCEL RESPONSE**, **17\. MOCK DEPARTMENT API ARCHITECTURE**, **1\. DOCUMENT PURPOSE**, **24\. WORKFLOW DATABASE SCHEMA**, **25\. SIMULATED WORKFLOW**, **27\. AUDIT DATABASE SCHEMA** (+30 more)
 
-### Community 16 - "get_settings"
+### Community 16 - "sms_service.py"
 Cohesion: 0.12
-Nodes (28): get_settings(), Celery configuration for background job processing., is_configured(), Ported from backend/src/notifications/email.service.ts. Email OTP delivery via…, send_email(), send_otp_email(), _process_external_alert(), _send_email_raw() (+20 more)
+Nodes (24): Translate text from source to target language using Bhashini NMT, Result from translation operation, translate_text(), TranslationResult, is_configured(), Ported from backend/src/notifications/email.service.ts. Email OTP delivery via…, send_email(), send_otp_email() (+16 more)
 
 ### Community 17 - "GovernanceAlert"
-Cohesion: 0.05
-Nodes (65): DisputeRecord, Ported from backend/src/departments/*.entity.ts. Six mock per-parcel department…, Property tax, tax status, outstanding amount., Environmental zones, protected areas, other restrictions - a per-parcel…, The fifth workflow type named in the SIH problem statement's required…, RestrictionRecord, TaxRecord, GovernanceAlert (+57 more)
+Cohesion: 0.06
+Nodes (58): DisputeRecord, Ported from backend/src/departments/*.entity.ts. Six mock per-parcel department…, Property tax, tax status, outstanding amount., Environmental zones, protected areas, other restrictions - a per-parcel…, The fifth workflow type named in the SIH problem statement's required…, RestrictionRecord, TaxRecord, GovernanceAlert (+50 more)
 
 ### Community 18 - "usePwaInstall.ts"
 Cohesion: 0.40
@@ -575,25 +574,25 @@ Nodes (5): BeforeInstallPromptEvent, InstallOutcome, notify(), subscribers, useP
 Cohesion: 0.15
 Nodes (11): client(), db(), fixture, Session, A real session against the bhoomisetu_py/PostGIS database, wrapped in an outer…, A TestClient whose requests are served using the same transactional `db`…, _build_throttled_app(), FastAPI (+3 more)
 
-### Community 20 - "App.tsx"
-Cohesion: 0.06
-Nodes (31): AboutPage, App(), AppShell(), FeaturesPage, navItemsFor(), OAuthCallbackPage, OfficerPortal, portalPathForRole() (+23 more)
+### Community 20 - "AssignedVisitsPage.tsx"
+Cohesion: 0.16
+Nodes (11): VerifierPortal, FINDING_OPTIONS, FindingEntry, LocationState, TaskSubmissionPage(), VerifierLocalSync(), AssignedVisitsPage(), VerifierPackage (+3 more)
 
 ### Community 21 - "profile_fields.py"
-Cohesion: 0.08
-Nodes (50): ProfileField, Dynamic profile fields configuration - allows admins to configure what fields…, Configuration for a single profile field. Admins can add/remove/ modify fields…, create_profile_field(), delete_profile_field(), get_form_config(), list_fields(), delete (+42 more)
+Cohesion: 0.07
+Nodes (54): ProfileField, Dynamic profile fields configuration - allows admins to configure what fields…, Configuration for a single profile field. Admins can add/remove/ modify fields…, Config, JobResponse, create_profile_field(), delete_profile_field(), get_form_config() (+46 more)
 
 ### Community 22 - "verifierLocalSyncService.ts"
 Cohesion: 0.31
 Nodes (9): syncOnReconnect(), autoSyncQueue(), fileToDataURL(), getLocalQueue(), isOnline(), LocalEvidenceRecord, removeLocalEvidence(), saveLocalEvidence() (+1 more)
 
 ### Community 23 - "workflows.py"
-Cohesion: 0.14
-Nodes (35): assign_verifier(), escalate_step(), find_all(), find_assigned_to_me(), find_mine(), find_one(), get_evidence(), get_field_evidence() (+27 more)
+Cohesion: 0.12
+Nodes (41): add_field_evidence(), assign_verifier(), escalate_step(), find_all(), find_assigned_to_me(), find_mine(), find_one(), get_evidence() (+33 more)
 
 ### Community 24 - "ai_service.py"
-Cohesion: 0.06
-Nodes (71): Ported from backend/src/app.module.ts's ThrottlerModule/APP_GUARD wiring + the…, application_draft(), explain_alert(), explain_parcel(), limit, post, Request, Session (+63 more)
+Cohesion: 0.07
+Nodes (61): Ported from backend/src/app.module.ts's ThrottlerModule/APP_GUARD wiring + the…, application_draft(), explain_alert(), explain_parcel(), limit, post, Request, Session (+53 more)
 
 ### Community 25 - "record_demo_live.js"
 Cohesion: 0.20
@@ -604,36 +603,36 @@ Cohesion: 0.13
 Nodes (7): _seed(), _square(), _stub_groq(), TestPostAlertsExplain, TestPostParcelsExplain, fake_complete_json(), TestPostQuery
 
 ### Community 27 - "_seed"
-Cohesion: 0.12
-Nodes (4): _seed(), TestCreate, TestDocumentVerificationRequest, TestReviewStep
+Cohesion: 0.15
+Nodes (3): _seed(), TestCreate, TestReviewStep
 
-### Community 28 - "parcels.py"
-Cohesion: 0.30
-Nodes (24): delete_my_parcel_submission(), get_audit(), get_context(), get_document_file(), get_documents(), get_historical_states(), get_my_parcels(), get_neighbours() (+16 more)
+### Community 28 - "Parcel360View.tsx"
+Cohesion: 0.06
+Nodes (44): Parcel360View, resolveDistrictName(), resolveStateName(), useCategorizedParcels(), useCompareHistoricalYears(), useHistoricalClusters(), HistoricalImageryPanel(), CATEGORY_COLORS (+36 more)
 
 ### Community 29 - "User"
 Cohesion: 0.08
-Nodes (87): User, add_task(), add_timeline_event(), advance_task(), approve_field_proposal(), assign_task(), assign_verifier_to_task_endpoint(), capture_evidence_endpoint() (+79 more)
+Nodes (92): User, add_task(), add_timeline_event(), advance_task(), approve_field_proposal(), assign_task(), assign_verifier_to_task_endpoint(), capture_evidence_endpoint() (+84 more)
 
 ### Community 30 - "aiFlow.ts"
 Cohesion: 0.05
-Nodes (59): AiChat(), AiChatProps, ApplicationDraftEditor(), ApplicationDraftFacts(), ApplicationDraftProps, ChatMessageComp(), ChatMessageProps, ROUTING_DEPT_LABELS (+51 more)
+Nodes (56): AiChatProps, ApplicationDraftEditor(), ApplicationDraftFacts(), ApplicationDraftProps, ChatInputBar(), ChatInputBarProps, ChatMessageComp(), ChatMessageProps (+48 more)
 
 ### Community 31 - "CamelModel"
-Cohesion: 0.06
-Nodes (66): get_my_cases(), list_cases(), Case management endpoints (§6, §9, §18, §57, §59). Case creation, lifecycle,…, # NOTE: literal-path routes (/my, /verifier/tasks, /tasks/my, /parcel/...) must…, Get all cases for the authenticated citizen (bare array — both frontend callers…, AnalyticsSummaryOut, AnalyticsTotalsOut, DistributionOut (+58 more)
+Cohesion: 0.04
+Nodes (69): DepartmentRouting, FactStatement, A single fact tagged by the AI as either a database fact or a citizen statement…, One department identified by AI for routing the case (§17, §18)., AnalyticsSummaryOut, AnalyticsTotalsOut, DistributionOut, OfficerMonitoringEntryOut (+61 more)
 
 ### Community 32 - "workflows_service.py"
-Cohesion: 0.15
-Nodes (33): create(), Request, assign_verifier(), create(), CreateWorkflowInput, escalate_step(), find_all(), find_assigned_to_verifier() (+25 more)
-
-### Community 33 - "test_parcel_verifier.py"
 Cohesion: 0.13
-Nodes (31): build_local_id(), canon(), _configure_tesseract(), deva_to_latin(), dist_code(), extract(), get_text_and_preview(), match_field() (+23 more)
+Nodes (40): VerificationEvidence, A citizen service request, e.g. "request a copy of the RoR" or "correction…, Workflow, create(), Request, add_field_evidence(), assign_verifier(), create() (+32 more)
+
+### Community 33 - "parcels.py"
+Cohesion: 0.08
+Nodes (68): build_local_id(), canon(), _configure_tesseract(), deva_to_latin(), dist_code(), extract(), get_text_and_preview(), match_field() (+60 more)
 
 ### Community 34 - "AnalyticsDashboard.tsx"
-Cohesion: 0.12
-Nodes (20): ALERT_SEVERITY_COLORS, ALERT_STATUS_COLORS, ALERT_STATUS_LABELS, AnalyticsDashboard(), BRAND_PALETTE, CASE_STATUS_COLORS, colorFor(), ComplianceDonut() (+12 more)
+Cohesion: 0.13
+Nodes (18): ALERT_SEVERITY_COLORS, ALERT_STATUS_COLORS, ALERT_STATUS_LABELS, AnalyticsDashboard(), BRAND_PALETTE, colorFor(), ComplianceDonut(), countFor() (+10 more)
 
 ### Community 35 - "login"
 Cohesion: 0.16
@@ -645,19 +644,19 @@ Nodes (36): 0. SOURCE-OF-TRUTH POLICY, 11. GIS PIPELINE, 12. DATA INGESTION & IN
 
 ### Community 37 - "routers/auth.py"
 Cohesion: 0.08
-Nodes (44): complete_onboarding(), get_profile_config(), google_callback(), google_login(), logout(), me(), get, post (+36 more)
+Nodes (41): complete_onboarding(), get_profile_config(), google_callback(), google_login(), logout(), me(), get, post (+33 more)
 
-### Community 38 - "middleware.py"
-Cohesion: 0.15
-Nodes (15): LastActivityMiddleware, FastAPI, Request, Mirrors backend/src/common/request-id.middleware.ts: honors a caller-supplied…, Updates User.last_activity_at on each authenticated request for idle timeout…, Adds standard security response headers to every response. All are…, Mirrors backend/src/common/all-exceptions.filter.ts's response shape -…, register_exception_handlers() (+7 more)
+### Community 38 - "get_current_user"
+Cohesion: 0.11
+Nodes (23): _check_idle_timeout(), get_current_user(), get_current_user_optional(), Session, Enforce idle timeout if configured. 0 = disabled., Mirrors JwtStrategy.validate(): looks the user up fresh on every request…, Mirrors OptionalJwtAuthGuard: same 'jwt' strategy as get_current_user, but…, LastActivityMiddleware (+15 more)
 
 ### Community 39 - "frontend/package.json"
-Cohesion: 0.08
-Nodes (23): description, playwright, name, private, version, autoprefixer, jsdom, postcss (+15 more)
+Cohesion: 0.07
+Nodes (29): description, playwright, name, private, scripts, build, dev, preview (+21 more)
 
 ### Community 40 - "UnifiedMapWrapper.tsx"
-Cohesion: 0.04
-Nodes (79): AskAiWidget, MicButton(), MicButtonProps, State, cleanTextForSpeech(), SpeakerButton(), SpeakerButtonProps, State (+71 more)
+Cohesion: 0.06
+Nodes (49): AskAiWidget, cleanTextForSpeech(), SpeakerButton(), SpeakerButtonProps, State, ttsAudioCache, District, DISTRICT_NAME_BY_CODE (+41 more)
 
 ### Community 41 - "BHOOMISETU.md"
 Cohesion: 0.06
@@ -665,15 +664,15 @@ Nodes (35): **10\. Parcel-Centric Architecture**, **11\. Multi-Source Parcel Ide
 
 ### Community 42 - "_seed"
 Cohesion: 0.12
-Nodes (6): _seed(), TestCreate, TestDelete, TestFindAll, TestRevokeSessions, TestUpdateRole
+Nodes (7): Ported from backend/test/users.e2e-spec.ts. Fully self-contained - a complete,…, _seed(), TestCreate, TestDelete, TestFindAll, TestRevokeSessions, TestUpdateRole
 
 ### Community 43 - "routers/historical_imagery.py"
 Cohesion: 0.27
 Nodes (12): compare(), get_parcels_for_year(), list_clusters(), get, post, Session, Ported from backend/src/historical-imagery/historical-imagery.controller.ts.…, AffectedParcelOut (+4 more)
 
-### Community 44 - "routers/departments.py"
-Cohesion: 0.05
-Nodes (95): Guard for the mock external-department APIs (land_records CRUD + departments…, require_mock_dept_apis_enabled(), encumbrance_certificate_requests(), encumbrance_certificates(), encumbrance_fraud_prevention(), generate_encumbrance_certificate(), get_department_stats(), get_dispute() (+87 more)
+### Community 44 - "routers/land_records.py"
+Cohesion: 0.13
+Nodes (40): create_state_a(), create_state_b(), find_all_state_a(), find_all_state_b(), find_one_state_a(), find_one_state_b(), _not_found_a(), _not_found_b() (+32 more)
 
 ### Community 45 - "context_aware_parcel_generation_upgrade.md"
 Cohesion: 0.05
@@ -693,71 +692,71 @@ Nodes (18): compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInte
 
 ### Community 49 - "_base_fixtures"
 Cohesion: 0.05
-Nodes (15): _base_fixtures(), _pdf_text(), Extract all text from a PDF for content assertions., parcelA/parcelB + a citizen-linked parcel, matching the TS spec's module-level…, Integration test: route returns PDF with actual parcel/owner/crop data., Security test: citizen not linked to parcel gets 403., TestGetById, TestGetDocuments (+7 more)
+Nodes (14): _base_fixtures(), _pdf_text(), Extract all text from a PDF for content assertions., parcelA/parcelB + a citizen-linked parcel, matching the TS spec's module-level…, Integration test: route returns PDF with actual parcel/owner/crop data., TestGetById, TestGetDocuments, TestGetGeometry (+6 more)
 
 ### Community 50 - "dependencies"
 Cohesion: 0.09
 Nodes (22): dependencies, autoprefixer, axios, dexie, driver.js, idb-keyval, lucide-react, @mapbox/mapbox-gl-draw (+14 more)
 
-### Community 51 - "parcels_extra.py"
-Cohesion: 0.18
-Nodes (10): IdentifyFromDocumentResponse, NotImplementedDetail, OwnershipHistoryRecordOut, ParcelDocumentOut, ParcelHistoricalStateOut, ParcelIdentifierOut, ParcelWithIdentifiersOut, Response schemas for endpoints in app/routers/parcels.py that don't already… (+2 more)
+### Community 51 - "case_service.py"
+Cohesion: 0.06
+Nodes (60): AIAnalysis, Application, CaseTimelineEvent, Case management models for the Unified Workflow. Covers: Case, DepartmentTask,…, The official application document artifact linked to a Case (§14, §16).…, AI's structured understanding of a citizen's request. Created when AI processes…, AI's routing decision for a case — which departments and workflows. Persisted…, SLA configuration per workflow/task (§56). SLA belongs to workflow/task, not… (+52 more)
 
 ### Community 52 - "render_official_document_pdf"
-Cohesion: 0.08
-Nodes (54): _fmt(), date, datetime, ImageReader, _qr(), Compact single-page Encumbrance Certificate PDF (BACKLOG #12a). Presentation-…, render_encumbrance_certificate_pdf(), _build_form12_table() (+46 more)
+Cohesion: 0.06
+Nodes (64): _decision_label(), _ensure_font(), _fonts_for(), generate_decision_order_pdf(), generate_verification_report_pdf(), Renders Officer Decision Order and Verification Report PDFs (§49).…, Generate the Officer Decision Order PDF (§49). Contains: Case ID, Parcel info,…, Generate the Verification Report PDF (§49). Contains: Case info, officer info,… (+56 more)
 
 ### Community 53 - "_seed_fixture_parcels"
 Cohesion: 0.18
 Nodes (6): _poly(), Ported from backend/test/gis.e2e-spec.ts. The original spec seeds 3 fixtures…, _seed_fixture_parcels(), TestGetParcelGeometry, TestGetParcelRestrictions, TestGetParcels
 
 ### Community 54 - "gis.ts"
+Cohesion: 0.18
+Nodes (12): OfflineAreaButton(), Props, Bounds, downloadArea(), DownloadProgress, lat2tile(), listAreas(), lon2tile() (+4 more)
+
+### Community 55 - "Session"
+Cohesion: 0.17
+Nodes (15): get_job_eecu_report(), get_parcel_terrain_profile(), get, post, Session, Trigger terrain ingestion for a district (async Celery task)., Trigger terrain ingestion for all districts in a state., Trigger parcel profile computation for a district. (+7 more)
+
+### Community 56 - "governance_alerts_service.py"
 Cohesion: 0.19
-Nodes (11): OfflineAreaButton(), Props, Bounds, downloadArea(), DownloadProgress, lat2tile(), listAreas(), lon2tile() (+3 more)
+Nodes (17): find_all(), find_one(), get, patch, Session, UUID, _to_out(), update_status() (+9 more)
 
-### Community 55 - "GovernanceAlertsPanel.tsx"
-Cohesion: 0.14
-Nodes (24): AiExplanationCard(), AiExplanationCardProps, RISK_COLORS, badgeClass(), GovernanceAlertDetailModal(), GovernanceAlertDetailModalProps, SEVERITY_STYLES, StageProgress() (+16 more)
+### Community 57 - "Session"
+Cohesion: 0.06
+Nodes (68): Case, DepartmentTask, A department's work item within a case. One case → N department tasks. Each…, A citizen issue mapped to one or more parcels and departments. Lifecycle: No…, log_case_mutation(), Log a database mutation linked to a case (§58). Convenience wrapper around…, add_department_task(), _add_timeline_event() (+60 more)
 
-### Community 56 - "AssignedVisitsPage.tsx"
-Cohesion: 0.16
-Nodes (11): VerifierPortal, FINDING_OPTIONS, FindingEntry, LocationState, TaskSubmissionPage(), VerifierLocalSync(), AssignedVisitsPage(), VerifierPackage (+3 more)
-
-### Community 57 - "case_service.py"
-Cohesion: 0.03
-Nodes (137): AIAnalysis, Application, Appointment, Case, CaseTimelineEvent, Feedback, ProposedFieldChange, Case management models for the Unified Workflow. Covers: Case, DepartmentTask,… (+129 more)
-
-### Community 58 - "Department"
-Cohesion: 0.08
-Nodes (28): Department, DepartmentTask, A department's work item within a case. One case → N department tasks. Each…, check_task_sla(), get_tasks_for_officer(), Tasks assigned to a specific officer (A 59)., Check a department task's SLA status (§56). Looks up the SLA config for the…, test_department_admin_code_is_unique() (+20 more)
+### Community 58 - "Base"
+Cohesion: 0.05
+Nodes (73): Base, CaseParcelGeometryVersion, Feedback, Citizen feedback linked to a case and officer/task (§51, §52, Invariant 11).…, Geometry version history for a parcel within a case context (§43). Geometry V1,…, CitizenParcel, CropRecord, DisputeHistoryRecord (+65 more)
 
 ### Community 59 - "4. Master Issue Register"
 Cohesion: 0.07
 Nodes (30): 4. Master Issue Register, Cause, ISSUE-002 — Registration Chain Incorrect Zero Count, ISSUE-003 — Registration Chain Search, ISSUE-004 — Case Package Fails, ISSUE-005 — Case Package Action Available When Package Is Not Ready, ISSUE-006 — Submit Report Validation, ISSUE-007 — Raw UUIDs in UI (+22 more)
 
 ### Community 60 - "_seed"
-Cohesion: 0.16
-Nodes (6): _fresh_alert(), GovernanceAlert, _seed(), TestFindAll, TestFindOne, TestUpdateStatusFourStageVerification
+Cohesion: 0.15
+Nodes (7): _fresh_alert(), GovernanceAlert, Ported from backend/test/governance-alerts.e2e-spec.ts. The original spec…, _seed(), TestFindAll, TestFindOne, TestUpdateStatusFourStageVerification
 
-### Community 61 - "notification_feed.py"
-Cohesion: 0.22
-Nodes (13): find_mine(), get_preferences(), mark_read(), get, patch, Session, UUID, Ported from backend/src/notification-feed/notification-feed.controller.ts. Open… (+5 more)
+### Community 61 - "_now"
+Cohesion: 0.13
+Nodes (23): Appointment, Appointment linked to a case (§45, §46). Citizen books, officer reviews,…, capture_evidence(), check_task_sla(), create_appointment(), _generate_evidence_id(), get_appointment(), get_appointments() (+15 more)
 
-### Community 62 - "WorkflowReviewPanel.tsx"
-Cohesion: 0.06
-Nodes (46): AdminDecidedStepMode, AdminDecidedStepRow(), AdminDecidedStepRowProps, AdminStepMode, AdminStepRow(), AdminStepRowProps, AssignVerifierControl(), AssignVerifierControlProps (+38 more)
+### Community 62 - "test_interoperability.py"
+Cohesion: 0.09
+Nodes (34): find_identifier_value(), Session, Ported from backend/src/common/identifier-utils.ts. Shared by…, adapt_land_records_result(), adapt_state_a(), adapt_state_b(), AdaptedLandRecord, Ported from backend/src/interoperability/land-record-adapters.ts. (+26 more)
 
-### Community 63 - "reap_stuck_jobs"
-Cohesion: 0.19
-Nodes (12): datetime, Session, Stuck-job reaper (DEP-01). A Celery worker can die mid-task (OOM, redeploy,…, Mark timed-out running/queued jobs as failed. Returns count reaped., reap_stuck_jobs(), task, Periodic maintenance tasks (DEP-01)., Beat-scheduled sweep of stuck jobs. See app.services.job_reaper. (+4 more)
+### Community 63 - "routers/departments.py"
+Cohesion: 0.18
+Nodes (30): Guard for the mock external-department APIs (land_records CRUD + departments…, require_mock_dept_apis_enabled(), encumbrance_certificate_requests(), encumbrance_certificates(), encumbrance_fraud_prevention(), get_department_stats(), get_dispute(), get_encumbrance() (+22 more)
 
 ### Community 64 - "database.py"
-Cohesion: 0.06
-Nodes (26): Minimal JWT verification substrate - NOT the full AuthModule.…, Mirrors RolesGuard: a route with no roles declared lets any authenticated user…, require_roles(), get_db(), Session, Commits once the route handler returns successfully (every write endpoint below…, Admin-only workflow pipeline configuration management. Replaces the hardcoded…, Ported from backend/src/analytics/analytics.controller.ts. Admin-only - only… (+18 more)
+Cohesion: 0.07
+Nodes (18): Minimal JWT verification substrate - NOT the full AuthModule.…, Mirrors RolesGuard: a route with no roles declared lets any authenticated user…, require_roles(), Ported from backend/src/auth/roles.constants.ts., get_db(), Session, Commits once the route handler returns successfully (every write endpoint below…, Ported from backend/src/users/user.entity.ts. Real accounts backing… (+10 more)
 
-### Community 65 - "roles.py"
-Cohesion: 0.11
-Nodes (16): Ported from backend/src/auth/roles.constants.ts., find_all(), delete, get, patch, Session, UUID, remove() (+8 more)
+### Community 65 - "multilingual.py"
+Cohesion: 0.12
+Nodes (29): ASRResponse, check_bhashini_health(), get_ui_text(), BaseModel, get, limit, post, Request (+21 more)
 
 ### Community 66 - "TestOAuthService"
 Cohesion: 0.08
@@ -767,13 +766,13 @@ Nodes (16): patch, Test token exchange failure., Tests for OAuth service functio
 Cohesion: 0.06
 Nodes (31): Backend, Baselines collected, BhoomiSetu Performance Audit, Confirmed findings, Critical — async processing is not deployable as configured, Current architecture, Deployment, Expected outcome (+23 more)
 
-### Community 68 - "parcels_service.py"
+### Community 68 - "Parcel"
 Cohesion: 0.07
-Nodes (45): geometry_to_geojson(), Any, WKBElement, Converts a GeoAlchemy2 geometry value (a WKBElement, as read back from a real…, extract_text(), OcrResult, Ported from backend/src/document-verification/ocr.ts. Thin wrapper around…, ParcelDocument (+37 more)
+Nodes (38): build_canonical_envelope(), Ported from backend/src/interoperability/canonical-transformer.ts. Tech.md #15…, geometry_to_geojson(), Any, WKBElement, Converts a GeoAlchemy2 geometry value (a WKBElement, as read back from a real…, Parcel, delete_citizen_parcel() (+30 more)
 
 ### Community 69 - "cluster_generator.py"
 Cohesion: 0.06
-Nodes (78): _apply_corner_nibbles(), apply_terrain_constraints(), _attempt_generate_cluster_parcels(), _auto_config(), _build_envelope(), ClusterGeometryConfig, _deg_to_rad(), generate_cluster_parcels() (+70 more)
+Nodes (76): _apply_corner_nibbles(), apply_terrain_constraints(), _attempt_generate_cluster_parcels(), _auto_config(), _build_envelope(), ClusterGeometryConfig, _deg_to_rad(), generate_cluster_parcels() (+68 more)
 
 ### Community 70 - "BhoomiSetu Official Document Generation — Code Review and Implementation Blueprint"
 Cohesion: 0.05
@@ -783,61 +782,61 @@ Nodes (40): 1. Extend the PDF data contract, 2. Pass the authenticated user thro
 Cohesion: 0.21
 Nodes (11): CachedArea, CachedCase, CachedParcel, CachedParcel360, CachedTile, CacheMeta, OfflineDB, OfflineOperation (+3 more)
 
-### Community 72 - "test_parcel_conflicts.py"
-Cohesion: 0.17
-Nodes (13): can_view_restricted_departments(), mask_restricted_departments(), Session, Shared owner-only department masking logic. Used by GET /parcels/:id/360…, _detect_conflicts(), _names_conflict(), _norm_name(), True when two owner names disagree after light normalization (case, spacing,… (+5 more)
+### Community 72 - "Department"
+Cohesion: 0.12
+Nodes (18): Department, Ported from backend/src/admin/department.entity.ts. Admin Portal "Department…, _make_parcel(), _make_user(), test_citizen_parcel_enforces_one_citizen_per_parcel(), test_department_admin_code_is_unique(), test_department_record_uses_a_plain_parcel_id_not_a_foreign_key(), test_governance_alert_defaults_to_open_status() (+10 more)
 
 ### Community 73 - "devDependencies"
 Cohesion: 0.12
 Nodes (16): devDependencies, jsdom, msw, playwright, @testing-library/jest-dom, @testing-library/react, @types/mapbox__mapbox-gl-draw, @types/node (+8 more)
 
-### Community 74 - "EncumbranceRecord"
-Cohesion: 0.12
-Nodes (25): EncumbranceRecord, A required "essential layer" of the fuller "Land Stack" problem statement.…, _compute_severity_for_parcel(), Celery tasks for the Legal Status map layer (NEW_MAP_LAYERS_PLAN.md Layer 1).…, Nightly full-sweep: recompute legal_status_severity for every parcel.…, Pure computation: derive severity integer from live department records. Runs…, Recompute legal_status_severity for a single parcel. Call this from any write…, recompute_all_legal_status_severities() (+17 more)
-
-### Community 75 - "Settings"
+### Community 74 - "test_legal_status.py"
 Cohesion: 0.13
-Nodes (10): model_validator, Settings, Tests for Google OAuth 2.0 authentication flow., Test that GET /auth/google/login returns a Google authorization URL., Test that redirect_after_login parameter is included in state., Test that missing Google OAuth config returns 500., Test that invalid/expired OAuth state is rejected., Test that missing authorization code is rejected. (+2 more)
+Nodes (23): _compute_severity_for_parcel(), Celery tasks for the Legal Status map layer (NEW_MAP_LAYERS_PLAN.md Layer 1).…, Nightly full-sweep: recompute legal_status_severity for every parcel.…, Pure computation: derive severity integer from live department records. Runs…, Recompute legal_status_severity for a single parcel. Call this from any write…, recompute_all_legal_status_severities(), recompute_legal_status_severity(), shared_task() (+15 more)
+
+### Community 75 - "GovernanceAlertsPanel.tsx"
+Cohesion: 0.14
+Nodes (24): AiExplanationCard(), AiExplanationCardProps, RISK_COLORS, badgeClass(), GovernanceAlertDetailModal(), GovernanceAlertDetailModalProps, SEVERITY_STYLES, StageProgress() (+16 more)
 
 ### Community 76 - "BhoomiSetu_Data_Architecture_GIS_Performance_Scalability_Guide.md"
 Cohesion: 0.05
 Nodes (37): **10\. Frontend / Map Optimization**, **11\. Performance Testing**, **12\. Production Architecture — Later Stage**, **13\. Governance & Legal Boundary**, **14\. SIH Implementation Priority**, **15\. Developer Checklist**, **16\. Definition of Done for the Current Prototype**, **17\. Key Engineering Principle** (+29 more)
 
 ### Community 77 - "🌍 Bhashini Integration - COMPLETE DELIVERY SUMMARY"
-Cohesion: 0.06
-Nodes (31): 1. Multilingual Notifications, 2. Dual-Script Search, 3. Voice-Based Filing, 4. Audio Alerts, 5. Translated Status Badges, "Bhashini API unreachable", 🌍 Bhashini Integration - COMPLETE DELIVERY SUMMARY, "Bhashini is not configured" (+23 more)
+Cohesion: 0.05
+Nodes (37): 1. Multilingual Notifications, 1. Service Module (`app/services/bhashini.py`) - 520 lines, 2. API Endpoints (`app/routers/multilingual.py`) - 240 lines, 2. Dual-Script Search, 3. Configuration (`app/config.py` + `.env`), 3. Voice-Based Filing, 4. Audio Alerts, 4. Test Suite (`test_bhashini.py`) - 350 lines (+29 more)
 
 ### Community 78 - "_seed"
 Cohesion: 0.24
 Nodes (3): _seed(), TestStateALandRecords, TestStateBLandRecords
 
-### Community 79 - "TerrainCache"
-Cohesion: 0.21
-Nodes (8): Any, Redis-based cache for terrain data with versioned keys., Create a versioned cache key., Get value from cache., Set value in cache with TTL., Invalidate all keys matching pattern., TerrainCache, Redis
+### Community 79 - "ParcelDocumentFields"
+Cohesion: 0.20
+Nodes (8): ParcelDocumentFields, Ported from backend/src/common/parcel-generation/parcel-document-generator.ts.…, render_parcel_document_image(), _render_with_pillow(), test_render_parcel_document_image_escapes_xml_special_characters(), test_render_parcel_document_image_produces_a_valid_png(), TestDisputeFilingExemptionAndConflictFlow, TestEvidenceUpload
 
-### Community 80 - "translate_text"
-Cohesion: 0.21
-Nodes (12): Translate text from source to target language using Bhashini NMT, Result from translation operation, translate_text(), TranslationResult, main(), _mask(), Path, Batch Translation Script for BhoomiSetu Static UI Strings… (+4 more)
+### Community 80 - "batch_translate_ui.py"
+Cohesion: 0.31
+Nodes (8): main(), _mask(), Path, Batch Translation Script for BhoomiSetu Static UI Strings…, Translate all strings for one target language. Returns (translated, skipped,…, _selftest(), translate_language(), _unmask()
 
 ### Community 81 - "BhoomiSetu"
-Cohesion: 0.06
-Nodes (34): 10. Technology Stack, 11. Data Architecture & ER Model, 12. User Roles & Permissions, 13. GIS / Spatial Architecture, 14. AI Architecture, 15. Security Architecture, 16. Reliability & Offline / PWA, 17. Project Structure (+26 more)
+Cohesion: 0.07
+Nodes (27): 10. Technology Stack, 11. Data Architecture & ER Model, 12. User Roles & Permissions, 13. GIS / Spatial Architecture, 14. AI Architecture, 15. Security Architecture, 17. Project Structure, 19. Environment Variables (+19 more)
 
 ### Community 82 - "BhoomiSetu — Feature Reference"
 Cohesion: 0.05
 Nodes (37): 10. Governance Alerts, 11. Authentication (+ Citizen Registration, OTP Verification, Google OAuth, Bilingual Notifications), 12. Citizen Sign-In / My Parcels, 13. Authorization (RBAC), 14. Audit Logging, 15. Admin Portal, 16. Officer Portal, 17. AI Assistant (Groq) (+29 more)
 
-### Community 83 - "WorkflowPipelineConfig"
-Cohesion: 0.11
-Nodes (10): Return parsed stages for API serialization., Return parsed stages as list of dicts with department, assigned_role,…, Set stages from list of dicts, ensuring step_order is sequential., Return parsed workflow definition (§23)., Set the full workflow definition (§23)., Return parsed conditional path definitions (§22)., Set conditional path definitions (§22)., Admin-editable review pipeline configuration per workflow type. Replaces the… (+2 more)
+### Community 83 - "earth_engine_service.py"
+Cohesion: 0.26
+Nodes (12): _ensure_initialized(), _fetch_thumb_png(), gee_credentials(), get_ndvi_visual_png(), get_true_color_visual_png(), _least_cloudy_composite(), date, Google Earth Engine (`ee`) wrapper - real Sentinel-2 imagery for Change… (+4 more)
 
 ### Community 84 - "admin_governance_rules.py"
 Cohesion: 0.07
 Nodes (51): GovernanceRule, Admin-editable governance rule configuration. Each rule defines a condition…, create_rule(), delete_rule(), get_rule(), list_rules(), delete, get (+43 more)
 
 ### Community 85 - "routers/spatial.py"
-Cohesion: 0.09
-Nodes (64): AdminMapNote, Admin-only map annotation - unlike ZoningOverlay/RestrictionZone/…, _area_filter(), _audit_layer(), create_admin_map_note(), create_infrastructure_feature(), create_restriction_zone(), create_zoning_overlay() (+56 more)
+Cohesion: 0.08
+Nodes (66): AdminMapNote, Admin-only map annotation - unlike ZoningOverlay/RestrictionZone/…, _area_filter(), _audit_layer(), create_admin_map_note(), create_infrastructure_feature(), create_restriction_zone(), create_zoning_overlay() (+58 more)
 
 ### Community 86 - "Detailed Workflow — What Each Officer Actually Does"
 Cohesion: 0.07
@@ -855,49 +854,45 @@ Nodes (27): 10. System Architecture Diagram, 17. Tricky Technical Challenges, 19
 Cohesion: 0.17
 Nodes (11): 10. Open questions — status as of 2026-09-08, 1. The core rule, 2. Registration form, 3. OTP verification (mobile and email, same interaction pattern), 4. Add / change a contact method later (from profile), 5. No main navbar on authentication pages, 6. Password show/hide, 7. What this actually requires — backend (+3 more)
 
-### Community 90 - "OfficerDashboardPage.tsx"
-Cohesion: 0.19
-Nodes (12): DEPARTMENT_HAS_ALERTS, DEPARTMENT_WIDGETS, DepartmentFocusWidget(), DepartmentStats, DepartmentWidgetConfig, formatRupees(), isToday(), OfficerDashboardPage() (+4 more)
+### Community 90 - "Settings"
+Cohesion: 0.13
+Nodes (10): model_validator, Settings, Tests for Google OAuth 2.0 authentication flow., Test that GET /auth/google/login returns a Google authorization URL., Test that redirect_after_login parameter is included in state., Test that missing Google OAuth config returns 500., Test that invalid/expired OAuth state is rejected., Test that missing authorization code is rejected. (+2 more)
 
 ### Community 91 - "BhoomiSetu — Application Flows, Routes & Actions"
 Cohesion: 0.08
 Nodes (24): 10. Cross-cutting flows (summary), 1. Roles & landing portals, 2. Public pages (no sign-in), 3. Authentication & first-login flow, 4. New-citizen onboarding (profile setup → site tour), 5. Citizen portal — `/citizen/*`, 6. Officer portal — `/officer/*`, 7. Verifier portal — `/verifier/*` (+16 more)
-
-### Community 92 - "Parcel360View.tsx"
-Cohesion: 0.06
-Nodes (45): Parcel360View, resolveDistrictName(), resolveStateName(), useCategorizedParcels(), useCompareHistoricalYears(), useHistoricalClusters(), HistoricalImageryPanel(), CATEGORY_COLORS (+37 more)
 
 ### Community 93 - "BhoomiSetu — Feature → Library / Endpoint / File Map"
 Cohesion: 0.06
 Nodes (34): 10. Governance Alerts, 11. Authentication (+ Citizen Registration & OTP Verification), 12. Citizen Sign-In / My Parcels, 13. Authorization (RBAC), 14. Audit Logging, 15. Admin Portal, 16. Officer Portal, 17. AI Assistant (Groq) (+26 more)
 
 ### Community 94 - "main.tsx"
-Cohesion: 0.18
-Nodes (14): PERSIST_KEYS, persister, persistOptions, queryClient, applyTheme(), getStoredTheme(), getSystemPreference(), initTheme() (+6 more)
+Cohesion: 0.16
+Nodes (16): App(), LanguageProvider(), PERSIST_KEYS, persister, persistOptions, queryClient, applyTheme(), getStoredTheme() (+8 more)
 
 ### Community 95 - "navbar_corretion.md"
 Cohesion: 0.10
 Nodes (19): Do NOT put these in the navbar, Example, Guest, Legacy routes remain, Phase 10: Officer Analytics, Phase 11: Verifier, Phase 12: Offline Sync, Phase 13: Admin navigation (+11 more)
 
-### Community 96 - "get_definition"
-Cohesion: 0.16
-Nodes (14): find_all(), get_definition(), get_templates(), delete, get, Session, UUID, Get available workflow templates (§21). (+6 more)
+### Community 96 - "notification_feed.py"
+Cohesion: 0.22
+Nodes (13): find_mine(), get_preferences(), mark_read(), get, patch, Session, UUID, Ported from backend/src/notification-feed/notification-feed.controller.ts. Open… (+5 more)
 
-### Community 97 - "check_authenticity"
-Cohesion: 0.29
-Nodes (8): AuthenticityResult, check_authenticity(), OpenCV-based tamper/authenticity heuristic for uploaded land documents,…, _png_bytes(), ndarray, test_a_flat_blank_image_is_flagged_suspicious(), test_a_sharp_textured_image_is_not_flagged(), test_extract_text_returns_empty_result_when_tesseract_is_missing()
+### Community 97 - "extract_text"
+Cohesion: 0.22
+Nodes (11): AuthenticityResult, check_authenticity(), OpenCV-based tamper/authenticity heuristic for uploaded land documents,…, extract_text(), OcrResult, Ported from backend/src/document-verification/ocr.ts. Thin wrapper around…, _png_bytes(), ndarray (+3 more)
 
 ### Community 98 - "sync.ts"
-Cohesion: 0.22
-Nodes (18): OfflineStatusIndicator(), db, failProbe(), NetworkState, NetworkStatus, startNetworkMonitor(), useNetworkStore, currentUserId() (+10 more)
+Cohesion: 0.24
+Nodes (17): OfflineStatusIndicator(), db, NetworkState, NetworkStatus, startNetworkMonitor(), useNetworkStore, currentUserId(), discardOperation() (+9 more)
 
 ### Community 99 - "Bhashini Integration Quick Reference"
-Cohesion: 0.06
-Nodes (33): 1. "Bhashini is not configured", 1. Language Toggle, 1. **Service Module** (`app/services/bhashini.py`), 2. **API Endpoints** (`app/routers/multilingual.py`), 2. "Bhashini translation API failed", 2. Translation Helper, 3. **Configuration** (`app/config.py`, `.env`), 3. Search with Transliteration (+25 more)
+Cohesion: 0.07
+Nodes (27): 1. "Bhashini is not configured", 1. **Service Module** (`app/services/bhashini.py`), 2. **API Endpoints** (`app/routers/multilingual.py`), 2. "Bhashini translation API failed", 3. **Configuration** (`app/config.py`, `.env`), 3. Slow responses (> 30 seconds), 4. **Documentation**, 4. "Language pair not supported" (+19 more)
 
 ### Community 108 - "gis.py"
-Cohesion: 0.19
-Nodes (17): get_clusters_hierarchical(), get_parcel_geometry(), get_parcel_restrictions(), get_parcels(), _parse_bbox(), Any, get, Session (+9 more)
+Cohesion: 0.11
+Nodes (27): get_clusters_hierarchical(), get_parcel_geometry(), get_parcel_restrictions(), get_parcels(), _parse_bbox(), Any, get, Session (+19 more)
 
 ### Community 121 - "Python Migration — Progress"
 Cohesion: 0.06
@@ -911,29 +906,29 @@ Nodes (21): **46\. DEVELOPMENT PHASES**, **Change Detection**, **Citizen Portal*
 Cohesion: 0.06
 Nodes (31): 1. Officer Role → Department Mapping, 2. Navigation Tabs per Officer Role, 3. Dashboard Widgets per Role, 4. Assigned Requests Page — Workflow Step Filtering, 5. Admin Portal — Rights & Pages, 6. Implementation Tasks, 7. i18n Keys to Add (English), 8. Summary: What Each Officer Sees (+23 more)
 
-### Community 124 - "generate_decision_order_pdf"
-Cohesion: 0.28
-Nodes (12): _decision_label(), _ensure_font(), _fonts_for(), generate_decision_order_pdf(), generate_verification_report_pdf(), Renders Officer Decision Order and Verification Report PDFs (§49).…, Generate the Officer Decision Order PDF (§49). Contains: Case ID, Parcel info,…, Generate the Verification Report PDF (§49). Contains: Case info, officer info,… (+4 more)
+### Community 124 - "earth_engine_terrain.py"
+Cohesion: 0.13
+Nodes (29): _bounds_to_ee_geometry(), DatasetConfig, DatasetResult, _estimate_eecu(), fetch_building_footprints(), _fetch_elevation_from_dataset(), fetch_elevation_profile(), fetch_land_cover() (+21 more)
 
 ### Community 125 - "create_authenticated_user"
 Cohesion: 0.03
-Nodes (52): datetime, Ported from backend/src/audit/audit-log.entity.ts. `parcel_id` is a pragmatic…, _utcnow(), Ported from backend/src/users/user.entity.ts. Real accounts backing…, # NOTE: explicit name= overrides map Python snake_case attrs to the, create_authenticated_user(), Session, Ported from backend/test/helpers/auth.ts. Shared by every test that hits a… (+44 more)
+Nodes (54): create_authenticated_user(), Session, Ported from backend/test/helpers/auth.ts. Shared by every test that hits a…, _clear_audit_logs(), Ported from backend/test/audit.e2e-spec.ts, scoped down. The original spec…, _square(), TestAuditService, TestGetAudit (+46 more)
 
 ### Community 126 - "BhoomiSetu — Standard Technical Document"
 Cohesion: 0.08
 Nodes (24): 1.1 High-level shape, 1.2 Backend module inventory, 1.3 Frontend architecture, 1.4 Data flow example — Parcel 360, 1. System Architecture, 2.1 Endpoint inventory by area, 2. API Standards, 3. Interoperability Standards (+16 more)
 
-### Community 127 - "_seed"
-Cohesion: 0.21
-Nodes (4): _seed(), TestPipelineConfigCreate, TestPipelineConfigDelete, TestPipelineConfigUpdate
+### Community 127 - "WorkflowPipelineConfig"
+Cohesion: 0.11
+Nodes (10): Return parsed stages for API serialization., Return parsed stages as list of dicts with department, assigned_role,…, Set stages from list of dicts, ensuring step_order is sequential., Return parsed workflow definition (§23)., Set the full workflow definition (§23)., Return parsed conditional path definitions (§22)., Set conditional path definitions (§22)., Admin-editable review pipeline configuration per workflow type. Replaces the… (+2 more)
 
 ### Community 128 - "BhoomiSetu Platform Audit (Known Risks)"
 Cohesion: 0.22
 Nodes (9): 1. Executive Summary, 2. Current Stack, 3. Open Findings, 4. Medium / Low Findings, 5. Resolved Since the NestJS Audit, 6. Recommended Fix Order, BhoomiSetu Platform Audit (Known Risks), CRIT-1 — maplibre-gl 4.7.1 ships with a confirmed critical XSS sanitizer bypass (+1 more)
 
-### Community 129 - "_clear_spatial"
-Cohesion: 0.10
-Nodes (18): ChangeDetectionEvent, InfrastructureFeature, Ported from backend/src/spatial/*.entity.ts. Geometry columns use real PostGIS…, Simulated output of a satellite change-detection pass: a "changed region"…, Land-use zoning polygon (residential / commercial / agricultural) used to…, Restriction polygon (e.g. flood-prone area) that crosses parcel boundaries,…, Mock infrastructure (roads, utility lines) near a parcel cluster, used to…, RestrictionZone (+10 more)
+### Community 129 - "WorkflowReviewPanel.tsx"
+Cohesion: 0.06
+Nodes (48): MicButton(), MicButtonProps, State, AdminDecidedStepMode, AdminDecidedStepRow(), AdminDecidedStepRowProps, AdminStepMode, AdminStepRow() (+40 more)
 
 ### Community 130 - "02 — Security Audit"
 Cohesion: 0.20
@@ -963,17 +958,17 @@ Nodes (25): 16. Secondary Button, 39. Tooltips, 49. Charts, 4. Logo / Brand Name
 Cohesion: 0.08
 Nodes (24): 1. Officer Portal → Documents, 1. Remove Quick Actions, 1. Single active session per user + session timeout, 2. Admin Dashboard → Workflow Oversight, 2. Citizen-service actions leaking into Admin, 2. Dedicated Profile section, 3. Admin Dashboard → Map Layer Authoring, 3. "Explain with AI" giving predefined answers (+16 more)
 
-### Community 137 - "ProcessingJob"
-Cohesion: 0.05
-Nodes (71): ProcessingJob, Processing job model for background task tracking., Background job tracking - stores status, payload, result for Celery tasks., get_job_eecu_report(), get_parcel_terrain_profile(), get, post, Session (+63 more)
+### Community 137 - "MapComponent.tsx"
+Cohesion: 0.10
+Nodes (26): BASE_STYLE, baseFillFor(), Basemap, boundsOfFeatures(), DEFAULT_LAYER_VISIBILITY, DEFAULT_STATE_COLORS, EMPTY_FC, ensureLayer() (+18 more)
 
-### Community 138 - "Parcel"
-Cohesion: 0.06
-Nodes (32): Parcel, ProcessedSyncOperation, Idempotency ledger for offline-sync operations (spec §8). Mirrors the…, get_public_stats(), PublicStatsOut, get, Session, Public, unauthenticated aggregate stats for the marketing About page. Only non-… (+24 more)
+### Community 138 - "MapComponent.test.tsx"
+Cohesion: 0.08
+Nodes (13): contextResponse, districtParcels, MockLngLatBounds, MockMap, mockMapInstances, MockNavigationControl, MockPopup, p1Feature (+5 more)
 
-### Community 139 - "onboardingTour.ts"
-Cohesion: 0.25
-Nodes (9): CITIZEN_TOUR_STEPS, pickVisibleSteps(), prefersReducedMotion(), runCitizenTour(), defs, TFn, TourStepDef, visibleTarget() (+1 more)
+### Community 139 - "interoperability.py"
+Cohesion: 0.19
+Nodes (21): DepartmentStatsOut, DisputeRecordOut, EncumbranceRecordOut, IdentifierUsed, LandRecordsLookupOut, PlanningRecordOut, Ported from backend/src/departments/*.entity.ts response shapes + land-records-…, Officer dashboard metric cards (was hardcoded in OfficerDashboardPage.tsx).… (+13 more)
 
 ### Community 140 - "05 — UI/UX Audit"
 Cohesion: 0.25
@@ -995,25 +990,25 @@ Nodes (20): 1. Road Networks (from OSM via EE), 2. Building Footprints (Microsof
 Cohesion: 0.10
 Nodes (20): 1. Orient (every task), 2. Build / Refactor, 3. Review / Audit, 4. Restyle / Port, BhashiniFlag of India — Design Skill, Brand Identity, Common Sticking Points, Example Prompts (+12 more)
 
-### Community 145 - "test_interoperability.py"
-Cohesion: 0.08
-Nodes (36): find_identifier_value(), Session, Ported from backend/src/common/identifier-utils.ts. Shared by…, adapt_land_records_result(), adapt_state_a(), adapt_state_b(), AdaptedLandRecord, Ported from backend/src/interoperability/land-record-adapters.ts. (+28 more)
+### Community 145 - "test_workflows.py"
+Cohesion: 0.16
+Nodes (6): _clear(), Ported from backend/test/workflows.e2e-spec.ts. The original spec builds one…, _square(), TestGetParcelWorkflows, TestLandClaimRequest, TestUpdateStatus
 
-### Community 146 - "EECUTracker"
-Cohesion: 0.14
-Nodes (10): EECUOperation, EECUTracker, Any, Get summary of all tracked operations., Estimate monthly EECU usage based on current operations., Records a single Earth Engine operation., Tracks EECU usage for Earth Engine operations., Set the current processing job ID. (+2 more)
+### Community 146 - "eecu_tracker.py"
+Cohesion: 0.12
+Nodes (13): EECUOperation, EECUTracker, format_eecu_report(), Any, EECU (Earth Engine Compute Unit) usage tracking and instrumentation., Get summary of all tracked operations., Estimate monthly EECU usage based on current operations., Records a single Earth Engine operation. (+5 more)
 
 ### Community 147 - "terrain_cache.py"
-Cohesion: 0.10
-Nodes (16): cached_terrain(), decorator(), get_district_terrain_cache(), get_parcel_profile_cache(), invalidate_district_terrain(), invalidate_parcel_profile(), Redis caching for terrain profiles and tile responses., Decorator to cache function results. (+8 more)
+Cohesion: 0.07
+Nodes (24): cached_terrain(), decorator(), get_district_terrain_cache(), get_parcel_profile_cache(), invalidate_district_terrain(), invalidate_parcel_profile(), Any, Redis caching for terrain profiles and tile responses. (+16 more)
 
 ### Community 148 - "PART C — Page-by-Page Layout Spec"
 Cohesion: 0.10
 Nodes (19): BhoomiSetu — Frontend Redesign Prompt (Final, Consolidated), Closing CTA, CONTEXT — READ FIRST, Footer (deep green), Global behavior, Hero (full-bleed, ~92vh), How It Works, Interoperability Band (+11 more)
 
 ### Community 149 - "useTranslation"
-Cohesion: 0.04
-Nodes (94): AdminPortal, CitizenPortal, ContactUsPage, ChatInputBar(), ChatInputBarProps, BackButton(), BackButtonProps, VARIANT_CLASS (+86 more)
+Cohesion: 0.05
+Nodes (77): CitizenPortal, ContactUsPage, AiChat(), BackButton(), BackButtonProps, VARIANT_CLASS, Footer(), OfficerTaskDetailModal() (+69 more)
 
 ### Community 150 - "Bhashini Integration Examples - Practical Use Cases"
 Cohesion: 0.10
@@ -1024,8 +1019,12 @@ Cohesion: 0.10
 Nodes (19): Context, Current Blockers, Current Status, Execution Plan for BhoomiSetu Implementation, Immediate Next Steps, Phase 10: Security and Audit, Phase 11: Document Verification (Citizen) ✓ (Completed 2026-09-06), Phase 12: Citizen Sign-In ✓ (Completed 2026-09-06) (+11 more)
 
 ### Community 152 - "resolve_pagination"
-Cohesion: 0.18
-Nodes (14): Ported from backend/src/common/pagination.ts - KNOWN_RISKS.md HIGH-6. Every…, Returns (take, skip)., resolve_pagination(), find_all(), get, Session, find_all(), find_by_case() (+6 more)
+Cohesion: 0.19
+Nodes (13): Ported from backend/src/common/pagination.ts - KNOWN_RISKS.md HIGH-6. Every…, Returns (take, skip)., resolve_pagination(), find_all(), get, Session, find_all(), find_by_parcel() (+5 more)
+
+### Community 153 - "_seed"
+Cohesion: 0.27
+Nodes (4): Ported from backend/test/notification-feed.e2e-spec.ts. Fully self-contained -…, _seed(), TestFindMine, TestMarkRead
 
 ### Community 154 - "BhoomiSetu Earth Engine GIS Pipeline - Audit Report"
 Cohesion: 0.11
@@ -1051,9 +1050,9 @@ Nodes (17): 10. Animation, 11. Implementation notes for later (not doing this ye
 Cohesion: 0.12
 Nodes (17): 1. The real existing workflow (not the idealized one), 2. Feature-by-feature: what each proposal item actually requires here, 3.1 Land Claim → new `Workflow` type, not a new system, 3.2 Document upload tied to a claim → persistence added where it's actually needed, 3.3 Officer routing → a workload query, not a new entity, 3.4 Historical spatial state → new table, existing tab pattern — backend ✅ done (2026-09-08), 3. The four real upgrades, in technical detail, 4. Citizen Dashboard: what's actually new vs. what it just organizes (+9 more)
 
-### Community 160 - "ParcelDocumentFields"
-Cohesion: 0.21
-Nodes (8): ParcelDocumentFields, Ported from backend/src/common/parcel-generation/parcel-document-generator.ts.…, render_parcel_document_image(), _render_with_pillow(), test_render_parcel_document_image_escapes_xml_special_characters(), test_render_parcel_document_image_produces_a_valid_png(), TestDisputeFilingExemptionAndConflictFlow, TestEvidenceUpload
+### Community 160 - "ProposedFieldChange"
+Cohesion: 0.14
+Nodes (16): ProposedFieldChange, A proposed change to a parcel's department-record field, pending officer…, approve_field_change(), _can_approve_proposal(), _get_department_record(), _get_field_model(), get_proposed_field_changes(), propose_field_change() (+8 more)
 
 ### Community 161 - "12 — Test Results"
 Cohesion: 0.25
@@ -1071,9 +1070,9 @@ Nodes (14): 1. What actually has to change, and where, 2. Two connection targets
 Cohesion: 0.29
 Nodes (13): get_buildings_tile(), get_elevation_tile(), get_landcover_tile(), get_parcels_tile(), get_roads_tile(), get, Session, Returns Mapbox Vector Tile (MVT/PBF) for buildings in the given tile.… (+5 more)
 
-### Community 165 - "auth.ts"
-Cohesion: 0.04
-Nodes (70): LoginPage, OnboardingGate, ADMIN_COMBINED_VISIBLE_LAYERS, AdminCombinedLayerMap(), ALL_ROLE_LABELS, ALL_ROLES, formatDate(), UserManagement() (+62 more)
+### Community 165 - "OfficerDashboardPage.tsx"
+Cohesion: 0.09
+Nodes (23): formatDateTime(), formatHours(), OfficerMonitoring(), DEPARTMENT_HAS_ALERTS, DEPARTMENT_WIDGETS, DepartmentFocusWidget(), DepartmentStats, DepartmentWidgetConfig (+15 more)
 
 ### Community 166 - "routers/sync.py"
 Cohesion: 0.24
@@ -1083,9 +1082,9 @@ Nodes (14): _apply_case_create(), get, post, Session, Offline-sync endpoint (spe
 Cohesion: 0.17
 Nodes (12): 0. Prerequisites before any build work starts, 1. Why, and what "done" means, 2. Architecture, 3. Shared and cross-cutting code, and the seed script, 4. Build order and the per-module validation gate, 5. CI enforcement, 6. Cutover, 7. Ops maturity — what's in scope now vs. fast-follow (+4 more)
 
-### Community 168 - "earth_engine_terrain.py"
-Cohesion: 0.05
-Nodes (70): analyze(), ChangeAnalysisResult, _find_parcels_in_region(), Any, Session, Every parcel whose centroid falls inside a given GeoJSON Polygon region - a…, _ensure_initialized(), _fetch_thumb_png() (+62 more)
+### Community 168 - "test_bhashini.py"
+Cohesion: 0.16
+Nodes (19): clear_config_cache(), Convert text to speech audio using Bhashini TTS, Result from text-to-speech operation, Clear the config cache (useful for testing or manual reset), text_to_speech(), TTSResult, main(), Test speech-to-text (if audio file exists) (+11 more)
 
 ### Community 169 - "5. Activity & Audit System"
 Cohesion: 0.12
@@ -1095,9 +1094,9 @@ Nodes (16): 5. Activity & Audit System, Cause, ISSUE-013 — Duplicate Activity 
 Cohesion: 0.33
 Nodes (5): Backend on Render, Checklist, Deployment (Render + Vercel), Frontend on Vercel, The GEE key (the "can't upload JSON files" problem)
 
-### Community 171 - "bhashini.py"
-Cohesion: 0.08
-Nodes (42): asyncio, ASRResult, clear_config_cache(), _find_matching_service(), _get_config(), _is_bhashini_configured(), Bhashini Multilingual API Integration Service Government of India's Bhashini…, Transliterate text from Roman to Devanagari script (or vice versa) (+34 more)
+### Community 171 - "get_settings"
+Cohesion: 0.12
+Nodes (25): asyncio, get_settings(), Celery configuration for background job processing., ASRResult, _find_matching_service(), _get_config(), _is_bhashini_configured(), Bhashini Multilingual API Integration Service Government of India's Bhashini… (+17 more)
 
 ### Community 172 - "ui_text.py"
 Cohesion: 0.24
@@ -1119,13 +1118,13 @@ Nodes (11): BhoomiSetu — Open Backlog, Done (Removed from Active Backlog), Not
 Cohesion: 0.14
 Nodes (25): create(), find_all(), delete, get, patch, post, Session, UUID (+17 more)
 
-### Community 177 - "Base"
-Cohesion: 0.05
-Nodes (80): Base, Ported from backend/src/admin/department.entity.ts. Admin Portal "Department…, CaseParcelGeometryVersion, Geometry version history for a parcel within a case context (§43). Geometry V1,…, PlanningRecord, Registration status, transaction records, registration history., Land use, zoning, master plan info. For the Pune cluster, land_use is generated…, RegistrationRecord (+72 more)
+### Community 177 - "update"
+Cohesion: 0.15
+Nodes (16): find_all(), get_definition(), get_templates(), delete, get, patch, Session, UUID (+8 more)
 
-### Community 178 - "field_matcher.py"
-Cohesion: 0.27
-Nodes (9): _normalize(), Ported from backend/src/document-verification/field-matcher.ts. Pure, OCR/DB-…, Identifiers (survey numbers, ULPINs, plot numbers) are short, distinctive…, Names are harder: OCR can misread individual characters, and a real document…, Finds any number in the OCR text within a tolerance of the expected value -…, text_contains_approx_number(), text_contains_identifier(), text_contains_name() (+1 more)
+### Community 178 - "ProcessingJob"
+Cohesion: 0.04
+Nodes (81): ProcessingJob, Processing job model for background task tracking., Background job tracking - stores status, payload, result for Celery tasks., create_job(), get_job(), JobCreate, list_jobs(), get (+73 more)
 
 ### Community 179 - "31. Reference Architecture Diagrams"
 Cohesion: 0.13
@@ -1147,6 +1146,10 @@ Nodes (7): Bhashini Integration - Implementation Summary, 📚 Documentation Fil
 Cohesion: 0.15
 Nodes (13): 6. Mobile Responsive Problems, ISSUE-019 — My Tasks Table Overflows, ISSUE-020 — Task Detail Tabs Overflow, ISSUE-021 — Task Detail Modal Exceeds Viewport, ISSUE-022 — Dispute Modal Overflow, ISSUE-023 — Dispute Workflow Controls Overflow, ISSUE-024 — Historical Imagery Toolbar Overflow, ISSUE-025 — GIS Controls Leave Map Container (+5 more)
 
+### Community 184 - "narrative_service.py"
+Cohesion: 0.43
+Nodes (7): _client(), explain_parcel_changes(), ParcelChangeFact, _parse_narratives(), OpenAI, Ported from backend/src/historical-imagery/narrative.service.ts. Same OpenAI-…, Lenient line-based parsing (not strict JSON) - free/small models are unreliable…
+
 ### Community 185 - "DEMO_VIDEO_SCRIPT.md"
 Cohesion: 0.17
 Nodes (11): 0. Deployment alignment (verified 2026-09-25), 3. 0:42–1:05 — Citizen + multilingual + parcel, 4. 1:05–1:25 — Parcel 360 hero moment, 8. 3:15–3:40 — Verifier, Narration, One final design decision, Sequence, Target video: ~4:30 (+3 more)
@@ -1166,10 +1169,6 @@ Nodes (13): 67. Recommended Core Invariants, Invariant 1, Invariant 10, Invarian
 ### Community 190 - "Essential governance — current records + history mirrors"
 Cohesion: 0.17
 Nodes (12): `crop_records`, `dispute_records` / `dispute_history_records`, `encumbrance_records` / `encumbrance_history_records` / `encumbrance_certificates`, Essential governance — current records + history mirrors, `ownership_history_records` (Record of Rights), `parcel_historical_states`, `planning_records`, `registration_records` / `registration_history_records` (+4 more)
-
-### Community 191 - "ProfileField.tsx"
-Cohesion: 0.22
-Nodes (6): ProfileField(), ProfileFieldProps, StatusBadge(), StatusBadgeProps, StatusVariant, VARIANT_STYLES
 
 ### Community 192 - "BhoomiSetu Correction Plan — Code-Verified"
 Cohesion: 0.18
@@ -1207,6 +1206,10 @@ Nodes (9): 1. Canonical data model (three layers), 2. Entities & tables, 3. Seed
 Cohesion: 0.25
 Nodes (7): BhoomiSetu — Unified Workflow Implementation Plan, Guiding Principles (build into every layer), Known Dependencies & Blockers, Phase Overview, Plan Maintenance, Scope, Spec Section → Implementation Mapping
 
+### Community 201 - "get_my_performance"
+Cohesion: 0.47
+Nodes (6): get_my_performance(), get_officer_monitoring(), get_summary(), get, Session, An officer's own performance row - same metrics as the admin monitoring table,…
+
 ### Community 202 - "Phase 4 — Officer Workspace"
 Cohesion: 0.29
 Nodes (7): 4.1 Officer Case Workspace (Frontend), 4.2 Application Document for Officers (Frontend + Backend), 4.3 Parcel Details Up Front (Frontend), 4.4 Digital Database Updates (Frontend + Backend), 4.5 Officer Decision (Frontend + Backend), 4.6 Offline Document Verification Checklist (Frontend + Backend), Phase 4 — Officer Workspace
@@ -1231,9 +1234,9 @@ Nodes (10): **45\. Execution Plan**, **Phase 1: Data Preparation**, **Phase 2: G
 Cohesion: 0.20
 Nodes (10): 19. TECHNOLOGY STACK, AI / ML, API / Standards, Authentication / Security, Backend, Database, Frontend, GIS / Geospatial (+2 more)
 
-### Community 209 - "6. Security Framework"
-Cohesion: 0.33
-Nodes (6): 6.1 Authentication & session, 6.2 Authorization (RBAC), 6.3 Input & AI-output validation, 6.4 Audit logging, 6.5 Other hardening, 6. Security Framework
+### Community 209 - "complete_json"
+Cohesion: 0.27
+Nodes (10): complete_json(), is_configured(), Ported from backend/src/ai/gemini.service.ts. Gemini AI fallback, used by…, _client(), complete_json(), _complete_via_groq(), Any, OpenAI (+2 more)
 
 ### Community 210 - "Technical references to add before final PPT"
 Cohesion: 0.20
@@ -1279,9 +1282,9 @@ Nodes (5): 5. Documentation (4 files), `BHASHINI_EXAMPLES.md` (400+ lines), `BHA
 Cohesion: 0.22
 Nodes (9): **6.1 Unified Parcel-Centric Information**, **6.2 GIS-Based Visualization**, **6.3 Departmental Interoperability**, **6.4 State-Level Configurability**, **6.5 Citizen-Centric Services**, **6.6 Governance Workflow Integration**, **6.7 AI-Assisted Governance**, **6.8 Transparency and Accountability** (+1 more)
 
-### Community 221 - "base.py"
-Cohesion: 0.20
-Nodes (6): AuditLogOut, field_validator, Ported from backend/src/audit/audit.service.ts's `AuditLogView`., Every backend/src/*.entity.ts field is camelCase (TypeORM's default, e.g.…, RiskFactorOut, RiskScoreOut
+### Community 221 - "schemas/user.py"
+Cohesion: 0.24
+Nodes (6): CreateUser, PublicUserOut, field_validator, Ported from backend/src/users/users.controller.ts's `toPublicUser` +…, Never includes password_hash - mirrors toPublicUser, duplicated rather than…, UpdateUserRole
 
 ### Community 222 - "**7\. Core Principles**"
 Cohesion: 0.22
@@ -1308,8 +1311,8 @@ Cohesion: 0.22
 Nodes (9): 04 — Frontend (`frontend/`), Data layer, i18n, Map (`features/map/`), Offline / PWA (`src/offline/`), Routing & portals, Stack, Structure (`frontend/src/`) (+1 more)
 
 ### Community 228 - "05 — Database Schema"
-Cohesion: 0.22
-Nodes (9): 05 — Database Schema, `audit_logs`, Citizen ↔ parcel & documents, `citizen_parcels`, Migrations, `notifications`, Notifications & audit, `parcel_documents` (+1 more)
+Cohesion: 0.08
+Nodes (24): 05 — Database Schema, Additional / derived layers, `admin_map_notes`, Async / offline plumbing, `audit_logs`, `change_detection_events`, Citizen ↔ parcel & documents, `citizen_parcels` (+16 more)
 
 ### Community 229 - "Base spatial layer"
 Cohesion: 0.22
@@ -1323,9 +1326,9 @@ Nodes (10): 08 — Deployment, Backend env vars (`sync: false` — you fill them
 Cohesion: 0.29
 Nodes (6): 10 — SIH Demo Readiness, Demo hygiene, Must-fix before a live judged demo, Overall: GO, with a short pre-demo fix list, Safe to defer (won't affect a controlled demo), Should-fix if time allows
 
-### Community 232 - "VerificationEvidence"
-Cohesion: 0.36
-Nodes (8): VerificationEvidence, add_field_evidence(), datetime, UploadFile, add_field_evidence(), FieldEvidenceInput, find_field_evidence_by_token(), Idempotency lookup (API-02): the evidence row a prior replay of this…
+### Community 232 - "_seed"
+Cohesion: 0.22
+Nodes (5): Tests for admin workflow pipeline configuration endpoints., _seed(), TestPipelineConfigCreate, TestPipelineConfigDelete, TestPipelineConfigUpdate
 
 ### Community 233 - "13. Links"
 Cohesion: 0.50
@@ -1376,8 +1379,8 @@ Cohesion: 0.33
 Nodes (6): 4. Citizen Dashboard, My Land, Recent Case Activity, Recommended overview cards, Services & Assistance, What needs my attention?
 
 ### Community 245 - "MapLayerManagement.tsx"
-Cohesion: 0.14
-Nodes (18): BASE_STYLE, boundsOfGeometry(), centeredRectangle(), LayerGeometryDrawMap(), LayerGeometryDrawMapProps, buildPayload(), emptyForm(), extractErrorMessage() (+10 more)
+Cohesion: 0.06
+Nodes (29): BASE_STYLE, boundsOfGeometry(), centeredRectangle(), LayerGeometryDrawMap(), LayerGeometryDrawMapProps, MockDraw, mockDrawInstances, mockMapInstances (+21 more)
 
 ### Community 246 - "**Mock Departments**"
 Cohesion: 0.25
@@ -1411,9 +1414,9 @@ Nodes (7): BhoomiSetu — SIH 2026 PPT (Slide Content), Slide 1 — Problem Stat
 Cohesion: 0.25
 Nodes (8): 10.1 Production Topology, 10.2 Local Development Topology (`docker-compose.yml`), 10.3 Container Runtime (`backend-py/Dockerfile`), 10.4 Configuration Management, 10.5 Continuous Integration (`.github/workflows/backend-py-ci.yml`), 10.6 Scalability Design, 10.7 Known Constraints & Risks (per `KNOWN_RISKS.md`, overall Low-to-Moderate), 10. Deployment & Scalability Considerations
 
-### Community 286 - "📦 Core Components Implemented"
-Cohesion: 0.33
-Nodes (6): 1. Service Module (`app/services/bhashini.py`) - 520 lines, 2. API Endpoints (`app/routers/multilingual.py`) - 240 lines, 3. Configuration (`app/config.py` + `.env`), 4. Test Suite (`test_bhashini.py`) - 350 lines, 5. Documentation (4 files, 1600+ lines total), 📦 Core Components Implemented
+### Community 286 - "VerificationCard.tsx"
+Cohesion: 0.16
+Nodes (9): ProfileField(), ProfileFieldProps, StatusBadge(), StatusBadgeProps, StatusVariant, VARIANT_STYLES, maskId(), VerificationCard() (+1 more)
 
 ### Community 287 - "10. H3"
 Cohesion: 0.67
@@ -1627,17 +1630,21 @@ Nodes (8): 06 — Multilingual (i18n + Bhashini), 11 languages, Backend UI text,
 Cohesion: 0.25
 Nodes (8): 07 — Dev Setup, After changing code, Backend, Frontend, Inspect the live schema (how 05-DATABASE-SCHEMA.md was generated), Prerequisites, Running one-off shell commands in a Claude session, Tests
 
-### Community 345 - "Additional / derived layers"
-Cohesion: 0.40
-Nodes (5): Additional / derived layers, `admin_map_notes`, `change_detection_events`, `governance_alerts` / `governance_rules`, `infrastructure_features`
+### Community 345 - "estimate_eecu"
+Cohesion: 0.18
+Nodes (13): ElevationProfile, _ensure_initialized(), _fetch_landcover_from_dataset(), fetch_parcel_elevation_stats(), fetch_parcel_land_cover_stats(), LandCoverStats, Initialize EE with service account credentials. Same pattern as…, Fetch land cover using RASTER zonal statistics - NO polygonization! (+5 more)
 
-### Community 349 - "get_current_user"
-Cohesion: 0.32
-Nodes (8): _check_idle_timeout(), get_current_user(), get_current_user_optional(), Session, Enforce idle timeout if configured. 0 = disabled., Mirrors JwtStrategy.validate(): looks the user up fresh on every request…, Mirrors OptionalJwtAuthGuard: same 'jwt' strategy as get_current_user, but…, HTTPAuthorizationCredentials
+### Community 348 - "onboardingTour.ts"
+Cohesion: 0.25
+Nodes (9): CITIZEN_TOUR_STEPS, pickVisibleSteps(), prefersReducedMotion(), runCitizenTour(), defs, TFn, TourStepDef, visibleTarget() (+1 more)
 
-### Community 352 - "narrative_service.py"
-Cohesion: 0.43
-Nodes (7): _client(), explain_parcel_changes(), ParcelChangeFact, _parse_narratives(), OpenAI, Ported from backend/src/historical-imagery/narrative.service.ts. Same OpenAI-…, Lenient line-based parsing (not strict JSON) - free/small models are unreliable…
+### Community 349 - "analyze"
+Cohesion: 0.22
+Nodes (12): analyze(), ChangeAnalysisResult, _find_parcels_in_region(), Any, Session, Every parcel whose centroid falls inside a given GeoJSON Polygon region - a…, diff_images(), ImageDiffResult (+4 more)
+
+### Community 350 - "field_matcher.py"
+Cohesion: 0.27
+Nodes (9): _normalize(), Ported from backend/src/document-verification/field-matcher.ts. Pure, OCR/DB-…, Identifiers (survey numbers, ULPINs, plot numbers) are short, distinctive…, Names are harder: OCR can misread individual characters, and a real document…, Finds any number in the OCR text within a tolerance of the expected value -…, text_contains_approx_number(), text_contains_identifier(), text_contains_name() (+1 more)
 
 ### Community 355 - "7. Profile Problems"
 Cohesion: 0.29
@@ -1682,10 +1689,6 @@ Nodes (9): Dispute, Encumbrance, Land Records, Phase 9: Department Tools, Planni
 ### Community 365 - "02 — Architecture"
 Cohesion: 0.29
 Nodes (7): 02 — Architecture, Case / workflow engine, Central principle, Interoperability flow, Layered view, Reliability — degrade, don't crash, The canonical parcel
-
-### Community 366 - "verify_parcel"
-Cohesion: 0.48
-Nodes (7): extract_document(), identify_from_document(), HTTPException, post, UploadFile, Extract land-record fields before verification so the form can be prefilled., verify_parcel()
 
 ### Community 367 - "Phase 20: UX rules"
 Cohesion: 0.25
@@ -1843,9 +1846,9 @@ Nodes (5): Acceptance, ISSUE-001 — Registration Chain Infinite Loading, Likely
 Cohesion: 0.40
 Nodes (5): **18\. BHOOMISETU CORE API ENDPOINTS**, **Authentication**, **Login**, **Refresh Token**, **Register**
 
-### Community 413 - "archive/README.md"
-Cohesion: 0.12
-Nodes (11): 1. Rules this flow is built from (as given), 2. Entry flow, 3. Login page (`/login`) — [Built], 4. Registration (`/register`) — [Placeholder] — new surface, not built this phase, 5. Role → landing route, 6. Feature distribution by role, 7. Dashboard composition per role, 8. Demo accounts panel — refinement (+3 more)
+### Community 413 - "BhoomiSetu — Application Flow & Role Feature Distribution"
+Cohesion: 0.20
+Nodes (10): 1. Rules this flow is built from (as given), 2. Entry flow, 3. Login page (`/login`) — [Built], 4. Registration (`/register`) — [Placeholder] — new surface, not built this phase, 5. Role → landing route, 6. Feature distribution by role, 7. Dashboard composition per role, 8. Demo accounts panel — refinement (+2 more)
 
 ### Community 414 - "**20\. PARCEL ENDPOINTS**"
 Cohesion: 0.40
@@ -1862,10 +1865,6 @@ Nodes (4): 04 — API Contract Audit, API-01 — Blank officer task-detail field
 ### Community 417 - "**29\. RECOMMENDED GROQ USE CASES**"
 Cohesion: 0.40
 Nodes (5): **29.1 Natural Language Parcel Query**, **29.2 Parcel 360 Summary**, **29.3 Governance Alert Explanation**, **29.4 Document and Data Explanation**, **29\. RECOMMENDED GROQ USE CASES**
-
-### Community 418 - "update"
-Cohesion: 0.40
-Nodes (6): patch, update(), Update an existing workflow pipeline configuration., UpdateWorkflowPipelineConfig, Update an existing pipeline configuration., update_pipeline_config()
 
 ### Community 420 - "**6\. DATABASE ARCHITECTURE**"
 Cohesion: 0.40
@@ -1979,9 +1978,9 @@ Nodes (4): 08 — Performance Audit, Findings, Frontend, Verdict
 Cohesion: 0.24
 Nodes (12): category_for(), CurrentDispute, _dispute_category(), LegendEntry, Ported from backend/src/common/parcel-generation/parcel-category.ts. The…, `current_dispute` only ever applies for the current year - dispute status…, test_active_dispute_takes_priority_over_restriction(), test_every_dispute_type_maps_to_its_own_category() (+4 more)
 
-### Community 455 - "Notification"
-Cohesion: 0.19
-Nodes (7): Notification, Ported from backend/src/notification-feed/notification.entity.ts. In-app…, Ported from backend/test/governance-alerts.e2e-spec.ts. The original spec…, Ported from backend/test/notification-feed.e2e-spec.ts. Fully self-contained -…, _seed(), TestFindMine, TestMarkRead
+### Community 455 - "6. Security Framework"
+Cohesion: 0.33
+Nodes (6): 6.1 Authentication & session, 6.2 Authorization (RBAC), 6.3 Input & AI-output validation, 6.4 Audit logging, 6.5 Other hardening, 6. Security Framework
 
 ### Community 456 - "**21\. GIS ENDPOINTS**"
 Cohesion: 0.50
@@ -2019,10 +2018,6 @@ Nodes (4): 18. AI / ML PIPELINE, A. Satellite change detection, B. Explainable l
 Cohesion: 0.50
 Nodes (4): 33. REQUIRED TEAM INPUT BEFORE FINAL PPT, Critical, Evidence required for quantitative claims, Important
 
-### Community 465 - "LayerGeometryDrawMap.test.tsx"
-Cohesion: 0.08
-Nodes (7): MockDraw, mockDrawInstances, MockLngLatBounds, MockMap, mockMapInstances, MockNavigationControl, MockPopup
-
 ### Community 466 - "9. CANONICAL DATA MODEL"
 Cohesion: 0.50
 Nodes (4): 9. CANONICAL DATA MODEL, Core entities, Core identifier strategy, ULPIN
@@ -2055,6 +2050,10 @@ Nodes (4): 09 — Deployment Audit, Config / secrets, DEP-01 — No job reaper +
 Cohesion: 0.50
 Nodes (4): BhoomiSetu Handbook — START HERE, Ground truth vs. historical docs, One-paragraph gist, Read in this order
 
+### Community 474 - "public.py"
+Cohesion: 0.40
+Nodes (5): get_public_stats(), PublicStatsOut, get, Session, Public, unauthenticated aggregate stats for the marketing About page. Only non-…
+
 ### Community 475 - "12. Technology Stack"
 Cohesion: 0.50
 Nodes (4): 12. Technology Stack, Backend, External services (PROTOTYPE), Frontend (all PROTOTYPE)
@@ -2071,10 +2070,6 @@ Nodes (6): check(), get, Session, Readiness probe (DEP-01): liveness alone doesn
 Cohesion: 0.60
 Nodes (5): _parse_result(), PipelineStage, Ported from backend/src/workflows/request-routing.service.ts. Replaces the…, RoutingResult, suggest_pipeline()
 
-### Community 479 - "Users & identity"
-Cohesion: 0.50
-Nodes (4): `pending_registrations` — pre-account OTP flow, `profile_fields` — dynamic profile field config, `users`, Users & identity
-
 ### Community 480 - "15. Document Processing Pipeline"
 Cohesion: 0.50
 Nodes (4): 15. Document Processing Pipeline, Document verification / OCR (PROTOTYPE), Official document PDF (PROTOTYPE core; integration gaps flagged), Satellite / historical change detection (PROTOTYPE)
@@ -2083,9 +2078,13 @@ Nodes (4): 15. Document Processing Pipeline, Document verification / OCR (PROTOT
 Cohesion: 0.50
 Nodes (4): 7. Departmental Workflow Architecture, Configurable pipelines (PROTOTYPE), Per-department behaviour, Shared substrate (PROTOTYPE)
 
-### Community 482 - "delete_pipeline_config"
+### Community 483 - "Frontend Integration Examples"
+Cohesion: 0.33
+Nodes (6): 1. Language Toggle, 2. Translation Helper, 3. Search with Transliteration, 4. Play Audio (TTS), 5. Record and Transcribe (ASR), Frontend Integration Examples
+
+### Community 485 - "_fetch_buildings_from_dataset"
 Cohesion: 0.40
-Nodes (5): delete_pipeline_config(), get_pipeline_config_by_id(), UUID, Delete a pipeline configuration., Get pipeline config by ID.
+Nodes (4): BuildingFeature, _fetch_buildings_from_dataset(), extract_props(), Fetch buildings from a specific dataset ID.
 
 ### Community 486 - "**3\. Relationship Between BhoomiSetu and Land Stack**"
 Cohesion: 0.67
@@ -2159,53 +2158,45 @@ Nodes (3): 24. Testing Strategy, Approach, Test matrix
 Cohesion: 0.67
 Nodes (3): 28. Key Performance Indicators, Outcome KPIs (DATA REQUIRED — measure on pilot), Product KPIs (measurable on the prototype)
 
-### Community 510 - "Async / offline plumbing"
+### Community 505 - "2. Problem Statement"
 Cohesion: 0.67
-Nodes (3): Async / offline plumbing, `processed_sync_operations` — offline sync idempotency ledger, `processing_jobs`
+Nodes (3): 2. Problem Statement, PS requirement → BhoomiSetu module, The fragmentation each department suffers
 
-### Community 512 - "scripts"
-Cohesion: 0.40
-Nodes (5): scripts, build, dev, preview, test
+### Community 506 - "MockLngLatBounds"
+Cohesion: 0.11
+Nodes (3): MockLngLatBounds, MockMap, MockPopup
+
+### Community 507 - "create"
+Cohesion: 0.50
+Nodes (4): create(), post, CreateWorkflowPipelineConfig, Create a new workflow pipeline configuration.
+
+### Community 510 - "get_top_risk_parcels"
+Cohesion: 0.67
+Nodes (3): get_top_risk_parcels(), get, Session
 
 ### Community 513 - "20. Running the Project"
 Cohesion: 0.67
 Nodes (3): 20. Running the Project, Development, Production build (frontend)
 
-### Community 514 - "Interoperability demo (deliberately mismatched state schemas)"
-Cohesion: 0.67
-Nodes (3): Interoperability demo (deliberately mismatched state schemas), `state_a_land_records`, `state_b_land_records`
-
-### Community 519 - "_square"
-Cohesion: 0.25
-Nodes (3): _square(), TestGetParcelWorkflows, TestLandClaimRequest
-
-### Community 527 - "jobs.py"
-Cohesion: 0.12
-Nodes (23): Config, create_job(), get_job(), JobCreate, JobResponse, list_jobs(), get, post (+15 more)
-
-### Community 528 - "get_my_performance"
-Cohesion: 0.47
-Nodes (6): get_my_performance(), get_officer_monitoring(), get_summary(), get, Session, An officer's own performance row - same metrics as the admin monitoring table,…
-
 ## Knowledge Gaps
-- **2472 isolated node(s):** `Config`, `Config`, `name`, `version`, `description` (+2467 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3620 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **2467 isolated node(s):** `Config`, `Config`, `name`, `version`, `description` (+2462 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3607 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `User` connect `User` to `auth_service.py`, `_clear`, `NotificationPayload`, `users_service.py`, `seed.py`, `ProcessingJob`, `Parcel`, `pipeline_config_service.py`, `oauth_service.py`, `jobs.py`, `get_my_performance`, `GovernanceAlert`, `get_settings`, `profile_fields.py`, `workflows.py`, `ai_service.py`, `parcels.py`, `CamelModel`, `workflows_service.py`, `update`, `routers/auth.py`, `middleware.py`, `routers/sync.py`, `_seed`, `routers/historical_imagery.py`, `routers/departments.py`, `routers/admin.py`, `Base`, `case_service.py`, `Department`, `notification_feed.py`, `database.py`, `roles.py`, `TestOAuthService`, `parcels_service.py`, `test_parcel_conflicts.py`, `routers/spatial.py`, `get_current_user`, `get_definition`, `VerificationEvidence`, `verify_parcel`, `create_authenticated_user`, `_seed`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
-- **Why does `Parcel` connect `Parcel` to `_clear_spatial`, `AuditLog`, `change_detection.py`, `seed.py`, `departments_service.py`, `ProcessingJob`, `_square`, `GovernanceAlert`, `test_interoperability.py`, `ai_service.py`, `_seed`, `_seed`, `parcels.py`, `workflows_service.py`, `ParcelDocumentFields`, `test_parcel_verifier.py`, `earth_engine_terrain.py`, `Base`, `field_matcher.py`, `_base_fixtures`, `_seed_fixture_parcels`, `case_service.py`, `parcels_service.py`, `cluster_generator.py`, `EncumbranceRecord`, `routers/spatial.py`, `gis.py`, `verify_parcel`, `create_authenticated_user`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **Why does `create_authenticated_user()` connect `create_authenticated_user` to `_clear_spatial`, `AuditLog`, `NotificationPayload`, `_square`, `Parcel`, `oauth_service.py`, `GovernanceAlert`, `test_interoperability.py`, `TestGetOne`, `_seed`, `_seed`, `User`, `ParcelDocumentFields`, `test_parcel_verifier.py`, `_seed`, `Base`, `_base_fixtures`, `Department`, `_seed`, `Notification`, `TestVerifierAssignmentAndFieldEvidence`, `_seed`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Are the 236 inferred relationships involving `User` (e.g. with `_check_idle_timeout()` and `create_access_token()`) actually correct?**
-  _`User` has 236 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `User` connect `User` to `auth_service.py`, `land_record_pdf_service.py`, `_clear`, `NotificationPayload`, `users_service.py`, `seed.py`, `departments_service.py`, `oauth_service.py`, `sms_service.py`, `profile_fields.py`, `workflows.py`, `ai_service.py`, `workflows_service.py`, `parcels.py`, `ProposedFieldChange`, `routers/auth.py`, `get_current_user`, `routers/sync.py`, `_seed`, `routers/historical_imagery.py`, `routers/admin.py`, `update`, `ProcessingJob`, `case_service.py`, `Session`, `governance_alerts_service.py`, `Session`, `Base`, `routers/departments.py`, `database.py`, `TestOAuthService`, `Parcel`, `Department`, `get_my_performance`, `routers/spatial.py`, `notification_feed.py`, `_seed`, `create`, `create_authenticated_user`?**
+  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+- **Why does `Parcel` connect `Parcel` to `land_record_pdf_service.py`, `NotificationPayload`, `change_detection.py`, `seed.py`, `departments_service.py`, `GovernanceAlert`, `test_workflows.py`, `ai_service.py`, `_seed`, `_seed`, `workflows_service.py`, `parcels.py`, `_base_fixtures`, `ProcessingJob`, `case_service.py`, `_seed_fixture_parcels`, `Base`, `test_interoperability.py`, `cluster_generator.py`, `Department`, `test_legal_status.py`, `ParcelDocumentFields`, `routers/spatial.py`, `public.py`, `analyze`, `field_matcher.py`, `gis.py`, `create_authenticated_user`?**
+  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+- **Why does `create_authenticated_user()` connect `create_authenticated_user` to `land_record_pdf_service.py`, `NotificationPayload`, `seed.py`, `oauth_service.py`, `GovernanceAlert`, `test_workflows.py`, `_seed`, `_seed`, `_seed`, `User`, `parcels.py`, `_seed`, `_base_fixtures`, `Session`, `Base`, `_seed`, `test_interoperability.py`, `Parcel`, `Department`, `ParcelDocumentFields`, `TestGetOne`, `_seed`, `TestVerifierAssignmentAndFieldEvidence`, `WorkflowPipelineConfig`?**
+  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+- **Are the 233 inferred relationships involving `User` (e.g. with `_check_idle_timeout()` and `create_access_token()`) actually correct?**
+  _`User` has 233 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 68 inferred relationships involving `Parcel` (e.g. with `build_canonical_envelope()` and `apply_terrain_constraints()`) actually correct?**
   _`Parcel` has 68 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Config`, `Config`, `name` to the rest of the system?**
-  _2472 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _2467 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `apiService.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.03094595442847279 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.033574131406948746 - nodes in this community are weakly interconnected._
