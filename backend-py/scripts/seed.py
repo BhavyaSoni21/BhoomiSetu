@@ -1576,10 +1576,17 @@ def seed_database() -> None:
             f"analyses, {len(routing_to_save)} routing decisions, {len(applications_to_save)} applications"
         )
 
+<<<<<<< Updated upstream
         # Scripted demo story for citizen1 (citizen1@example.com): three named
         # parcels + one central multi-department conflict case. Additive, runs
         # after the bulk data so it reuses the same departments/officers.
         seed_citizen1_demo(db, citizens[0], officer_by_role, departments)
+=======
+        # Land-Stack guided-demo dataset (3 hand-authored parcels linked to
+        # citizen1). Runs in-transaction so its tax rows feed the denormalize
+        # UPDATE below and its parcels get value_band/risk recomputed after.
+        seed_citizen1_landstack_demo(db)
+>>>>>>> Stashed changes
         db.flush()
 
         # Denormalize the latest tax status onto each parcel so the Tax
@@ -1636,6 +1643,289 @@ def seed_database() -> None:
         raise
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Land-Stack demonstration dataset (SIH26014 guide §2-§8)
+# ---------------------------------------------------------------------------
+# Three hand-authored parcels linked to citizen1 for the guided walkthrough:
+# PUN-0001 all-clean, PUN-0002 conflict-heavy (owner-name / area / tax
+# mismatch + active dispute + mortgage), TN-0001 rural agricultural.
+# Idempotent: parcels are upserted by canonical_parcel_id (their UUID stays
+# stable) and every child row is deleted-then-reinserted keyed on that UUID,
+# so re-running -- inside the full seed or standalone against the live DB --
+# converges to the same state. Demo-only values; source labels SEEDED_DEMO /
+# MOCK_ADAPTER per the guide. No real identities.
+
+_LANDSTACK_CLUSTER = "landstack-demo"
+
+
+def _demo_ring(center_lat, center_lng, area_sq_m):
+    """Closed square ring of roughly area_sq_m, centered on (lat, lng)."""
+    side = math.sqrt(area_sq_m)
+    dlat = side / 111_320.0
+    dlng = side / (111_320.0 * math.cos(math.radians(center_lat)))
+    return [
+        (center_lng - dlng / 2, center_lat - dlat / 2),
+        (center_lng + dlng / 2, center_lat - dlat / 2),
+        (center_lng + dlng / 2, center_lat + dlat / 2),
+        (center_lng - dlng / 2, center_lat + dlat / 2),
+        (center_lng - dlng / 2, center_lat - dlat / 2),
+    ]
+
+
+def _upsert_landstack_parcel(db, *, canonical, ulpin, state, dist, local_body,
+                             center, area, current_state, risk, severity,
+                             value_band, tax_status, masterplan_mismatch):
+    parcel = db.query(Parcel).filter(Parcel.canonical_parcel_id == canonical).first()
+    geom = from_shape(Polygon(_demo_ring(center[0], center[1], area)), srid=4326)
+    fields = dict(
+        cluster_id=_LANDSTACK_CLUSTER, ulpin=ulpin, state_code=state,
+        district_code=dist, local_body_code=local_body, geometry=geom,
+        area_sq_m=area, tax_status=tax_status,
+        masterplan_mismatch=masterplan_mismatch, risk_score=risk,
+        legal_status_severity=severity, value_band=value_band,
+        current_state=current_state,
+    )
+    if parcel:
+        for k, v in fields.items():
+            setattr(parcel, k, v)
+    else:
+        parcel = Parcel(canonical_parcel_id=canonical, **fields)
+        db.add(parcel)
+    db.flush()
+    return parcel
+
+
+def _clear_landstack_children(db, parcel):
+    pid = str(parcel.id)
+    for model in (RegistrationRecord, PlanningRecord, TaxRecord, RestrictionRecord,
+                  DisputeRecord, EncumbranceRecord, SurveyRecord,
+                  OwnershipHistoryRecord, ParcelHistoricalState, CropRecord):
+        db.query(model).filter(model.parcel_id == pid).delete(synchronize_session=False)
+    db.query(ParcelIdentifier).filter(ParcelIdentifier.parcel_id == parcel.id).delete(synchronize_session=False)
+    # Case / Workflow children cascade via ON DELETE CASCADE FKs on cases.id / workflows.id.
+    db.query(Case).filter(Case.parcel_id == pid).delete(synchronize_session=False)
+    db.query(Workflow).filter(Workflow.parcel_id == pid).delete(synchronize_session=False)
+    db.flush()
+
+
+def seed_citizen1_landstack_demo(db):
+    from app.auth.roles import OFFICER_ROLES, DEPARTMENT_ROLE
+
+    citizen1 = db.query(User).filter(User.email == "citizen1@example.com").first()
+    if not citizen1:
+        print("[landstack] citizen1@example.com not found; skipping demo dataset.")
+        return
+
+    officers = {u.role: u for u in db.query(User).filter(User.role.in_(OFFICER_ROLES)).all()}
+    departments = {d.code: d for d in db.query(Department).all()}
+
+    # ---- Parcel PUN-0001: all-clean residential (Hadapsar, Pune) ----
+    pun1 = _upsert_landstack_parcel(
+        db, canonical="PARCEL-PUN-0001", ulpin="ULPIN0000489433", state="MH",
+        dist="PN", local_body="MHLB001", center=(18.5018, 73.9407), area=185.60,
+        current_state={
+            "ownershipStatus": "VERIFIED", "registrationStatus": "REGISTERED",
+            "taxStatus": "PAID", "restrictionStatus": "CLEAR",
+            "disputeStatus": "NO_ACTIVE_DISPUTE", "encumbranceStatus": "NO_ACTIVE_ENCUMBRANCE",
+            "sourceStatus": "SEEDED_DEMO",
+        },
+        risk=12.0, severity=0, value_band=2, tax_status="PAID", masterplan_mismatch=False)
+    _clear_landstack_children(db, pun1)
+    p1 = str(pun1.id)
+    db.add_all([
+        ParcelIdentifier(parcel=pun1, identifier_type="ULPIN", identifier_value="ULPIN0000489433", source_state="MH", source_department="Land Records"),
+        ParcelIdentifier(parcel=pun1, identifier_type="SURVEY_NUMBER", identifier_value="211/3", source_state="MH", source_department="Land Records"),
+        ParcelIdentifier(parcel=pun1, identifier_type="LOCAL_PARCEL_ID", identifier_value="MH-PN-0001", source_state="MH", source_department="Land Records"),
+        RegistrationRecord(parcel_id=p1, registration_status="REGISTERED", registration_number="REG-MH-2019-00512", registration_date=date(2019, 6, 12), last_transaction_type="SALE", last_transaction_date=date(2019, 6, 12)),
+        PlanningRecord(parcel_id=p1, land_use="RESIDENTIAL", zoning_classification="Residential R-1", master_plan_reference="Pune Master Plan 2021", building_permission_status="APPROVED"),
+        TaxRecord(parcel_id=p1, assessed_value=1856000.0, annual_tax_amount=9280.0, tax_status="PAID", outstanding_amount=0.0, last_payment_date=date(2026, 4, 10), market_value_reference=1950000.0, valuation_date=date(2026, 1, 1), valuation_source="CIRCLE_RATE"),
+        RestrictionRecord(parcel_id=p1, has_restriction=False),
+        DisputeRecord(parcel_id=p1, has_active_dispute=False),
+        EncumbranceRecord(parcel_id=p1, has_encumbrance=False),
+        SurveyRecord(parcel_id=p1, survey_status="COMPLETED", survey_type="BOUNDARY_VERIFICATION", measured_area_sq_m=185.60, original_area_sq_m=185.60, area_delta_sq_m=0.0, geometry_updated=False, survey_date=date(2025, 11, 20), surveyor_notes="Boundaries verified, no change.", reference_document="FIELD_BOOK_REF"),
+        OwnershipHistoryRecord(parcel_id=p1, owner_name="Demo Owner One", transaction_type="ORIGINAL", transaction_date=date(2005, 3, 1), document_reference=None, khata_number="1187"),
+        OwnershipHistoryRecord(parcel_id=p1, owner_name="Demo Owner One", transaction_type="SALE", transaction_date=date(2019, 6, 12), document_reference="DEED-000512", khata_number="1187"),
+    ])
+    db.flush()
+
+    # ---- Parcel PUN-0002: conflict-heavy residential (Kharadi, Pune) ----
+    pun2 = _upsert_landstack_parcel(
+        db, canonical="PARCEL-PUN-0002", ulpin="ULPIN0000489434", state="MH",
+        dist="PN", local_body="MHLB001", center=(18.5515, 73.9430), area=920.00,
+        current_state={
+            "ownershipStatus": "PENDING_REVIEW", "registrationStatus": "REGISTERED",
+            "taxStatus": "AREA_MISMATCH", "restrictionStatus": "POSSIBLE_PLANNING_RESTRICTION",
+            "disputeStatus": "ACTIVE_OBJECTION", "encumbranceStatus": "MORTGAGE_FOUND",
+            "sourceStatus": "SEEDED_DEMO",
+        },
+        risk=68.0, severity=3, value_band=3, tax_status="OVERDUE", masterplan_mismatch=True)
+    _clear_landstack_children(db, pun2)
+    p2 = str(pun2.id)
+    db.add_all([
+        ParcelIdentifier(parcel=pun2, identifier_type="ULPIN", identifier_value="ULPIN0000489434", source_state="MH", source_department="Land Records"),
+        ParcelIdentifier(parcel=pun2, identifier_type="SURVEY_NUMBER", identifier_value="42/7A", source_state="MH", source_department="Land Records"),
+        ParcelIdentifier(parcel=pun2, identifier_type="LOCAL_PARCEL_ID", identifier_value="KH-42-7-A", source_state="MH", source_department="Tax"),
+        # RoR / ownership history owner "Ramesh Patil" vs Registration "Ramesh Kumar Patil" (headline conflict).
+        OwnershipHistoryRecord(parcel_id=p2, owner_name="Ramesh Patil", transaction_type="ORIGINAL", transaction_date=date(2011, 8, 5), document_reference=None, khata_number="4207"),
+        OwnershipHistoryRecord(parcel_id=p2, owner_name="Ramesh Patil", transaction_type="INHERITANCE", transaction_date=date(2021, 2, 18), document_reference="DEED-2021-00982", khata_number="4207"),
+        RegistrationRecord(parcel_id=p2, registration_status="REGISTERED", registration_number="REG-MH-2021-00982", registration_date=date(2021, 2, 18), last_transaction_type="INHERITANCE", last_transaction_date=date(2021, 2, 18)),
+        PlanningRecord(parcel_id=p2, land_use="RESIDENTIAL", zoning_classification="Residential Mixed Use", master_plan_reference="Pune Master Plan 2021 (PLAN-PN-4409)", building_permission_status="PENDING"),
+        # Tax number KH-42-7-A, area recorded as 9,900 sqft, overdue ₹18,450, AY 2025-26.
+        TaxRecord(parcel_id=p2, assessed_value=9900000.0, annual_tax_amount=36900.0, tax_status="OVERDUE", outstanding_amount=18450.0, last_payment_date=date(2024, 7, 15), market_value_reference=10500000.0, valuation_date=date(2025, 4, 1), valuation_source="CIRCLE_RATE"),
+        RestrictionRecord(parcel_id=p2, has_restriction=True, restriction_type="PROTECTED_AREA", restriction_details="Possible road-widening reservation overlaps parcel (PLAN-PN-4409); planning confirmation pending.", imposing_authority="Pune Planning Authority"),
+        DisputeRecord(parcel_id=p2, has_active_dispute=True, dispute_type="BOUNDARY", case_status="UNDER_REVIEW", filing_date=date(2026, 8, 30), resolution_date=None, resolution_summary="Active objection (DISP-PN-1005) by Demo Party A; risk MEDIUM."),
+        EncumbranceRecord(parcel_id=p2, has_encumbrance=True, encumbrance_type="MORTGAGE", lender_name="Demo Cooperative Bank", instrument_reference="ENC-DEMO-0002", registered_date=date(2021, 3, 10), discharge_date=None),
+        # Survey recorded 920 vs measured 887 sqm (delta -33) -> AREA_MISMATCH.
+        SurveyRecord(parcel_id=p2, survey_status="IN_PROGRESS", survey_type="AREA_CORRECTION", measured_area_sq_m=887.0, original_area_sq_m=920.0, area_delta_sq_m=-33.0, geometry_updated=False, survey_date=None, surveyor_notes="Field measurement 887 sqm differs from recorded 920 sqm; field re-verification queued.", reference_document="FIELD_BOOK_REF"),
+    ])
+    db.flush()
+
+    # ---- Parcel TN-0001: rural agricultural (Melur, Madurai) ----
+    tn1 = _upsert_landstack_parcel(
+        db, canonical="PARCEL-TN-0001", ulpin="ULPIN0000781201", state="TN",
+        dist="MDU", local_body="TNLB007", center=(9.9660, 78.3340), area=4200.00,
+        current_state={
+            "ownershipStatus": "VERIFIED", "registrationStatus": "PENDING_MUTATION",
+            "taxStatus": "AGRICULTURAL_ASSESSMENT", "restrictionStatus": "WATERBODY_BUFFER_NEARBY",
+            "disputeStatus": "NO_ACTIVE_DISPUTE", "encumbranceStatus": "NO_ACTIVE_ENCUMBRANCE",
+            "sourceStatus": "SEEDED_DEMO",
+        },
+        risk=34.0, severity=1, value_band=2, tax_status="PAID", masterplan_mismatch=False)
+    _clear_landstack_children(db, tn1)
+    p3 = str(tn1.id)
+    db.add_all([
+        ParcelIdentifier(parcel=tn1, identifier_type="ULPIN", identifier_value="ULPIN0000781201", source_state="TN", source_department="Land Records"),
+        ParcelIdentifier(parcel=tn1, identifier_type="PLOT_NUMBER", identifier_value="MEL-118-B", source_state="TN", source_department="Registration"),
+        ParcelIdentifier(parcel=tn1, identifier_type="LOCAL_PARCEL_ID", identifier_value="TN-MDU-0001", source_state="TN", source_department="Land Records"),
+        RegistrationRecord(parcel_id=p3, registration_status="PENDING", registration_number="REG-TN-2023-04417", registration_date=date(2023, 9, 2), last_transaction_type="INHERITANCE", last_transaction_date=date(2023, 9, 2)),
+        PlanningRecord(parcel_id=p3, land_use="AGRICULTURAL", zoning_classification="Agricultural Nanjai", master_plan_reference="Melur Taluk Land Use 2022", building_permission_status="NOT_REQUIRED"),
+        TaxRecord(parcel_id=p3, assessed_value=1260000.0, annual_tax_amount=2100.0, tax_status="PAID", outstanding_amount=0.0, last_payment_date=date(2026, 3, 5), market_value_reference=1400000.0, valuation_date=date(2026, 1, 1), valuation_source="COMPARABLE_SALE"),
+        RestrictionRecord(parcel_id=p3, has_restriction=True, restriction_type="ENVIRONMENTAL", restriction_details="Waterbody buffer zone nearby; construction/land-use change requires clearance.", imposing_authority="TN State Environment Authority"),
+        DisputeRecord(parcel_id=p3, has_active_dispute=False),
+        EncumbranceRecord(parcel_id=p3, has_encumbrance=False),
+        SurveyRecord(parcel_id=p3, survey_status="COMPLETED", survey_type="BOUNDARY_VERIFICATION", measured_area_sq_m=4200.0, original_area_sq_m=4200.0, area_delta_sq_m=0.0, geometry_updated=False, survey_date=date(2025, 12, 1), surveyor_notes="Agricultural extent verified.", reference_document="GPS_LOG"),
+        CropRecord(parcel_id=p3, agricultural_year="2024-25", season="KHARIF", crop_type="FOOD_CROP", crop_name="Paddy", irrigated_area_sq_m=4200.0, unirrigated_area_sq_m=0.0, irrigation_source="CANAL", uncultivable_area_sq_m=0.0, remark="Nanjai wet-land paddy."),
+        OwnershipHistoryRecord(parcel_id=p3, owner_name="Ramesh Kumar Patil", transaction_type="ORIGINAL", transaction_date=date(2010, 5, 20), document_reference=None, khata_number="1182"),
+    ])
+    db.flush()
+
+    # ---- Mock state-adapter records (interop demo; resolved by identifier, no parcel FK) ----
+    db.query(StateALandRecord).filter(StateALandRecord.survey_number == "42/7A").delete(synchronize_session=False)
+    db.query(StateBLandRecord).filter(StateBLandRecord.plot_id == "MEL-118-B").delete(synchronize_session=False)
+    db.add_all([
+        StateALandRecord(survey_number="42/7A", subdivision_number="7", owner_name="Ramesh Patil", village_code="PN-KHARADI", area_hectares=0.0920, record_status="MOCK_ADAPTER"),
+        StateBLandRecord(plot_id="MEL-118-B", holder_name="Ramesh Kumar Patil", locality_id="MLR-MEL", land_extent_sqft=9900.0, record_category="MOCK_ADAPTER"),
+    ])
+    db.flush()
+
+    # ---- Central multi-department case for PUN-0002 + officer tasks ----
+    p2 = str(pun2.id)
+    cid = str(citizen1.id)
+    if departments and officers:
+        case = Case(
+            case_no="CASE-PUN-0002-MUT-001", citizen_id=cid, parcel_id=p2,
+            intent="MUTATION_AND_RECORD_REVIEW", status="RESOLUTION", priority="HIGH",
+            routing_decision={"departments": ["LAND_RECORDS", "REGISTRATION", "TAX", "PLANNING", "SURVEY", "ENCUMBRANCE", "DISPUTE", "RESTRICTION"], "priority": "HIGH", "intent": "MUTATION_AND_RECORD_REVIEW"},
+            created_at=datetime(2026, 9, 28, 10, 15, 0),
+        )
+        db.add(case)
+        db.flush()
+        # Every department has completed its review; the case has advanced to
+        # RESOLUTION. (dept code, stage, completion remark.)
+        task_plan = [
+            ("LAND_RECORDS", 0, "Ownership record reconciled against RoR."),
+            ("REGISTRATION", 1, "Registration record confirmed."),
+            ("TAX", 2, "Tax dues reassessed and cleared."),
+            ("PLANNING", 3, "Planning restriction reviewed; no bar to mutation."),
+            ("SURVEY", 4, "Field verification done; area corrected to 887 sqm."),
+            ("ENCUMBRANCE", 5, "Mortgage noted; encumbrance certificate issued."),
+            ("DISPUTE", 6, "Objection reviewed and closed."),
+            ("RESTRICTION", 7, "Restriction check completed."),
+        ]
+        for code, stage, remark in task_plan:
+            dept = departments.get(code)
+            if not dept:
+                continue
+            officer = officers.get(DEPARTMENT_ROLE.get(code))
+            db.add(DepartmentTask(
+                case_id=case.id, department_id=dept.id, status="COMPLETED", stage=stage,
+                stage_name=dept.name,
+                assigned_officer_id=str(officer.id) if officer else None,
+                assigned_at=datetime(2026, 9, 28, 11, 0, 0),
+                resolution_mode="FIELD_VERIFICATION" if code == "SURVEY" else "DIGITAL",
+                resolution_decision="APPROVE",
+                resolution_remarks=remark,
+                sla_threshold_hours=72, sla_warning_threshold=48, sla_breach_threshold=96,
+                completed_at=datetime(2026, 9, 28, 15, 0, 0),
+            ))
+        db.add_all([
+            CaseTimelineEvent(case_id=case.id, event_type="CASE_CREATED", actor_id=cid, actor_role="CITIZEN", new_state="ACTIVE", event_metadata={"caseNo": "CASE-PUN-0002-MUT-001", "sourceStatus": "SEEDED_DEMO"}, created_at=datetime(2026, 9, 28, 10, 15, 0)),
+            CaseTimelineEvent(case_id=case.id, event_type="ROUTED_TO_DEPARTMENT", actor_role="SYSTEM", new_state="ACTIVE", event_metadata={"departments": 8}, created_at=datetime(2026, 9, 28, 10, 16, 0)),
+            CaseTimelineEvent(case_id=case.id, event_type="DECISION_APPROVED", actor_role="SYSTEM", previous_state="ACTIVE", new_state="RESOLUTION", event_metadata={"completedTasks": 8}, created_at=datetime(2026, 9, 28, 15, 30, 0)),
+        ])
+        # Resolved ownership-verification case on PUN-0001.
+        rcase = Case(
+            case_no="CASE-PUN-0001-OWN-001", citizen_id=cid, parcel_id=str(pun1.id),
+            intent="OWNERSHIP_VERIFICATION", status="CLOSED", priority="MEDIUM",
+            routing_decision={"departments": ["LAND_RECORDS"], "priority": "MEDIUM", "intent": "OWNERSHIP_VERIFICATION"},
+            created_at=datetime(2026, 9, 10, 9, 0, 0), resolved_at=datetime(2026, 9, 18, 14, 0, 0), closed_at=datetime(2026, 9, 20, 10, 0, 0),
+        )
+        db.add(rcase)
+        db.flush()
+        lr = departments.get("LAND_RECORDS")
+        if lr:
+            officer = officers.get(DEPARTMENT_ROLE.get("LAND_RECORDS"))
+            db.add(DepartmentTask(case_id=rcase.id, department_id=lr.id, status="COMPLETED", stage=0, stage_name=lr.name, assigned_officer_id=str(officer.id) if officer else None, assigned_at=datetime(2026, 9, 10, 10, 0, 0), resolution_mode="DIGITAL", resolution_decision="APPROVE", resolution_remarks="Ownership verified against RoR.", sla_threshold_hours=72, sla_warning_threshold=48, sla_breach_threshold=96, completed_at=datetime(2026, 9, 18, 14, 0, 0)))
+        db.flush()
+
+    # ---- Citizen request (workflow) on PUN-0002 ----
+    db.add(Workflow(
+        parcel_id=p2, workflow_type="CORRECTION_REQUEST", current_status="UNDER_REVIEW",
+        created_by=cid, citizen_id=cid,
+        request_details="Tax and ownership record review for Kharadi parcel (recorded 920 vs measured 887 sqm; owner-name Ramesh Patil vs Ramesh Kumar Patil).",
+        last_remarks="Demo seed record for citizen request queue.",
+    ))
+    db.flush()
+
+    # ---- Relink citizen1 to exactly the 3 demo parcels (drop prior links) ----
+    db.query(CitizenParcel).filter(CitizenParcel.citizen_id == citizen1.id).delete(synchronize_session=False)
+    db.add_all([
+        CitizenParcel(citizen_id=citizen1.id, parcel_id=pun2.id, status="Pending Verification"),
+        CitizenParcel(citizen_id=citizen1.id, parcel_id=pun1.id, status="Registered"),
+        CitizenParcel(citizen_id=citizen1.id, parcel_id=tn1.id, status="Registered"),
+    ])
+    db.flush()
+    print("[landstack] seeded 3 demo parcels + records/adapters/case; relinked citizen1 (dropped prior links).")
+
+
+def run_landstack_only():
+    """Standalone entrypoint: apply just the Land-Stack demo dataset to the
+    live DB and refresh derived map-layer attributes. Idempotent."""
+    db = SessionLocal()
+    try:
+        seed_citizen1_landstack_demo(db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+    # Refresh derived map-layer attributes if the recompute tasks are
+    # runnable here (they need Celery). The upsert already set sensible fixed
+    # value_band/risk_score/legal_status_severity, so this is a best-effort
+    # refresh, not a correctness requirement.
+    try:
+        from app.tasks.value_band_tasks import recompute_all_value_bands
+        from app.tasks.risk_score_tasks import recompute_all_risk_scores
+        from app.tasks.legal_status_tasks import recompute_all_legal_status_severities
+        recompute_all_value_bands()
+        recompute_all_risk_scores()
+        recompute_all_legal_status_severities()
+    except Exception as exc:  # celery not available locally, etc.
+        print(f"[landstack] skipped map-layer recompute (using seeded fixed values): {exc}")
+    print("[landstack] standalone run complete.")
 
 
 if __name__ == "__main__":

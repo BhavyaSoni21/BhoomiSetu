@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, X, ZoomIn, ZoomOut, Sparkles, Loader2 } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Sparkles, Loader2 } from 'lucide-react';
 import apiService from '../../services/apiService';
 
 interface OfficialPdfViewerModalProps {
@@ -40,14 +40,6 @@ const OfficialPdfViewerModal: React.FC<OfficialPdfViewerModalProps> = ({ url, fi
         <div className="flex items-center justify-between gap-2 border-b-2 border-ink p-3">
           <h2 className="font-display text-sm font-black uppercase tracking-wider">Official document</h2>
           <div className="flex gap-2">
-            <a
-              href={url}
-              download={fileName}
-              className="inline-flex items-center gap-2 border-2 border-ink px-3 py-2 text-xs font-bold uppercase"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Download
-            </a>
             {parcelId && (
               <button
                 onClick={handleSummarise}
