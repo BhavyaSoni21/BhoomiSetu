@@ -134,7 +134,13 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ user }) => {
     // name is the only required field; it's prefilled from signup so this is
     // usually a no-op confirm. Partial update - only what changed matters.
     const payload = geo ? { ...form, homeLatitude: geo.lat, homeLongitude: geo.lng } : form;
-    updateDetails.mutate(payload, { onSuccess: () => goto(next) });
+    // Fire-and-forget: don't make the user wait on the network round-trip (a
+    // cold Render backend can take tens of seconds). The mutation has
+    // networkMode:'always' + retry, so it persists in the background; these
+    // fields are non-critical and editable later, so advancing optimistically
+    // is safe. On failure the data just isn't saved - no data-loss for the flow.
+    updateDetails.mutate(payload);
+    goto(next);
   };
 
   const runTourThenComplete = async () => {
@@ -422,10 +428,10 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ user }) => {
             <button
               type="button"
               onClick={() => saveProfileThen('intro')}
-              disabled={!form.name.trim() || !form.address.trim() || updateDetails.isLoading}
+              disabled={!form.name.trim() || !form.address.trim()}
               className={primaryBtn}
             >
-              {updateDetails.isLoading ? t('onboarding.saving', 'Saving…') : t('onboarding.continue', 'Continue')}
+              {t('onboarding.continue', 'Continue')}
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </button>
           )}

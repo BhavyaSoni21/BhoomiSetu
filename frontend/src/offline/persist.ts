@@ -13,6 +13,18 @@ export const queryClient = new QueryClient({
       staleTime: 30_000,
       cacheTime: 24 * 60 * 60_000, // survive long offline stretches
       retry: 1,
+      // React Query v4 defaults networkMode:'online', which PAUSES every query
+      // (status stays 'loading', it never fetches) whenever navigator.onLine is
+      // false. On this environment navigator.onLine is unreliable - a screen
+      // recorder / VPN toggling a virtual NIC reports offline while the network
+      // is fine - so /auth/me was paused on refresh and RequireAuth sat on
+      // "Checking your session…" forever. We already force the app online
+      // (offline/network.ts FORCE_ONLINE); 'always' makes RQ obey that too and
+      // fetch regardless of its own online detection.
+      networkMode: 'always',
+    },
+    mutations: {
+      networkMode: 'always',
     },
   },
 });

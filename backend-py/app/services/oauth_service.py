@@ -6,7 +6,12 @@ Implements CSRF/state protection.
 """
 
 import secrets
+import base64
+import hashlib
+import hmac
+import json
 import logging
+import time
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -26,41 +31,55 @@ _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
-# In-memory state store (for production, use Redis or database)
-# Key: state, Value: (redirect_after_login, created_at)
-_oauth_states: dict[str, tuple[str, float]] = {}
+# Stateless, HMAC-signed OAuth state. The old in-memory dict lost every pending
+# state whenever the process restarted - which on Render's free tier happens
+# constantly (spin-down while the user is on Google's consent screen, redeploys),
+# so the callback landed on a fresh process with an empty store and every
+# sign-in failed with "Invalid or expired OAuth state". Signing the state with
+# the server secret needs no shared storage, so it survives restarts and
+# multiple instances. CSRF protection is unchanged: an attacker can't forge a
+# valid signature without jwt_secret.
+# ponytail: signed state is replayable within its TTL (not single-use like the
+# old pop), but Google's auth code is itself single-use + short-lived, so replay
+# buys nothing here. Move to Redis-backed single-use nonces if that ever matters.
 _STATE_TTL_SECONDS = 600  # 10 minutes
 
 
-def _generate_state() -> str:
-    """Generate a cryptographically secure random state for CSRF protection."""
-    return secrets.token_urlsafe(32)
+def _b64u(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
-def _store_state(state: str, redirect_after_login: str) -> None:
-    """Store OAuth state with timestamp."""
-    import time
-    _oauth_states[state] = (redirect_after_login, time.time())
+def _b64u_decode(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def _sign(payload_b64: str) -> str:
+    secret = get_settings().jwt_secret.encode()
+    return _b64u(hmac.new(secret, payload_b64.encode(), hashlib.sha256).digest())
+
+
+def _generate_state(redirect_after_login: str) -> str:
+    """Build a signed, self-contained state token (CSRF protection)."""
+    payload = {"r": redirect_after_login, "t": int(time.time()), "n": secrets.token_urlsafe(8)}
+    payload_b64 = _b64u(json.dumps(payload, separators=(",", ":")).encode())
+    return f"{payload_b64}.{_sign(payload_b64)}"
 
 
 def _validate_state(state: str) -> Optional[str]:
-    """Validate and consume OAuth state, returning the redirect URL if valid."""
-    import time
-    if state not in _oauth_states:
+    """Verify signature + TTL, returning the redirect URL if valid, else None."""
+    try:
+        payload_b64, sig = state.split(".", 1)
+    except (ValueError, AttributeError):
         return None
-    redirect_after_login, created_at = _oauth_states.pop(state)
-    if time.time() - created_at > _STATE_TTL_SECONDS:
+    if not hmac.compare_digest(sig, _sign(payload_b64)):
         return None
-    return redirect_after_login
-
-
-def _cleanup_expired_states() -> None:
-    """Remove expired states from memory."""
-    import time
-    now = time.time()
-    expired = [state for state, (_, created_at) in _oauth_states.items() if now - created_at > _STATE_TTL_SECONDS]
-    for state in expired:
-        _oauth_states.pop(state, None)
+    try:
+        payload = json.loads(_b64u_decode(payload_b64))
+    except Exception:
+        return None
+    if time.time() - float(payload.get("t", 0)) > _STATE_TTL_SECONDS:
+        return None
+    return payload.get("r", "/")
 
 
 def build_google_auth_url(redirect_after_login: str = "/") -> str:
@@ -81,9 +100,7 @@ def build_google_auth_url(redirect_after_login: str = "/") -> str:
             detail="Google OAuth is not configured"
         )
 
-    state = _generate_state()
-    _store_state(state, redirect_after_login)
-    _cleanup_expired_states()
+    state = _generate_state(redirect_after_login)
 
     params = {
         "client_id": settings.google_oauth_client_id,

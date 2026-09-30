@@ -4,6 +4,13 @@ import { create } from 'zustand';
 // says the NIC is up, not that the API is reachable, so we also probe /health.
 export type NetworkStatus = 'ONLINE' | 'OFFLINE' | 'RECONNECTING' | 'SYNCING' | 'SYNC_ERROR';
 
+// TEMPORARY KILL-SWITCH: force the app permanently ONLINE and disable all
+// probing / offline-flip / queueing. Set back to false to restore the real
+// connectivity pipeline. Reason: Render free-tier cold-start 502s were flipping
+// the app offline and staging writes; keep everything going straight to the
+// network until the backend is kept warm.
+const FORCE_ONLINE = true;
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 // health is mounted at the server root (no /api/v1 prefix) - see backend main.py.
 const HEALTH_URL = API_BASE.replace(/\/api\/v1\/?$/, '') + '/health';
@@ -22,8 +29,8 @@ interface NetworkState {
 }
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
-  status: navigator.onLine ? 'ONLINE' : 'OFFLINE',
-  reachable: navigator.onLine,
+  status: FORCE_ONLINE || navigator.onLine ? 'ONLINE' : 'OFFLINE',
+  reachable: FORCE_ONLINE || navigator.onLine,
   pendingCount: 0,
   conflictCount: 0,
   lastSyncAt: null,
@@ -32,6 +39,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setConflicts: (conflictCount) => set({ conflictCount }),
   markSynced: () => set({ lastSyncAt: Date.now(), status: get().reachable ? 'ONLINE' : 'OFFLINE' }),
   probe: async () => {
+    if (FORCE_ONLINE) {
+      set({ reachable: true, status: get().status === 'SYNCING' ? 'SYNCING' : 'ONLINE' });
+      return true;
+    }
     if (!navigator.onLine) {
       set({ reachable: false, status: 'OFFLINE' });
       return false;
@@ -85,6 +96,14 @@ export function startNetworkMonitor() {
   if (started) return;
   started = true;
   const store = useNetworkStore.getState();
+  if (FORCE_ONLINE) {
+    // No probing, no online/offline/visibility flips, no heartbeat - stay ONLINE.
+    useNetworkStore.setState({ reachable: true, status: 'ONLINE' });
+    void import('./queue').then((m) => m.refreshCounts());
+    // Drain anything staged in a prior session now that we're forced-online.
+    void import('./sync').then((m) => m.syncOnReconnect());
+    return;
+  }
   window.addEventListener('online', () => {
     useNetworkStore.setState({ status: 'RECONNECTING' });
     void store.probe();

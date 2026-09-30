@@ -11,65 +11,40 @@ class TestOAuthService:
     """Tests for OAuth service functions."""
 
     def test_generate_state(self):
-        """Test that _generate_state produces a valid state string."""
-        state1 = oauth_service._generate_state()
-        state2 = oauth_service._generate_state()
+        """Test that _generate_state produces a valid signed state string."""
+        state1 = oauth_service._generate_state("/citizen")
+        state2 = oauth_service._generate_state("/citizen")
         assert isinstance(state1, str)
-        assert len(state1) > 20
-        assert state1 != state2  # Should be cryptographically random
+        assert "." in state1  # payload.signature
+        assert state1 != state2  # random nonce makes each unique
 
-    def test_store_and_validate_state(self):
-        """Test storing and validating OAuth state."""
-        import time
-        # Clear any existing states
-        oauth_service._oauth_states.clear()
-
-        redirect_url = "/citizen"
-        state = "test-state-123"
-
-        oauth_service._store_state(state, redirect_url)
-        assert state in oauth_service._oauth_states
-
-        # Validate immediately
-        result = oauth_service._validate_state(state)
-        assert result == redirect_url
-        assert state not in oauth_service._oauth_states  # Consumed
+    def test_validate_state_roundtrip(self):
+        """A freshly generated state validates back to its redirect URL."""
+        state = oauth_service._generate_state("/officer")
+        assert oauth_service._validate_state(state) == "/officer"
 
     def test_validate_expired_state(self):
-        """Test that expired state is rejected."""
+        """Test that a state older than the TTL is rejected."""
+        import json
         import time
-        oauth_service._oauth_states.clear()
+        # Hand-build a correctly-signed state with an old timestamp.
+        payload = {"r": "/citizen", "t": int(time.time()) - 700, "n": "abc"}
+        payload_b64 = oauth_service._b64u(json.dumps(payload, separators=(",", ":")).encode())
+        state = f"{payload_b64}.{oauth_service._sign(payload_b64)}"
 
-        redirect_url = "/citizen"
-        state = "expired-state"
+        assert oauth_service._validate_state(state) is None
 
-        # Store with old timestamp
-        oauth_service._oauth_states[state] = (redirect_url, time.time() - 700)  # 700 seconds ago
+    def test_validate_tampered_state(self):
+        """Test that a state with a bad/forged signature is rejected."""
+        state = oauth_service._generate_state("/citizen")
+        payload_b64, _sig = state.split(".", 1)
+        tampered = f"{payload_b64}.not-a-valid-signature"
+        assert oauth_service._validate_state(tampered) is None
 
-        result = oauth_service._validate_state(state)
-        assert result is None
-        assert state not in oauth_service._oauth_states
-
-    def test_validate_nonexistent_state(self):
-        """Test that non-existent state is rejected."""
-        oauth_service._oauth_states.clear()
-
-        result = oauth_service._validate_state("nonexistent-state")
-        assert result is None
-
-    def test_cleanup_expired_states(self):
-        """Test that cleanup removes expired states."""
-        import time
-        oauth_service._oauth_states.clear()
-
-        # Add one valid and one expired
-        oauth_service._oauth_states["valid-state"] = ("/citizen", time.time())
-        oauth_service._oauth_states["expired-state"] = ("/officer", time.time() - 700)
-
-        oauth_service._cleanup_expired_states()
-
-        assert "valid-state" in oauth_service._oauth_states
-        assert "expired-state" not in oauth_service._oauth_states
+    def test_validate_malformed_state(self):
+        """Test that a structurally-invalid state is rejected, not raised."""
+        assert oauth_service._validate_state("nonexistent-state") is None
+        assert oauth_service._validate_state("") is None
 
     @patch("app.services.oauth_service.httpx.AsyncClient")
     @pytest.mark.asyncio

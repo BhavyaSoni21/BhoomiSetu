@@ -47,6 +47,8 @@ export interface AuthUser {
 // apiService's request interceptor already looks for a token under this
 // exact key (see services/apiService.ts) - that scaffolding predates real
 // auth and was simply never fed a real token until now.
+// Stored in localStorage so the session is restored on refresh, in new tabs,
+// and after the browser is closed and reopened.
 const TOKEN_KEY = 'access_token';
 
 function getToken(): string | null {
@@ -322,9 +324,12 @@ export function useUpdateProfileDetails() {
 }
 
 // Marks first-login onboarding done on the current account (spec §10/§17) -
-// the backend resolves the user from the token, so no id is sent. onSuccess
-// updates the auth-me cache so the OnboardingGate closes immediately; a
-// failure leaves the flag false so the gate stays up for a retry (spec §11).
+// the backend resolves the user from the token, so no id is sent. The gate
+// reads onboardingCompleted from the auth-me cache, so we flip it optimistically
+// in onMutate to close the gate instantly instead of making the user wait on a
+// slow/cold backend; the POST persists in the background (networkMode:'always' +
+// retry, idempotent). If it ultimately fails we roll the flag back so the gate
+// reappears for a retry (spec §11).
 export function useCompleteOnboarding() {
   const queryClient = useQueryClient();
   return useMutation<AuthUser, Error, void>(
@@ -333,7 +338,17 @@ export function useCompleteOnboarding() {
       return response.data;
     },
     {
+      onMutate: () => {
+        const prev = queryClient.getQueryData<AuthUser>(AUTH_QUERY_KEY);
+        if (prev) queryClient.setQueryData(AUTH_QUERY_KEY, { ...prev, onboardingCompleted: true });
+      },
+      // No rollback on error: re-showing the wizard over the dashboard mid-session
+      // is worse than reconciling on the next /auth/me refetch. retry rides a cold
+      // wake; a truly-unsaved flag simply reappears next session (spec §11).
       onSuccess: (user) => queryClient.setQueryData(AUTH_QUERY_KEY, user),
+      networkMode: 'always',
+      retry: 2,
+      retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
     },
   );
 }

@@ -11,7 +11,11 @@ name: keep-backend-warm
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # */5, not */10: GitHub cron routinely lags 5-15 min under load, and Render
+    # sleeps at 15 min idle. A 10-min nominal interval that slips past 15 leaves
+    # a sleep gap; 5 min gives margin. Still not a guarantee - see the note above
+    # about an external monitor for a real SLA.
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 jobs:
