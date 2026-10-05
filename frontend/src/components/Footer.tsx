@@ -211,7 +211,13 @@ export const Footer: React.FC = () => {
                 {t('footer.joinUs')}
               </span>
               <div className="flex items-center gap-2 text-white/70">
-                <a href="#youtube" aria-label="YouTube" className="p-1.5 rounded bg-white/5 hover:bg-white/15 hover:text-white transition">
+                <a
+                  href="https://youtu.be/l78Q6w6xgxI"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="YouTube"
+                  className="p-1.5 rounded bg-white/5 hover:bg-white/15 hover:text-white transition"
+                >
                   <Youtube className="w-4 h-4" />
                 </a>
                 <a href="#facebook" aria-label="Facebook" className="p-1.5 rounded bg-white/5 hover:bg-white/15 hover:text-white transition">
