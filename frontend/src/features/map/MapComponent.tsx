@@ -312,7 +312,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
       const response = await apiService.get(`/parcels/${internalSelectedId}/context`);
       return response.data;
     },
-    { enabled: !!internalSelectedId },
+    {
+      enabled: Boolean(
+        internalSelectedId &&
+        (!cadastralGeoJSON || parcels?.some((p) => p.id === internalSelectedId)) &&
+        (/^\d+$/.test(internalSelectedId) ||
+          /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(internalSelectedId) ||
+          internalSelectedId.startsWith('p') ||
+          parcels?.some((p) => p.id === internalSelectedId))
+      ),
+      retry: false,
+    }
   );
 
   const district = context
