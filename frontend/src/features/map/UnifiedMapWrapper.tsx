@@ -753,10 +753,14 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           canViewAdminNotes={isAdmin}
         />
 
-        {/* Real Cadastral Property Inspector Slide-Over / Card */}
+        {/* Real Cadastral Property Inspector Right-Hand Sidebar */}
         {isPlotDrawerOpen && selectedPlotDetail && (
-          <div className="absolute top-3 right-3 z-30 w-80 sm:w-96 max-h-[calc(100%-24px)] overflow-y-auto bg-surface/95 backdrop-blur-md border-2 sm:border-4 border-ink shadow-hard-lg p-4 rounded text-ink animate-in fade-in slide-in-from-right-4 duration-200">
-            <div className="flex items-start justify-between gap-2 border-b-2 border-ink pb-2.5 mb-3">
+          <aside
+            aria-label="Cadastral plot details sidebar"
+            className="absolute top-0 right-0 bottom-0 z-30 w-80 sm:w-96 bg-surface/98 backdrop-blur-md border-l-2 sm:border-l-4 border-ink shadow-hard-lg flex flex-col animate-in fade-in slide-in-from-right duration-200 text-ink"
+          >
+            {/* Sidebar Header */}
+            <div className="flex items-start justify-between gap-2 border-b-2 border-ink p-4 pb-3 bg-surface shrink-0">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
@@ -769,124 +773,261 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
                     {selectedPlotDetail.plotid.slice(0, 8)}...
                   </span>
                 </div>
-                <h3 className="text-lg font-black text-ink tracking-tight flex items-center gap-1.5">
+                <h3 className="text-xl font-black text-ink tracking-tight">
                   Plot #{selectedPlotDetail.plotno}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPlotDrawerOpen(false)}
-                className="p-1 rounded hover:bg-muted text-ink/70 hover:text-ink transition"
-                aria-label="Close details"
+                className="p-1.5 rounded hover:bg-muted text-ink/70 hover:text-ink transition border border-gov-border/60 hover:border-ink"
+                aria-label="Close sidebar"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="bg-surface-alt border border-gov-border p-2 rounded">
-                <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">Cadastral Area</span>
-                <p className="text-sm font-black text-ink font-mono mt-0.5">
-                  {selectedPlotDetail.area ? selectedPlotDetail.area.toLocaleString() + ' m²' : 'N/A'}
-                </p>
-                {selectedPlotDetail.area > 0 && (
-                  <span className="text-[10px] text-ink/60 font-medium">
-                    ~{(selectedPlotDetail.area * 0.02471).toFixed(2)} Gunthas
-                  </span>
+            {/* Sidebar Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+              {/* Jurisdiction Breadcrumb & GIS Code */}
+              <div className="bg-surface-alt border border-gov-border p-3 rounded text-xs space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-ink/60 block">
+                  Location Hierarchy
+                </span>
+                <div className="font-semibold text-ink flex items-center gap-1.5 flex-wrap leading-relaxed">
+                  {selectedPlotDetail.district && <span>{selectedPlotDetail.district}</span>}
+                  {selectedPlotDetail.district && selectedPlotDetail.taluka && <span className="text-ink/40">›</span>}
+                  {selectedPlotDetail.taluka && <span>{selectedPlotDetail.taluka}</span>}
+                  {(selectedPlotDetail.district || selectedPlotDetail.taluka) && selectedPlotDetail.villageName && (
+                    <span className="text-ink/40">›</span>
+                  )}
+                  {selectedPlotDetail.villageName && (
+                    <strong className="text-brand-700">{selectedPlotDetail.villageName}</strong>
+                  )}
+                </div>
+
+                {selectedPlotDetail.giscode && (
+                  <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-gov-border">
+                    <span className="text-[10px] text-ink/60 font-medium">GIS Code (ULPIN):</span>
+                    <div className="flex items-center gap-1">
+                      <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono font-bold">
+                        {selectedPlotDetail.giscode}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedPlotDetail.giscode || '');
+                          setCopiedGisCode(true);
+                          setTimeout(() => setCopiedGisCode(false), 2000);
+                        }}
+                        className="p-0.5 text-ink/60 hover:text-ink transition"
+                        title="Copy GIS Code"
+                      >
+                        {copiedGisCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="bg-surface-alt border border-gov-border p-2 rounded">
-                <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">Survey / C.S. No</span>
-                <p className="text-sm font-black text-ink mt-0.5">
-                  {selectedPlotDetail.parsedInfo?.surveyNo || selectedPlotDetail.plotno || 'N/A'}
-                </p>
-                <span className="text-[10px] text-ink/60 font-medium">
-                  {selectedPlotDetail.parsedInfo?.sheetNo ? `Sheet ${selectedPlotDetail.parsedInfo.sheetNo}` : 'Direct Cadastre'}
-                </span>
-              </div>
-            </div>
 
-            {/* Location Hierarchy */}
-            <div className="bg-surface-alt border border-gov-border p-2.5 rounded mb-3 space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-ink/60 font-medium">Village:</span>
-                <strong className="text-ink">{selectedPlotDetail.villageName}</strong>
+              {/* Primary Land Parcel Metrics */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-surface-alt border border-gov-border p-2.5 rounded">
+                  <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">Cadastral Area</span>
+                  <p className="text-sm font-black text-ink font-mono mt-0.5">
+                    {selectedPlotDetail.area ? selectedPlotDetail.area.toLocaleString() + ' m²' : 'N/A'}
+                  </p>
+                  {selectedPlotDetail.area > 0 && (
+                    <span className="text-[10px] text-ink/60 font-medium block">
+                      ~{(selectedPlotDetail.area * 0.02471).toFixed(2)} Gunthas
+                    </span>
+                  )}
+                </div>
+                <div className="bg-surface-alt border border-gov-border p-2.5 rounded">
+                  <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">
+                    {selectedPlotDetail.parsedInfo?.sheetNo ? 'Sheet Number' : 'Survey Record'}
+                  </span>
+                  <p className="text-sm font-black text-ink mt-0.5 truncate">
+                    {selectedPlotDetail.parsedInfo?.sheetNo
+                      ? `Sheet ${selectedPlotDetail.parsedInfo.sheetNo}`
+                      : selectedPlotDetail.parsedInfo?.surveyNo && selectedPlotDetail.parsedInfo.surveyNo !== selectedPlotDetail.plotno
+                        ? `Survey #${selectedPlotDetail.parsedInfo.surveyNo}`
+                        : 'Direct Survey'}
+                  </p>
+                  {selectedPlotDetail.parsedInfo?.tenure && (
+                    <span className="text-[10px] text-ink/60 font-medium block truncate" title={selectedPlotDetail.parsedInfo.tenure}>
+                      {selectedPlotDetail.parsedInfo.tenure}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink/60 font-medium">Taluka:</span>
-                <span className="text-ink">{selectedPlotDetail.taluka}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink/60 font-medium">District:</span>
-                <span className="text-ink">{selectedPlotDetail.district}</span>
-              </div>
-              {selectedPlotDetail.giscode && (
-                <div className="flex items-center justify-between pt-1 border-t border-gov-border">
-                  <span className="text-ink/60 font-medium">GIS Code:</span>
-                  <div className="flex items-center gap-1">
-                    <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono font-bold">
-                      {selectedPlotDetail.giscode}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedPlotDetail.giscode);
-                        setCopiedGisCode(true);
-                        setTimeout(() => setCopiedGisCode(false), 2000);
-                      }}
-                      className="p-0.5 text-ink/60 hover:text-ink transition"
-                      title="Copy GIS Code"
-                    >
-                      {copiedGisCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
+
+              {/* Loading State Skeleton while hydrating full records */}
+              {selectedPlotDetail.isLoading ? (
+                <div className="bg-surface-alt border border-gov-border p-4 rounded text-center space-y-2.5">
+                  <div className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <div>
+                    <p className="text-xs font-bold text-ink">Retrieving Verified Land Records</p>
+                    <p className="text-[11px] text-ink/60 mt-0.5">Fetching ownership title & revenue records...</p>
                   </div>
                 </div>
+              ) : (
+                <>
+                  {/* Land Ownership Title Record (Strictly De-duplicated) */}
+                  {(() => {
+                    const rawHolders = selectedPlotDetail.parsedInfo?.holders || [];
+                    const uniqueHolders = Array.from(
+                      new Set(rawHolders.map((h) => h?.trim()).filter(Boolean))
+                    );
+
+                    if (uniqueHolders.length > 0) {
+                      return (
+                        <div className="bg-surface-alt border border-gov-border p-3 rounded">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-ink/70 mb-1.5 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            Holders History & Ownership ({uniqueHolders.length})
+                          </h4>
+                          <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                            {uniqueHolders.map((holder, idx) => (
+                              <div key={idx} className="bg-surface border border-gov-border/70 p-1.5 rounded text-xs font-medium text-ink">
+                                {holder}
+                              </div>
+                            ))}
+                          </div>
+                          {selectedPlotDetail.parsedInfo?.khataNo && (
+                            <p className="text-xs text-ink/70 mt-2 pt-1.5 border-t border-gov-border font-medium">
+                              Khata (Account) No: <strong className="text-ink font-bold">{selectedPlotDetail.parsedInfo.khataNo}</strong>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (selectedPlotDetail.parsedInfo?.ownerName) {
+                      return (
+                        <div className="bg-surface-alt border border-gov-border p-3 rounded text-xs">
+                          <span className="text-ink/60 font-bold uppercase text-[10px] block mb-0.5">Recorded Owner</span>
+                          <p className="font-bold text-ink text-sm">{selectedPlotDetail.parsedInfo.ownerName}</p>
+                          {selectedPlotDetail.parsedInfo?.khataNo && (
+                            <p className="text-ink/70 mt-1.5 pt-1.5 border-t border-gov-border font-medium">
+                              Khata (Account) No: <strong className="text-ink font-bold">{selectedPlotDetail.parsedInfo.khataNo}</strong>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })()}
+
+                  {/* Additional Revenue Attributes (Strictly Filtered to Exclude Duplicate Keys & Values) */}
+                  {(() => {
+                    const rawAttrs = selectedPlotDetail.parsedInfo?.attributes || {};
+                    const alreadyShownKeys = new Set([
+                      'owner name',
+                      'ownername',
+                      'owner',
+                      'holder',
+                      'holders',
+                      'holder name',
+                      'khata no',
+                      'khata no.',
+                      'khatano',
+                      'khata number',
+                      'account no',
+                      'account no.',
+                      'survey no',
+                      'survey no.',
+                      'surveyno',
+                      'survey number',
+                      'survey',
+                      'cs no',
+                      'cs no.',
+                      'c.s. no',
+                      'c.s. no.',
+                      'c.s.no',
+                      'sheet no',
+                      'sheet no.',
+                      'sheetno',
+                      'sheet number',
+                      'sheet',
+                      'total area',
+                      'totalarea',
+                      'area',
+                      'area (sqm)',
+                      'area (sq.m)',
+                      'area in sqm',
+                      'area in sq.m',
+                      'area in hec',
+                      'area recorded',
+                      'plot no',
+                      'plotno',
+                      'plot number',
+                      'plot',
+                      'category',
+                      'cadastre',
+                      'cat',
+                      'district',
+                      'district name',
+                      'taluka',
+                      'taluka name',
+                      'tehsil',
+                      'village',
+                      'village name',
+                      'state',
+                      'state name',
+                      'giscode',
+                      'gis code',
+                      'ulpin',
+                      'gis_code',
+                    ]);
+
+                    const displayedValues = new Set([
+                      String(selectedPlotDetail.plotno || '').trim().toLowerCase(),
+                      String(selectedPlotDetail.giscode || '').trim().toLowerCase(),
+                      String(selectedPlotDetail.villageName || '').trim().toLowerCase(),
+                      String(selectedPlotDetail.taluka || '').trim().toLowerCase(),
+                      String(selectedPlotDetail.district || '').trim().toLowerCase(),
+                      String(selectedPlotDetail.area || '').trim().toLowerCase(),
+                      'none',
+                      'null',
+                      'undefined',
+                      'n/a',
+                      '-',
+                      '',
+                    ]);
+
+                    const nonDuplicateEntries = Object.entries(rawAttrs).filter(([k, v]) => {
+                      const normKey = k.trim().toLowerCase();
+                      const normVal = String(v ?? '').trim().toLowerCase();
+                      if (alreadyShownKeys.has(normKey)) return false;
+                      if (displayedValues.has(normVal)) return false;
+                      if (!normVal) return false;
+                      return true;
+                    });
+
+                    if (nonDuplicateEntries.length === 0) return null;
+                    return (
+                      <div className="bg-surface-alt border border-gov-border p-3 rounded">
+                        <h4 className="text-[10px] font-black uppercase tracking-wider text-ink/60 mb-2">
+                          Additional Revenue Attributes
+                        </h4>
+                        <div className="space-y-1.5 text-xs">
+                          {nonDuplicateEntries.map(([k, v]) => (
+                            <div key={k} className="flex justify-between gap-2 border-b border-gov-border/40 pb-1 last:border-0 last:pb-0">
+                              <span className="text-ink/60">{k}:</span>
+                              <span className="font-semibold text-ink text-right">{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
             </div>
-
-            {/* Ownership & Holders History */}
-            {selectedPlotDetail.parsedInfo?.holders && selectedPlotDetail.parsedInfo.holders.length > 0 ? (
-              <div className="mb-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-ink/70 mb-1.5 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  Holders History & Ownership
-                </h4>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {selectedPlotDetail.parsedInfo.holders.map((holder, idx) => (
-                    <div key={idx} className="bg-surface-alt border border-gov-border p-2 rounded text-xs font-medium text-ink">
-                      {holder}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : selectedPlotDetail.parsedInfo?.ownerName ? (
-              <div className="mb-3 bg-surface-alt border border-gov-border p-2.5 rounded text-xs">
-                <span className="text-ink/60 font-bold uppercase text-[10px] block mb-0.5">Recorded Owner</span>
-                <p className="font-bold text-ink">{selectedPlotDetail.parsedInfo.ownerName}</p>
-                {selectedPlotDetail.parsedInfo.khataNo && (
-                  <p className="text-ink/70 mt-1">Khata No: {selectedPlotDetail.parsedInfo.khataNo}</p>
-                )}
-              </div>
-            ) : null}
-
-            {/* Revenue Attributes */}
-            {selectedPlotDetail.parsedInfo?.attributes && Object.keys(selectedPlotDetail.parsedInfo.attributes).length > 0 && (
-              <div className="mb-3">
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-ink/60 mb-1">
-                  Revenue Record Fields
-                </h4>
-                <div className="bg-surface-alt border border-gov-border p-2 rounded text-[11px] space-y-1 max-h-28 overflow-y-auto">
-                  {Object.entries(selectedPlotDetail.parsedInfo.attributes).map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-2">
-                      <span className="text-ink/60 truncate">{k}:</span>
-                      <span className="font-semibold text-ink text-right truncate">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          </aside>
         )}
 
         {overlayElement && (

@@ -57,7 +57,8 @@ export interface CadastralPlotDetail {
   taluka: string;
   bounds: [number, number, number, number];
   rawInfo: string;
-  parsedInfo: {
+  isLoading?: boolean;
+  parsedInfo?: {
     holders: string[];
     attributes: Record<string, string>;
     ownerName?: string;

@@ -857,31 +857,35 @@ const MapComponent: React.FC<MapComponentProps> = ({
           const feature = e.features?.[0];
           if (!feature) return;
           const props = feature.properties as Record<string, string | number | null>;
+          const id = String(props.id ?? '');
+          if (id) {
+            selectParcel(id);
+          }
 
-          const popupT = tRef.current;
-          const currentUserRole = userRoleRef.current;
-          
-          const taxStatusHtml = currentUserRole === 'TAX_OFFICER' && props.taxStatus
-            ? `<div class="mb-2 p-1.5 rounded bg-surface-alt border border-gov-border">
-                 <p class="text-ink text-xs"><strong class="uppercase tracking-wide text-brand-700">Tax Status:</strong> <span class="font-bold">${escapeHtml(String(props.taxStatus))}</span></p>
-               </div>`
-            : '';
-
-          const content = `
-            <div class="max-w-xs font-sans border-2 border-ink -m-2 p-2 bg-surface">
-              <h3 class="font-black uppercase tracking-wide text-xs text-primary mb-1.5 pb-1 border-b-2 border-ink">${escapeHtml(popupT('map.popup.title'))}</h3>
-              ${taxStatusHtml}
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.id'))}:</strong> ${escapeHtml(String(props.id))}</p>
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.ulpin'))}:</strong> ${escapeHtml(String(props.ulpin ?? popupT('map.popup.notAvailable')))}</p>
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.state'))}:</strong> ${escapeHtml(String(props.stateCode))}</p>
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.district'))}:</strong> ${escapeHtml(String(props.districtCode))}</p>
-              <p class="text-ink text-xs py-0.5"><strong class="uppercase tracking-wide">${escapeHtml(popupT('map.popup.area'))}:</strong> ${Number(props.areaSqM ?? 0).toLocaleString()} m&sup2;</p>
-              ${renderLayerInsightCards(props, popupT)}
-              ${props.extraLabel ? `<p class="text-ink text-xs py-0.5 mt-1 pt-1 border-t-2 border-ink/10">${escapeHtml(String(props.extraLabel))}</p>` : ''}
-            </div>
-          `;
-
-          new maplibregl.Popup().setLngLat(e.lngLat).setHTML(content).addTo(map);
+          // Route to right-hand sidebar with non-redundant structure
+          onCadastralPlotSelectRef.current?.({
+            plotid: id,
+            villageCode: '',
+            villageName: String(props.villageName ?? props.village ?? 'Verified Parcel'),
+            plotno: String(props.ulpin ?? props.id ?? 'Parcel'),
+            giscode: props.ulpin ? String(props.ulpin) : '',
+            area: Number(props.areaSqM ?? 0),
+            category: 'Cadastre',
+            district: String(props.districtCode ?? ''),
+            taluka: String(props.taluka ?? ''),
+            bounds: [0, 0, 0, 0],
+            rawInfo: '',
+            isLoading: false,
+            parsedInfo: {
+              holders: props.ownerName ? [String(props.ownerName)] : [],
+              ownerName: props.ownerName ? String(props.ownerName) : undefined,
+              khataNo: props.khataNo ? String(props.khataNo) : undefined,
+              attributes: {
+                ...(props.taxStatus ? { 'Tax Status': String(props.taxStatus) } : {}),
+                ...(props.stateCode ? { 'State Code': String(props.stateCode) } : {}),
+              },
+            },
+          });
         });
       }
 
@@ -993,61 +997,50 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         selectParcel(plotId);
 
-        // Show immediate responsive popup with loading spinner while hydrating
-        const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '340px' })
-          .setLngLat(e.lngLat)
-          .setHTML(`
-            <div class="p-3 bg-white text-slate-800 rounded-lg shadow-xl font-sans min-w-[240px]">
-              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
-                <div>
-                  <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cat === 'Urban' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'}">${cat} Cadastre</span>
-                  <h4 class="font-bold text-sm text-slate-900 mt-0.5">Plot #${escapeHtml(plotNo)}</h4>
-                </div>
-                <span class="text-xs text-slate-500 font-mono">${area ? area.toLocaleString() + ' m²' : ''}</span>
-              </div>
-              <div id="cadastral-popup-hydrating" class="py-2 text-xs text-slate-500 flex items-center gap-2">
-                <svg class="w-4 h-4 animate-spin text-sky-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                <span>Loading verified land records...</span>
-              </div>
-              <div id="cadastral-popup-body" class="hidden"></div>
-            </div>
-          `)
-          .addTo(map);
+        // Instantly slide open right sidebar with preliminary parcel data while hydrating records
+        onCadastralPlotSelectRef.current?.({
+          plotid: plotId,
+          villageCode: '',
+          villageName: 'Verified Village Cadastre',
+          plotno: plotNo || plotId,
+          giscode: '',
+          area: area,
+          category: cat,
+          district: '',
+          taluka: '',
+          bounds: [0, 0, 0, 0],
+          rawInfo: '',
+          isLoading: true,
+          parsedInfo: {
+            holders: [],
+            attributes: {},
+          },
+        });
 
         try {
           const res = await apiService.get('/gis/cadastral/plot/' + encodeURIComponent(plotId) + '/details');
-          const detail = res.data;
+          const detail = { ...res.data, isLoading: false };
           onCadastralPlotSelectRef.current?.(detail);
-
-          const hydratingEl = document.getElementById('cadastral-popup-hydrating');
-          const bodyEl = document.getElementById('cadastral-popup-body');
-          if (hydratingEl && bodyEl) {
-            hydratingEl.classList.add('hidden');
-            bodyEl.classList.remove('hidden');
-
-            const holdersHtml = detail.parsedInfo?.holders?.length
-              ? '<div class="mt-2 pt-2 border-t border-slate-100"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Holders History</span><ul class="mt-1 text-xs text-slate-700 space-y-1 max-h-24 overflow-y-auto">' +
-                detail.parsedInfo.holders.map((h: string) => '<li class="bg-slate-50 px-2 py-1 rounded text-[11px] font-medium border border-slate-200/60">' + escapeHtml(h) + '</li>').join('') +
-                '</ul></div>'
-              : (detail.parsedInfo?.ownerName ? '<p class="text-xs text-slate-700 mt-1"><strong>Owner:</strong> ' + escapeHtml(detail.parsedInfo.ownerName) + '</p>' : '');
-
-            bodyEl.innerHTML =
-              '<div class="text-xs space-y-1 text-slate-600">' +
-              '<div class="flex justify-between"><span class="text-slate-400">Village:</span> <strong class="text-slate-800">' + escapeHtml(detail.villageName) + '</strong></div>' +
-              '<div class="flex justify-between"><span class="text-slate-400">Taluka / District:</span> <span class="text-slate-700">' + escapeHtml(detail.taluka) + ', ' + escapeHtml(detail.district) + '</span></div>' +
-              (detail.giscode ? '<div class="flex justify-between"><span class="text-slate-400">GIS Code:</span> <code class="text-[10px] font-mono bg-slate-100 px-1 rounded">' + escapeHtml(detail.giscode) + '</code></div>' : '') +
-              (detail.parsedInfo?.surveyNo ? '<div class="flex justify-between"><span class="text-slate-400">Survey / C.S. No:</span> <span class="font-semibold text-slate-800">' + escapeHtml(detail.parsedInfo.surveyNo) + '</span></div>' : '') +
-              (detail.parsedInfo?.street ? '<div class="flex justify-between"><span class="text-slate-400">Street / Locality:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.street) + '</span></div>' : '') +
-              (detail.parsedInfo?.tenure ? '<div class="flex justify-between"><span class="text-slate-400">Tenure:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.tenure) + '</span></div>' : '') +
-              (detail.parsedInfo?.khataNo ? '<div class="flex justify-between"><span class="text-slate-400">Khata No:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.khataNo) + '</span></div>' : '') +
-              holdersHtml +
-              '</div>';
-          }
         } catch (err) {
-          const hydratingEl = document.getElementById('cadastral-popup-hydrating');
-          if (hydratingEl) {
-            hydratingEl.innerHTML = '<span class="text-amber-600 text-xs">Records secured. Select another plot.</span>';
-          }
+          console.error('Failed to load cadastral plot details:', err);
+          onCadastralPlotSelectRef.current?.({
+            plotid: plotId,
+            villageCode: '',
+            villageName: 'Verified Village Cadastre',
+            plotno: plotNo || plotId,
+            giscode: '',
+            area: area,
+            category: cat,
+            district: '',
+            taluka: '',
+            bounds: [0, 0, 0, 0],
+            rawInfo: '',
+            isLoading: false,
+            parsedInfo: {
+              holders: [],
+              attributes: {},
+            },
+          });
         }
       });
 
