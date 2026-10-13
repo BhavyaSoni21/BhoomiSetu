@@ -1,12 +1,17 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown } from 'lucide-react';
+import { MapPin, Map, Mountain, Layers as LayersIcon, Calendar, Filter, ChevronDown, Landmark, Compass, X, Copy, Check, Sparkles } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
-import MapComponent, { type LayerKey, DEFAULT_LAYER_VISIBILITY } from './MapComponent';
+import MapComponent from './MapComponent';
+import { type LayerKey, DEFAULT_LAYER_VISIBILITY } from './layerConstants';
 import apiService from '../../services/apiService';
 import { ParcelSummary } from '../../types/parcel';
 import { STATES_AND_DISTRICTS, StateData, District } from '../../data/locationData';
 import { SpatialFeatureCollection } from '../../types/spatial';
+import rawCadastralHierarchy from '../../data/cadastralHierarchy.json';
+import { CadastralHierarchy, CadastralVillageGeoJSON, CadastralPlotDetail } from '../../types/cadastral';
+
+const cadastralHierarchy = rawCadastralHierarchy as CadastralHierarchy;
 
 interface HierarchicalCluster {
   stateCode: string;
@@ -39,6 +44,7 @@ interface UnifiedMapWrapperProps {
     | 'nearby'
     | 'cluster'
     | 'sameDistrict'
+    | 'cadastral'
     | 'zoning'
     | 'restriction'
     | 'taxStatus'
@@ -71,6 +77,10 @@ interface UnifiedMapWrapperProps {
   showClusterDropdown?: boolean;
   /** Hide the state dropdown in the cluster selector (when parent has its own state picker). */
   hideStateDropdown?: boolean;
+  /** Show the real cadastral village selector (Maharashtra - 720k+ plots). Defaults to true. */
+  showCadastralSelector?: boolean;
+  /** Callback when a real cadastral plot is clicked and hydrated with ownership details. */
+  onCadastralPlotSelect?: (detail: CadastralPlotDetail) => void;
   /** Cluster ID for historical imagery (Parcel 360). */
   clusterId?: string;
   /** Years available for this cluster. */
@@ -95,6 +105,7 @@ const LAYER_KEYS: LayerKey[] = [
   'nearby',
   'cluster',
   'sameDistrict',
+  'cadastral',
   'zoning',
   'restriction',
   'taxStatus',
@@ -116,6 +127,7 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   nearby: 'Nearby Parcels',
   cluster: 'Full Cluster',
   sameDistrict: 'Same District',
+  cadastral: 'Cadastral Plots (Real Survey Maps)',
   zoning: 'Zoning',
   restriction: 'Restriction Zones',
   taxStatus: 'Property Tax Status',
@@ -152,6 +164,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   onYearChange,
   showClusterDropdown = false,
   hideStateDropdown = false,
+  showCadastralSelector = true,
+  onCadastralPlotSelect: onCadastralPlotSelectProp,
   clusterId,
   years,
   userRole,
@@ -192,11 +206,69 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showLayerFilters]);
 
-  // State for hierarchical dropdown
+  // State for hierarchical dropdown (Clusters)
   const [selectedState, setSelectedState] = useState<string>('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
   const [selectedCluster, setSelectedCluster] = useState<string>('');
   const [clusterBounds, setClusterBounds] = useState<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>(null);
+
+  // Real Cadastral Map state (Maharashtra: 38 districts, 1,356 villages, 722,957 plots)
+  const [selectedCadastralDistrict, setSelectedCadastralDistrict] = useState<string>('');
+  const [selectedCadastralTaluka, setSelectedCadastralTaluka] = useState<string>('');
+  const [selectedCadastralVillageCode, setSelectedCadastralVillageCode] = useState<string>('');
+  const [cadastralBounds, setCadastralBounds] = useState<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>(null);
+  const [selectedPlotDetail, setSelectedPlotDetail] = useState<CadastralPlotDetail | null>(null);
+  const [isPlotDrawerOpen, setIsPlotDrawerOpen] = useState(false);
+  const [copiedGisCode, setCopiedGisCode] = useState(false);
+
+  // Derived lists for Cadastral hierarchy
+  const cadastralDistricts = useMemo(() => cadastralHierarchy.districts ?? [], []);
+
+  const availableCadastralTalukas = useMemo(() => {
+    if (!selectedCadastralDistrict) return [];
+    return cadastralDistricts.find((d) => d.districtName === selectedCadastralDistrict)?.talukas ?? [];
+  }, [cadastralDistricts, selectedCadastralDistrict]);
+
+  const availableCadastralVillages = useMemo(() => {
+    if (!selectedCadastralTaluka) return [];
+    return availableCadastralTalukas.find((t) => t.talukaName === selectedCadastralTaluka)?.villages ?? [];
+  }, [availableCadastralTalukas, selectedCadastralTaluka]);
+
+  // Fetch sanitized village GeoJSON on demand
+  const { data: cadastralGeoJSON = null, isLoading: cadastralLoading } = useQuery<CadastralVillageGeoJSON | null>(
+    ['cadastral-village-geojson', selectedCadastralVillageCode],
+    async () => {
+      if (!selectedCadastralVillageCode) return null;
+      const res = await apiService.get(`/gis/cadastral/village/${encodeURIComponent(selectedCadastralVillageCode)}`);
+      return res.data;
+    },
+    {
+      enabled: Boolean(selectedCadastralVillageCode),
+      staleTime: 1000 * 60 * 60, // 1 hour
+    }
+  );
+
+  const handleSelectVillage = (code: string) => {
+    setSelectedCadastralVillageCode(code);
+    const village = availableCadastralVillages.find((v) => v.code === code);
+    if (village) {
+      setCadastralBounds({
+        minLng: village.bbox[0],
+        minLat: village.bbox[1],
+        maxLng: village.bbox[2],
+        maxLat: village.bbox[3],
+      });
+      setInternalRecenterSignal((n) => n + 1);
+    } else {
+      setCadastralBounds(null);
+    }
+  };
+
+  const handleCadastralPlotSelect = (detail: CadastralPlotDetail) => {
+    setSelectedPlotDetail(detail);
+    setIsPlotDrawerOpen(true);
+    onCadastralPlotSelectProp?.(detail);
+  };
 
   // Fetch hierarchical clusters for the dropdown
   const { data: hierarchicalClusters = [], isLoading: clustersLoading } = useQuery<HierarchicalCluster[]>(
@@ -383,8 +455,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
     setSelectedCluster('');
   }, [selectedDistrict]);
 
-  // Use cluster bounds from dropdown if no explicit focusBounds provided
-  const effectiveFocusBounds = focusBounds ?? clusterBounds;
+  // Use cluster bounds or real cadastral bounds from dropdown if no explicit focusBounds provided
+  const effectiveFocusBounds = focusBounds ?? cadastralBounds ?? clusterBounds;
 
   // Locate button handler - bumps recenterSignal to re-trigger map fit
   const [internalRecenterSignal, setInternalRecenterSignal] = useState(0);
@@ -408,9 +480,10 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
   return (
     <>
       <div className={`flex flex-col ${height} w-full ${className}`}>
-      {/* Controls bar above map - layer filters + locate button */}
+      {/* Controls bar above map - layer filters + cadastral selector + locate button */}
       {showLayerPanel && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-surface border-b-2 border-ink p-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
           {/* Layer Filters Dropdown */}
           {effectiveLayerKeys.length > 0 && (
             <div className="relative" ref={layerFiltersRef}>
@@ -525,6 +598,99 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
             </div>
           )}
 
+          {/* Real Cadastral Village Explorer (Maharashtra - 720,000+ Real Plots) */}
+          {showCadastralSelector && (
+            <div className="flex flex-wrap items-center gap-1.5 border-l-2 border-ink/15 pl-2">
+              <span className="hidden md:inline-flex items-center gap-1 px-2 py-1 bg-sky-100 text-sky-900 border border-sky-300 rounded text-[11px] font-black uppercase tracking-wider shrink-0">
+                <Landmark className="w-3.5 h-3.5 text-sky-700" />
+                Cadastre
+              </span>
+
+              {/* District Dropdown */}
+              <select
+                value={selectedCadastralDistrict}
+                onChange={(e) => {
+                  setSelectedCadastralDistrict(e.target.value);
+                  setSelectedCadastralTaluka('');
+                  setSelectedCadastralVillageCode('');
+                  setCadastralBounds(null);
+                }}
+                className="border-2 border-ink bg-surface px-2 py-1.5 text-xs font-bold text-ink max-w-[140px] truncate"
+                aria-label="Select Cadastral District"
+              >
+                <option value="">District ({cadastralDistricts.length})</option>
+                {cadastralDistricts.map((d) => (
+                  <option key={d.districtName} value={d.districtName}>
+                    {d.districtName}
+                  </option>
+                ))}
+              </select>
+
+              {/* Taluka Dropdown */}
+              {selectedCadastralDistrict && (
+                <select
+                  value={selectedCadastralTaluka}
+                  onChange={(e) => {
+                    setSelectedCadastralTaluka(e.target.value);
+                    setSelectedCadastralVillageCode('');
+                    setCadastralBounds(null);
+                  }}
+                  className="border-2 border-ink bg-surface px-2 py-1.5 text-xs font-bold text-ink max-w-[140px] truncate"
+                  aria-label="Select Cadastral Taluka"
+                >
+                  <option value="">Taluka ({availableCadastralTalukas.length})</option>
+                  {availableCadastralTalukas.map((t) => (
+                    <option key={t.talukaName} value={t.talukaName}>
+                      {t.talukaName}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Village Dropdown */}
+              {selectedCadastralTaluka && (
+                <select
+                  value={selectedCadastralVillageCode}
+                  onChange={(e) => handleSelectVillage(e.target.value)}
+                  className="border-2 border-ink bg-surface px-2 py-1.5 text-xs font-bold text-ink max-w-[180px] truncate"
+                  aria-label="Select Cadastral Village"
+                >
+                  <option value="">Village ({availableCadastralVillages.length})</option>
+                  {availableCadastralVillages.map((v) => (
+                    <option key={v.code} value={v.code}>
+                      {v.name} ({v.parcelCount} plots)
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Loading indicator */}
+              {cadastralLoading && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-sky-700 font-bold animate-pulse px-1">
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                  <span className="hidden sm:inline">Streaming...</span>
+                </span>
+              )}
+
+              {selectedCadastralVillageCode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCadastralVillageCode('');
+                    setCadastralBounds(null);
+                    setSelectedPlotDetail(null);
+                    setIsPlotDrawerOpen(false);
+                  }}
+                  className="p-1 hover:bg-muted text-ink/60 hover:text-ink rounded text-xs"
+                  title="Clear Cadastral Layer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          </div>
+
           {/* Year Selector (Officer/Admin only) + Locate Button + Action Slot */}
           <div className="flex items-center gap-2 shrink-0">
             {showYearSelector && isOfficerOrAdmin && effectiveHistoricalYears.length > 0 && (
@@ -570,6 +736,8 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
         <MapComponent
           userRole={userRole}
           parcels={parcelsProp}
+          cadastralGeoJSON={cadastralGeoJSON}
+          onCadastralPlotSelect={handleCadastralPlotSelect}
           selectedParcelId={selectedParcelId}
           onParcelClick={onParcelClick}
           parcelColors={parcelColors}
@@ -584,6 +752,143 @@ const UnifiedMapWrapper: React.FC<UnifiedMapWrapperProps> = ({
           clusterOverview={clusterOverviewFC}
           canViewAdminNotes={isAdmin}
         />
+
+        {/* Real Cadastral Property Inspector Slide-Over / Card */}
+        {isPlotDrawerOpen && selectedPlotDetail && (
+          <div className="absolute top-3 right-3 z-30 w-80 sm:w-96 max-h-[calc(100%-24px)] overflow-y-auto bg-surface/95 backdrop-blur-md border-2 sm:border-4 border-ink shadow-hard-lg p-4 rounded text-ink animate-in fade-in slide-in-from-right-4 duration-200">
+            <div className="flex items-start justify-between gap-2 border-b-2 border-ink pb-2.5 mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                    selectedPlotDetail.category === 'Urban' ? 'bg-sky-500 text-white' : 'bg-emerald-600 text-white'
+                  }`}>
+                    <Landmark className="w-3 h-3" />
+                    {selectedPlotDetail.category} Cadastre
+                  </span>
+                  <span className="text-[10px] font-mono text-ink/60 font-bold">
+                    {selectedPlotDetail.plotid.slice(0, 8)}...
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-ink tracking-tight flex items-center gap-1.5">
+                  Plot #{selectedPlotDetail.plotno}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPlotDrawerOpen(false)}
+                className="p-1 rounded hover:bg-muted text-ink/70 hover:text-ink transition"
+                aria-label="Close details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-surface-alt border border-gov-border p-2 rounded">
+                <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">Cadastral Area</span>
+                <p className="text-sm font-black text-ink font-mono mt-0.5">
+                  {selectedPlotDetail.area ? selectedPlotDetail.area.toLocaleString() + ' m²' : 'N/A'}
+                </p>
+                {selectedPlotDetail.area > 0 && (
+                  <span className="text-[10px] text-ink/60 font-medium">
+                    ~{(selectedPlotDetail.area * 0.02471).toFixed(2)} Gunthas
+                  </span>
+                )}
+              </div>
+              <div className="bg-surface-alt border border-gov-border p-2 rounded">
+                <span className="text-[10px] uppercase font-bold text-ink/60 tracking-wider">Survey / C.S. No</span>
+                <p className="text-sm font-black text-ink mt-0.5">
+                  {selectedPlotDetail.parsedInfo?.surveyNo || selectedPlotDetail.plotno || 'N/A'}
+                </p>
+                <span className="text-[10px] text-ink/60 font-medium">
+                  {selectedPlotDetail.parsedInfo?.sheetNo ? `Sheet ${selectedPlotDetail.parsedInfo.sheetNo}` : 'Direct Cadastre'}
+                </span>
+              </div>
+            </div>
+
+            {/* Location Hierarchy */}
+            <div className="bg-surface-alt border border-gov-border p-2.5 rounded mb-3 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-ink/60 font-medium">Village:</span>
+                <strong className="text-ink">{selectedPlotDetail.villageName}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink/60 font-medium">Taluka:</span>
+                <span className="text-ink">{selectedPlotDetail.taluka}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink/60 font-medium">District:</span>
+                <span className="text-ink">{selectedPlotDetail.district}</span>
+              </div>
+              {selectedPlotDetail.giscode && (
+                <div className="flex items-center justify-between pt-1 border-t border-gov-border">
+                  <span className="text-ink/60 font-medium">GIS Code:</span>
+                  <div className="flex items-center gap-1">
+                    <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono font-bold">
+                      {selectedPlotDetail.giscode}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedPlotDetail.giscode);
+                        setCopiedGisCode(true);
+                        setTimeout(() => setCopiedGisCode(false), 2000);
+                      }}
+                      className="p-0.5 text-ink/60 hover:text-ink transition"
+                      title="Copy GIS Code"
+                    >
+                      {copiedGisCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ownership & Holders History */}
+            {selectedPlotDetail.parsedInfo?.holders && selectedPlotDetail.parsedInfo.holders.length > 0 ? (
+              <div className="mb-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-ink/70 mb-1.5 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Holders History & Ownership
+                </h4>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {selectedPlotDetail.parsedInfo.holders.map((holder, idx) => (
+                    <div key={idx} className="bg-surface-alt border border-gov-border p-2 rounded text-xs font-medium text-ink">
+                      {holder}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : selectedPlotDetail.parsedInfo?.ownerName ? (
+              <div className="mb-3 bg-surface-alt border border-gov-border p-2.5 rounded text-xs">
+                <span className="text-ink/60 font-bold uppercase text-[10px] block mb-0.5">Recorded Owner</span>
+                <p className="font-bold text-ink">{selectedPlotDetail.parsedInfo.ownerName}</p>
+                {selectedPlotDetail.parsedInfo.khataNo && (
+                  <p className="text-ink/70 mt-1">Khata No: {selectedPlotDetail.parsedInfo.khataNo}</p>
+                )}
+              </div>
+            ) : null}
+
+            {/* Revenue Attributes */}
+            {selectedPlotDetail.parsedInfo?.attributes && Object.keys(selectedPlotDetail.parsedInfo.attributes).length > 0 && (
+              <div className="mb-3">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-ink/60 mb-1">
+                  Revenue Record Fields
+                </h4>
+                <div className="bg-surface-alt border border-gov-border p-2 rounded text-[11px] space-y-1 max-h-28 overflow-y-auto">
+                  {Object.entries(selectedPlotDetail.parsedInfo.attributes).map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-2">
+                      <span className="text-ink/60 truncate">{k}:</span>
+                      <span className="font-semibold text-ink text-right truncate">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {overlayElement && (
           <div className="absolute inset-0 z-20 bg-surface">
             {overlayElement}

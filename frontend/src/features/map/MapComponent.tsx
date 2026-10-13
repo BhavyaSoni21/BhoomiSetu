@@ -7,12 +7,17 @@ import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/apiService';
 import { ParcelSummary, parseParcelGeometry } from '../../types/parcel';
 import { ParcelContextResponse, SpatialFeatureCollection } from '../../types/spatial';
+import { CadastralVillageGeoJSON, CadastralPlotDetail } from '../../types/cadastral';
 
 interface MapComponentProps {
   /** User role for customizing map features (e.g. TAX_OFFICER). */
   userRole?: string;
   /** When provided, render exactly these parcels instead of fetching all of them. */
   parcels?: ParcelSummary[];
+  /** Real cadastral village GeoJSON (sanitized for high-speed 60 FPS WebGL rendering). */
+  cadastralGeoJSON?: CadastralVillageGeoJSON | null;
+  /** Callback when a cadastral plot is clicked and hydrated with full revenue details. */
+  onCadastralPlotSelect?: (detail: CadastralPlotDetail) => void;
   /** Parcel id to highlight and load spatial context (neighbours, district, overlays) for. */
   selectedParcelId?: string | null;
   /** Called when a parcel polygon is clicked, in addition to the info popup. */
@@ -41,79 +46,9 @@ interface MapComponentProps {
   canViewAdminNotes?: boolean;
 }
 
-type LayerKey =
-  | 'selected'
-  | 'adjacent'
-  | 'nearby'
-  | 'cluster'
-  | 'sameDistrict'
-  | 'zoning'
-  | 'restriction'
-  | 'taxStatus'
-  | 'infrastructure'
-  | 'changeDetection'
-  | 'adminNotes'
-  | 'roads'
-  | 'buildings'
-  | 'landcover'
-  | 'elevation'
-  | 'legalStatus'
-  | 'circleRate'
-  | 'riskScore'
-  | 'mismatch'
-  | 'unauthorized';
-
+import { LayerKey, LAYER_KEYS, DEFAULT_LAYER_VISIBILITY } from './layerConstants';
 export type { LayerKey };
-
-// Order drives the toggle list below; keys match the map.layer.* i18n keys.
-const LAYER_KEYS: LayerKey[] = [
-  'selected',
-  'adjacent',
-  'nearby',
-  'cluster',
-  'sameDistrict',
-  'zoning',
-  'restriction',
-  'taxStatus',
-  'infrastructure',
-  'changeDetection',
-  'adminNotes',
-  'roads',
-  'buildings',
-  'landcover',
-  'elevation',
-  'legalStatus',
-  'circleRate',
-  'riskScore',
-  'mismatch',
-  'unauthorized',
-];
-
-// Selected/adjacent/nearby/cluster default on: a selected parcel's spatial
-// network (the whole point of this component) must never be hidden by
-// default. Same-district and the overlay layers stay opt-in.
-export const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
-  selected: true,
-  adjacent: true,
-  nearby: true,
-  cluster: true,
-  sameDistrict: false,
-  zoning: false,
-  restriction: false,
-  taxStatus: false,
-  infrastructure: false,
-  changeDetection: false,
-  adminNotes: false,
-  roads: false,
-  buildings: false,
-  landcover: false,
-  elevation: false,
-  legalStatus: false,
-  circleRate: false,
-  riskScore: false,
-  mismatch: false,
-  unauthorized: false,
-};
+export { LAYER_KEYS, DEFAULT_LAYER_VISIBILITY };
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -272,6 +207,8 @@ function getRiskScoreColor(score: number): string {
 const MapComponent: React.FC<MapComponentProps> = ({
   userRole,
   parcels: parcelsProp,
+  cadastralGeoJSON,
+  onCadastralPlotSelect,
   selectedParcelId,
   onParcelClick,
   parcelColors,
@@ -294,6 +231,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const onParcelClickRef = useRef(onParcelClick);
   onParcelClickRef.current = onParcelClick;
+
+  const onCadastralPlotSelectRef = useRef(onCadastralPlotSelect);
+  onCadastralPlotSelectRef.current = onCadastralPlotSelect;
 
   // react-i18next's `t` is fixed to whatever language was active at the
   // render that created it (i18n.getFixedT under the hood) - the popup's
@@ -945,6 +885,172 @@ const MapComponent: React.FC<MapComponentProps> = ({
         });
       }
 
+      // Real Cadastral Map Layer (sanitized GeoJSON vector layer with 720k+ Maharashtra plots)
+      // 1. Cadastral Fill Layer: ONLY genuine parcel plots are filled with color.
+      // Infrastructure roads and outer municipal/sheet boundaries are EXCLUDED to prevent overlapping triangle clutter.
+      ensureLayer(map, 'cadastral-source', {
+        id: 'cadastral-fill-layer',
+        type: 'fill',
+        source: 'cadastral-source',
+        filter: ['any', ['==', ['get', 'feature_type'], 'plot'], ['!', ['has', 'feature_type']]],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.cadastral ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'cat'],
+            'Urban', '#0284c7',
+            'Rural', '#059669',
+            '#0d9488'
+          ],
+          'fill-opacity': 0.35,
+        },
+      });
+
+      // 2. Public Road Corridors: Rendered as clean road casing lines, NOT solid opaque parcel fill
+      ensureLayer(map, 'cadastral-source', {
+        id: 'cadastral-road-layer',
+        type: 'line',
+        source: 'cadastral-source',
+        filter: ['==', ['get', 'feature_type'], 'road'],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.cadastral ? 'visible' : 'none' },
+        paint: {
+          'line-color': '#94a3b8',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1, 16, 2, 19, 3.5],
+          'line-opacity': 0.85,
+        },
+      });
+
+      // 3. Outer Sheet & Village Boundary Envelopes: Delicate dashed border line, NEVER filled
+      ensureLayer(map, 'cadastral-source', {
+        id: 'cadastral-boundary-layer',
+        type: 'line',
+        source: 'cadastral-source',
+        filter: ['==', ['get', 'feature_type'], 'boundary'],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.cadastral ? 'visible' : 'none' },
+        paint: {
+          'line-color': '#475569',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 16, 2.5],
+          'line-dasharray': [4, 2],
+          'line-opacity': 0.75,
+        },
+      });
+
+      // 4. Parcel Boundary Lines
+      ensureLayer(map, 'cadastral-source', {
+        id: 'cadastral-line-layer',
+        type: 'line',
+        source: 'cadastral-source',
+        filter: ['any', ['==', ['get', 'feature_type'], 'plot'], ['!', ['has', 'feature_type']]],
+        layout: { visibility: DEFAULT_LAYER_VISIBILITY.cadastral ? 'visible' : 'none' },
+        paint: {
+          'line-color': [
+            'match',
+            ['get', 'cat'],
+            'Urban', '#0369a1',
+            'Rural', '#047857',
+            '#0f766e'
+          ],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1, 16, 1.8, 19, 2.5],
+          'line-opacity': 0.9,
+        },
+      });
+
+      if (!map.getLayer('cadastral-label-layer')) {
+        map.addLayer({
+          id: 'cadastral-label-layer',
+          type: 'symbol',
+          source: 'cadastral-source',
+          minzoom: 15,
+          filter: ['all', ['>=', ['zoom'], 15], ['any', ['==', ['get', 'feature_type'], 'plot'], ['!', ['has', 'feature_type']]]],
+          layout: {
+            'text-field': ['get', 'plotno'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 15, 10, 18, 14],
+            'text-allow-overlap': false,
+            visibility: DEFAULT_LAYER_VISIBILITY.cadastral ? 'visible' : 'none',
+          },
+          paint: {
+            'text-color': '#0f172a',
+            'text-halo-color': '#ffffff',
+            'text-halo-width': 2,
+          },
+        });
+      }
+
+      map.on('mouseenter', 'cadastral-fill-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'cadastral-fill-layer', () => {
+        map.getCanvas().style.cursor = '';
+      });
+
+      map.on('click', 'cadastral-fill-layer', async (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const plotId = String(feature.properties?.id ?? feature.id);
+        const plotNo = String(feature.properties?.plotno ?? '');
+        const area = Number(feature.properties?.area ?? 0);
+        const cat = String(feature.properties?.cat ?? 'Urban');
+
+        selectParcel(plotId);
+
+        // Show immediate responsive popup with loading spinner while hydrating
+        const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '340px' })
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div class="p-3 bg-white text-slate-800 rounded-lg shadow-xl font-sans min-w-[240px]">
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+                <div>
+                  <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cat === 'Urban' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'}">${cat} Cadastre</span>
+                  <h4 class="font-bold text-sm text-slate-900 mt-0.5">Plot #${escapeHtml(plotNo)}</h4>
+                </div>
+                <span class="text-xs text-slate-500 font-mono">${area ? area.toLocaleString() + ' m²' : ''}</span>
+              </div>
+              <div id="cadastral-popup-hydrating" class="py-2 text-xs text-slate-500 flex items-center gap-2">
+                <svg class="w-4 h-4 animate-spin text-sky-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <span>Loading verified land records...</span>
+              </div>
+              <div id="cadastral-popup-body" class="hidden"></div>
+            </div>
+          `)
+          .addTo(map);
+
+        try {
+          const res = await apiService.get('/gis/cadastral/plot/' + encodeURIComponent(plotId) + '/details');
+          const detail = res.data;
+          onCadastralPlotSelectRef.current?.(detail);
+
+          const hydratingEl = document.getElementById('cadastral-popup-hydrating');
+          const bodyEl = document.getElementById('cadastral-popup-body');
+          if (hydratingEl && bodyEl) {
+            hydratingEl.classList.add('hidden');
+            bodyEl.classList.remove('hidden');
+
+            const holdersHtml = detail.parsedInfo?.holders?.length
+              ? '<div class="mt-2 pt-2 border-t border-slate-100"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Holders History</span><ul class="mt-1 text-xs text-slate-700 space-y-1 max-h-24 overflow-y-auto">' +
+                detail.parsedInfo.holders.map((h: string) => '<li class="bg-slate-50 px-2 py-1 rounded text-[11px] font-medium border border-slate-200/60">' + escapeHtml(h) + '</li>').join('') +
+                '</ul></div>'
+              : (detail.parsedInfo?.ownerName ? '<p class="text-xs text-slate-700 mt-1"><strong>Owner:</strong> ' + escapeHtml(detail.parsedInfo.ownerName) + '</p>' : '');
+
+            bodyEl.innerHTML =
+              '<div class="text-xs space-y-1 text-slate-600">' +
+              '<div class="flex justify-between"><span class="text-slate-400">Village:</span> <strong class="text-slate-800">' + escapeHtml(detail.villageName) + '</strong></div>' +
+              '<div class="flex justify-between"><span class="text-slate-400">Taluka / District:</span> <span class="text-slate-700">' + escapeHtml(detail.taluka) + ', ' + escapeHtml(detail.district) + '</span></div>' +
+              (detail.giscode ? '<div class="flex justify-between"><span class="text-slate-400">GIS Code:</span> <code class="text-[10px] font-mono bg-slate-100 px-1 rounded">' + escapeHtml(detail.giscode) + '</code></div>' : '') +
+              (detail.parsedInfo?.surveyNo ? '<div class="flex justify-between"><span class="text-slate-400">Survey / C.S. No:</span> <span class="font-semibold text-slate-800">' + escapeHtml(detail.parsedInfo.surveyNo) + '</span></div>' : '') +
+              (detail.parsedInfo?.street ? '<div class="flex justify-between"><span class="text-slate-400">Street / Locality:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.street) + '</span></div>' : '') +
+              (detail.parsedInfo?.tenure ? '<div class="flex justify-between"><span class="text-slate-400">Tenure:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.tenure) + '</span></div>' : '') +
+              (detail.parsedInfo?.khataNo ? '<div class="flex justify-between"><span class="text-slate-400">Khata No:</span> <span class="text-slate-700">' + escapeHtml(detail.parsedInfo.khataNo) + '</span></div>' : '') +
+              holdersHtml +
+              '</div>';
+          }
+        } catch (err) {
+          const hydratingEl = document.getElementById('cadastral-popup-hydrating');
+          if (hydratingEl) {
+            hydratingEl.innerHTML = '<span class="text-amber-600 text-xs">Records secured. Select another plot.</span>';
+          }
+        }
+      });
+
       mapReadyRef.current = true;
       setMapReady(true);
 
@@ -1135,6 +1241,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
       nearby: ['nearby-layer'],
       cluster: ['cluster-layer', 'cluster-boundary-layer'],
       sameDistrict: ['district-layer'],
+      cadastral: [
+        'cadastral-fill-layer',
+        'cadastral-road-layer',
+        'cadastral-boundary-layer',
+        'cadastral-line-layer',
+        'cadastral-label-layer',
+      ],
       zoning: ['zoning-layer', 'landcover-layer', 'elevation-layer'],
       restriction: ['restriction-layer'],
       taxStatus: ['tax-status-layer'],
@@ -1158,8 +1271,26 @@ const MapComponent: React.FC<MapComponentProps> = ({
         }
       }
     }
-    map.triggerRepaint();
+    map.triggerRepaint?.();
   }, [layerVisibility, mapReady]);
+
+  // Sync incoming real cadastral village GeoJSON into cadastral-source
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (cadastralGeoJSON && cadastralGeoJSON.features) {
+      setSourceData(map, 'cadastral-source', cadastralGeoJSON as any);
+      // Auto-fit to cadastral village bounds if features exist
+      if (cadastralGeoJSON.features.length > 0) {
+        const bounds = boundsOfFeatures(cadastralGeoJSON.features as any);
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 40, duration: 1200, maxZoom: 18 });
+        }
+      }
+    } else {
+      setSourceData(map, 'cadastral-source', EMPTY_FC);
+    }
+  }, [cadastralGeoJSON, mapReady]);
 
   // Street/Satellite/Terrain basemap toggle - only one of the three background
   // raster layers is ever visible.
@@ -1169,7 +1300,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     map.setLayoutProperty('background', 'visibility', basemap === 'street' ? 'visible' : 'none');
     map.setLayoutProperty('satellite-background', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
     map.setLayoutProperty('terrain-background', 'visibility', basemap === 'terrain' ? 'visible' : 'none');
-    map.triggerRepaint();
+    map.triggerRepaint?.();
   }, [basemap, mapReady]);
 
   return (

@@ -19,6 +19,7 @@ from app.routers import (
     analytics,
     audit,
     auth,
+    cadastral,
     cases,
     change_detection,
     departments,
@@ -116,6 +117,7 @@ app.add_middleware(
 # Health mounted outside the /api/v1 prefix (backend/src/main.ts's
 # setGlobalPrefix exclude), everything else goes under it as modules land.
 app.include_router(health.router)
+app.include_router(cadastral.router, prefix="/api/v1")
 app.include_router(gis.router, prefix="/api/v1")
 app.include_router(spatial.router, prefix="/api/v1")
 app.include_router(change_detection.router, prefix="/api/v1")

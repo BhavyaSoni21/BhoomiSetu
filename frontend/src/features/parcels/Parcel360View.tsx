@@ -489,6 +489,7 @@ const Parcel360View: React.FC = () => {
                   showYearSelector
                   historicalYears={historicalCluster.years}
                   onYearChange={(year) => {}}
+                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
                   showLayerPanel
                   showLayerButtonsBelowMap
                   userRole={authUser?.role}
@@ -513,6 +514,7 @@ const Parcel360View: React.FC = () => {
                   onParcelClick={(clickedId) => {
                     if (clickedId !== parcel360.parcel_id) navigate(`/parcels/${clickedId}`);
                   }}
+                  visibleLayerKeys={isCitizen ? ['zoning'] : undefined}
                   recenterSignal={recenterSignal}
                   showLayerPanel
                   showLayerButtonsBelowMap

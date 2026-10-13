@@ -37,6 +37,7 @@ vi.mock('../map/MapComponent', () => ({
       <button onClick={() => props.onParcelClick?.('p2')}>Simulate map click on p2</button>
     </div>
   ),
+  DEFAULT_LAYER_VISIBILITY: {},
 }));
 
 function renderWithProviders(parcelId = 'p1', user: AuthUser | null = citizen) {

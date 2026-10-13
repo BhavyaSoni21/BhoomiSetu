@@ -45,9 +45,13 @@ backend-py/.venv/
 backend-py/venv/
 backend-py/.pytest_cache/
 backend-py/uploads/
+backend-py/**/*.db
 backend-py/*.db
 backend-py/*.sqlite
+backend-py/**/*.sqlite
 backend-py/*.sqlite-*
+backend-py/**/*.sqlite-*
+frontend/dev-dist/
 
 # OSM road-bearing lookups cached by scripts/seed.py's cluster generator -
 # regenerates automatically (queries Overpass on cache miss), not something
@@ -89,7 +93,7 @@ backend-py/_img.png
 graphify-out/cache/
 
 #maps pbf
-map/
+/map/
 
 # Temporary check/debug scripts
 backend-py/check_*.py

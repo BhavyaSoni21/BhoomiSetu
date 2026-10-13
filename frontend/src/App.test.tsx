@@ -15,6 +15,7 @@ import apiService from './services/apiService';
 // includes the map.
 vi.mock('./features/map/MapComponent', () => ({
   default: () => <div data-testid="map-stub" />,
+  DEFAULT_LAYER_VISIBILITY: {},
 }));
 // Same reason - AdminPortal statically imports AdminMapLayerAuthoringPage
 // (Admin Map Layer Authoring), which pulls in LayerGeometryDrawMap's own
